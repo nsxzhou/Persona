@@ -32,7 +32,7 @@ export function PublicRouteGuard({ children }: PropsWithChildren) {
       return;
     }
 
-    if (meQuery.data) {
+    if (meQuery.data && !meQuery.isError) {
       router.replace("/projects");
       return;
     }
@@ -40,7 +40,7 @@ export function PublicRouteGuard({ children }: PropsWithChildren) {
     if (pathname === "/setup") {
       router.replace("/login");
     }
-  }, [meQuery.data, pathname, router, setupQuery.data]);
+  }, [meQuery.data, meQuery.isError, pathname, router, setupQuery.data]);
 
   if (setupQuery.isLoading || (setupQuery.data?.initialized && meQuery.isLoading)) {
     return <PageLoading title="正在检查 Persona 状态..." />;
@@ -74,7 +74,7 @@ export function ProtectedRouteGuard({ children }: PropsWithChildren) {
     }
   }, [meQuery.isError, router, setupQuery.data]);
 
-  if (setupQuery.isLoading || meQuery.isLoading || !meQuery.data) {
+  if (setupQuery.isLoading || meQuery.isLoading || !meQuery.data || meQuery.isError) {
     return <PageLoading title="正在进入工作台..." />;
   }
 
