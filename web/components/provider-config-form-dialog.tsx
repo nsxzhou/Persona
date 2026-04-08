@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import type { ProviderConfig, ProviderPayload } from "@/lib/types";
 
 const schema = z.object({
@@ -21,7 +22,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export function ProviderConfigFormDrawer({
+export function ProviderConfigFormDialog({
   open,
   provider,
   submitting,
@@ -79,10 +80,16 @@ export function ProviderConfigFormDrawer({
             <Label htmlFor="provider-form-default-model">默认模型</Label>
             <Input id="provider-form-default-model" {...form.register("default_model")} />
           </div>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input className="h-4 w-4 rounded border-input" type="checkbox" {...form.register("is_enabled")} />
-            启用该配置
-          </label>
+          <div className="flex items-center space-x-2 text-muted-foreground">
+            <Switch
+              id="provider-form-is-enabled"
+              checked={form.watch("is_enabled")}
+              onCheckedChange={(checked) => form.setValue("is_enabled", checked)}
+            />
+            <Label htmlFor="provider-form-is-enabled">
+              启用该配置
+            </Label>
+          </div>
           <Button type="submit" disabled={submitting}>
             {provider ? "保存修改" : "创建配置"}
           </Button>

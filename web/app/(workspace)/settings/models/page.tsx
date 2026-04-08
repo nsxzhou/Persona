@@ -5,15 +5,18 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
-import { ProviderConfigFormDrawer } from "@/components/provider-config-form-drawer";
+import { ProviderConfigFormDialog } from "@/components/provider-config-form-dialog";
 import { ProviderConfigsPageView } from "@/components/provider-configs-page-view";
 import { api } from "@/lib/api";
 import type { ProviderConfig, ProviderPayload } from "@/lib/types";
 
 export default function ModelConfigsPage() {
   const queryClient = useQueryClient();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<ProviderConfig | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<ProviderConfig | null>(
+    null,
+  );
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const providersQuery = useQuery({
     queryKey: ["provider-configs"],
@@ -30,7 +33,7 @@ export default function ModelConfigsPage() {
     onError: (error) => toast.error(`保存失败: ${error.message}`),
     onSuccess: async () => {
       toast.success("Provider 已保存");
-      setDrawerOpen(false);
+      setDialogOpen(false);
       setEditingProvider(null);
       await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
     },
@@ -38,12 +41,24 @@ export default function ModelConfigsPage() {
 
   const testMutation = useMutation({
     mutationFn: (id: string) => api.testProviderConfig(id),
-    onError: (error) => toast.error(`测试失败: ${error.message}`),
-    onSuccess: async () => {
-      toast.success("测试完成");
-      await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
-    },
   });
+
+  const handleTest = async (id: string) => {
+    setTestingId(id);
+    const toastId = toast.loading("正在测试连接…");
+    try {
+      const res = await testMutation.mutateAsync(id);
+      toast.success(res.message || "测试完成", { id: toastId });
+    } catch (error) {
+      toast.error(
+        `测试失败: ${error instanceof Error ? error.message : "未知错误"}`,
+        { id: toastId },
+      );
+    } finally {
+      setTestingId(null);
+      await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteProviderConfig(id),
@@ -59,7 +74,16 @@ export default function ModelConfigsPage() {
   }
 
   if (providersQuery.isError || !providersQuery.data) {
-    return <PageError title="Provider 列表加载失败" message={providersQuery.error instanceof Error ? providersQuery.error.message : "请重试"} />;
+    return (
+      <PageError
+        title="Provider 列表加载失败"
+        message={
+          providersQuery.error instanceof Error
+            ? providersQuery.error.message
+            : "请重试"
+        }
+      />
+    );
   }
 
   const providers = providersQuery.data;
@@ -68,22 +92,23 @@ export default function ModelConfigsPage() {
     <div className="space-y-4">
       <ProviderConfigsPageView
         providers={providers}
+        testingId={testingId}
         onDelete={(id) => deleteMutation.mutate(id)}
         onEdit={(provider) => {
           setEditingProvider(provider);
-          setDrawerOpen(true);
+          setDialogOpen(true);
         }}
         onOpenCreate={() => {
           setEditingProvider(null);
-          setDrawerOpen(true);
+          setDialogOpen(true);
         }}
-        onTest={(id) => testMutation.mutate(id)}
+        onTest={handleTest}
       />
-      <ProviderConfigFormDrawer
-        open={drawerOpen}
+      <ProviderConfigFormDialog
+        open={dialogOpen}
         provider={editingProvider}
         submitting={saveMutation.isPending}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={setDialogOpen}
         onSubmit={async (values) => {
           await saveMutation.mutateAsync(values);
         }}

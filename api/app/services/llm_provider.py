@@ -11,15 +11,18 @@ from app.db.models import ProviderConfig
 class LLMProviderService:
     async def test_connection(self, provider_config: ProviderConfig) -> dict[str, str]:
         settings = get_settings()
-        model = init_chat_model(
-            model=provider_config.default_model,
-            model_provider="openai",
-            base_url=provider_config.base_url,
-            api_key=decrypt_secret(provider_config.api_key_encrypted),
-            temperature=0.0,
-            timeout=settings.llm_timeout_seconds,
-            max_retries=settings.llm_max_retries,
-        )
-        await model.ainvoke([HumanMessage(content="Reply with OK")])
-        return {"status": "success", "message": "连接成功"}
+        try:
+            model = init_chat_model(
+                model=provider_config.default_model,
+                model_provider="openai",
+                base_url=provider_config.base_url,
+                api_key=decrypt_secret(provider_config.api_key_encrypted),
+                temperature=0.0,
+                timeout=settings.llm_timeout_seconds,
+                max_retries=settings.llm_max_retries,
+            )
+            await model.ainvoke([HumanMessage(content="Reply with OK")])
+            return {"status": "success", "message": "连接成功"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 

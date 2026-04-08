@@ -86,6 +86,11 @@ async def test_provider_config(
         error_message=None if result["status"] == "success" else result["message"],
     )
     await db_session.commit()
+    
+    from fastapi import HTTPException
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+        
     return ConnectionTestResponse(**result)
 
 

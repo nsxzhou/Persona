@@ -21,7 +21,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const data = await response.json().catch(() => ({ detail: "请求失败" }));
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text || response.statusText || "请求失败" };
+    }
     throw new Error(data.detail ?? "请求失败");
   }
 

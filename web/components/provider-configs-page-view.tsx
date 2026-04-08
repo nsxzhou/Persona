@@ -1,18 +1,20 @@
 "use client";
 
-import { PencilLine, PlugZap, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, PencilLine, PlugZap, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ProviderConfig } from "@/lib/types";
 
 export function ProviderConfigsPageView({
   providers,
+  testingId,
   onOpenCreate,
   onEdit,
   onTest,
   onDelete,
 }: {
   providers: ProviderConfig[];
+  testingId?: string | null;
   onOpenCreate: () => void;
   onEdit?: (provider: ProviderConfig) => void;
   onTest: (id: string) => void;
@@ -62,8 +64,13 @@ export function ProviderConfigsPageView({
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => onTest(provider.id)}>
-                  <PlugZap className="mr-2 h-4 w-4" />测试连接
+                <Button variant="outline" onClick={() => onTest(provider.id)} disabled={testingId === provider.id}>
+                  {testingId === provider.id ? (
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlugZap className="mr-2 h-4 w-4" />
+                  )}
+                  {testingId === provider.id ? "测试中…" : "测试连接"}
                 </Button>
                 <Button variant="secondary" onClick={() => onEdit?.(provider)}>
                   <PencilLine className="mr-2 h-4 w-4" />编辑

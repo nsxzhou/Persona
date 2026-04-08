@@ -4,7 +4,7 @@ import { vi } from "vitest";
 import { ProviderConfigsPageView } from "@/components/provider-configs-page-view";
 
 
-test("provider configs page opens create drawer and triggers connection test", () => {
+test("provider configs page opens create dialog and triggers connection test", () => {
   const onOpenCreate = vi.fn();
   const onTest = vi.fn();
 
