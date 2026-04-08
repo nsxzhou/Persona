@@ -5,6 +5,7 @@ node_modules/
 .next/
 coverage/
 dist/
+*.tsbuildinfo
 __pycache__/
 .pytest_cache/
 .ruff_cache/
