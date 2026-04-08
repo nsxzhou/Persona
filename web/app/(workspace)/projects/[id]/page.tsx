@@ -1,7 +1,9 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
@@ -49,13 +51,28 @@ export default function ProjectDetailPage() {
   const providers = providersQuery.data;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <div className="flex items-center text-sm text-muted-foreground">
+        <Link href="/projects" className="hover:text-foreground transition-colors">
+          项目管理
+        </Link>
+        <ChevronRight className="h-4 w-4 mx-1" />
+        <span className="text-foreground font-medium">{projectQuery.data.name}</span>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{projectQuery.data.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            更新项目基本信息、默认模型与未来的 Style Profile 挂载入口。
+          </p>
+        </div>
+      </div>
+
       <ProjectForm
-        description="更新项目基本信息、默认模型与未来的 Style Profile 挂载入口。"
         project={projectQuery.data}
         providers={providers}
         submitting={mutation.isPending}
-        title={projectQuery.data.name}
         onSubmit={async (values) => {
           await mutation.mutateAsync(values as Partial<ProjectPayload>);
         }}

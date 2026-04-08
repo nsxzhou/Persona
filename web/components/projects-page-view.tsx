@@ -5,6 +5,8 @@ import { Plus, ArchiveRestore, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import type { Project } from "@/lib/types";
 
 export function ProjectsPageView({
@@ -30,15 +32,16 @@ export function ProjectsPageView({
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
-              className="rounded border-border"
+          <div className="flex items-center space-x-2 text-muted-foreground">
+            <Switch
+              id="include-archived"
               checked={includeArchived}
-              onChange={(e) => onIncludeArchivedChange(e.target.checked)}
+              onCheckedChange={onIncludeArchivedChange}
             />
-            显示已归档
-          </label>
+            <Label htmlFor="include-archived">
+              显示已归档
+            </Label>
+          </div>
           <Button asChild>
             <Link href="/projects/new">
               <Plus className="mr-2 h-4 w-4" />
