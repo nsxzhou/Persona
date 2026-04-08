@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -86,11 +86,10 @@ async def test_provider_config(
         error_message=None if result["status"] == "success" else result["message"],
     )
     await db_session.commit()
-    
-    from fastapi import HTTPException
+
     if result["status"] == "error":
         raise HTTPException(status_code=400, detail=result["message"])
-        
+
     return ConnectionTestResponse(**result)
 
 
@@ -103,4 +102,3 @@ async def delete_provider_config(
     del current_user
     await ProviderConfigService().delete(db_session, provider_id)
     await db_session.commit()
-
