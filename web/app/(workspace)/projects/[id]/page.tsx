@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { ProjectForm } from "@/components/project-form";
@@ -21,7 +22,9 @@ export default function ProjectDetailPage() {
   });
   const mutation = useMutation({
     mutationFn: (payload: Partial<ProjectPayload>) => api.updateProject(projectId, payload),
+    onError: (error) => toast.error(`保存失败: ${error.message}`),
     onSuccess: async () => {
+      toast.success("项目配置已保存");
       await projectQuery.refetch();
     },
   });
@@ -47,9 +50,6 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-4">
-      {mutation.isError ? (
-        <PageError title="保存失败" message={mutation.error instanceof Error ? mutation.error.message : "请重试"} />
-      ) : null}
       <ProjectForm
         description="更新项目基本信息、默认模型与未来的 Style Profile 挂载入口。"
         project={projectQuery.data}

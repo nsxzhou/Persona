@@ -2,9 +2,9 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { LoginPageView } from "@/components/login-page-view";
-import { PageError } from "@/components/page-state";
 import { PublicRouteGuard } from "@/components/route-guards";
 import { api } from "@/lib/api";
 import type { LoginPayload } from "@/lib/types";
@@ -14,7 +14,9 @@ export default function LoginPage() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (payload: LoginPayload) => api.login(payload),
+    onError: (error) => toast.error(`登录失败: ${error.message}`),
     onSuccess: async () => {
+      toast.success("登录成功");
       await queryClient.invalidateQueries({ queryKey: ["current-user"] });
       router.replace("/projects");
     },
@@ -22,9 +24,6 @@ export default function LoginPage() {
 
   return (
     <PublicRouteGuard>
-      {mutation.isError ? (
-        <PageError title="登录失败" message={mutation.error instanceof Error ? mutation.error.message : "请重试"} />
-      ) : null}
       <LoginPageView
         onSubmit={async (values) => {
           await mutation.mutateAsync(values);

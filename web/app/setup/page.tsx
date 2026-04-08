@@ -2,8 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-import { PageError } from "@/components/page-state";
 import { PublicRouteGuard } from "@/components/route-guards";
 import { SetupPageView } from "@/components/setup-page-view";
 import { api } from "@/lib/api";
@@ -14,7 +14,9 @@ export default function SetupPage() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (payload: SetupPayload) => api.setup(payload),
+    onError: (error) => toast.error(`初始化失败: ${error.message}`),
     onSuccess: async () => {
+      toast.success("系统初始化成功");
       await queryClient.invalidateQueries({ queryKey: ["setup-status"] });
       await queryClient.invalidateQueries({ queryKey: ["current-user"] });
       router.replace("/projects");
@@ -23,9 +25,6 @@ export default function SetupPage() {
 
   return (
     <PublicRouteGuard>
-      {mutation.isError ? (
-        <PageError title="初始化失败" message={mutation.error instanceof Error ? mutation.error.message : "请重试"} />
-      ) : null}
       <SetupPageView
         onSubmit={async (values) => {
           await mutation.mutateAsync(values);

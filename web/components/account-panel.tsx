@@ -37,8 +37,7 @@ export function AccountPanel({
     setIsDeleting(true);
     try {
       await api.deleteAccount();
-      await queryClient.invalidateQueries({ queryKey: ["setup-status"] });
-      await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      queryClient.clear();
       router.replace("/setup");
     } catch (error) {
       console.error("Delete account failed:", error);

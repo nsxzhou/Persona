@@ -56,15 +56,15 @@ export function SetupPageView({
     }
   };
 
-  const handleSubmit = () => {
-    const values = schema.parse({
-      ...form.getValues(),
+  const onFinalSubmit = (values: FormValues) => {
+    const finalValues = {
+      ...values,
       provider: {
-        ...form.getValues("provider"),
+        ...values.provider,
         is_enabled: true,
       },
-    });
-    void onSubmit(values);
+    };
+    void onSubmit(finalValues);
   };
 
   return (
@@ -118,7 +118,9 @@ export function SetupPageView({
                 className="grid gap-6"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (step === 2) handleSubmit();
+                  if (step === 2) {
+                    void form.handleSubmit(onFinalSubmit)(event);
+                  }
                 }}
               >
                 {step === 1 && (

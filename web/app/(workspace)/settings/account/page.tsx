@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { AccountPanel } from "@/components/account-panel";
 import { PageError, PageLoading } from "@/components/page-state";
@@ -17,8 +18,10 @@ export default function AccountPage() {
 
   const logoutMutation = useMutation({
     mutationFn: api.logout,
+    onError: (error) => toast.error(`退出失败: ${error.message}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      toast.success("已安全退出");
+      queryClient.clear();
       router.replace("/login");
     },
   });
@@ -33,9 +36,6 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-4">
-      {logoutMutation.isError ? (
-        <PageError title="退出失败" message={logoutMutation.error instanceof Error ? logoutMutation.error.message : "请重试"} />
-      ) : null}
       <AccountPanel submitting={logoutMutation.isPending} user={userQuery.data} onLogout={() => logoutMutation.mutateAsync()} />
     </div>
   );

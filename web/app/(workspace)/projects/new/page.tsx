@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { ProjectForm } from "@/components/project-form";
@@ -16,7 +17,9 @@ export default function NewProjectPage() {
   });
   const mutation = useMutation({
     mutationFn: (payload: ProjectPayload) => api.createProject(payload),
+    onError: (error) => toast.error(`项目创建失败: ${error.message}`),
     onSuccess: (project) => {
+      toast.success("项目创建成功");
       router.replace(`/projects/${project.id}`);
     },
   });
@@ -33,9 +36,6 @@ export default function NewProjectPage() {
 
   return (
     <div className="space-y-4">
-      {mutation.isError ? (
-        <PageError title="项目创建失败" message={mutation.error instanceof Error ? mutation.error.message : "请重试"} />
-      ) : null}
       <ProjectForm
         description="先定义项目本身，再在下一阶段接入 Style Profile 和编辑器。"
         providers={providers}

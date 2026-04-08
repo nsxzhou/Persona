@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { ProviderConfigFormDrawer } from "@/components/provider-config-form-drawer";
@@ -26,7 +27,9 @@ export default function ModelConfigsPage() {
       }
       return api.createProviderConfig(payload);
     },
+    onError: (error) => toast.error(`保存失败: ${error.message}`),
     onSuccess: async () => {
+      toast.success("Provider 已保存");
       setDrawerOpen(false);
       setEditingProvider(null);
       await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
@@ -35,14 +38,18 @@ export default function ModelConfigsPage() {
 
   const testMutation = useMutation({
     mutationFn: (id: string) => api.testProviderConfig(id),
+    onError: (error) => toast.error(`测试失败: ${error.message}`),
     onSuccess: async () => {
+      toast.success("测试完成");
       await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteProviderConfig(id),
+    onError: (error) => toast.error(`删除失败: ${error.message}`),
     onSuccess: async () => {
+      toast.success("Provider 已删除");
       await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
     },
   });
@@ -59,17 +66,6 @@ export default function ModelConfigsPage() {
 
   return (
     <div className="space-y-4">
-      {(saveMutation.isError || testMutation.isError || deleteMutation.isError) ? (
-        <PageError
-          title="Provider 操作失败"
-          message={
-            (saveMutation.error instanceof Error && saveMutation.error.message) ||
-            (testMutation.error instanceof Error && testMutation.error.message) ||
-            (deleteMutation.error instanceof Error && deleteMutation.error.message) ||
-            "请重试"
-          }
-        />
-      ) : null}
       <ProviderConfigsPageView
         providers={providers}
         onDelete={(id) => deleteMutation.mutate(id)}
