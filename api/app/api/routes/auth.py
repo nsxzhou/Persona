@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.config import get_settings
-from app.db.models import User
+from app.db.models import Project, ProviderConfig, Session, User
 from app.db.session import get_db_session
 from app.schemas.auth import LoginRequest, UserResponse
 from app.services.auth import AuthService
@@ -53,6 +54,22 @@ async def logout(
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(settings.session_cookie_name, path="/")
     return response
+
+
+@router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    response: Response,
+    db_session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    await db_session.execute(delete(Project))
+    await db_session.execute(delete(ProviderConfig))
+    await db_session.execute(delete(Session))
+    await db_session.execute(delete(User))
+    await db_session.commit()
+    
+    settings = get_settings()
+    response.delete_cookie(settings.session_cookie_name, path="/")
 
 
 @router.get("/me", response_model=UserResponse)

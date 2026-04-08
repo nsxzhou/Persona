@@ -48,6 +48,10 @@ export const api = {
     request<void>("/api/v1/logout", {
       method: "POST",
     }),
+  deleteAccount: () =>
+    request<void>("/api/v1/account", {
+      method: "DELETE",
+    }),
   getCurrentUser: () => request<User>("/api/v1/me"),
   getProviderConfigs: () => request<ProviderConfig[]>("/api/v1/provider-configs"),
   createProviderConfig: (payload: ProviderPayload) =>

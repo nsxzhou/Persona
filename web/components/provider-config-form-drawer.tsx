@@ -79,8 +79,8 @@ export function ProviderConfigFormDrawer({
             <Label htmlFor="provider-form-default-model">默认模型</Label>
             <Input id="provider-form-default-model" {...form.register("default_model")} />
           </div>
-          <label className="flex items-center gap-2 text-sm text-stone-600">
-            <input className="h-4 w-4" type="checkbox" {...form.register("is_enabled")} />
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input className="h-4 w-4 rounded border-input" type="checkbox" {...form.register("is_enabled")} />
             启用该配置
           </label>
           <Button type="submit" disabled={submitting}>

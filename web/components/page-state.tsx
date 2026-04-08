@@ -22,16 +22,15 @@ export function PageError({
 }) {
   return (
     <div className="flex min-h-[40vh] items-center justify-center">
-      <Card className="w-full max-w-lg border-red-200">
+      <Card className="w-full max-w-lg border-destructive/20">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
-        <CardContent className="text-sm text-stone-500">
+        <CardContent className="text-sm text-muted-foreground">
           请检查后端服务与环境变量是否已正确配置。
         </CardContent>
       </Card>
     </div>
   );
 }
-

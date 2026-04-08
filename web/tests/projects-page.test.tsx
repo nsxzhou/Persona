@@ -31,6 +31,6 @@ test("projects page renders active projects and archive toggle", () => {
 
   expect(screen.getByText("项目管理")).toBeInTheDocument();
   expect(screen.getByText("Immortal River Chronicle")).toBeInTheDocument();
-  expect(screen.getByLabelText("显示已归档项目")).toBeInTheDocument();
+  expect(screen.getByLabelText("显示已归档")).toBeInTheDocument();
 });
 

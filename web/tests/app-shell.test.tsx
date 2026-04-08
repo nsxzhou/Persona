@@ -10,8 +10,8 @@ test("app shell renders left navigation items", () => {
     </AppShell>,
   );
 
-  expect(screen.getByText("Projects")).toBeInTheDocument();
-  expect(screen.getByText("Model Configs")).toBeInTheDocument();
-  expect(screen.getByText("Style Lab")).toBeInTheDocument();
-  expect(screen.getByText("Account")).toBeInTheDocument();
+  expect(screen.getByText("项目")).toBeInTheDocument();
+  expect(screen.getByText("模型配置")).toBeInTheDocument();
+  expect(screen.getByText("风格实验室")).toBeInTheDocument();
+  expect(screen.getByText("账户")).toBeInTheDocument();
 });

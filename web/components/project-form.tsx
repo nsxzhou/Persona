@@ -82,7 +82,7 @@ export function ProjectForm({
             <Label htmlFor="project-status">状态</Label>
             <select
               id="project-status"
-              className="h-11 rounded-xl border border-stone-300 bg-white px-3 text-sm"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               {...form.register("status")}
             >
               <option value="draft">draft</option>
@@ -94,7 +94,7 @@ export function ProjectForm({
             <Label htmlFor="project-provider">默认 Provider</Label>
             <select
               id="project-provider"
-              className="h-11 rounded-xl border border-stone-300 bg-white px-3 text-sm"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               {...form.register("default_provider_id")}
             >
               {providers.map((provider) => (
