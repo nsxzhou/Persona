@@ -6,7 +6,7 @@ from functools import lru_cache
 
 # 导入Pydantic库组件
 # Pydantic是Python最流行的数据验证库，FastAPI内置了对它的完整支持
-from pydantic import Field
+from pydantic import Field, model_validator
 
 # BaseSettings: 专门用于处理配置设置的基类，能自动从环境变量读取配置
 # SettingsConfigDict: 配置类的配置选项
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # 加密密钥 - 用于加密敏感数据，必须通过环境变量设置
     # 注意：这个字段没有默认值，启动时必须设置PERSONA_ENCRYPTION_KEY环境变量
-    encryption_key: str = Field(alias="PERSONA_ENCRYPTION_KEY")
+    encryption_key: str = Field(default="", alias="PERSONA_ENCRYPTION_KEY")
 
     # Session Cookie名称 - 存储在用户浏览器中的Cookie名字
     session_cookie_name: str = Field(
@@ -73,6 +73,15 @@ class Settings(BaseSettings):
         # 忽略额外的环境变量 - 不会因为有未定义的环境变量而报错
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def _validate_encryption_key(self) -> Settings:
+        if not self.encryption_key.strip():
+            raise ValueError(
+                "缺少加密密钥：请设置环境变量 PERSONA_ENCRYPTION_KEY（或在 .env 中设置）。"
+                "开发环境可先设置为任意随机字符串（建议长度≥32）；生产环境必须使用强随机值。"
+            )
+        return self
 
 
 # 获取配置实例的函数
