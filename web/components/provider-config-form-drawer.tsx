@@ -62,7 +62,7 @@ export function ProviderConfigFormDrawer({
           <DialogTitle>{provider ? "编辑 Provider 配置" : "新增 Provider 配置"}</DialogTitle>
           <DialogDescription>API Key 只写入后台加密存储，前端不会回显明文。</DialogDescription>
         </DialogHeader>
-        <form className="mt-6 grid gap-5" onSubmit={form.handleSubmit(async (values) => onSubmit(values))}>
+        <form className="mt-6 grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-2">
             <Label htmlFor="provider-form-label">名称</Label>
             <Input id="provider-form-label" {...form.register("label")} />

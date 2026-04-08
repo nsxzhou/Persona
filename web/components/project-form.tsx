@@ -69,7 +69,7 @@ export function ProjectForm({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="grid gap-5" onSubmit={form.handleSubmit(async (values) => onSubmit(values))}>
+        <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-2">
             <Label htmlFor="project-name">项目名称</Label>
             <Input id="project-name" {...form.register("name")} />
