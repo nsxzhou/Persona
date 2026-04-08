@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: persona-postgres
+    environment:
+      POSTGRES_DB: persona
+      POSTGRES_USER: persona
+      POSTGRES_PASSWORD: persona
+    ports:
+      - "5432:5432"
+    volumes:
+      - persona-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U persona -d persona"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  persona-postgres-data:
+
