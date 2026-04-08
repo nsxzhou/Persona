@@ -15,7 +15,7 @@ test("login page submits username and password", async () => {
   fireEvent.change(screen.getByLabelText("登录密码"), {
     target: { value: "super-secret-password" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "登录 Persona" }));
+  fireEvent.click(screen.getByRole("button", { name: "进入工作台" }));
 
   expect(onSubmit).toHaveBeenCalledWith({
     username: "persona-admin",

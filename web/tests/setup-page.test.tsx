@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { SetupPageView } from "@/components/setup-page-view";
@@ -15,7 +15,11 @@ test("setup page submits admin and first provider values", async () => {
   fireEvent.change(screen.getByLabelText("登录密码"), {
     target: { value: "super-secret-password" },
   });
-  fireEvent.change(screen.getByLabelText("Provider 名称"), {
+
+  fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+
+  const providerNameInput = await screen.findByLabelText("Provider 名称");
+  fireEvent.change(providerNameInput, {
     target: { value: "Primary Gateway" },
   });
   fireEvent.change(screen.getByLabelText("Base URL"), {
@@ -30,16 +34,18 @@ test("setup page submits admin and first provider values", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "完成初始化" }));
 
-  expect(onSubmit).toHaveBeenCalledWith({
-    username: "persona-admin",
-    password: "super-secret-password",
-    provider: {
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      api_key: "sk-live-9876",
-      default_model: "gpt-4.1-mini",
-      is_enabled: true,
-    },
+  await waitFor(() => {
+    expect(onSubmit).toHaveBeenCalledWith({
+      username: "persona-admin",
+      password: "super-secret-password",
+      provider: {
+        label: "Primary Gateway",
+        base_url: "https://api.openai.com/v1",
+        api_key: "sk-live-9876",
+        default_model: "gpt-4.1-mini",
+        is_enabled: true,
+      },
+    });
   });
 });
 
