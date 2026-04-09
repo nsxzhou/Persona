@@ -63,14 +63,10 @@ def do_run_migrations(connection) -> None:
 
 # 在线迁移（异步版本）：连接数据库并真正执行 DDL
 async def run_async_migrations() -> None:
-    # Settings 读取应用配置（通常来自环境变量/.env），确保迁移用的是“实际环境”的数据库地址
-    from app.core.config import get_settings
-    # SQLAlchemy 异步引擎：用于 async with connectable.connect() 建立异步连接
-    from sqlalchemy.ext.asyncio import create_async_engine
     # 读取 alembic.ini 的原始配置：用于识别“是否有人在运行时覆盖了 sqlalchemy.url”
     from configparser import ConfigParser
-    
-    settings = get_settings()
+    # SQLAlchemy 异步引擎：用于 async with connectable.connect() 建立异步连接
+    from sqlalchemy.ext.asyncio import create_async_engine
 
     # 连接字符串选择策略（兼容测试与本地开发）：
     # - 默认：使用 settings.database_url（便于用 .env 控制迁移目标库）
@@ -86,6 +82,11 @@ async def run_async_migrations() -> None:
     if configured_url and (file_url is None or configured_url != file_url):
         url = configured_url
     else:
+        # 只有在未显式覆盖 sqlalchemy.url 时，才回退到应用配置里的数据库地址。
+        # 这样测试或脚本传入临时库地址时，不会被无关的应用级配置校验阻塞。
+        from app.core.config import get_settings
+
+        settings = get_settings()
         url = settings.database_url
 
     # 异步迁移需要“异步驱动”的 URL（例如 sqlite+aiosqlite / postgresql+asyncpg）

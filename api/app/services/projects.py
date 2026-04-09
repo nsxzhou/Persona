@@ -10,11 +10,13 @@ from sqlalchemy.orm import selectinload
 from app.db.models import Project, ProviderConfig
 from app.schemas.projects import ProjectCreate, ProjectUpdate
 from app.services.provider_configs import ProviderConfigService
+from app.services.style_profiles import StyleProfileService
 
 
 class ProjectService:
     def __init__(self) -> None:
         self.provider_service = ProviderConfigService()
+        self.style_profile_service = StyleProfileService()
 
     async def list(self, session: AsyncSession, *, include_archived: bool) -> list[Project]:
         query = select(Project).options(selectinload(Project.provider)).order_by(Project.created_at.desc())
@@ -33,6 +35,8 @@ class ProjectService:
 
     async def create(self, session: AsyncSession, payload: ProjectCreate) -> Project:
         provider = await self.provider_service.ensure_enabled(session, payload.default_provider_id)
+        if payload.style_profile_id is not None:
+            await self.style_profile_service.get_or_404(session, payload.style_profile_id)
         default_model = payload.default_model.strip() if payload.default_model else ""
         project = Project(
             name=payload.name,
@@ -63,6 +67,8 @@ class ProjectService:
         if "status" in data:
             project.status = data["status"]
         if "style_profile_id" in data:
+            if data["style_profile_id"] is not None:
+                await self.style_profile_service.get_or_404(session, data["style_profile_id"])
             project.style_profile_id = data["style_profile_id"]
         if "default_model" in data:
             default_model = (data["default_model"] or "").strip()
@@ -82,4 +88,3 @@ class ProjectService:
         project.archived_at = None
         await session.flush()
         return project
-

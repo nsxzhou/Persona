@@ -2,6 +2,9 @@
 # 这行是Python 3.7+的特性，用于解决类型注解的前向引用问题
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager, suppress
+
 # 导入FastAPI框架核心类 - FastAPI是一个现代、高性能的Python Web框架
 from fastapi import FastAPI
 
@@ -13,7 +16,14 @@ from fastapi.middleware.cors import CORSMiddleware
 # projects: 项目管理相关接口
 # provider_configs: 提供商配置相关接口
 # setup: 系统初始化相关接口
-from app.api.routes import auth, projects, provider_configs, setup
+from app.api.routes import (
+    auth,
+    projects,
+    provider_configs,
+    setup,
+    style_analysis_jobs,
+    style_profiles,
+)
 
 # 导入配置获取函数 - 用于读取环境变量和应用配置
 from app.core.config import get_settings
@@ -22,6 +32,7 @@ from app.core.config import get_settings
 # create_engine: 创建数据库连接引擎
 # create_session_factory: 创建数据库会话工厂
 from app.db.session import create_engine, create_session_factory
+from app.services.style_analysis_jobs import StyleAnalysisJobService
 
 
 # 应用工厂函数：创建并配置FastAPI应用实例
@@ -33,10 +44,36 @@ def create_app(*, session_factory=None) -> FastAPI:
     # 获取应用配置 - 从环境变量或配置文件中读取配置
     settings = get_settings()
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        worker_service = StyleAnalysisJobService()
+        await worker_service.fail_stale_running_jobs(
+            app.state.session_factory,
+            stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
+        )
+
+        worker_task: asyncio.Task | None = None
+        if settings.style_analysis_worker_enabled:
+            worker_task = asyncio.create_task(
+                worker_service.run_worker(
+                    app.state.session_factory,
+                    poll_interval_seconds=settings.style_analysis_poll_interval_seconds,
+                )
+            )
+            app.state.style_analysis_worker_task = worker_task
+
+        try:
+            yield
+        finally:
+            if worker_task is not None:
+                worker_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker_task
+
     # 创建FastAPI应用实例
     # title: API文档标题
     # version: API版本号
-    app = FastAPI(title="Persona API", version="0.1.0")
+    app = FastAPI(title="Persona API", version="0.1.0", lifespan=lifespan)
 
     # 添加CORS跨域中间件
     # 中间件是FastAPI的扩展机制，用于在请求处理前后执行逻辑
@@ -80,6 +117,8 @@ def create_app(*, session_factory=None) -> FastAPI:
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(provider_configs.router, prefix="/api/v1")
     app.include_router(projects.router, prefix="/api/v1")
+    app.include_router(style_analysis_jobs.router, prefix="/api/v1")
+    app.include_router(style_profiles.router, prefix="/api/v1")
 
     # 返回配置好的FastAPI应用实例
     return app
