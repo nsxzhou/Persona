@@ -6,14 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.models import User
 from app.db.session import get_db_session
-from app.schemas.style_analysis_jobs import StyleAnalysisJobResponse, StyleDraft
-from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.schemas.style_analysis_jobs import StyleAnalysisJobResponse
+from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
 
 router = APIRouter(prefix="/style-analysis-jobs", tags=["style-analysis-jobs"])
 
 
 def _serialize(job) -> StyleAnalysisJobResponse:
-    draft = StyleDraft.model_validate(job.draft_payload) if job.draft_payload else None
+    analysis_meta, analysis_report, style_summary, prompt_pack = build_job_result_bundle(job)
     return StyleAnalysisJobResponse(
         id=job.id,
         style_name=job.style_name,
@@ -28,7 +28,11 @@ def _serialize(job) -> StyleAnalysisJobResponse:
         updated_at=job.updated_at,
         provider=job.provider,
         sample_file=job.sample_file,
-        draft=draft,
+        style_profile_id=job.style_profile.id if job.style_profile else None,
+        analysis_meta=analysis_meta,
+        analysis_report=analysis_report,
+        style_summary=style_summary,
+        prompt_pack=prompt_pack,
     )
 
 

@@ -40,11 +40,63 @@ export type Project = {
   provider: ProviderSummary;
 };
 
-export type StyleDimensionSummary = {
-  vocabulary_habits: string;
-  syntax_rhythm: string;
-  narrative_perspective: string;
-  dialogue_traits: string;
+export type EvidenceSnippet = {
+  excerpt: string;
+  location: string;
+};
+
+export type ExecutiveSummary = {
+  summary: string;
+  representative_evidence: EvidenceSnippet[];
+};
+
+export type BasicAssessment = {
+  text_type: string;
+  multi_speaker: boolean;
+  batch_mode: boolean;
+  location_indexing: string;
+  noise_handling: string;
+};
+
+export type SectionFinding = {
+  label: string;
+  summary: string;
+  frequency: string;
+  confidence: "high" | "medium" | "low";
+  is_weak_judgment: boolean;
+  evidence: EvidenceSnippet[];
+};
+
+export type AnalysisReportSection = {
+  section: string;
+  title: string;
+  overview: string;
+  findings: SectionFinding[];
+};
+
+export type AnalysisReport = {
+  executive_summary: ExecutiveSummary;
+  basic_assessment: BasicAssessment;
+  sections: AnalysisReportSection[];
+  appendix: string | null;
+};
+
+export type StyleSummarySceneStrategy = {
+  scene: string;
+  instruction: string;
+};
+
+export type StyleSummary = {
+  style_name: string;
+  style_positioning: string;
+  core_features: string[];
+  lexical_preferences: string[];
+  rhythm_profile: string[];
+  punctuation_profile: string[];
+  imagery_and_themes: string[];
+  scene_strategies: StyleSummarySceneStrategy[];
+  avoid_or_rare: string[];
+  generation_notes: string[];
 };
 
 export type StyleScenePrompts = {
@@ -53,18 +105,37 @@ export type StyleScenePrompts = {
   environment: string;
 };
 
-export type StyleFewShotExample = {
-  type: string;
-  text: string;
+export type PromptPackStyleControls = {
+  tone: string;
+  rhythm: string;
+  evidence_anchor: string;
 };
 
-export type StyleDraft = {
-  style_name: string;
-  analysis_summary: string;
-  global_system_prompt: string;
-  dimensions: StyleDimensionSummary;
+export type PromptPackFewShotSlot = {
+  label: string;
+  type: string;
+  text: string;
+  purpose: string;
+};
+
+export type PromptPack = {
+  system_prompt: string;
   scene_prompts: StyleScenePrompts;
-  few_shot_examples: StyleFewShotExample[];
+  hard_constraints: string[];
+  style_controls: PromptPackStyleControls;
+  few_shot_slots: PromptPackFewShotSlot[];
+};
+
+export type AnalysisMeta = {
+  source_filename: string;
+  model_name: string;
+  text_type: string;
+  has_timestamps: boolean;
+  has_speaker_labels: boolean;
+  has_noise_markers: boolean;
+  uses_batch_processing: boolean;
+  location_indexing: string;
+  chunk_count: number;
 };
 
 export type StyleSampleFile = {
@@ -84,7 +155,14 @@ export type StyleAnalysisJob = {
   provider_id: string;
   model_name: string;
   status: "pending" | "running" | "succeeded" | "failed";
-  stage: "cleaning" | "chunking" | "sampling" | "analyzing" | "assembling" | null;
+  stage:
+    | "classifying_input"
+    | "analyzing_chunks"
+    | "aggregating"
+    | "reporting"
+    | "summarizing"
+    | "composing_prompt_pack"
+    | null;
   error_message: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -92,15 +170,23 @@ export type StyleAnalysisJob = {
   updated_at: string;
   provider: ProviderSummary;
   sample_file: StyleSampleFile;
-  draft: StyleDraft | null;
+  style_profile_id: string | null;
+  analysis_meta: AnalysisMeta | null;
+  analysis_report: AnalysisReport | null;
+  style_summary: StyleSummary | null;
+  prompt_pack: PromptPack | null;
 };
 
-export type StyleProfile = StyleDraft & {
+export type StyleProfile = {
   id: string;
   source_job_id: string;
   provider_id: string;
   model_name: string;
   source_filename: string;
+  style_name: string;
+  analysis_report: AnalysisReport;
+  style_summary: StyleSummary;
+  prompt_pack: PromptPack;
   created_at: string;
   updated_at: string;
 };
@@ -139,6 +225,13 @@ export type ProviderPayload = {
   is_enabled: boolean;
 };
 
-export type StyleProfilePayload = StyleDraft & {
+export type StyleProfileCreatePayload = {
   job_id: string;
+  style_summary: StyleSummary;
+  prompt_pack: PromptPack;
+};
+
+export type StyleProfileUpdatePayload = {
+  style_summary: StyleSummary;
+  prompt_pack: PromptPack;
 };

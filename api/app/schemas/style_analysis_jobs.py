@@ -1,17 +1,70 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.provider_configs import ProviderSummary
 
 
-class StyleDimensionSummary(BaseModel):
-    vocabulary_habits: str = Field(min_length=1)
-    syntax_rhythm: str = Field(min_length=1)
-    narrative_perspective: str = Field(min_length=1)
-    dialogue_traits: str = Field(min_length=1)
+class EvidenceSnippet(BaseModel):
+    excerpt: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+
+
+class ExecutiveSummary(BaseModel):
+    summary: str = Field(min_length=1)
+    representative_evidence: list[EvidenceSnippet]
+
+
+class BasicAssessment(BaseModel):
+    text_type: str = Field(min_length=1)
+    multi_speaker: bool
+    batch_mode: bool
+    location_indexing: str = Field(min_length=1)
+    noise_handling: str = Field(min_length=1)
+
+
+class SectionFinding(BaseModel):
+    label: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    frequency: str = Field(min_length=1)
+    confidence: Literal["high", "medium", "low"]
+    is_weak_judgment: bool = False
+    evidence: list[EvidenceSnippet]
+
+
+class AnalysisReportSection(BaseModel):
+    section: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    overview: str = Field(min_length=1)
+    findings: list[SectionFinding]
+
+
+class AnalysisReport(BaseModel):
+    executive_summary: ExecutiveSummary
+    basic_assessment: BasicAssessment
+    sections: list[AnalysisReportSection]
+    appendix: str | None = None
+
+
+class StyleSummarySceneStrategy(BaseModel):
+    scene: str = Field(min_length=1)
+    instruction: str = Field(min_length=1)
+
+
+class StyleSummary(BaseModel):
+    style_name: str = Field(min_length=1, max_length=120)
+    style_positioning: str = Field(min_length=1)
+    core_features: list[str]
+    lexical_preferences: list[str]
+    rhythm_profile: list[str]
+    punctuation_profile: list[str]
+    imagery_and_themes: list[str]
+    scene_strategies: list[StyleSummarySceneStrategy]
+    avoid_or_rare: list[str]
+    generation_notes: list[str]
 
 
 class StyleScenePrompts(BaseModel):
@@ -20,18 +73,37 @@ class StyleScenePrompts(BaseModel):
     environment: str = Field(min_length=1)
 
 
-class StyleFewShotExample(BaseModel):
+class PromptPackStyleControls(BaseModel):
+    tone: str = Field(min_length=1)
+    rhythm: str = Field(min_length=1)
+    evidence_anchor: str = Field(min_length=1)
+
+
+class PromptPackFewShotSlot(BaseModel):
+    label: str = Field(min_length=1)
     type: str = Field(min_length=1, max_length=32)
     text: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
 
 
-class StyleDraft(BaseModel):
-    style_name: str = Field(min_length=1, max_length=120)
-    analysis_summary: str = Field(min_length=1)
-    global_system_prompt: str = Field(min_length=1)
-    dimensions: StyleDimensionSummary
+class PromptPack(BaseModel):
+    system_prompt: str = Field(min_length=1)
     scene_prompts: StyleScenePrompts
-    few_shot_examples: list[StyleFewShotExample]
+    hard_constraints: list[str]
+    style_controls: PromptPackStyleControls
+    few_shot_slots: list[PromptPackFewShotSlot]
+
+
+class AnalysisMeta(BaseModel):
+    source_filename: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    text_type: str = Field(min_length=1)
+    has_timestamps: bool
+    has_speaker_labels: bool
+    has_noise_markers: bool
+    uses_batch_processing: bool
+    location_indexing: str = Field(min_length=1)
+    chunk_count: int = Field(ge=1)
 
 
 class StyleSampleFileResponse(BaseModel):
@@ -63,5 +135,8 @@ class StyleAnalysisJobResponse(BaseModel):
     updated_at: datetime
     provider: ProviderSummary
     sample_file: StyleSampleFileResponse
-    draft: StyleDraft | None = None
-
+    style_profile_id: str | None = None
+    analysis_meta: AnalysisMeta | None = None
+    analysis_report: AnalysisReport | None = None
+    style_summary: StyleSummary | None = None
+    prompt_pack: PromptPack | None = None
