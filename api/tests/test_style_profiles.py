@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.services.style_analysis_jobs import (
+    StyleAnalysisJobService,
+    build_profile_result_bundle,
+)
 
 
 def build_fake_analysis_report() -> dict:
@@ -242,3 +247,109 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     )
     assert mount_response.status_code == 200
     assert mount_response.json()["style_profile_id"] == profile["id"]
+
+
+@pytest.mark.asyncio
+async def test_update_profile_keeps_analysis_report_payload_unchanged(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    job_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "王家卫风格", "provider_id": provider_id},
+        files={"file": ("sample.txt", "雨下得很慢，时间也很慢。".encode("utf-8"), "text/plain")},
+    )
+    job_id = job_response.json()["id"]
+
+    async def fake_classify_input(self, *, text: str) -> dict:
+        assert "雨下得很慢" in text
+        return {
+            "text_type": "章节正文",
+            "has_timestamps": False,
+            "has_speaker_labels": False,
+            "has_noise_markers": False,
+            "uses_batch_processing": False,
+            "location_indexing": "章节或段落位置",
+            "noise_notes": "未发现显著噪声。",
+        }
+
+    async def fake_analyze_chunks(self, *, chunks: list[str], classification: dict) -> list[dict]:
+        del classification
+        assert len(chunks) == 1
+        return [{"chunk_index": 0, "summary": "局部结果"}]
+
+    async def fake_merge_chunk_analyses(self, *, chunk_analyses: list[dict], classification: dict) -> dict:
+        del classification
+        assert chunk_analyses[0]["chunk_index"] == 0
+        return {"merged": True}
+
+    async def fake_build_analysis_report(self, *, merged_analysis: dict, classification: dict) -> dict:
+        del merged_analysis, classification
+        return build_fake_analysis_report()
+
+    async def fake_build_style_summary(self, *, report: dict) -> dict:
+        del report
+        return build_fake_style_summary("王家卫风格")
+
+    async def fake_build_prompt_pack(self, *, report: dict, style_summary: dict) -> dict:
+        del report
+        assert style_summary["style_name"] == "王家卫风格"
+        return build_fake_prompt_pack()
+
+    monkeypatch.setattr(StyleAnalysisJobService, "_classify_input", fake_classify_input)
+    monkeypatch.setattr(StyleAnalysisJobService, "_analyze_chunks", fake_analyze_chunks)
+    monkeypatch.setattr(StyleAnalysisJobService, "_merge_chunk_analyses", fake_merge_chunk_analyses)
+    monkeypatch.setattr(StyleAnalysisJobService, "_build_analysis_report", fake_build_analysis_report)
+    monkeypatch.setattr(StyleAnalysisJobService, "_build_style_summary", fake_build_style_summary)
+    monkeypatch.setattr(StyleAnalysisJobService, "_build_prompt_pack", fake_build_prompt_pack)
+    processed = await StyleAnalysisJobService().process_next_pending(app_with_db.state.session_factory)
+    assert processed is True
+
+    create_profile_response = await initialized_client.post(
+        "/api/v1/style-profiles",
+        json={
+            "job_id": job_id,
+            "style_summary": build_fake_style_summary("王家卫风格（初版）"),
+            "prompt_pack": build_fake_prompt_pack(),
+        },
+    )
+    assert create_profile_response.status_code == 201
+    profile = create_profile_response.json()
+
+    expected_style_summary = {
+        **profile["style_summary"],
+        "generation_notes": ["仅更新 style_summary payload。"],
+    }
+    expected_prompt_pack = {
+        **profile["prompt_pack"],
+        "hard_constraints": ["仅更新 prompt_pack payload。"],
+    }
+    update_profile_response = await initialized_client.patch(
+        f"/api/v1/style-profiles/{profile['id']}",
+        json={
+            "style_summary": expected_style_summary,
+            "prompt_pack": expected_prompt_pack,
+        },
+    )
+    assert update_profile_response.status_code == 200
+    updated_profile = update_profile_response.json()
+    assert updated_profile["analysis_report"] == profile["analysis_report"]
+    assert updated_profile["style_summary"]["generation_notes"] == expected_style_summary["generation_notes"]
+    assert updated_profile["prompt_pack"]["hard_constraints"] == expected_prompt_pack["hard_constraints"]
+
+
+def test_build_profile_result_bundle_only_depends_on_new_payload_fields() -> None:
+    analysis_report = build_fake_analysis_report()
+    style_summary = build_fake_style_summary("王家卫风格（新）")
+    prompt_pack = build_fake_prompt_pack()
+    profile = SimpleNamespace(
+        analysis_report_payload=analysis_report,
+        style_summary_payload=style_summary,
+        prompt_pack_payload=prompt_pack,
+    )
+    result_report, result_summary, result_prompt_pack = build_profile_result_bundle(profile)
+    assert result_report.executive_summary.summary == analysis_report["executive_summary"]["summary"]
+    assert result_summary.style_name == style_summary["style_name"]
+    assert result_prompt_pack.system_prompt == prompt_pack["system_prompt"]

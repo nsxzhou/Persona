@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
 
 
 def build_fake_analysis_report() -> dict:
@@ -313,3 +314,27 @@ async def test_app_startup_marks_stale_running_jobs_failed(
     detail = detail_response.json()
     assert detail["status"] == "failed"
     assert detail["error_message"] == "分析任务因服务重启中断，请重新提交"
+
+
+def test_build_job_result_bundle_does_not_fallback_to_legacy_draft_payload() -> None:
+    job = SimpleNamespace(
+        analysis_meta_payload=None,
+        analysis_report_payload=None,
+        style_summary_payload=None,
+        prompt_pack_payload=None,
+        draft_payload={
+            "analysis_summary": "旧版摘要",
+            "global_system_prompt": "旧版系统提示词",
+            "dimensions": {"core_features": ["旧版"]},
+            "scene_prompts": {"dialogue": "旧版对白"},
+            "few_shot_examples": [{"text": "旧版示例"}],
+        },
+        style_name="旧版风格",
+        sample_file=SimpleNamespace(original_filename="legacy.txt"),
+        model_name="legacy-model",
+    )
+    analysis_meta, analysis_report, style_summary, prompt_pack = build_job_result_bundle(job)
+    assert analysis_meta is None
+    assert analysis_report is None
+    assert style_summary is None
+    assert prompt_pack is None

@@ -21,9 +21,6 @@ from app.db.models import StyleAnalysisJob, StyleSampleFile
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
     AnalysisReport,
-    BasicAssessment,
-    EvidenceSnippet,
-    ExecutiveSummary,
     PromptPack,
     StyleAnalysisJobResponse,
     StyleSummary,
@@ -31,21 +28,6 @@ from app.schemas.style_analysis_jobs import (
 from app.services.provider_configs import ProviderConfigService
 
 logger = logging.getLogger(__name__)
-
-SECTION_TITLES: list[tuple[str, str]] = [
-    ("3.1", "口头禅与常用表达"),
-    ("3.2", "固定句式与节奏偏好"),
-    ("3.3", "词汇选择偏好"),
-    ("3.4", "句子构造习惯"),
-    ("3.5", "生活经历线索"),
-    ("3.6", "行业／地域词汇"),
-    ("3.7", "自然化缺陷"),
-    ("3.8", "写作忌口与避讳"),
-    ("3.9", "比喻口味与意象库"),
-    ("3.10", "思维模式与表达逻辑"),
-    ("3.11", "常见场景的说话方式"),
-    ("3.12", "个人价值取向与反复母题"),
-]
 
 SHARED_ANALYSIS_RULES = """
 你必须遵守以下规则：
@@ -55,102 +37,6 @@ SHARED_ANALYSIS_RULES = """
 4. 关注文本类型、索引方式、噪声、批处理条件，并在后续分析中保持一致。
 5. 3.1 到 3.12 的专题不能缺失，但某一节证据稀少时允许给出“当前样本中证据有限”的说明。
 """.strip()
-
-
-def _build_legacy_report(style_name: str, draft_payload: dict) -> AnalysisReport:
-    evidence = [
-        EvidenceSnippet(excerpt="旧版任务未保存完整证据摘录。", location="旧版结果转换")
-    ]
-    sections = []
-    for section, title in SECTION_TITLES:
-        sections.append(
-            {
-                "section": section,
-                "title": title,
-                "overview": "该节来自旧版 Style Lab 结果转换，缺少完整证据细节。",
-                "findings": [
-                    {
-                        "label": f"{style_name} / {title}",
-                        "summary": draft_payload.get("analysis_summary", "旧版结果未提供更细结论。"),
-                        "frequency": "未知",
-                        "confidence": "low",
-                        "is_weak_judgment": True,
-                        "evidence": [item.model_dump(mode="json") for item in evidence],
-                    }
-                ],
-            }
-        )
-    return AnalysisReport(
-        executive_summary=ExecutiveSummary(
-            summary=draft_payload.get("analysis_summary", "旧版任务未保存执行摘要。"),
-            representative_evidence=evidence,
-        ),
-        basic_assessment=BasicAssessment(
-            text_type="未知",
-            multi_speaker=False,
-            batch_mode=False,
-            location_indexing="无法定位",
-            noise_handling="旧版任务未保存输入判定信息。",
-        ),
-        sections=sections,
-        appendix="该分析报告由旧版 draft 结果自动转换，仅用于兼容展示。",
-    )
-
-
-def _build_legacy_summary(style_name: str, draft_payload: dict) -> StyleSummary:
-    dimensions = draft_payload.get("dimensions", {})
-    scene_prompts = draft_payload.get("scene_prompts", {})
-    return StyleSummary(
-        style_name=style_name,
-        style_positioning=draft_payload.get("analysis_summary", "旧版结果未保存风格定位。"),
-        core_features=[
-            value for value in dimensions.values() if isinstance(value, str) and value
-        ] or ["旧版结果未提供更细核心特征。"],
-        lexical_preferences=[],
-        rhythm_profile=[dimensions.get("syntax_rhythm", "旧版结果未提供节奏画像。")],
-        punctuation_profile=[],
-        imagery_and_themes=[],
-        scene_strategies=[
-            {"scene": key, "instruction": value}
-            for key, value in scene_prompts.items()
-            if isinstance(value, str) and value
-        ],
-        avoid_or_rare=["避免直接依赖旧版结果作为唯一证据。"],
-        generation_notes=["该摘要由旧版 draft 结果自动转换。"],
-    )
-
-
-def _build_legacy_prompt_pack(draft_payload: dict) -> PromptPack:
-    scene_prompts = draft_payload.get("scene_prompts", {})
-    few_shot_examples = draft_payload.get("few_shot_examples", [])
-    return PromptPack(
-        system_prompt=draft_payload.get(
-            "global_system_prompt", "旧版结果未保存 system prompt。"
-        ),
-        scene_prompts={
-            "dialogue": scene_prompts.get("dialogue", "旧版结果未提供对白场景 prompt。"),
-            "action": scene_prompts.get("action", "旧版结果未提供动作场景 prompt。"),
-            "environment": scene_prompts.get(
-                "environment", "旧版结果未提供环境场景 prompt。"
-            ),
-        },
-        hard_constraints=["该 prompt 包由旧版 draft 自动转换。"],
-        style_controls={
-            "tone": "沿用旧版 system prompt 的整体语气",
-            "rhythm": "沿用旧版摘要中的节奏描述",
-            "evidence_anchor": "旧版结果缺乏完整证据链，请谨慎使用",
-        },
-        few_shot_slots=[
-            {
-                "label": item.get("type", f"example-{index + 1}"),
-                "type": item.get("type", "generic"),
-                "text": item.get("text", ""),
-                "purpose": "旧版 few-shot 示例迁移",
-            }
-            for index, item in enumerate(few_shot_examples)
-            if item.get("text")
-        ],
-    )
 
 
 def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
@@ -172,49 +58,14 @@ def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
             PromptPack.model_validate(job.prompt_pack_payload),
         )
 
-    if job.draft_payload:
-        legacy_summary = _build_legacy_summary(job.style_name, job.draft_payload)
-        legacy_report = _build_legacy_report(job.style_name, job.draft_payload)
-        legacy_prompt_pack = _build_legacy_prompt_pack(job.draft_payload)
-        legacy_meta = AnalysisMeta(
-            source_filename=job.sample_file.original_filename,
-            model_name=job.model_name,
-            text_type="未知",
-            has_timestamps=False,
-            has_speaker_labels=False,
-            has_noise_markers=False,
-            uses_batch_processing=False,
-            location_indexing="无法定位",
-            chunk_count=1,
-        )
-        return legacy_meta, legacy_report, legacy_summary, legacy_prompt_pack
-
     return None, None, None, None
 
 
 def build_profile_result_bundle(profile) -> tuple[AnalysisReport, StyleSummary, PromptPack]:
-    if (
-        profile.analysis_report_payload
-        and profile.style_summary_payload
-        and profile.prompt_pack_payload
-    ):
-        return (
-            AnalysisReport.model_validate(profile.analysis_report_payload),
-            StyleSummary.model_validate(profile.style_summary_payload),
-            PromptPack.model_validate(profile.prompt_pack_payload),
-        )
-
-    draft_payload = {
-        "analysis_summary": profile.analysis_summary,
-        "global_system_prompt": profile.global_system_prompt,
-        "dimensions": profile.dimensions,
-        "scene_prompts": profile.scene_prompts,
-        "few_shot_examples": profile.few_shot_examples,
-    }
     return (
-        _build_legacy_report(profile.style_name, draft_payload),
-        _build_legacy_summary(profile.style_name, draft_payload),
-        _build_legacy_prompt_pack(draft_payload),
+        AnalysisReport.model_validate(profile.analysis_report_payload),
+        StyleSummary.model_validate(profile.style_summary_payload),
+        PromptPack.model_validate(profile.prompt_pack_payload),
     )
 
 
@@ -298,7 +149,6 @@ class StyleAnalysisJobService:
             status="pending",
             stage=None,
             error_message=None,
-            draft_payload=None,
             analysis_meta_payload=None,
             analysis_report_payload=None,
             style_summary_payload=None,
@@ -407,7 +257,6 @@ class StyleAnalysisJobService:
                 job.analysis_report_payload = report.model_dump(mode="json")
                 job.style_summary_payload = style_summary.model_dump(mode="json")
                 job.prompt_pack_payload = prompt_pack.model_dump(mode="json")
-                job.draft_payload = None
                 job.status = "succeeded"
                 job.stage = None
                 job.completed_at = datetime.now(UTC)

@@ -62,17 +62,6 @@ class StyleProfileService:
             model_name=job.model_name,
             source_filename=job.sample_file.original_filename,
             style_name=style_summary.style_name,
-            analysis_summary=style_summary.style_positioning,
-            global_system_prompt=prompt_pack.system_prompt,
-            dimensions={
-                "core_features": style_summary.core_features,
-                "lexical_preferences": style_summary.lexical_preferences,
-                "rhythm_profile": style_summary.rhythm_profile,
-                "punctuation_profile": style_summary.punctuation_profile,
-                "imagery_and_themes": style_summary.imagery_and_themes,
-            },
-            scene_prompts=prompt_pack.scene_prompts.model_dump(mode="json"),
-            few_shot_examples=[item.model_dump(mode="json") for item in prompt_pack.few_shot_slots],
             analysis_report_payload=analysis_report.model_dump(mode="json"),
             style_summary_payload=style_summary.model_dump(mode="json"),
             prompt_pack_payload=prompt_pack.model_dump(mode="json"),
@@ -92,19 +81,6 @@ class StyleProfileService:
         prompt_pack = PromptPack.model_validate(payload.prompt_pack)
 
         profile.style_name = style_summary.style_name
-        profile.analysis_summary = style_summary.style_positioning
-        profile.global_system_prompt = prompt_pack.system_prompt
-        profile.dimensions = {
-            "core_features": style_summary.core_features,
-            "lexical_preferences": style_summary.lexical_preferences,
-            "rhythm_profile": style_summary.rhythm_profile,
-            "punctuation_profile": style_summary.punctuation_profile,
-            "imagery_and_themes": style_summary.imagery_and_themes,
-        }
-        profile.scene_prompts = prompt_pack.scene_prompts.model_dump(mode="json")
-        profile.few_shot_examples = [
-            item.model_dump(mode="json") for item in prompt_pack.few_shot_slots
-        ]
         profile.style_summary_payload = style_summary.model_dump(mode="json")
         profile.prompt_pack_payload = prompt_pack.model_dump(mode="json")
         await session.flush()
