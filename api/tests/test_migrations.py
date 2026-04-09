@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -25,3 +26,15 @@ def test_alembic_upgrade_succeeds_on_empty_database(
         get_settings.cache_clear()
 
     assert database_path.exists()
+
+
+def test_alembic_revision_ids_fit_version_column_limit() -> None:
+    versions_dir = Path(__file__).resolve().parent.parent / "alembic" / "versions"
+    for migration_file in versions_dir.glob("*.py"):
+        spec = importlib.util.spec_from_file_location(migration_file.stem, migration_file)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        revision = getattr(module, "revision", "")
+        assert isinstance(revision, str)
+        assert len(revision) <= 32
