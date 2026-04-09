@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models import StyleAnalysisJob, StyleProfile
-from app.schemas.style_analysis_jobs import StyleDraft
-from app.schemas.style_profiles import StyleProfileCreate
+from app.schemas.style_analysis_jobs import PromptPack, StyleSummary
+from app.schemas.style_profiles import StyleProfileCreate, StyleProfileUpdate
+from app.services.style_analysis_jobs import build_job_result_bundle
 
 
 class StyleProfileService:
@@ -38,38 +39,73 @@ class StyleProfileService:
             .options(
                 selectinload(StyleAnalysisJob.sample_file),
                 selectinload(StyleAnalysisJob.provider),
+                selectinload(StyleAnalysisJob.style_profile),
             )
             .where(StyleAnalysisJob.id == payload.job_id)
         )
         if job is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分析任务不存在")
-        if job.status != "succeeded" or job.draft_payload is None:
+
+        _, analysis_report, _, _ = build_job_result_bundle(job)
+        if job.status != "succeeded" or analysis_report is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="仅已成功完成的分析任务可以保存为风格档案",
             )
 
-        normalized = StyleDraft(
-            style_name=payload.style_name,
-            analysis_summary=payload.analysis_summary,
-            global_system_prompt=payload.global_system_prompt,
-            dimensions=payload.dimensions,
-            scene_prompts=payload.scene_prompts,
-            few_shot_examples=payload.few_shot_examples,
-        )
+        style_summary = StyleSummary.model_validate(payload.style_summary)
+        prompt_pack = PromptPack.model_validate(payload.prompt_pack)
+
         profile = StyleProfile(
             source_job_id=job.id,
             provider_id=job.provider_id,
             model_name=job.model_name,
             source_filename=job.sample_file.original_filename,
-            style_name=normalized.style_name,
-            analysis_summary=normalized.analysis_summary,
-            global_system_prompt=normalized.global_system_prompt,
-            dimensions=normalized.dimensions.model_dump(mode="json"),
-            scene_prompts=normalized.scene_prompts.model_dump(mode="json"),
-            few_shot_examples=[item.model_dump(mode="json") for item in normalized.few_shot_examples],
+            style_name=style_summary.style_name,
+            analysis_summary=style_summary.style_positioning,
+            global_system_prompt=prompt_pack.system_prompt,
+            dimensions={
+                "core_features": style_summary.core_features,
+                "lexical_preferences": style_summary.lexical_preferences,
+                "rhythm_profile": style_summary.rhythm_profile,
+                "punctuation_profile": style_summary.punctuation_profile,
+                "imagery_and_themes": style_summary.imagery_and_themes,
+            },
+            scene_prompts=prompt_pack.scene_prompts.model_dump(mode="json"),
+            few_shot_examples=[item.model_dump(mode="json") for item in prompt_pack.few_shot_slots],
+            analysis_report_payload=analysis_report.model_dump(mode="json"),
+            style_summary_payload=style_summary.model_dump(mode="json"),
+            prompt_pack_payload=prompt_pack.model_dump(mode="json"),
         )
         session.add(profile)
         await session.flush()
         return profile
 
+    async def update(
+        self,
+        session: AsyncSession,
+        profile_id: str,
+        payload: StyleProfileUpdate,
+    ) -> StyleProfile:
+        profile = await self.get_or_404(session, profile_id)
+        style_summary = StyleSummary.model_validate(payload.style_summary)
+        prompt_pack = PromptPack.model_validate(payload.prompt_pack)
+
+        profile.style_name = style_summary.style_name
+        profile.analysis_summary = style_summary.style_positioning
+        profile.global_system_prompt = prompt_pack.system_prompt
+        profile.dimensions = {
+            "core_features": style_summary.core_features,
+            "lexical_preferences": style_summary.lexical_preferences,
+            "rhythm_profile": style_summary.rhythm_profile,
+            "punctuation_profile": style_summary.punctuation_profile,
+            "imagery_and_themes": style_summary.imagery_and_themes,
+        }
+        profile.scene_prompts = prompt_pack.scene_prompts.model_dump(mode="json")
+        profile.few_shot_examples = [
+            item.model_dump(mode="json") for item in prompt_pack.few_shot_slots
+        ]
+        profile.style_summary_payload = style_summary.model_dump(mode="json")
+        profile.prompt_pack_payload = prompt_pack.model_dump(mode="json")
+        await session.flush()
+        return profile

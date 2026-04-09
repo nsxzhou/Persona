@@ -7,7 +7,8 @@ import type {
   SetupPayload,
   StyleAnalysisJob,
   StyleProfile,
-  StyleProfilePayload,
+  StyleProfileCreatePayload,
+  StyleProfileUpdatePayload,
   User,
 } from "@/lib/types";
 
@@ -127,9 +128,14 @@ export const api = {
   },
   getStyleProfiles: () => request<StyleProfile[]>("/api/v1/style-profiles"),
   getStyleProfile: (id: string) => request<StyleProfile>(`/api/v1/style-profiles/${id}`),
-  createStyleProfile: (payload: StyleProfilePayload) =>
+  createStyleProfile: (payload: StyleProfileCreatePayload) =>
     request<StyleProfile>("/api/v1/style-profiles", {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateStyleProfile: (id: string, payload: StyleProfileUpdatePayload) =>
+    request<StyleProfile>(`/api/v1/style-profiles/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
 };

@@ -205,6 +205,10 @@ class StyleAnalysisJob(TimestampMixin, Base):
     stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     draft_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    analysis_meta_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    analysis_report_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    style_summary_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    prompt_pack_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -237,6 +241,9 @@ class StyleProfile(TimestampMixin, Base):
     dimensions: Mapped[dict] = mapped_column(JSON, nullable=False)
     scene_prompts: Mapped[dict] = mapped_column(JSON, nullable=False)
     few_shot_examples: Mapped[list] = mapped_column(JSON, nullable=False)
+    analysis_report_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    style_summary_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    prompt_pack_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     source_job: Mapped["StyleAnalysisJob"] = relationship(back_populates="style_profile")
     provider: Mapped["ProviderConfig"] = relationship(back_populates="style_profiles")

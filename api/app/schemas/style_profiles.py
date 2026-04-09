@@ -2,23 +2,20 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-from app.schemas.style_analysis_jobs import (
-    StyleDimensionSummary,
-    StyleFewShotExample,
-    StyleScenePrompts,
-)
+from app.schemas.style_analysis_jobs import AnalysisReport, PromptPack, StyleSummary
 
 
 class StyleProfileCreate(BaseModel):
     job_id: str
-    style_name: str = Field(min_length=1, max_length=120)
-    analysis_summary: str = Field(min_length=1)
-    global_system_prompt: str = Field(min_length=1)
-    dimensions: StyleDimensionSummary
-    scene_prompts: StyleScenePrompts
-    few_shot_examples: list[StyleFewShotExample]
+    style_summary: StyleSummary
+    prompt_pack: PromptPack
+
+
+class StyleProfileUpdate(BaseModel):
+    style_summary: StyleSummary
+    prompt_pack: PromptPack
 
 
 class StyleProfileResponse(BaseModel):
@@ -30,11 +27,8 @@ class StyleProfileResponse(BaseModel):
     model_name: str
     source_filename: str
     style_name: str
-    analysis_summary: str
-    global_system_prompt: str
-    dimensions: StyleDimensionSummary
-    scene_prompts: StyleScenePrompts
-    few_shot_examples: list[StyleFewShotExample]
+    analysis_report: AnalysisReport
+    style_summary: StyleSummary
+    prompt_pack: PromptPack
     created_at: datetime
     updated_at: datetime
-

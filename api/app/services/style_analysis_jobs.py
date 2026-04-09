@@ -17,11 +17,205 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.security import decrypt_secret
-from app.db.models import ProviderConfig, StyleAnalysisJob, StyleSampleFile
-from app.schemas.style_analysis_jobs import StyleDraft
+from app.db.models import StyleAnalysisJob, StyleSampleFile
+from app.schemas.style_analysis_jobs import (
+    AnalysisMeta,
+    AnalysisReport,
+    BasicAssessment,
+    EvidenceSnippet,
+    ExecutiveSummary,
+    PromptPack,
+    StyleAnalysisJobResponse,
+    StyleSummary,
+)
 from app.services.provider_configs import ProviderConfigService
 
 logger = logging.getLogger(__name__)
+
+SECTION_TITLES: list[tuple[str, str]] = [
+    ("3.1", "口头禅与常用表达"),
+    ("3.2", "固定句式与节奏偏好"),
+    ("3.3", "词汇选择偏好"),
+    ("3.4", "句子构造习惯"),
+    ("3.5", "生活经历线索"),
+    ("3.6", "行业／地域词汇"),
+    ("3.7", "自然化缺陷"),
+    ("3.8", "写作忌口与避讳"),
+    ("3.9", "比喻口味与意象库"),
+    ("3.10", "思维模式与表达逻辑"),
+    ("3.11", "常见场景的说话方式"),
+    ("3.12", "个人价值取向与反复母题"),
+]
+
+SHARED_ANALYSIS_RULES = """
+你必须遵守以下规则：
+1. 所有结论必须证据优先，不得编造不存在的设定、说话人或风格特征。
+2. 输出必须使用中文简体，返回严格 JSON，不附带解释。
+3. 如果证据不足，必须明确使用低置信或弱判断，不得伪装成确定结论。
+4. 关注文本类型、索引方式、噪声、批处理条件，并在后续分析中保持一致。
+5. 3.1 到 3.12 的专题不能缺失，但某一节证据稀少时允许给出“当前样本中证据有限”的说明。
+""".strip()
+
+
+def _build_legacy_report(style_name: str, draft_payload: dict) -> AnalysisReport:
+    evidence = [
+        EvidenceSnippet(excerpt="旧版任务未保存完整证据摘录。", location="旧版结果转换")
+    ]
+    sections = []
+    for section, title in SECTION_TITLES:
+        sections.append(
+            {
+                "section": section,
+                "title": title,
+                "overview": "该节来自旧版 Style Lab 结果转换，缺少完整证据细节。",
+                "findings": [
+                    {
+                        "label": f"{style_name} / {title}",
+                        "summary": draft_payload.get("analysis_summary", "旧版结果未提供更细结论。"),
+                        "frequency": "未知",
+                        "confidence": "low",
+                        "is_weak_judgment": True,
+                        "evidence": [item.model_dump(mode="json") for item in evidence],
+                    }
+                ],
+            }
+        )
+    return AnalysisReport(
+        executive_summary=ExecutiveSummary(
+            summary=draft_payload.get("analysis_summary", "旧版任务未保存执行摘要。"),
+            representative_evidence=evidence,
+        ),
+        basic_assessment=BasicAssessment(
+            text_type="未知",
+            multi_speaker=False,
+            batch_mode=False,
+            location_indexing="无法定位",
+            noise_handling="旧版任务未保存输入判定信息。",
+        ),
+        sections=sections,
+        appendix="该分析报告由旧版 draft 结果自动转换，仅用于兼容展示。",
+    )
+
+
+def _build_legacy_summary(style_name: str, draft_payload: dict) -> StyleSummary:
+    dimensions = draft_payload.get("dimensions", {})
+    scene_prompts = draft_payload.get("scene_prompts", {})
+    return StyleSummary(
+        style_name=style_name,
+        style_positioning=draft_payload.get("analysis_summary", "旧版结果未保存风格定位。"),
+        core_features=[
+            value for value in dimensions.values() if isinstance(value, str) and value
+        ] or ["旧版结果未提供更细核心特征。"],
+        lexical_preferences=[],
+        rhythm_profile=[dimensions.get("syntax_rhythm", "旧版结果未提供节奏画像。")],
+        punctuation_profile=[],
+        imagery_and_themes=[],
+        scene_strategies=[
+            {"scene": key, "instruction": value}
+            for key, value in scene_prompts.items()
+            if isinstance(value, str) and value
+        ],
+        avoid_or_rare=["避免直接依赖旧版结果作为唯一证据。"],
+        generation_notes=["该摘要由旧版 draft 结果自动转换。"],
+    )
+
+
+def _build_legacy_prompt_pack(draft_payload: dict) -> PromptPack:
+    scene_prompts = draft_payload.get("scene_prompts", {})
+    few_shot_examples = draft_payload.get("few_shot_examples", [])
+    return PromptPack(
+        system_prompt=draft_payload.get(
+            "global_system_prompt", "旧版结果未保存 system prompt。"
+        ),
+        scene_prompts={
+            "dialogue": scene_prompts.get("dialogue", "旧版结果未提供对白场景 prompt。"),
+            "action": scene_prompts.get("action", "旧版结果未提供动作场景 prompt。"),
+            "environment": scene_prompts.get(
+                "environment", "旧版结果未提供环境场景 prompt。"
+            ),
+        },
+        hard_constraints=["该 prompt 包由旧版 draft 自动转换。"],
+        style_controls={
+            "tone": "沿用旧版 system prompt 的整体语气",
+            "rhythm": "沿用旧版摘要中的节奏描述",
+            "evidence_anchor": "旧版结果缺乏完整证据链，请谨慎使用",
+        },
+        few_shot_slots=[
+            {
+                "label": item.get("type", f"example-{index + 1}"),
+                "type": item.get("type", "generic"),
+                "text": item.get("text", ""),
+                "purpose": "旧版 few-shot 示例迁移",
+            }
+            for index, item in enumerate(few_shot_examples)
+            if item.get("text")
+        ],
+    )
+
+
+def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
+    AnalysisMeta | None,
+    AnalysisReport | None,
+    StyleSummary | None,
+    PromptPack | None,
+]:
+    if (
+        job.analysis_meta_payload
+        and job.analysis_report_payload
+        and job.style_summary_payload
+        and job.prompt_pack_payload
+    ):
+        return (
+            AnalysisMeta.model_validate(job.analysis_meta_payload),
+            AnalysisReport.model_validate(job.analysis_report_payload),
+            StyleSummary.model_validate(job.style_summary_payload),
+            PromptPack.model_validate(job.prompt_pack_payload),
+        )
+
+    if job.draft_payload:
+        legacy_summary = _build_legacy_summary(job.style_name, job.draft_payload)
+        legacy_report = _build_legacy_report(job.style_name, job.draft_payload)
+        legacy_prompt_pack = _build_legacy_prompt_pack(job.draft_payload)
+        legacy_meta = AnalysisMeta(
+            source_filename=job.sample_file.original_filename,
+            model_name=job.model_name,
+            text_type="未知",
+            has_timestamps=False,
+            has_speaker_labels=False,
+            has_noise_markers=False,
+            uses_batch_processing=False,
+            location_indexing="无法定位",
+            chunk_count=1,
+        )
+        return legacy_meta, legacy_report, legacy_summary, legacy_prompt_pack
+
+    return None, None, None, None
+
+
+def build_profile_result_bundle(profile) -> tuple[AnalysisReport, StyleSummary, PromptPack]:
+    if (
+        profile.analysis_report_payload
+        and profile.style_summary_payload
+        and profile.prompt_pack_payload
+    ):
+        return (
+            AnalysisReport.model_validate(profile.analysis_report_payload),
+            StyleSummary.model_validate(profile.style_summary_payload),
+            PromptPack.model_validate(profile.prompt_pack_payload),
+        )
+
+    draft_payload = {
+        "analysis_summary": profile.analysis_summary,
+        "global_system_prompt": profile.global_system_prompt,
+        "dimensions": profile.dimensions,
+        "scene_prompts": profile.scene_prompts,
+        "few_shot_examples": profile.few_shot_examples,
+    }
+    return (
+        _build_legacy_report(profile.style_name, draft_payload),
+        _build_legacy_summary(profile.style_name, draft_payload),
+        _build_legacy_prompt_pack(draft_payload),
+    )
 
 
 class StyleAnalysisJobService:
@@ -34,6 +228,7 @@ class StyleAnalysisJobService:
             .options(
                 selectinload(StyleAnalysisJob.provider),
                 selectinload(StyleAnalysisJob.sample_file),
+                selectinload(StyleAnalysisJob.style_profile),
             )
             .order_by(StyleAnalysisJob.created_at.desc())
         )
@@ -45,6 +240,7 @@ class StyleAnalysisJobService:
             .options(
                 selectinload(StyleAnalysisJob.provider),
                 selectinload(StyleAnalysisJob.sample_file),
+                selectinload(StyleAnalysisJob.style_profile),
             )
             .where(StyleAnalysisJob.id == job_id)
         )
@@ -103,6 +299,10 @@ class StyleAnalysisJobService:
             stage=None,
             error_message=None,
             draft_payload=None,
+            analysis_meta_payload=None,
+            analysis_report_payload=None,
+            style_summary_payload=None,
+            prompt_pack_payload=None,
         )
         session.add(job)
         await session.flush()
@@ -122,6 +322,7 @@ class StyleAnalysisJobService:
                 .options(
                     selectinload(StyleAnalysisJob.provider),
                     selectinload(StyleAnalysisJob.sample_file),
+                    selectinload(StyleAnalysisJob.style_profile),
                 )
                 .where(StyleAnalysisJob.status == "pending")
                 .order_by(StyleAnalysisJob.created_at.asc())
@@ -130,7 +331,7 @@ class StyleAnalysisJobService:
                 return False
 
             job.status = "running"
-            job.stage = "cleaning"
+            job.stage = "classifying_input"
             job.error_message = None
             job.started_at = datetime.now(UTC)
             await session.commit()
@@ -141,25 +342,72 @@ class StyleAnalysisJobService:
                 if not cleaned_text.strip():
                     raise RuntimeError("清洗后没有可分析的有效文本")
                 job.sample_file.character_count = len(cleaned_text)
-                job.stage = "chunking"
-                await session.commit()
+                self._current_provider = job.provider
+                self._current_model_name = job.model_name
+                classification = await self._classify_input(text=cleaned_text)
 
                 chunks = self._chunk_text(cleaned_text)
                 if not chunks:
                     raise RuntimeError("切片后没有可分析的有效文本")
-                job.stage = "sampling"
+
+                classification["uses_batch_processing"] = len(chunks) > 1
+
+                job.stage = "analyzing_chunks"
                 await session.commit()
 
-                sampled_text = self._build_sample_text(chunks)
-                job.stage = "analyzing"
-                await session.commit()
+                chunk_analyses = await self._analyze_chunks(
+                    chunks=chunks,
+                    classification=classification,
+                )
 
-                draft_payload = await self._generate_draft(job=job, text=sampled_text)
-                job.stage = "assembling"
+                job.stage = "aggregating"
                 await session.commit()
+                merged_analysis = await self._merge_chunk_analyses(
+                    chunk_analyses=chunk_analyses,
+                    classification=classification,
+                )
 
-                normalized = StyleDraft.model_validate(draft_payload)
-                job.draft_payload = normalized.model_dump(mode="json")
+                job.stage = "reporting"
+                await session.commit()
+                report = AnalysisReport.model_validate(
+                    await self._build_analysis_report(
+                        merged_analysis=merged_analysis,
+                        classification=classification,
+                    )
+                )
+
+                job.stage = "summarizing"
+                await session.commit()
+                style_summary = StyleSummary.model_validate(
+                    await self._build_style_summary(report=report.model_dump(mode="json"))
+                )
+
+                job.stage = "composing_prompt_pack"
+                await session.commit()
+                prompt_pack = PromptPack.model_validate(
+                    await self._build_prompt_pack(
+                        report=report.model_dump(mode="json"),
+                        style_summary=style_summary.model_dump(mode="json"),
+                    )
+                )
+
+                analysis_meta = AnalysisMeta(
+                    source_filename=job.sample_file.original_filename,
+                    model_name=job.model_name,
+                    text_type=classification["text_type"],
+                    has_timestamps=classification["has_timestamps"],
+                    has_speaker_labels=classification["has_speaker_labels"],
+                    has_noise_markers=classification["has_noise_markers"],
+                    uses_batch_processing=classification["uses_batch_processing"],
+                    location_indexing=classification["location_indexing"],
+                    chunk_count=len(chunks),
+                )
+
+                job.analysis_meta_payload = analysis_meta.model_dump(mode="json")
+                job.analysis_report_payload = report.model_dump(mode="json")
+                job.style_summary_payload = style_summary.model_dump(mode="json")
+                job.prompt_pack_payload = prompt_pack.model_dump(mode="json")
+                job.draft_payload = None
                 job.status = "succeeded"
                 job.stage = None
                 job.completed_at = datetime.now(UTC)
@@ -171,6 +419,9 @@ class StyleAnalysisJobService:
                 job.error_message = str(exc)
                 job.completed_at = datetime.now(UTC)
                 await session.commit()
+            finally:
+                self._current_provider = None
+                self._current_model_name = None
 
         return True
 
@@ -243,19 +494,83 @@ class StyleAnalysisJobService:
             chunks.append("\n\n".join(current))
         return chunks
 
-    def _build_sample_text(self, chunks: list[str]) -> str:
-        if len(chunks) <= 3:
-            return "\n\n".join(chunks)
+    async def _classify_input(self, *, text: str) -> dict:
+        has_timestamps = bool(
+            re.search(r"^\s*(\d{1,2}:\d{2}(?::\d{2})?|\[\d{1,2}:\d{2}(?::\d{2})?\])", text, re.MULTILINE)
+        )
+        has_speaker_labels = bool(re.search(r"^[^\n：:]{1,20}[：:]", text, re.MULTILINE))
+        has_noise_markers = bool(re.search(r"(\[.*?\]|（.*?笑.*?）|【.*?】)", text))
 
-        middle_index = len(chunks) // 2
-        selected = [chunks[0], chunks[middle_index], chunks[-1]]
-        return "\n\n".join(selected)
+        if has_timestamps and has_speaker_labels:
+            text_type = "混合文本"
+        elif has_timestamps:
+            text_type = "口语字幕"
+        else:
+            text_type = "章节正文"
 
-    async def _generate_draft(self, *, job: StyleAnalysisJob, text: str) -> dict:
-        provider = job.provider
+        if has_timestamps:
+            location_indexing = "时间戳"
+        elif "\n\n" in text:
+            location_indexing = "章节或段落位置"
+        else:
+            location_indexing = "无法定位"
+
+        return {
+            "text_type": text_type,
+            "has_timestamps": has_timestamps,
+            "has_speaker_labels": has_speaker_labels,
+            "has_noise_markers": has_noise_markers,
+            "uses_batch_processing": False,
+            "location_indexing": location_indexing,
+            "noise_notes": "检测到显著噪声标记。" if has_noise_markers else "未发现显著噪声。",
+        }
+
+    async def _analyze_chunks(self, *, chunks: list[str], classification: dict) -> list[dict]:
+        analyses: list[dict] = []
+        for index, chunk in enumerate(chunks):
+            prompt = self._build_chunk_analysis_prompt(
+                chunk=chunk,
+                chunk_index=index,
+                classification=classification,
+                chunk_count=len(chunks),
+            )
+            analyses.append(await self._invoke_json_prompt(prompt))
+        return analyses
+
+    async def _merge_chunk_analyses(self, *, chunk_analyses: list[dict], classification: dict) -> dict:
+        if len(chunk_analyses) == 1:
+            return {
+                "classification": classification,
+                "sections": chunk_analyses[0].get("sections", []),
+            }
+
+        prompt = self._build_merge_prompt(chunk_analyses=chunk_analyses, classification=classification)
+        return await self._invoke_json_prompt(prompt)
+
+    async def _build_analysis_report(self, *, merged_analysis: dict, classification: dict) -> dict:
+        prompt = self._build_report_prompt(
+            merged_analysis=merged_analysis,
+            classification=classification,
+        )
+        return await self._invoke_json_prompt(prompt)
+
+    async def _build_style_summary(self, *, report: dict) -> dict:
+        prompt = self._build_style_summary_prompt(report=report)
+        return await self._invoke_json_prompt(prompt)
+
+    async def _build_prompt_pack(self, *, report: dict, style_summary: dict) -> dict:
+        prompt = self._build_prompt_pack_prompt(report=report, style_summary=style_summary)
+        return await self._invoke_json_prompt(prompt)
+
+    async def _invoke_json_prompt(self, prompt: str) -> dict:
+        provider = getattr(self, "_current_provider", None)
+        model_name = getattr(self, "_current_model_name", None)
+        if provider is None or model_name is None:
+            raise RuntimeError("分析上下文缺失：尚未绑定 Provider 或模型")
+
         settings = get_settings()
         model = init_chat_model(
-            model=job.model_name,
+            model=model_name,
             model_provider="openai",
             base_url=provider.base_url,
             api_key=decrypt_secret(provider.api_key_encrypted),
@@ -263,20 +578,82 @@ class StyleAnalysisJobService:
             timeout=settings.llm_timeout_seconds,
             max_retries=settings.llm_max_retries,
         )
-        prompt = self._build_analysis_prompt(job.style_name, text)
         response = await model.ainvoke([HumanMessage(content=prompt)])
-        return self._parse_json_payload(response.content if isinstance(response.content, str) else str(response.content))
+        content = response.content if isinstance(response.content, str) else str(response.content)
+        return self._parse_json_payload(content)
 
-    def _build_analysis_prompt(self, style_name: str, text: str) -> str:
+    def _build_chunk_analysis_prompt(
+        self,
+        *,
+        chunk: str,
+        chunk_index: int,
+        classification: dict,
+        chunk_count: int,
+    ) -> str:
+        sections = "\n".join(f"- {section} {title}" for section, title in SECTION_TITLES)
         return (
-            "你是中文长篇小说文风分析助手。"
-            "请基于提供的样本文本，输出严格 JSON，不要附带任何解释。"
-            "JSON 必须包含字段："
-            "style_name, analysis_summary, global_system_prompt, dimensions, scene_prompts, few_shot_examples。"
-            "其中 dimensions 必须含 vocabulary_habits, syntax_rhythm, narrative_perspective, dialogue_traits；"
-            "scene_prompts 必须含 dialogue, action, environment；"
-            "few_shot_examples 至少返回 2 条，每条含 type 与 text。"
-            f"目标风格名称：{style_name}\n\n样本文本：\n{text}"
+            f"{SHARED_ANALYSIS_RULES}\n\n"
+            "你正在执行分块分析阶段。请基于当前 chunk 的文本，只输出严格 JSON。\n"
+            "JSON 结构：{sections:[{section,title,overview,findings:[{label,summary,frequency,confidence,is_weak_judgment,evidence:[{excerpt,location}]}]}]}\n"
+            "要求：\n"
+            "1. sections 必须覆盖 3.1 到 3.12。\n"
+            "2. 每节可以只有 1-3 条 finding；证据不足时仍保留该节并降低置信度。\n"
+            "3. excerpt 必须来自样本文本，不得编造。\n"
+            "4. confidence 只能是 high/medium/low。\n\n"
+            f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
+            f"当前 chunk：{chunk_index + 1}/{chunk_count}\n"
+            f"章节结构：\n{sections}\n\n"
+            f"样本文本：\n{chunk}"
+        )
+
+    def _build_merge_prompt(self, *, chunk_analyses: list[dict], classification: dict) -> str:
+        sections = "\n".join(f"- {section} {title}" for section, title in SECTION_TITLES)
+        return (
+            f"{SHARED_ANALYSIS_RULES}\n\n"
+            "你正在执行全局聚合阶段。请把多个 chunk 的分析结果合并成统一 JSON。\n"
+            "要求：同义归并、重复证据去重、弱判断保留、多说话人差异不抹平。\n"
+            "JSON 结构：{sections:[{section,title,overview,findings:[{label,summary,frequency,confidence,is_weak_judgment,evidence:[{excerpt,location}]}]}]}\n\n"
+            f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
+            f"章节结构：\n{sections}\n\n"
+            f"待合并结果：\n{json.dumps(chunk_analyses, ensure_ascii=False)}"
+        )
+
+    def _build_report_prompt(self, *, merged_analysis: dict, classification: dict) -> str:
+        return (
+            f"{SHARED_ANALYSIS_RULES}\n\n"
+            "你正在把聚合结果整理成最终分析报告。请只输出严格 JSON。\n"
+            "JSON 结构：\n"
+            "{executive_summary:{summary,representative_evidence:[{excerpt,location}]},"
+            "basic_assessment:{text_type,multi_speaker,batch_mode,location_indexing,noise_handling},"
+            "sections:[{section,title,overview,findings:[{label,summary,frequency,confidence,is_weak_judgment,evidence:[{excerpt,location}]}]}],"
+            "appendix}\n"
+            "要求：sections 必须覆盖 3.1 到 3.12。\n\n"
+            f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
+            f"聚合结果：\n{json.dumps(merged_analysis, ensure_ascii=False)}"
+        )
+
+    def _build_style_summary_prompt(self, *, report: dict) -> str:
+        return (
+            f"{SHARED_ANALYSIS_RULES}\n\n"
+            "你正在从完整分析报告提炼可编辑风格摘要。请只输出严格 JSON。\n"
+            "JSON 结构："
+            "{style_name,style_positioning,core_features,lexical_preferences,rhythm_profile,punctuation_profile,"
+            "imagery_and_themes,scene_strategies:[{scene,instruction}],avoid_or_rare,generation_notes}\n"
+            "要求：不要引入报告中不存在的结论；尽量高密度、可用于后续生成。\n\n"
+            f"分析报告：\n{json.dumps(report, ensure_ascii=False)}"
+        )
+
+    def _build_prompt_pack_prompt(self, *, report: dict, style_summary: dict) -> str:
+        return (
+            "你是一位小说写作 prompt 编排器。"
+            "请基于完整分析报告和当前风格摘要，生成一个全局可复用的风格母 prompt 包。"
+            "不要绑定具体项目剧情，不要引入报告中没有的结论。"
+            "只输出严格 JSON。\n"
+            "JSON 结构："
+            "{system_prompt,scene_prompts:{dialogue,action,environment},hard_constraints,"
+            "style_controls:{tone,rhythm,evidence_anchor},few_shot_slots:[{label,type,text,purpose}]}\n\n"
+            f"分析报告：\n{json.dumps(report, ensure_ascii=False)}\n\n"
+            f"当前风格摘要：\n{json.dumps(style_summary, ensure_ascii=False)}"
         )
 
     def _parse_json_payload(self, content: str) -> dict:

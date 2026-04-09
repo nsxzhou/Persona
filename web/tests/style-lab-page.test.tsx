@@ -11,9 +11,154 @@ const apiMock = vi.hoisted(() => ({
   createStyleAnalysisJob: vi.fn(),
   getStyleProfiles: vi.fn(),
   createStyleProfile: vi.fn(),
+  updateStyleProfile: vi.fn(),
   getProjects: vi.fn(),
   updateProject: vi.fn(),
 }));
+
+function buildReport() {
+  return {
+    executive_summary: {
+      summary: "整体文风冷峻、短句密集、留白明显。",
+      representative_evidence: [
+        { excerpt: "夜色很冷。", location: "段落 1" },
+        { excerpt: "他忽然笑了。", location: "段落 2" },
+      ],
+    },
+    basic_assessment: {
+      text_type: "章节正文",
+      multi_speaker: false,
+      batch_mode: false,
+      location_indexing: "章节或段落位置",
+      noise_handling: "未发现显著噪声。",
+    },
+    sections: [
+      {
+        section: "3.1",
+        title: "口头禅与常用表达",
+        overview: "高频短词集中出现。",
+        findings: [
+          {
+            label: "冷感词",
+            summary: "偏爱冷、笑、忽然等短词。",
+            frequency: "高频",
+            confidence: "high",
+            is_weak_judgment: false,
+            evidence: [{ excerpt: "夜色很冷。", location: "段落 1" }],
+          },
+        ],
+      },
+      {
+        section: "3.2",
+        title: "固定句式与节奏偏好",
+        overview: "短句推进明显。",
+        findings: [
+          {
+            label: "短句节奏",
+            summary: "句间停顿明显。",
+            frequency: "高频",
+            confidence: "high",
+            is_weak_judgment: false,
+            evidence: [{ excerpt: "他忽然笑了。", location: "段落 2" }],
+          },
+        ],
+      },
+    ],
+    appendix: "当前样本较短，附录省略详细索引。",
+  };
+}
+
+function buildSummary(styleName = "旧名字") {
+  return {
+    style_name: styleName,
+    style_positioning: "冷峻、克制、短句驱动。",
+    core_features: ["短句推进", "留白明显"],
+    lexical_preferences: ["冷", "笑", "忽然"],
+    rhythm_profile: ["短句为主", "停顿明显"],
+    punctuation_profile: ["句号收束多"],
+    imagery_and_themes: ["夜色", "孤独"],
+    scene_strategies: [
+      { scene: "dialogue", instruction: "对白尽量短。" },
+      { scene: "action", instruction: "动作描写利落。" },
+    ],
+    avoid_or_rare: ["避免抒情堆砌。"],
+    generation_notes: ["优先保留冷感词和短句节奏。"],
+  };
+}
+
+function buildPromptPack(systemPrompt = "以冷峻、克制的中文小说文风进行创作。") {
+  return {
+    system_prompt: systemPrompt,
+    scene_prompts: {
+      dialogue: "对白短促，保留言外之意。",
+      action: "动作描写要利落。",
+      environment: "环境描写服务情绪。",
+    },
+    hard_constraints: ["避免现代网络口吻。"],
+    style_controls: {
+      tone: "冷峻克制",
+      rhythm: "短句驱动",
+      evidence_anchor: "优先保留高置信特征",
+    },
+    few_shot_slots: [
+      {
+        label: "environment",
+        type: "environment",
+        text: "夜色像一把薄刀，贴着窗纸划过去。",
+        purpose: "建立冷感氛围",
+      },
+    ],
+  };
+}
+
+function buildSucceededJob(overrides?: Record<string, unknown>) {
+  return {
+    id: "job-1",
+    style_name: "已完成任务",
+    provider_id: "provider-1",
+    model_name: "gpt-4.1-mini",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    started_at: "2026-04-09T00:00:00Z",
+    completed_at: "2026-04-09T00:01:00Z",
+    created_at: "2026-04-09T00:00:00Z",
+    updated_at: "2026-04-09T00:01:00Z",
+    provider: {
+      id: "provider-1",
+      label: "Primary Gateway",
+      base_url: "https://api.openai.com/v1",
+      default_model: "gpt-4.1-mini",
+      is_enabled: true,
+    },
+    sample_file: {
+      id: "sample-1",
+      original_filename: "sample.txt",
+      content_type: "text/plain",
+      byte_size: 12,
+      character_count: 12,
+      checksum_sha256: "abc",
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:01:00Z",
+    },
+    style_profile_id: null,
+    analysis_meta: {
+      source_filename: "sample.txt",
+      model_name: "gpt-4.1-mini",
+      text_type: "章节正文",
+      has_timestamps: false,
+      has_speaker_labels: false,
+      has_noise_markers: false,
+      uses_batch_processing: false,
+      location_indexing: "章节或段落位置",
+      chunk_count: 1,
+    },
+    analysis_report: buildReport(),
+    style_summary: buildSummary(),
+    prompt_pack: buildPromptPack(),
+    ...overrides,
+  };
+}
 
 vi.mock("sonner", () => {
   return {
@@ -58,35 +203,13 @@ test("style lab page submits txt upload form", async () => {
   apiMock.getStyleProfiles.mockResolvedValueOnce([]);
   apiMock.getProjects.mockResolvedValueOnce([]);
   apiMock.createStyleAnalysisJob.mockResolvedValueOnce({
-    id: "job-1",
-    style_name: "金庸武侠风",
-    provider_id: "provider-1",
-    model_name: "gpt-4.1-mini",
+    ...buildSucceededJob(),
     status: "pending",
-    stage: null,
-    error_message: null,
-    started_at: null,
     completed_at: null,
-    created_at: "2026-04-09T00:00:00Z",
-    updated_at: "2026-04-09T00:00:00Z",
-    provider: {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      is_enabled: true,
-    },
-    sample_file: {
-      id: "sample-1",
-      original_filename: "sample.txt",
-      content_type: "text/plain",
-      byte_size: 12,
-      character_count: null,
-      checksum_sha256: "abc",
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:00:00Z",
-    },
-    draft: null,
+    analysis_meta: null,
+    analysis_report: null,
+    style_summary: null,
+    prompt_pack: null,
   });
 
   renderPage();
@@ -120,78 +243,34 @@ test("style lab page shows running stage feedback", async () => {
   ]);
   apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([
     {
-      id: "job-1",
-      style_name: "分析中的任务",
-      provider_id: "provider-1",
-      model_name: "gpt-4.1-mini",
+      ...buildSucceededJob(),
       status: "running",
-      stage: "analyzing",
-      error_message: null,
-      started_at: "2026-04-09T00:00:00Z",
-      completed_at: null,
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:00:00Z",
-      provider: {
-        id: "provider-1",
-        label: "Primary Gateway",
-        base_url: "https://api.openai.com/v1",
-        default_model: "gpt-4.1-mini",
-        is_enabled: true,
-      },
-      sample_file: {
-        id: "sample-1",
-        original_filename: "sample.txt",
-        content_type: "text/plain",
-        byte_size: 12,
-        character_count: 8,
-        checksum_sha256: "abc",
-        created_at: "2026-04-09T00:00:00Z",
-        updated_at: "2026-04-09T00:00:00Z",
-      },
-      draft: null,
+      stage: "analyzing_chunks",
+      analysis_meta: null,
+      analysis_report: null,
+      style_summary: null,
+      prompt_pack: null,
     },
   ]);
   apiMock.getStyleAnalysisJob.mockResolvedValueOnce({
-    id: "job-1",
-    style_name: "分析中的任务",
-    provider_id: "provider-1",
-    model_name: "gpt-4.1-mini",
+    ...buildSucceededJob(),
     status: "running",
-    stage: "analyzing",
-    error_message: null,
-    started_at: "2026-04-09T00:00:00Z",
-    completed_at: null,
-    created_at: "2026-04-09T00:00:00Z",
-    updated_at: "2026-04-09T00:00:00Z",
-    provider: {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      is_enabled: true,
-    },
-    sample_file: {
-      id: "sample-1",
-      original_filename: "sample.txt",
-      content_type: "text/plain",
-      byte_size: 12,
-      character_count: 8,
-      checksum_sha256: "abc",
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:00:00Z",
-    },
-    draft: null,
+    stage: "analyzing_chunks",
+    analysis_meta: null,
+    analysis_report: null,
+    style_summary: null,
+    prompt_pack: null,
   });
   apiMock.getStyleProfiles.mockResolvedValueOnce([]);
   apiMock.getProjects.mockResolvedValueOnce([]);
 
   renderPage();
 
-  expect(await screen.findByText("当前阶段：analyzing")).toBeInTheDocument();
+  expect(await screen.findByText("当前阶段：analyzing_chunks")).toBeInTheDocument();
 });
 
-test("style lab page saves edited draft and mounts project", async () => {
-  apiMock.getProviderConfigs.mockResolvedValueOnce([
+test("style lab page renders read-only report and saves new profile with mount", async () => {
+  apiMock.getProviderConfigs.mockResolvedValue([
     {
       id: "provider-1",
       label: "Primary Gateway",
@@ -204,110 +283,10 @@ test("style lab page saves edited draft and mounts project", async () => {
       last_tested_at: null,
     },
   ]);
-  apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([
-    {
-      id: "job-1",
-      style_name: "已完成任务",
-      provider_id: "provider-1",
-      model_name: "gpt-4.1-mini",
-      status: "succeeded",
-      stage: null,
-      error_message: null,
-      started_at: "2026-04-09T00:00:00Z",
-      completed_at: "2026-04-09T00:01:00Z",
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:01:00Z",
-      provider: {
-        id: "provider-1",
-        label: "Primary Gateway",
-        base_url: "https://api.openai.com/v1",
-        default_model: "gpt-4.1-mini",
-        is_enabled: true,
-      },
-      sample_file: {
-        id: "sample-1",
-        original_filename: "sample.txt",
-        content_type: "text/plain",
-        byte_size: 12,
-        character_count: 12,
-        checksum_sha256: "abc",
-        created_at: "2026-04-09T00:00:00Z",
-        updated_at: "2026-04-09T00:01:00Z",
-      },
-      draft: {
-        style_name: "旧名字",
-        analysis_summary: "短句凌厉。",
-        global_system_prompt: "保留凌厉感。",
-        dimensions: {
-          vocabulary_habits: "偏爱短促动词。",
-          syntax_rhythm: "短句为主。",
-          narrative_perspective: "第三人称。",
-          dialogue_traits: "对白克制。",
-        },
-        scene_prompts: {
-          dialogue: "对白短。",
-          action: "动作快。",
-          environment: "环境冷。",
-        },
-        few_shot_examples: [
-          { type: "environment", text: "风从长街尽头吹来。" },
-          { type: "dialogue", text: "他只说了一句好。" },
-        ],
-      },
-    },
-  ]);
-  apiMock.getStyleAnalysisJob.mockResolvedValueOnce({
-    id: "job-1",
-    style_name: "已完成任务",
-    provider_id: "provider-1",
-    model_name: "gpt-4.1-mini",
-    status: "succeeded",
-    stage: null,
-    error_message: null,
-    started_at: "2026-04-09T00:00:00Z",
-    completed_at: "2026-04-09T00:01:00Z",
-    created_at: "2026-04-09T00:00:00Z",
-    updated_at: "2026-04-09T00:01:00Z",
-    provider: {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      is_enabled: true,
-    },
-    sample_file: {
-      id: "sample-1",
-      original_filename: "sample.txt",
-      content_type: "text/plain",
-      byte_size: 12,
-      character_count: 12,
-      checksum_sha256: "abc",
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:01:00Z",
-    },
-    draft: {
-      style_name: "旧名字",
-      analysis_summary: "短句凌厉。",
-      global_system_prompt: "保留凌厉感。",
-      dimensions: {
-        vocabulary_habits: "偏爱短促动词。",
-        syntax_rhythm: "短句为主。",
-        narrative_perspective: "第三人称。",
-        dialogue_traits: "对白克制。",
-      },
-      scene_prompts: {
-        dialogue: "对白短。",
-        action: "动作快。",
-        environment: "环境冷。",
-      },
-      few_shot_examples: [
-        { type: "environment", text: "风从长街尽头吹来。" },
-        { type: "dialogue", text: "他只说了一句好。" },
-      ],
-    },
-  });
-  apiMock.getStyleProfiles.mockResolvedValueOnce([]);
-  apiMock.getProjects.mockResolvedValueOnce([
+  apiMock.getStyleAnalysisJobs.mockResolvedValue([buildSucceededJob()]);
+  apiMock.getStyleAnalysisJob.mockResolvedValue(buildSucceededJob());
+  apiMock.getStyleProfiles.mockResolvedValue([]);
+  apiMock.getProjects.mockResolvedValue([
     {
       id: "project-1",
       name: "风格挂载项目",
@@ -332,23 +311,9 @@ test("style lab page saves edited draft and mounts project", async () => {
     model_name: "gpt-4.1-mini",
     source_filename: "sample.txt",
     style_name: "新名字",
-    analysis_summary: "短句凌厉。",
-    global_system_prompt: "保留凌厉感。",
-    dimensions: {
-      vocabulary_habits: "偏爱短促动词。",
-      syntax_rhythm: "短句为主。",
-      narrative_perspective: "第三人称。",
-      dialogue_traits: "对白克制。",
-    },
-    scene_prompts: {
-      dialogue: "对白短。",
-      action: "动作快。",
-      environment: "环境冷。",
-    },
-    few_shot_examples: [
-      { type: "environment", text: "风从长街尽头吹来。" },
-      { type: "dialogue", text: "他只说了一句好。" },
-    ],
+    analysis_report: buildReport(),
+    style_summary: buildSummary("新名字"),
+    prompt_pack: buildPromptPack("新的 system prompt"),
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:02:00Z",
   });
@@ -371,13 +336,83 @@ test("style lab page saves edited draft and mounts project", async () => {
 
   renderPage();
 
-  fireEvent.change(await screen.findByLabelText("风格名称"), {
+  expect(await screen.findByText("口头禅与常用表达")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("风格名称"), {
     target: { value: "新名字" },
   });
+  fireEvent.change(screen.getByLabelText("System Prompt"), {
+    target: { value: "新的 system prompt" },
+  });
   fireEvent.click(screen.getByRole("combobox", { name: "挂载到项目" }));
-  fireEvent.click(await screen.findByText("风格挂载项目"));
-  fireEvent.click(screen.getByRole("button", { name: "保存并挂载" }));
+  fireEvent.click(await screen.findByRole("option", { name: "风格挂载项目" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存结果" }));
 
   await waitFor(() => expect(apiMock.createStyleProfile).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(apiMock.updateProject).toHaveBeenCalledWith("project-1", { style_profile_id: "profile-1" }));
+});
+
+test("style lab page updates existing saved profile", async () => {
+  apiMock.getProviderConfigs.mockResolvedValue([
+    {
+      id: "provider-1",
+      label: "Primary Gateway",
+      base_url: "https://api.openai.com/v1",
+      default_model: "gpt-4.1-mini",
+      api_key_hint: "****1234",
+      is_enabled: true,
+      last_test_status: null,
+      last_test_error: null,
+      last_tested_at: null,
+    },
+  ]);
+  apiMock.getStyleAnalysisJobs.mockResolvedValue([
+    buildSucceededJob({ style_profile_id: "profile-1" }),
+  ]);
+  apiMock.getStyleAnalysisJob.mockResolvedValue(
+    buildSucceededJob({ style_profile_id: "profile-1" }),
+  );
+  apiMock.getStyleProfiles.mockResolvedValue([
+    {
+      id: "profile-1",
+      source_job_id: "job-1",
+      provider_id: "provider-1",
+      model_name: "gpt-4.1-mini",
+      source_filename: "sample.txt",
+      style_name: "旧名字",
+      analysis_report: buildReport(),
+      style_summary: buildSummary("旧名字"),
+      prompt_pack: buildPromptPack(),
+      created_at: "2026-04-09T00:02:00Z",
+      updated_at: "2026-04-09T00:02:00Z",
+    },
+  ]);
+  apiMock.getProjects.mockResolvedValue([]);
+  apiMock.updateStyleProfile.mockResolvedValueOnce({
+    id: "profile-1",
+    source_job_id: "job-1",
+    provider_id: "provider-1",
+    model_name: "gpt-4.1-mini",
+    source_filename: "sample.txt",
+    style_name: "覆盖后的名字",
+    analysis_report: buildReport(),
+    style_summary: buildSummary("覆盖后的名字"),
+    prompt_pack: buildPromptPack("覆盖后的 system prompt"),
+    created_at: "2026-04-09T00:02:00Z",
+    updated_at: "2026-04-09T00:03:00Z",
+  });
+
+  renderPage();
+
+  fireEvent.change(await screen.findByLabelText("风格名称"), {
+    target: { value: "覆盖后的名字" },
+  });
+  await waitFor(() => expect(screen.getByLabelText("风格名称")).toHaveValue("覆盖后的名字"));
+  fireEvent.click(screen.getByRole("button", { name: "保存结果" }));
+
+  await waitFor(() => expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(
+    "profile-1",
+    expect.objectContaining({
+      style_summary: expect.objectContaining({ style_name: "覆盖后的名字" }),
+    }),
+  ));
 });
