@@ -5,18 +5,23 @@ import type {
   ProviderConfig,
   ProviderPayload,
   SetupPayload,
+  StyleAnalysisJob,
+  StyleProfile,
+  StyleProfilePayload,
   User,
 } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? undefined);
+  if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
     ...init,
   });
 
@@ -99,5 +104,32 @@ export const api = {
     request<Project>(`/api/v1/projects/${id}/restore`, {
       method: "POST",
     }),
+  getStyleAnalysisJobs: () => request<StyleAnalysisJob[]>("/api/v1/style-analysis-jobs"),
+  getStyleAnalysisJob: (id: string) =>
+    request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
+  createStyleAnalysisJob: (payload: {
+    style_name: string;
+    provider_id: string;
+    model?: string;
+    file: File;
+  }) => {
+    const formData = new FormData();
+    formData.set("style_name", payload.style_name);
+    formData.set("provider_id", payload.provider_id);
+    if (payload.model) {
+      formData.set("model", payload.model);
+    }
+    formData.set("file", payload.file);
+    return request<StyleAnalysisJob>("/api/v1/style-analysis-jobs", {
+      method: "POST",
+      body: formData,
+    });
+  },
+  getStyleProfiles: () => request<StyleProfile[]>("/api/v1/style-profiles"),
+  getStyleProfile: (id: string) => request<StyleProfile>(`/api/v1/style-profiles/${id}`),
+  createStyleProfile: (payload: StyleProfilePayload) =>
+    request<StyleProfile>("/api/v1/style-profiles", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
-

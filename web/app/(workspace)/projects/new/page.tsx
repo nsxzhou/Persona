@@ -17,6 +17,10 @@ export default function NewProjectPage() {
     queryKey: ["provider-configs"],
     queryFn: api.getProviderConfigs,
   });
+  const styleProfilesQuery = useQuery({
+    queryKey: ["style-profiles"],
+    queryFn: api.getStyleProfiles,
+  });
   const mutation = useMutation({
     mutationFn: (payload: ProjectPayload) => api.createProject(payload),
     onError: (error) => toast.error(`项目创建失败: ${error.message}`),
@@ -26,15 +30,30 @@ export default function NewProjectPage() {
     },
   });
 
-  if (providersQuery.isLoading) {
+  if (providersQuery.isLoading || styleProfilesQuery.isLoading) {
     return <PageLoading />;
   }
 
-  if (providersQuery.isError || !providersQuery.data) {
-    return <PageError title="无法加载 Provider" message={providersQuery.error instanceof Error ? providersQuery.error.message : "请重试"} />;
+  if (
+    providersQuery.isError ||
+    styleProfilesQuery.isError ||
+    !providersQuery.data ||
+    !styleProfilesQuery.data
+  ) {
+    return (
+      <PageError
+        title="无法加载项目配置数据"
+        message={
+          (providersQuery.error instanceof Error && providersQuery.error.message) ||
+          (styleProfilesQuery.error instanceof Error && styleProfilesQuery.error.message) ||
+          "请重试"
+        }
+      />
+    );
   }
 
   const providers = providersQuery.data;
+  const styleProfiles = styleProfilesQuery.data;
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -57,6 +76,7 @@ export default function NewProjectPage() {
 
       <ProjectForm
         providers={providers}
+        styleProfiles={styleProfiles}
         submitting={mutation.isPending}
         onSubmit={async (values) => {
           await mutation.mutateAsync(values as ProjectPayload);

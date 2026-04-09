@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 # 导入SQLAlchemy字段类型
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 
 # 导入SQLAlchemy 2.0的新ORM API
 # Mapped: 类型注解包装器，用于声明模型字段
@@ -132,6 +132,13 @@ class ProviderConfig(TimestampMixin, Base):
 
     # 关联关系：一个提供商配置可以被多个项目使用
     projects: Mapped[list["Project"]] = relationship(back_populates="provider")
+    # 关联关系：一个提供商配置可以创建多个风格分析任务
+    style_analysis_jobs: Mapped[list["StyleAnalysisJob"]] = relationship(
+        back_populates="provider"
+    )
+    style_profiles: Mapped[list["StyleProfile"]] = relationship(
+        back_populates="provider"
+    )
 
 
 # 项目表模型
@@ -153,7 +160,9 @@ class Project(TimestampMixin, Base):
     # 默认使用的模型
     default_model: Mapped[str] = mapped_column(String(100), nullable=False)
     # 风格配置ID - 可选
-    style_profile_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    style_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("style_profiles.id"), nullable=True
+    )
     # 归档时间 - 如果归档了就有值，否则是None
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -161,3 +170,74 @@ class Project(TimestampMixin, Base):
 
     # 反向关联：一个项目属于一个提供商配置
     provider: Mapped["ProviderConfig"] = relationship(back_populates="projects")
+    style_profile: Mapped["StyleProfile | None"] = relationship(back_populates="projects")
+
+
+class StyleSampleFile(TimestampMixin, Base):
+    __tablename__ = "style_sample_files"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    character_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    job: Mapped["StyleAnalysisJob"] = relationship(back_populates="sample_file")
+
+
+class StyleAnalysisJob(TimestampMixin, Base):
+    __tablename__ = "style_analysis_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    style_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    provider_id: Mapped[str] = mapped_column(
+        ForeignKey("provider_configs.id"), nullable=False
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sample_file_id: Mapped[str] = mapped_column(
+        ForeignKey("style_sample_files.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    draft_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    provider: Mapped["ProviderConfig"] = relationship(back_populates="style_analysis_jobs")
+    sample_file: Mapped["StyleSampleFile"] = relationship(
+        back_populates="job", single_parent=True
+    )
+    style_profile: Mapped["StyleProfile | None"] = relationship(back_populates="source_job")
+
+
+class StyleProfile(TimestampMixin, Base):
+    __tablename__ = "style_profiles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    source_job_id: Mapped[str] = mapped_column(
+        ForeignKey("style_analysis_jobs.id"), nullable=False, unique=True
+    )
+    provider_id: Mapped[str] = mapped_column(
+        ForeignKey("provider_configs.id"), nullable=False
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    style_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    analysis_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    global_system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    dimensions: Mapped[dict] = mapped_column(JSON, nullable=False)
+    scene_prompts: Mapped[dict] = mapped_column(JSON, nullable=False)
+    few_shot_examples: Mapped[list] = mapped_column(JSON, nullable=False)
+
+    source_job: Mapped["StyleAnalysisJob"] = relationship(back_populates="style_profile")
+    provider: Mapped["ProviderConfig"] = relationship(back_populates="style_profiles")
+    projects: Mapped[list["Project"]] = relationship(back_populates="style_profile")

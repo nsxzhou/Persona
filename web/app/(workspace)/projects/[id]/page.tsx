@@ -22,6 +22,10 @@ export default function ProjectDetailPage() {
     queryKey: ["provider-configs"],
     queryFn: api.getProviderConfigs,
   });
+  const styleProfilesQuery = useQuery({
+    queryKey: ["style-profiles"],
+    queryFn: api.getStyleProfiles,
+  });
   const mutation = useMutation({
     mutationFn: (payload: Partial<ProjectPayload>) => api.updateProject(projectId, payload),
     onError: (error) => toast.error(`保存失败: ${error.message}`),
@@ -31,17 +35,25 @@ export default function ProjectDetailPage() {
     },
   });
 
-  if (projectQuery.isLoading || providersQuery.isLoading) {
+  if (projectQuery.isLoading || providersQuery.isLoading || styleProfilesQuery.isLoading) {
     return <PageLoading />;
   }
 
-  if (projectQuery.isError || providersQuery.isError || !projectQuery.data || !providersQuery.data) {
+  if (
+    projectQuery.isError ||
+    providersQuery.isError ||
+    styleProfilesQuery.isError ||
+    !projectQuery.data ||
+    !providersQuery.data ||
+    !styleProfilesQuery.data
+  ) {
     return (
       <PageError
         title="项目详情加载失败"
         message={
           (projectQuery.error instanceof Error && projectQuery.error.message) ||
           (providersQuery.error instanceof Error && providersQuery.error.message) ||
+          (styleProfilesQuery.error instanceof Error && styleProfilesQuery.error.message) ||
           "请重试"
         }
       />
@@ -49,6 +61,7 @@ export default function ProjectDetailPage() {
   }
 
   const providers = providersQuery.data;
+  const styleProfiles = styleProfilesQuery.data;
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -72,6 +85,7 @@ export default function ProjectDetailPage() {
       <ProjectForm
         project={projectQuery.data}
         providers={providers}
+        styleProfiles={styleProfiles}
         submitting={mutation.isPending}
         onSubmit={async (values) => {
           await mutation.mutateAsync(values as Partial<ProjectPayload>);

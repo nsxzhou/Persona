@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { Project, ProjectPayload, ProviderConfig } from "@/lib/types";
+import type { Project, ProjectPayload, ProviderConfig, StyleProfile } from "@/lib/types";
 
 const schema = z.object({
   name: z.string().min(1),
@@ -32,11 +32,13 @@ type FormValues = z.infer<typeof schema>;
 
 export function ProjectForm({
   providers,
+  styleProfiles,
   project,
   submitting,
   onSubmit,
 }: {
   providers: ProviderConfig[];
+  styleProfiles: StyleProfile[];
   project?: Project;
   submitting: boolean;
   onSubmit: (values: ProjectPayload | Partial<ProjectPayload>) => Promise<void>;
@@ -66,7 +68,11 @@ export function ProjectForm({
   }, [form, project, providers]);
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
+    <form
+      onSubmit={form.handleSubmit(async (values) => {
+        await onSubmit(values);
+      })}
+    >
       <Card>
         <CardContent className="grid gap-5 pt-6">
           <div className="grid gap-2">
@@ -149,6 +155,25 @@ export function ProjectForm({
           <div className="grid gap-2">
             <Label htmlFor="project-model">项目默认模型</Label>
             <Input id="project-model" placeholder="留空则回退到 Provider 默认模型" {...form.register("default_model")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="project-style-profile">风格档案</Label>
+            <Select
+              value={form.watch("style_profile_id") ?? "__none__"}
+              onValueChange={(val) => form.setValue("style_profile_id", val === "__none__" ? null : val)}
+            >
+              <SelectTrigger id="project-style-profile" aria-label="风格档案" className="bg-background">
+                <SelectValue placeholder="选择风格档案" />
+              </SelectTrigger>
+              <SelectContent className="border shadow-md rounded-md bg-popover text-popover-foreground">
+                <SelectItem value="__none__" className="cursor-pointer">未挂载</SelectItem>
+                {styleProfiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id} className="cursor-pointer">
+                    {profile.style_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
