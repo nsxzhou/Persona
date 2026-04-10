@@ -1,14 +1,20 @@
 import type {
+  AnalysisMeta,
+  AnalysisReport,
   LoginPayload,
+  PromptPack,
   Project,
   ProjectPayload,
   ProviderConfig,
   ProviderPayload,
   SetupPayload,
   StyleAnalysisJob,
+  StyleAnalysisJobListItem,
   StyleProfile,
   StyleProfileCreatePayload,
+  StyleProfileListItem,
   StyleProfileUpdatePayload,
+  StyleSummary,
   User,
 } from "@/lib/types";
 
@@ -105,9 +111,23 @@ export const api = {
     request<Project>(`/api/v1/projects/${id}/restore`, {
       method: "POST",
     }),
-  getStyleAnalysisJobs: () => request<StyleAnalysisJob[]>("/api/v1/style-analysis-jobs"),
+  getStyleAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
+    const offset = params?.offset ?? 0;
+    const limit = params?.limit ?? 50;
+    return request<StyleAnalysisJobListItem[]>(
+      `/api/v1/style-analysis-jobs?offset=${offset}&limit=${limit}`
+    );
+  },
   getStyleAnalysisJob: (id: string) =>
-    request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
+    request<StyleAnalysisJobListItem>(`/api/v1/style-analysis-jobs/${id}`),
+  getStyleAnalysisJobAnalysisMeta: (id: string) =>
+    request<AnalysisMeta>(`/api/v1/style-analysis-jobs/${id}/analysis-meta`),
+  getStyleAnalysisJobAnalysisReport: (id: string) =>
+    request<AnalysisReport>(`/api/v1/style-analysis-jobs/${id}/analysis-report`),
+  getStyleAnalysisJobStyleSummary: (id: string) =>
+    request<StyleSummary>(`/api/v1/style-analysis-jobs/${id}/style-summary`),
+  getStyleAnalysisJobPromptPack: (id: string) =>
+    request<PromptPack>(`/api/v1/style-analysis-jobs/${id}/prompt-pack`),
   createStyleAnalysisJob: (payload: {
     style_name: string;
     provider_id: string;
@@ -121,12 +141,18 @@ export const api = {
       formData.set("model", payload.model);
     }
     formData.set("file", payload.file);
-    return request<StyleAnalysisJob>("/api/v1/style-analysis-jobs", {
+    return request<StyleAnalysisJobListItem>("/api/v1/style-analysis-jobs", {
       method: "POST",
       body: formData,
     });
   },
-  getStyleProfiles: () => request<StyleProfile[]>("/api/v1/style-profiles"),
+  getStyleProfiles: (params?: { offset?: number; limit?: number }) => {
+    const offset = params?.offset ?? 0;
+    const limit = params?.limit ?? 50;
+    return request<StyleProfileListItem[]>(
+      `/api/v1/style-profiles?offset=${offset}&limit=${limit}`
+    );
+  },
   getStyleProfile: (id: string) => request<StyleProfile>(`/api/v1/style-profiles/${id}`),
   createStyleProfile: (payload: StyleProfileCreatePayload) =>
     request<StyleProfile>("/api/v1/style-profiles", {

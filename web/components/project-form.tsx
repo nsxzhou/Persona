@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { Project, ProjectPayload, ProviderConfig, StyleProfile } from "@/lib/types";
+import type { Project, ProjectPayload, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 const schema = z.object({
   name: z.string().min(1),
@@ -38,7 +38,7 @@ export function ProjectForm({
   onSubmit,
 }: {
   providers: ProviderConfig[];
-  styleProfiles: StyleProfile[];
+  styleProfiles: StyleProfileListItem[];
   project?: Project;
   submitting: boolean;
   onSubmit: (values: ProjectPayload | Partial<ProjectPayload>) => Promise<void>;
@@ -65,7 +65,7 @@ export function ProjectForm({
       default_model: project?.default_model ?? "",
       style_profile_id: project?.style_profile_id ?? null,
     });
-  }, [form, project, providers]);
+  }, [form, project]);
 
   return (
     <form

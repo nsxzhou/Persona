@@ -171,10 +171,23 @@ export type StyleAnalysisJob = {
   provider: ProviderSummary;
   sample_file: StyleSampleFile;
   style_profile_id: string | null;
-  analysis_meta: AnalysisMeta | null;
-  analysis_report: AnalysisReport | null;
-  style_summary: StyleSummary | null;
-  prompt_pack: PromptPack | null;
+};
+
+export type StyleAnalysisJobListItem = {
+  id: StyleAnalysisJob["id"];
+  style_name: StyleAnalysisJob["style_name"];
+  provider_id: StyleAnalysisJob["provider_id"];
+  model_name: StyleAnalysisJob["model_name"];
+  status: StyleAnalysisJob["status"];
+  stage: StyleAnalysisJob["stage"];
+  error_message: StyleAnalysisJob["error_message"];
+  started_at: StyleAnalysisJob["started_at"];
+  completed_at: StyleAnalysisJob["completed_at"];
+  created_at: StyleAnalysisJob["created_at"];
+  updated_at: StyleAnalysisJob["updated_at"];
+  provider: StyleAnalysisJob["provider"];
+  sample_file: StyleAnalysisJob["sample_file"];
+  style_profile_id: StyleAnalysisJob["style_profile_id"];
 };
 
 export type StyleProfile = {
@@ -187,6 +200,16 @@ export type StyleProfile = {
   analysis_report: AnalysisReport;
   style_summary: StyleSummary;
   prompt_pack: PromptPack;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StyleProfileListItem = {
+  id: string;
+  provider_id: string;
+  model_name: string;
+  source_filename: string;
+  style_name: string;
   created_at: string;
   updated_at: string;
 };

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, joinedload
 
 from app.db.models import StyleAnalysisJob, StyleProfile
 from app.schemas.style_analysis_jobs import PromptPack, StyleSummary
@@ -12,11 +12,26 @@ from app.services.style_analysis_jobs import build_job_result_bundle
 
 
 class StyleProfileService:
-    async def list(self, session: AsyncSession) -> list[StyleProfile]:
-        result = await session.scalars(
-            select(StyleProfile).order_by(StyleProfile.created_at.desc())
+    async def list(
+        self,
+        session: AsyncSession,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[StyleProfile]:
+        limit = min(max(limit, 1), 100)
+        result = await session.stream_scalars(
+            select(StyleProfile)
+            .options(
+                defer(StyleProfile.analysis_report_payload),
+                defer(StyleProfile.style_summary_payload),
+                defer(StyleProfile.prompt_pack_payload),
+            )
+            .order_by(StyleProfile.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
-        return list(result.all())
+        return [p async for p in result]
 
     async def get_or_404(self, session: AsyncSession, profile_id: str) -> StyleProfile:
         profile = await session.get(StyleProfile, profile_id)
@@ -37,9 +52,9 @@ class StyleProfileService:
         job = await session.scalar(
             select(StyleAnalysisJob)
             .options(
-                selectinload(StyleAnalysisJob.sample_file),
-                selectinload(StyleAnalysisJob.provider),
-                selectinload(StyleAnalysisJob.style_profile),
+                joinedload(StyleAnalysisJob.sample_file),
+                joinedload(StyleAnalysisJob.provider),
+                joinedload(StyleAnalysisJob.style_profile),
             )
             .where(StyleAnalysisJob.id == payload.job_id)
         )

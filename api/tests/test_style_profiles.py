@@ -11,6 +11,7 @@ from app.services.style_analysis_jobs import (
     StyleAnalysisJobService,
     build_profile_result_bundle,
 )
+from app.services.style_analysis_worker import StyleAnalysisWorkerService
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 
 
@@ -147,18 +148,6 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     )
     job_id = job_response.json()["id"]
 
-    async def fake_classify_input(self, *, text: str) -> dict:
-        assert "雨下得很慢" in text
-        return {
-            "text_type": "章节正文",
-            "has_timestamps": False,
-            "has_speaker_labels": False,
-            "has_noise_markers": False,
-            "uses_batch_processing": False,
-            "location_indexing": "章节或段落位置",
-            "noise_notes": "未发现显著噪声。",
-        }
-
     async def fake_build_pipeline(
         self,
         *,
@@ -178,13 +167,11 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
                 self,
                 *,
                 thread_id: str,
-                cleaned_text: str,
                 chunks: list[str],
                 classification: dict,
                 max_concurrency: int,
             ) -> StyleAnalysisPipelineResult:
                 del thread_id
-                assert "雨下得很慢" in cleaned_text
                 assert len(chunks) == 1
                 assert classification["text_type"] == "章节正文"
                 assert max_concurrency == 5
@@ -207,10 +194,9 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
 
         return FakePipeline()
 
-    monkeypatch.setattr(StyleAnalysisJobService, "_classify_input", fake_classify_input)
-    monkeypatch.setattr(StyleAnalysisJobService, "_build_pipeline", fake_build_pipeline)
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
 
-    processed = await StyleAnalysisJobService().process_next_pending(app_with_db.state.session_factory)
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
     assert processed is True
 
     create_profile_response = await initialized_client.post(
@@ -286,18 +272,6 @@ async def test_update_profile_keeps_analysis_report_payload_unchanged(
     )
     job_id = job_response.json()["id"]
 
-    async def fake_classify_input(self, *, text: str) -> dict:
-        assert "雨下得很慢" in text
-        return {
-            "text_type": "章节正文",
-            "has_timestamps": False,
-            "has_speaker_labels": False,
-            "has_noise_markers": False,
-            "uses_batch_processing": False,
-            "location_indexing": "章节或段落位置",
-            "noise_notes": "未发现显著噪声。",
-        }
-
     async def fake_build_pipeline(
         self,
         *,
@@ -317,13 +291,11 @@ async def test_update_profile_keeps_analysis_report_payload_unchanged(
                 self,
                 *,
                 thread_id: str,
-                cleaned_text: str,
                 chunks: list[str],
                 classification: dict,
                 max_concurrency: int,
             ) -> StyleAnalysisPipelineResult:
                 del thread_id
-                assert "雨下得很慢" in cleaned_text
                 assert len(chunks) == 1
                 assert classification["text_type"] == "章节正文"
                 assert max_concurrency == 5
@@ -346,9 +318,8 @@ async def test_update_profile_keeps_analysis_report_payload_unchanged(
 
         return FakePipeline()
 
-    monkeypatch.setattr(StyleAnalysisJobService, "_classify_input", fake_classify_input)
-    monkeypatch.setattr(StyleAnalysisJobService, "_build_pipeline", fake_build_pipeline)
-    processed = await StyleAnalysisJobService().process_next_pending(app_with_db.state.session_factory)
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
     assert processed is True
 
     create_profile_response = await initialized_client.post(

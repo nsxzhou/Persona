@@ -32,3 +32,15 @@ class StyleProfileResponse(BaseModel):
     prompt_pack: PromptPack
     created_at: datetime
     updated_at: datetime
+
+
+class StyleProfileListItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    provider_id: str
+    model_name: str
+    source_filename: str
+    style_name: str
+    created_at: datetime
+    updated_at: datetime

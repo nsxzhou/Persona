@@ -24,7 +24,7 @@ export default function ProjectDetailPage() {
   });
   const styleProfilesQuery = useQuery({
     queryKey: ["style-profiles"],
-    queryFn: api.getStyleProfiles,
+    queryFn: () => api.getStyleProfiles(),
   });
   const mutation = useMutation({
     mutationFn: (payload: Partial<ProjectPayload>) => api.updateProject(projectId, payload),
