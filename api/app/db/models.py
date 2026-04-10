@@ -208,6 +208,12 @@ class StyleAnalysisJob(TimestampMixin, Base):
     analysis_report_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     style_summary_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     prompt_pack_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

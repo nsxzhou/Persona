@@ -82,6 +82,21 @@ class Settings(BaseSettings):
         default=300, alias="PERSONA_STYLE_ANALYSIS_STALE_TIMEOUT_SECONDS"
     )
 
+    # Style Lab chunk 并发上限
+    style_analysis_chunk_max_concurrency: int = Field(
+        default=5, alias="PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY"
+    )
+
+    # Style Lab 最大尝试次数
+    style_analysis_max_attempts: int = Field(
+        default=3, alias="PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS"
+    )
+
+    # Style Lab LangGraph checkpoint 连接串，可覆盖数据库推导逻辑
+    style_analysis_checkpoint_url: str | None = Field(
+        default=None, alias="PERSONA_STYLE_ANALYSIS_CHECKPOINT_URL"
+    )
+
     # Pydantic配置 - 定义Settings类本身的行为
     model_config = SettingsConfigDict(
         # 从.env文件读取配置 - 开发环境会用这个文件

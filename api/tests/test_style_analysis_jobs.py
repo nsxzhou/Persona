@@ -7,8 +7,12 @@ import pytest
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from app.db.models import StyleAnalysisJob
+from app.schemas.style_analysis_jobs import AnalysisMeta, AnalysisReport, PromptPack, StyleSummary
 from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
+from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 
 
 def build_fake_analysis_report() -> dict:
@@ -205,36 +209,59 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
             "noise_notes": "未发现显著噪声。",
         }
 
-    async def fake_analyze_chunks(self, *, chunks: list[str], classification: dict) -> list[dict]:
-        assert len(chunks) == 1
-        assert classification["text_type"] == "章节正文"
-        return [{"chunk_index": 0, "summary": "局部结果"}]
+    async def fake_build_pipeline(
+        self,
+        *,
+        provider,
+        model_name: str,
+        style_name: str,
+        source_filename: str,
+        stage_callback,
+    ):
+        del provider, stage_callback
+        assert model_name
+        assert style_name == "古龙风格实验"
+        assert source_filename == "sample.txt"
 
-    async def fake_merge_chunk_analyses(self, *, chunk_analyses: list[dict], classification: dict) -> dict:
-        assert chunk_analyses == [{"chunk_index": 0, "summary": "局部结果"}]
-        assert classification["location_indexing"] == "章节或段落位置"
-        return {"merged": True}
+        class FakePipeline:
+            async def run(
+                self,
+                *,
+                thread_id: str,
+                cleaned_text: str,
+                chunks: list[str],
+                classification: dict,
+                max_concurrency: int,
+            ) -> StyleAnalysisPipelineResult:
+                assert thread_id == job_id
+                assert "夜色很冷" in cleaned_text
+                assert len(chunks) == 1
+                assert classification["text_type"] == "章节正文"
+                assert max_concurrency == 5
+                report = build_fake_analysis_report()
+                return StyleAnalysisPipelineResult(
+                    analysis_meta=AnalysisMeta(
+                        source_filename="sample.txt",
+                        model_name=model_name,
+                        text_type="章节正文",
+                        has_timestamps=False,
+                        has_speaker_labels=False,
+                        has_noise_markers=False,
+                        uses_batch_processing=False,
+                        location_indexing="章节或段落位置",
+                        chunk_count=1,
+                    ),
+                    analysis_report=AnalysisReport.model_validate(report),
+                    style_summary=StyleSummary.model_validate(
+                        build_fake_style_summary("古龙风格实验")
+                    ),
+                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
+                )
 
-    async def fake_build_analysis_report(self, *, merged_analysis: dict, classification: dict) -> dict:
-        assert merged_analysis["merged"] is True
-        assert classification["text_type"] == "章节正文"
-        return build_fake_analysis_report()
-
-    async def fake_build_style_summary(self, *, report: dict) -> dict:
-        assert report["sections"][0]["section"] == "3.1"
-        return build_fake_style_summary("古龙风格实验")
-
-    async def fake_build_prompt_pack(self, *, report: dict, style_summary: dict) -> dict:
-        assert style_summary["style_name"] == "古龙风格实验"
-        assert report["executive_summary"]["summary"].startswith("整体文风")
-        return build_fake_prompt_pack()
+        return FakePipeline()
 
     monkeypatch.setattr(StyleAnalysisJobService, "_classify_input", fake_classify_input)
-    monkeypatch.setattr(StyleAnalysisJobService, "_analyze_chunks", fake_analyze_chunks)
-    monkeypatch.setattr(StyleAnalysisJobService, "_merge_chunk_analyses", fake_merge_chunk_analyses)
-    monkeypatch.setattr(StyleAnalysisJobService, "_build_analysis_report", fake_build_analysis_report)
-    monkeypatch.setattr(StyleAnalysisJobService, "_build_style_summary", fake_build_style_summary)
-    monkeypatch.setattr(StyleAnalysisJobService, "_build_prompt_pack", fake_build_prompt_pack)
+    monkeypatch.setattr(StyleAnalysisJobService, "_build_pipeline", fake_build_pipeline)
 
     processed = await StyleAnalysisJobService().process_next_pending(app_with_db.state.session_factory)
     assert processed is True
@@ -288,7 +315,43 @@ async def test_process_next_pending_job_records_failure_message(
 
 
 @pytest.mark.asyncio
-async def test_app_startup_marks_stale_running_jobs_failed(
+async def test_claim_next_pending_job_claims_once_and_records_lease(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "并发任务", "provider_id": provider_id},
+        files={"file": ("sample.txt", "山风很急。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+    service = StyleAnalysisJobService()
+
+    first_claim = await service._claim_next_pending_job(
+        app_with_db.state.session_factory,
+        worker_id="worker-a",
+    )
+    second_claim = await service._claim_next_pending_job(
+        app_with_db.state.session_factory,
+        worker_id="worker-b",
+    )
+
+    assert first_claim == job_id
+    assert second_claim is None
+    async with app_with_db.state.session_factory() as session:
+        job = await session.scalar(select(StyleAnalysisJob).where(StyleAnalysisJob.id == job_id))
+        assert job is not None
+        assert job.status == "running"
+        assert job.stage == "preparing_input"
+        assert job.locked_by == "worker-a"
+        assert job.locked_at is not None
+        assert job.last_heartbeat_at is not None
+        assert job.attempt_count == 1
+
+
+@pytest.mark.asyncio
+async def test_app_startup_releases_stale_running_jobs_for_resume(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,
 ) -> None:
@@ -305,6 +368,10 @@ async def test_app_startup_marks_stale_running_jobs_failed(
         job.status = "running"
         job.stage = "analyzing_chunks"
         job.started_at = datetime.now(UTC) - timedelta(minutes=10)
+        job.locked_by = "dead-worker"
+        job.locked_at = datetime.now(UTC) - timedelta(minutes=10)
+        job.last_heartbeat_at = datetime.now(UTC) - timedelta(minutes=10)
+        job.attempt_count = 1
         await session.commit()
 
     async with LifespanManager(app_with_db):
@@ -312,8 +379,16 @@ async def test_app_startup_marks_stale_running_jobs_failed(
 
     detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     detail = detail_response.json()
-    assert detail["status"] == "failed"
-    assert detail["error_message"] == "分析任务因服务重启中断，请重新提交"
+    assert detail["status"] == "pending"
+    assert detail["stage"] is None
+    assert detail["error_message"] is None
+    async with app_with_db.state.session_factory() as session:
+        job = await session.scalar(select(StyleAnalysisJob).where(StyleAnalysisJob.id == job_id))
+        assert job is not None
+        assert job.locked_by is None
+        assert job.locked_at is None
+        assert job.last_heartbeat_at is None
+        assert job.attempt_count == 1
 
 
 def test_build_job_result_bundle_does_not_fallback_to_legacy_draft_payload() -> None:

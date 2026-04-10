@@ -69,6 +69,7 @@ def create_app(*, session_factory=None) -> FastAPI:
                 worker_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await worker_task
+            await worker_service.aclose()
 
     # 创建FastAPI应用实例
     # title: API文档标题
