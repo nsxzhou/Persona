@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi } from "vitest";
 
 import StyleLabPage from "@/app/(workspace)/style-lab/page";
+import { StyleLabWizardView } from "@/components/style-lab-wizard-view";
 
 const apiMock = vi.hoisted(() => ({
   getProviderConfigs: vi.fn(),
@@ -160,6 +161,12 @@ function buildSucceededJob(overrides?: Record<string, unknown>) {
   };
 }
 
+const mockPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 vi.mock("sonner", () => {
   return {
     toast: {
@@ -176,11 +183,20 @@ vi.mock("@/lib/api", () => {
   };
 });
 
-function renderPage() {
+function renderDashboard() {
   const queryClient = new QueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
       <StyleLabPage />
+    </QueryClientProvider>,
+  );
+}
+
+function renderWizard() {
+  const queryClient = new QueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <StyleLabWizardView jobId="job-1" />
     </QueryClientProvider>,
   );
 }
@@ -200,8 +216,6 @@ test("style lab page submits txt upload form", async () => {
     },
   ]);
   apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([]);
-  apiMock.getStyleProfiles.mockResolvedValueOnce([]);
-  apiMock.getProjects.mockResolvedValueOnce([]);
   apiMock.createStyleAnalysisJob.mockResolvedValueOnce({
     ...buildSucceededJob(),
     status: "pending",
@@ -212,7 +226,9 @@ test("style lab page submits txt upload form", async () => {
     prompt_pack: null,
   });
 
-  renderPage();
+  renderDashboard();
+
+  fireEvent.click(await screen.findByRole("button", { name: "+ 新建分析任务" }));
 
   fireEvent.change(await screen.findByLabelText("风格档案名称"), {
     target: { value: "金庸武侠风" },
@@ -225,33 +241,10 @@ test("style lab page submits txt upload form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "开始分析" }));
 
   await waitFor(() => expect(apiMock.createStyleAnalysisJob).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/style-lab/job-1"));
 });
 
-test("style lab page shows running stage feedback", async () => {
-  apiMock.getProviderConfigs.mockResolvedValueOnce([
-    {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      api_key_hint: "****1234",
-      is_enabled: true,
-      last_test_status: null,
-      last_test_error: null,
-      last_tested_at: null,
-    },
-  ]);
-  apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([
-    {
-      ...buildSucceededJob(),
-      status: "running",
-      stage: "analyzing_chunks",
-      analysis_meta: null,
-      analysis_report: null,
-      style_summary: null,
-      prompt_pack: null,
-    },
-  ]);
+test("style lab wizard shows running stage feedback", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValueOnce({
     ...buildSucceededJob(),
     status: "running",
@@ -264,26 +257,12 @@ test("style lab page shows running stage feedback", async () => {
   apiMock.getStyleProfiles.mockResolvedValueOnce([]);
   apiMock.getProjects.mockResolvedValueOnce([]);
 
-  renderPage();
+  renderWizard();
 
-  expect(await screen.findByText("当前阶段：analyzing_chunks")).toBeInTheDocument();
+  expect(await screen.findByText("当前阶段: analyzing_chunks")).toBeInTheDocument();
 });
 
-test("style lab page renders read-only report and saves new profile with mount", async () => {
-  apiMock.getProviderConfigs.mockResolvedValue([
-    {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      api_key_hint: "****1234",
-      is_enabled: true,
-      last_test_status: null,
-      last_test_error: null,
-      last_tested_at: null,
-    },
-  ]);
-  apiMock.getStyleAnalysisJobs.mockResolvedValue([buildSucceededJob()]);
+test("style lab wizard renders read-only report and saves new profile with mount", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(buildSucceededJob());
   apiMock.getStyleProfiles.mockResolvedValue([]);
   apiMock.getProjects.mockResolvedValue([
@@ -334,40 +313,33 @@ test("style lab page renders read-only report and saves new profile with mount",
     },
   });
 
-  renderPage();
+  renderWizard();
 
   expect(await screen.findByText("口头禅与常用表达")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("风格名称"), {
+  
+  fireEvent.click(screen.getByRole("button", { name: "审阅完毕，下一步" }));
+
+  fireEvent.change(await screen.findByText("风格名称", { selector: "label" }).then(l => screen.getByLabelText("风格名称")), {
     target: { value: "新名字" },
   });
-  fireEvent.change(screen.getByLabelText("System Prompt"), {
+  
+  fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
+
+  fireEvent.change(await screen.findByText("System Prompt", { selector: "label" }).then(l => screen.getByLabelText("System Prompt")), {
     target: { value: "新的 system prompt" },
   });
-  fireEvent.click(screen.getByRole("combobox", { name: "挂载到项目" }));
+  
+  // Click mount select
+  fireEvent.click(screen.getByRole("combobox"));
   fireEvent.click(await screen.findByRole("option", { name: "风格挂载项目" }));
-  fireEvent.click(screen.getByRole("button", { name: "保存结果" }));
+  
+  fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
 
   await waitFor(() => expect(apiMock.createStyleProfile).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(apiMock.updateProject).toHaveBeenCalledWith("project-1", { style_profile_id: "profile-1" }));
 });
 
-test("style lab page updates existing saved profile", async () => {
-  apiMock.getProviderConfigs.mockResolvedValue([
-    {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      api_key_hint: "****1234",
-      is_enabled: true,
-      last_test_status: null,
-      last_test_error: null,
-      last_tested_at: null,
-    },
-  ]);
-  apiMock.getStyleAnalysisJobs.mockResolvedValue([
-    buildSucceededJob({ style_profile_id: "profile-1" }),
-  ]);
+test("style lab wizard updates existing saved profile", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({ style_profile_id: "profile-1" }),
   );
@@ -401,13 +373,18 @@ test("style lab page updates existing saved profile", async () => {
     updated_at: "2026-04-09T00:03:00Z",
   });
 
-  renderPage();
+  renderWizard();
 
-  fireEvent.change(await screen.findByLabelText("风格名称"), {
+  fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
+
+  const styleNameLabel = await screen.findByText("风格名称", { selector: "label" });
+  fireEvent.change(screen.getByLabelText("风格名称"), {
     target: { value: "覆盖后的名字" },
   });
-  await waitFor(() => expect(screen.getByLabelText("风格名称")).toHaveValue("覆盖后的名字"));
-  fireEvent.click(screen.getByRole("button", { name: "保存结果" }));
+  
+  fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
+
+  fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
 
   await waitFor(() => expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(
     "profile-1",
