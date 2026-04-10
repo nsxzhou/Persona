@@ -61,7 +61,7 @@ export function ProjectsPageView({
           </Card>
         ) : null}
         {projects.map((project) => (
-          <div key={project.id} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div key={project.id} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer">
             <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center justify-between">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
