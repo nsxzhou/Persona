@@ -248,7 +248,7 @@ test("style lab wizard shows running stage feedback", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValueOnce({
     ...buildSucceededJob(),
     status: "running",
-    stage: "analyzing_chunks",
+    stage: "preparing_input",
     analysis_meta: null,
     analysis_report: null,
     style_summary: null,
@@ -259,7 +259,7 @@ test("style lab wizard shows running stage feedback", async () => {
 
   renderWizard();
 
-  expect(await screen.findByText("当前阶段: analyzing_chunks")).toBeInTheDocument();
+  expect(await screen.findByText("当前阶段: preparing_input")).toBeInTheDocument();
 });
 
 test("style lab wizard renders read-only report and saves new profile with mount", async () => {

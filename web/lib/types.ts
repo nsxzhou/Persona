@@ -156,7 +156,7 @@ export type StyleAnalysisJob = {
   model_name: string;
   status: "pending" | "running" | "succeeded" | "failed";
   stage:
-    | "classifying_input"
+    | "preparing_input"
     | "analyzing_chunks"
     | "aggregating"
     | "reporting"

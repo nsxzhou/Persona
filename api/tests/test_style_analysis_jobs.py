@@ -7,10 +7,17 @@ import pytest
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.db.models import StyleAnalysisJob
-from app.schemas.style_analysis_jobs import AnalysisMeta, AnalysisReport, PromptPack, StyleSummary
+from app.schemas.style_analysis_jobs import (
+    AnalysisMeta,
+    AnalysisReport,
+    PromptPack,
+    StyleAnalysisJobResponse,
+    StyleSummary,
+)
 from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 
@@ -116,6 +123,45 @@ def build_fake_prompt_pack() -> dict:
                 "purpose": "示范节制对白",
             },
         ],
+    }
+
+
+def build_style_analysis_job_response_payload() -> dict:
+    now = datetime.now(UTC)
+    return {
+        "id": "job-1",
+        "style_name": "测试风格",
+        "provider_id": "provider-1",
+        "model_name": "gpt-4.1-mini",
+        "status": "running",
+        "stage": "preparing_input",
+        "error_message": None,
+        "started_at": now,
+        "completed_at": None,
+        "created_at": now,
+        "updated_at": now,
+        "provider": {
+            "id": "provider-1",
+            "label": "Primary Gateway",
+            "base_url": "https://api.openai.com/v1",
+            "default_model": "gpt-4.1-mini",
+            "is_enabled": True,
+        },
+        "sample_file": {
+            "id": "sample-1",
+            "original_filename": "sample.txt",
+            "content_type": "text/plain",
+            "byte_size": 12,
+            "character_count": 4,
+            "checksum_sha256": "abc123",
+            "created_at": now,
+            "updated_at": now,
+        },
+        "style_profile_id": None,
+        "analysis_meta": None,
+        "analysis_report": None,
+        "style_summary": None,
+        "prompt_pack": None,
     }
 
 
@@ -413,3 +459,24 @@ def test_build_job_result_bundle_does_not_fallback_to_legacy_draft_payload() -> 
     assert analysis_report is None
     assert style_summary is None
     assert prompt_pack is None
+
+
+def test_style_analysis_job_response_accepts_allowed_status_and_stage() -> None:
+    payload = build_style_analysis_job_response_payload()
+    response = StyleAnalysisJobResponse.model_validate(payload)
+    assert response.status == "running"
+    assert response.stage == "preparing_input"
+
+
+def test_style_analysis_job_response_rejects_unknown_status() -> None:
+    payload = build_style_analysis_job_response_payload()
+    payload["status"] = "done"
+    with pytest.raises(ValidationError):
+        StyleAnalysisJobResponse.model_validate(payload)
+
+
+def test_style_analysis_job_response_rejects_legacy_stage() -> None:
+    payload = build_style_analysis_job_response_payload()
+    payload["stage"] = "classifying_input"
+    with pytest.raises(ValidationError):
+        StyleAnalysisJobResponse.model_validate(payload)

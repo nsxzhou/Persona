@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Literal, Self, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -180,6 +180,17 @@ class StyleSampleFileResponse(BaseModel):
     updated_at: datetime
 
 
+StyleAnalysisJobStatus: TypeAlias = Literal["pending", "running", "succeeded", "failed"]
+StyleAnalysisJobStage: TypeAlias = Literal[
+    "preparing_input",
+    "analyzing_chunks",
+    "aggregating",
+    "reporting",
+    "summarizing",
+    "composing_prompt_pack",
+]
+
+
 class StyleAnalysisJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -187,8 +198,8 @@ class StyleAnalysisJobResponse(BaseModel):
     style_name: str
     provider_id: str
     model_name: str
-    status: str
-    stage: str | None
+    status: StyleAnalysisJobStatus
+    stage: StyleAnalysisJobStage | None
     error_message: str | None
     started_at: datetime | None
     completed_at: datetime | None
