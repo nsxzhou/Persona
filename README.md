@@ -10,6 +10,19 @@ Persona 是一个前后端分离的单用户 AI 创作基础平台。
 
 ## 快速开始
 
+### 一键启动（推荐）
+
+```bash
+cd Persona
+make dev
+```
+
+说明：
+- 会先检查 Postgres 容器，已运行则跳过启动
+- 会检查 `8000/3000` 端口，后端或前端已运行则跳过启动
+- 首次会自动执行依赖安装（`uv sync`、`pnpm install`）
+- 使用 `make status` 查看状态，`make stop` 停止 8000/3000 端口上的前后端服务
+
 ### 1. 启动数据库
 
 ```bash
@@ -45,4 +58,3 @@ cd Persona/api && uv run pytest -q
 cd Persona/web && pnpm test
 cd Persona/web && pnpm build
 ```
-

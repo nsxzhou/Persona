@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProviderConfigCreate(BaseModel):
@@ -19,6 +19,13 @@ class ProviderConfigUpdate(BaseModel):
     api_key: str | None = Field(default=None, min_length=4, max_length=512)
     default_model: str | None = Field(default=None, min_length=1, max_length=100)
     is_enabled: bool | None = None
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def normalize_empty_api_key(cls, value: str | None) -> str | None:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 class ProviderConfigResponse(BaseModel):
@@ -50,4 +57,3 @@ class ProviderSummary(BaseModel):
 class ConnectionTestResponse(BaseModel):
     status: str
     message: str
-

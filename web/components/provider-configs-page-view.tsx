@@ -34,7 +34,7 @@ export function ProviderConfigsPageView({
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         {providers.map((provider) => (
-          <div key={provider.id} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div key={provider.id} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer">
             <div className="flex flex-col space-y-1.5 p-6 pb-4">
               <div className="flex items-center justify-between">
                 <div>

@@ -85,3 +85,20 @@ async def test_provider_delete_rejects_when_referenced_by_active_project(initial
     assert delete_response.status_code == 409
     assert delete_response.json()["detail"] == "该 Provider 正被项目引用，无法删除"
 
+
+@pytest.mark.asyncio
+async def test_provider_update_accepts_empty_api_key_as_keep_original(initialized_client: AsyncClient) -> None:
+    providers = (await initialized_client.get("/api/v1/provider-configs")).json()
+    provider_id = providers[0]["id"]
+    original_hint = providers[0]["api_key_hint"]
+
+    update_response = await initialized_client.patch(
+        f"/api/v1/provider-configs/{provider_id}",
+        json={
+            "label": "Primary Gateway",
+            "api_key": "",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["api_key_hint"] == original_hint
