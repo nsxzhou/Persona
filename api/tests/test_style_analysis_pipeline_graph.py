@@ -106,15 +106,17 @@ class FakeStructuredLLMClient:
         self.report_calls = 0
         self.fail_report_once = fail_report_once
 
+    def build_model(self, *, provider: object, model_name: str) -> object:
+        return SimpleNamespace(provider=provider, model_name=model_name)
+
     async def ainvoke_structured(
         self,
         *,
-        provider: object,
-        model_name: str,
+        model: object,
         schema: type,
         prompt: str,
     ) -> object:
-        del provider, model_name
+        del model
         if schema is ChunkAnalysis:
             match = re.search(r"当前 chunk：(\d+)/(\d+)", prompt)
             assert match is not None
@@ -166,7 +168,6 @@ async def test_pipeline_analyzes_chunks_with_configured_max_concurrency() -> Non
 
     result = await pipeline.run(
         thread_id="job-concurrency",
-        cleaned_text="\n\n".join(f"段落 {index}" for index in range(10)),
         chunks=[f"chunk {index}" for index in range(10)],
         classification={
             "text_type": "章节正文",
@@ -194,7 +195,6 @@ async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks()
 
     kwargs = {
         "thread_id": "job-resume",
-        "cleaned_text": "夜色很冷。\n\n他忽然笑了。",
         "chunks": ["chunk 0", "chunk 1", "chunk 2"],
         "classification": {
             "text_type": "章节正文",

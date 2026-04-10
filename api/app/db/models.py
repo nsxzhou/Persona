@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 # 导入SQLAlchemy字段类型
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
 
 # 导入SQLAlchemy 2.0的新ORM API
 # Mapped: 类型注解包装器，用于声明模型字段
@@ -189,6 +189,13 @@ class StyleSampleFile(TimestampMixin, Base):
 
 class StyleAnalysisJob(TimestampMixin, Base):
     __tablename__ = "style_analysis_jobs"
+    __table_args__ = (
+        Index(
+            "ix_style_analysis_jobs_status_created_at",
+            "status",
+            "created_at",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     style_name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -201,7 +208,9 @@ class StyleAnalysisJob(TimestampMixin, Base):
         nullable=False,
         unique=True,
     )
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", index=True
+    )
     stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     analysis_meta_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -226,6 +235,12 @@ class StyleAnalysisJob(TimestampMixin, Base):
         back_populates="job", single_parent=True
     )
     style_profile: Mapped["StyleProfile | None"] = relationship(back_populates="source_job")
+
+    @property
+    def style_profile_id(self) -> str | None:
+        if self.style_profile is not None:
+            return self.style_profile.id
+        return None
 
 
 class StyleProfile(TimestampMixin, Base):

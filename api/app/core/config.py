@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # 本地文件存储目录：保存 Style Lab 原始 TXT 样本
     storage_dir: str = Field(default="./storage", alias="PERSONA_STORAGE_DIR")
 
+    style_analysis_max_upload_bytes: int = Field(
+        default=20 * 1024 * 1024,
+        alias="PERSONA_STYLE_ANALYSIS_MAX_UPLOAD_BYTES",
+    )
+
     # Style Lab 后台 worker 开关：测试环境可关闭，避免引入不必要的并发噪音
     style_analysis_worker_enabled: bool = Field(
         default=True, alias="PERSONA_STYLE_ANALYSIS_WORKER_ENABLED"

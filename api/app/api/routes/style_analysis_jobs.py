@@ -1,78 +1,99 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_style_analysis_job_service
 from app.db.models import User
 from app.db.session import get_db_session
-from app.schemas.style_analysis_jobs import StyleAnalysisJobResponse
-from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
+from app.schemas.style_analysis_jobs import (
+    AnalysisMeta,
+    AnalysisReport,
+    PromptPack,
+    StyleAnalysisJobListItemResponse,
+    StyleSummary,
+)
+from app.services.style_analysis_jobs import StyleAnalysisJobService
 
-router = APIRouter(prefix="/style-analysis-jobs", tags=["style-analysis-jobs"])
+router = APIRouter(
+    prefix="/style-analysis-jobs",
+    tags=["style-analysis-jobs"],
+    dependencies=[Depends(get_current_user)],
+)
 
-
-def _serialize(job) -> StyleAnalysisJobResponse:
-    analysis_meta, analysis_report, style_summary, prompt_pack = build_job_result_bundle(job)
-    return StyleAnalysisJobResponse(
-        id=job.id,
-        style_name=job.style_name,
-        provider_id=job.provider_id,
-        model_name=job.model_name,
-        status=job.status,
-        stage=job.stage,
-        error_message=job.error_message,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        created_at=job.created_at,
-        updated_at=job.updated_at,
-        provider=job.provider,
-        sample_file=job.sample_file,
-        style_profile_id=job.style_profile.id if job.style_profile else None,
-        analysis_meta=analysis_meta,
-        analysis_report=analysis_report,
-        style_summary=style_summary,
-        prompt_pack=prompt_pack,
-    )
-
-
-@router.get("", response_model=list[StyleAnalysisJobResponse])
+@router.get("", response_model=list[StyleAnalysisJobListItemResponse])
 async def list_style_analysis_jobs(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1),
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
-) -> list[StyleAnalysisJobResponse]:
-    del current_user
-    jobs = await StyleAnalysisJobService().list(db_session)
-    return [_serialize(job) for job in jobs]
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> list[StyleAnalysisJobListItemResponse]:
+    jobs = await job_service.list(db_session, offset=offset, limit=limit)
+    return [StyleAnalysisJobListItemResponse.model_validate(job) for job in jobs]
 
-
-@router.get("/{job_id}", response_model=StyleAnalysisJobResponse)
+@router.get("/{job_id}", response_model=StyleAnalysisJobListItemResponse)
 async def get_style_analysis_job(
     job_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
-) -> StyleAnalysisJobResponse:
-    del current_user
-    job = await StyleAnalysisJobService().get_or_404(db_session, job_id)
-    return _serialize(job)
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> StyleAnalysisJobListItemResponse:
+    job = await job_service.get_or_404(db_session, job_id, include_payloads=False)
+    return StyleAnalysisJobListItemResponse.model_validate(job)
 
-
-@router.post("", response_model=StyleAnalysisJobResponse, status_code=201)
+@router.post("", response_model=StyleAnalysisJobListItemResponse, status_code=201)
 async def create_style_analysis_job(
     style_name: str = Form(...),
     provider_id: str = Form(...),
     model: str | None = Form(default=None),
     file: UploadFile = File(...),
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
-) -> StyleAnalysisJobResponse:
-    del current_user
-    job = await StyleAnalysisJobService().create(
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> StyleAnalysisJobListItemResponse:
+    if not (file.filename or "").lower().endswith(".txt"):
+        raise HTTPException(status_code=422, detail="仅支持上传 .txt 样本文件")
+    job = await job_service.create(
         db_session,
         style_name=style_name,
         provider_id=provider_id,
         model=model,
         upload_file=file,
     )
-    await db_session.commit()
-    return _serialize(job)
+    # 我们也可以把下面这行省略，因为下面我们会去修改 service.create 让他返回完整的对象，但是现在先保留
+    job = await job_service.get_or_404(db_session, job.id, include_payloads=False)
+    return StyleAnalysisJobListItemResponse.model_validate(job)
+
+
+@router.get("/{job_id}/analysis-meta", response_model=AnalysisMeta)
+async def get_style_analysis_job_analysis_meta(
+    job_id: str,
+    db_session: AsyncSession = Depends(get_db_session),
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> AnalysisMeta:
+    return await job_service.get_analysis_meta_or_409(db_session, job_id)
+
+
+@router.get("/{job_id}/analysis-report", response_model=AnalysisReport)
+async def get_style_analysis_job_analysis_report(
+    job_id: str,
+    db_session: AsyncSession = Depends(get_db_session),
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> AnalysisReport:
+    return await job_service.get_analysis_report_or_409(db_session, job_id)
+
+
+@router.get("/{job_id}/style-summary", response_model=StyleSummary)
+async def get_style_analysis_job_style_summary(
+    job_id: str,
+    db_session: AsyncSession = Depends(get_db_session),
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> StyleSummary:
+    return await job_service.get_style_summary_or_409(db_session, job_id)
+
+
+@router.get("/{job_id}/prompt-pack", response_model=PromptPack)
+async def get_style_analysis_job_prompt_pack(
+    job_id: str,
+    db_session: AsyncSession = Depends(get_db_session),
+    job_service: StyleAnalysisJobService = Depends(get_style_analysis_job_service),
+) -> PromptPack:
+    return await job_service.get_prompt_pack_or_409(db_session, job_id)

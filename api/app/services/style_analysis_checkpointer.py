@@ -44,7 +44,9 @@ class StyleAnalysisCheckpointerFactory:
         raw_url = (settings.style_analysis_checkpoint_url or settings.database_url).strip()
         normalized = normalize_checkpoint_url(raw_url)
         if normalized is None:
-            return InMemorySaver()
+            if "memory" in raw_url.lower():
+                return InMemorySaver()
+            raise ValueError(f"Unsupported database URL for checkpointer: {raw_url}")
 
         driver, conn_string = normalized
         if driver == "sqlite":

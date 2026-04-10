@@ -2,8 +2,7 @@
 # 这行是Python 3.7+的特性，用于解决类型注解的前向引用问题
 from __future__ import annotations
 
-import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 
 # 导入FastAPI框架核心类 - FastAPI是一个现代、高性能的Python Web框架
 from fastapi import FastAPI
@@ -32,7 +31,7 @@ from app.core.config import get_settings
 # create_engine: 创建数据库连接引擎
 # create_session_factory: 创建数据库会话工厂
 from app.db.session import create_engine, create_session_factory
-from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.services.style_analysis_worker import StyleAnalysisWorkerService
 
 
 # 应用工厂函数：创建并配置FastAPI应用实例
@@ -46,30 +45,13 @@ def create_app(*, session_factory=None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        worker_service = StyleAnalysisJobService()
+        worker_service = StyleAnalysisWorkerService()
         await worker_service.fail_stale_running_jobs(
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
         )
-
-        worker_task: asyncio.Task | None = None
-        if settings.style_analysis_worker_enabled:
-            worker_task = asyncio.create_task(
-                worker_service.run_worker(
-                    app.state.session_factory,
-                    poll_interval_seconds=settings.style_analysis_poll_interval_seconds,
-                )
-            )
-            app.state.style_analysis_worker_task = worker_task
-
-        try:
-            yield
-        finally:
-            if worker_task is not None:
-                worker_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await worker_task
-            await worker_service.aclose()
+        yield
+        await worker_service.aclose()
 
     # 创建FastAPI应用实例
     # title: API文档标题

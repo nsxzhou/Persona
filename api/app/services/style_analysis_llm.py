@@ -39,12 +39,10 @@ class StructuredLLMClient:
     async def ainvoke_structured(
         self,
         *,
-        provider: ProviderConfig,
-        model_name: str,
+        model: Any,
         schema: type[StructuredOutputT],
         prompt: str,
     ) -> StructuredOutputT:
-        model = self.build_model(provider=provider, model_name=model_name)
         structured_model = model.with_structured_output(
             schema,
             method="json_schema",

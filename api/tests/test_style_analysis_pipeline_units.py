@@ -144,9 +144,9 @@ async def test_structured_llm_client_invokes_pydantic_schema_with_strict_json_sc
         secret_decrypter=lambda value: f"decrypted:{value}",
     )
 
+    model = client.build_model(provider=provider, model_name="gpt-4.1-mini")
     result = await client.ainvoke_structured(
-        provider=provider,
-        model_name="gpt-4.1-mini",
+        model=model,
         schema=AnalysisReport,
         prompt="生成报告",
     )

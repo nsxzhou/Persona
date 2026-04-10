@@ -1,17 +1,18 @@
 SHELL := /bin/bash
 
-.PHONY: dev db api web status stop stop-api stop-web logs
+.PHONY: dev db api worker web status stop stop-api stop-worker stop-web logs
 
 ROOT_DIR := $(CURDIR)
 API_DIR := $(ROOT_DIR)/api
 WEB_DIR := $(ROOT_DIR)/web
 RUN_DIR := $(ROOT_DIR)/.run
 API_LOG := $(RUN_DIR)/api.log
+WORKER_LOG := $(RUN_DIR)/worker.log
 WEB_LOG := $(RUN_DIR)/web.log
 API_PORT := 8000
 WEB_PORT := 3000
 
-dev: db api web status
+dev: db api worker web status
 
 db:
 	@echo "检查数据库容器状态..."
@@ -41,6 +42,24 @@ api:
 			echo "后端启动完成，日志: $(API_LOG)"; \
 		else \
 			echo "后端启动失败，请检查日志: $(API_LOG)"; \
+			exit 1; \
+		fi; \
+	fi
+
+worker:
+	@mkdir -p "$(RUN_DIR)"
+	@echo "检查 StyleAnalysis Worker 状态..."
+	@if pgrep -f 'python -m app.worker' >/dev/null 2>&1; then \
+		echo "Worker 已运行，跳过启动"; \
+	else \
+		echo "Worker 未运行，正在启动..."; \
+		cd "$(API_DIR)" && uv sync; \
+		cd "$(API_DIR)" && nohup uv run python -m app.worker >"$(WORKER_LOG)" 2>&1 & \
+		sleep 1; \
+		if pgrep -f 'python -m app.worker' >/dev/null 2>&1; then \
+			echo "Worker 启动完成，日志: $(WORKER_LOG)"; \
+		else \
+			echo "Worker 启动失败，请检查日志: $(WORKER_LOG)"; \
 			exit 1; \
 		fi; \
 	fi
@@ -79,13 +98,18 @@ status:
 	else \
 		echo "后端($(API_PORT)): stopped"; \
 	fi
+	@if pgrep -f 'python -m app.worker' >/dev/null 2>&1; then \
+		echo "Worker: running"; \
+	else \
+		echo "Worker: stopped"; \
+	fi
 	@if lsof -iTCP:$(WEB_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
 		echo "前端($(WEB_PORT)): running"; \
 	else \
 		echo "前端($(WEB_PORT)): stopped"; \
 	fi
 
-stop: stop-api stop-web
+stop: stop-api stop-worker stop-web
 
 stop-api:
 	@if lsof -tiTCP:$(API_PORT) -sTCP:LISTEN >/dev/null 2>&1; then \
@@ -93,6 +117,14 @@ stop-api:
 		echo "已停止后端"; \
 	else \
 		echo "后端未运行"; \
+	fi
+
+stop-worker:
+	@if pgrep -f 'python -m app.worker' >/dev/null 2>&1; then \
+		pgrep -f 'python -m app.worker' | xargs kill; \
+		echo "已停止 Worker"; \
+	else \
+		echo "Worker 未运行"; \
 	fi
 
 stop-web:
@@ -105,4 +137,5 @@ stop-web:
 
 logs:
 	@echo "后端日志: $(API_LOG)"
+	@echo "Worker 日志: $(WORKER_LOG)"
 	@echo "前端日志: $(WEB_LOG)"

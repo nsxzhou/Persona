@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Self, TypeAlias
+from typing import Literal, Self, TypeAlias, Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -212,3 +212,22 @@ class StyleAnalysisJobResponse(BaseModel):
     analysis_report: AnalysisReport | None = None
     style_summary: StyleSummary | None = None
     prompt_pack: PromptPack | None = None
+
+
+class StyleAnalysisJobListItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    style_name: str
+    provider_id: str
+    model_name: str
+    status: StyleAnalysisJobStatus
+    stage: StyleAnalysisJobStage | None
+    error_message: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    provider: ProviderSummary
+    sample_file: StyleSampleFileResponse
+    style_profile_id: str | None = None

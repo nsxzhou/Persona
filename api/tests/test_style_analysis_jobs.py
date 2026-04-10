@@ -19,6 +19,7 @@ from app.schemas.style_analysis_jobs import (
     StyleSummary,
 )
 from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
+from app.services.style_analysis_worker import StyleAnalysisWorkerService
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 
 
@@ -187,10 +188,10 @@ async def test_create_style_analysis_job_persists_txt_and_exposes_job_endpoints(
     assert created["status"] == "pending"
     assert created["stage"] is None
     assert created["error_message"] is None
-    assert created["analysis_meta"] is None
-    assert created["analysis_report"] is None
-    assert created["style_summary"] is None
-    assert created["prompt_pack"] is None
+    assert "analysis_meta" not in created
+    assert "analysis_report" not in created
+    assert "style_summary" not in created
+    assert "prompt_pack" not in created
     assert created["provider"]["id"] == provider_id
     assert created["sample_file"]["original_filename"] == "sample.txt"
     assert created["sample_file"]["byte_size"] > 0
@@ -243,18 +244,6 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     )
     job_id = create_response.json()["id"]
 
-    async def fake_classify_input(self, *, text: str) -> dict:
-        assert "夜色很冷" in text
-        return {
-            "text_type": "章节正文",
-            "has_timestamps": False,
-            "has_speaker_labels": False,
-            "has_noise_markers": False,
-            "uses_batch_processing": False,
-            "location_indexing": "章节或段落位置",
-            "noise_notes": "未发现显著噪声。",
-        }
-
     async def fake_build_pipeline(
         self,
         *,
@@ -274,13 +263,11 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
                 self,
                 *,
                 thread_id: str,
-                cleaned_text: str,
                 chunks: list[str],
                 classification: dict,
                 max_concurrency: int,
             ) -> StyleAnalysisPipelineResult:
                 assert thread_id == job_id
-                assert "夜色很冷" in cleaned_text
                 assert len(chunks) == 1
                 assert classification["text_type"] == "章节正文"
                 assert max_concurrency == 5
@@ -306,10 +293,9 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
 
         return FakePipeline()
 
-    monkeypatch.setattr(StyleAnalysisJobService, "_classify_input", fake_classify_input)
-    monkeypatch.setattr(StyleAnalysisJobService, "_build_pipeline", fake_build_pipeline)
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
 
-    processed = await StyleAnalysisJobService().process_next_pending(app_with_db.state.session_factory)
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
     assert processed is True
 
     detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
@@ -319,12 +305,32 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert detail["stage"] is None
     assert detail["error_message"] is None
     assert detail["sample_file"]["character_count"] == len("夜色很冷。\n\n他忽然笑了。")
-    assert detail["analysis_meta"]["text_type"] == "章节正文"
-    assert detail["analysis_meta"]["uses_batch_processing"] is False
-    assert len(detail["analysis_report"]["sections"]) == 12
-    assert detail["analysis_report"]["sections"][0]["section"] == "3.1"
-    assert detail["style_summary"]["style_name"] == "古龙风格实验"
-    assert detail["prompt_pack"]["system_prompt"].startswith("以冷峻")
+
+    meta_response = await initialized_client.get(
+        f"/api/v1/style-analysis-jobs/{job_id}/analysis-meta"
+    )
+    assert meta_response.status_code == 200
+    assert meta_response.json()["text_type"] == "章节正文"
+    assert meta_response.json()["uses_batch_processing"] is False
+
+    report_response = await initialized_client.get(
+        f"/api/v1/style-analysis-jobs/{job_id}/analysis-report"
+    )
+    assert report_response.status_code == 200
+    assert len(report_response.json()["sections"]) == 12
+    assert report_response.json()["sections"][0]["section"] == "3.1"
+
+    summary_response = await initialized_client.get(
+        f"/api/v1/style-analysis-jobs/{job_id}/style-summary"
+    )
+    assert summary_response.status_code == 200
+    assert summary_response.json()["style_name"] == "古龙风格实验"
+
+    prompt_pack_response = await initialized_client.get(
+        f"/api/v1/style-analysis-jobs/{job_id}/prompt-pack"
+    )
+    assert prompt_pack_response.status_code == 200
+    assert prompt_pack_response.json()["system_prompt"].startswith("以冷峻")
 
 
 @pytest.mark.asyncio
@@ -342,22 +348,25 @@ async def test_process_next_pending_job_records_failure_message(
     )
     job_id = create_response.json()["id"]
 
-    async def fake_classify_input(self, *, text: str) -> dict:
-        del text
+    import app.services.style_analysis_worker as style_analysis_worker_module
+
+    def fake_read_chunks_and_classification(*args, **kwargs):
+        del args, kwargs
         raise RuntimeError("输入判定失败")
 
-    monkeypatch.setattr(StyleAnalysisJobService, "_classify_input", fake_classify_input)
+    monkeypatch.setattr(
+        style_analysis_worker_module,
+        "read_chunks_and_classification",
+        fake_read_chunks_and_classification,
+    )
 
-    processed = await StyleAnalysisJobService().process_next_pending(app_with_db.state.session_factory)
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
     assert processed is True
 
     detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     detail = detail_response.json()
     assert detail["status"] == "failed"
     assert detail["error_message"] == "输入判定失败"
-    assert detail["analysis_report"] is None
-    assert detail["style_summary"] is None
-    assert detail["prompt_pack"] is None
 
 
 @pytest.mark.asyncio
@@ -372,7 +381,7 @@ async def test_claim_next_pending_job_claims_once_and_records_lease(
         files={"file": ("sample.txt", "山风很急。".encode("utf-8"), "text/plain")},
     )
     job_id = create_response.json()["id"]
-    service = StyleAnalysisJobService()
+    service = StyleAnalysisWorkerService()
 
     first_claim = await service._claim_next_pending_job(
         app_with_db.state.session_factory,
