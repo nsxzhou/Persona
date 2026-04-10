@@ -2,41 +2,53 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import re
+import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
-from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
-from app.core.security import decrypt_secret
-from app.db.models import StyleAnalysisJob, StyleSampleFile
+from app.db.models import ProviderConfig, StyleAnalysisJob, StyleSampleFile
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
     AnalysisReport,
     PromptPack,
-    StyleAnalysisJobResponse,
     StyleSummary,
 )
 from app.services.provider_configs import ProviderConfigService
+from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
+from app.services.style_analysis_pipeline import (
+    StyleAnalysisPipeline,
+    StyleAnalysisPipelineResult,
+)
 
 logger = logging.getLogger(__name__)
 
-SHARED_ANALYSIS_RULES = """
-你必须遵守以下规则：
-1. 所有结论必须证据优先，不得编造不存在的设定、说话人或风格特征。
-2. 输出必须使用中文简体，返回严格 JSON，不附带解释。
-3. 如果证据不足，必须明确使用低置信或弱判断，不得伪装成确定结论。
-4. 关注文本类型、索引方式、噪声、批处理条件，并在后续分析中保持一致。
-5. 3.1 到 3.12 的专题不能缺失，但某一节证据稀少时允许给出“当前样本中证据有限”的说明。
-""".strip()
+
+def ensure_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+@dataclass(frozen=True)
+class StyleAnalysisRunContext:
+    provider: ProviderConfig
+    style_name: str
+    model_name: str
+    source_filename: str
+    cleaned_text: str
+    chunks: list[str]
+    classification: dict[str, object]
 
 
 def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
@@ -72,6 +84,10 @@ def build_profile_result_bundle(profile) -> tuple[AnalysisReport, StyleSummary, 
 class StyleAnalysisJobService:
     def __init__(self) -> None:
         self.provider_service = ProviderConfigService()
+        self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
+
+    async def aclose(self) -> None:
+        await self.checkpointer_factory.aclose()
 
     async def list(self, session: AsyncSession) -> list[StyleAnalysisJob]:
         result = await session.scalars(
@@ -153,6 +169,10 @@ class StyleAnalysisJobService:
             analysis_report_payload=None,
             style_summary_payload=None,
             prompt_pack_payload=None,
+            locked_by=None,
+            locked_at=None,
+            last_heartbeat_at=None,
+            attempt_count=0,
         )
         session.add(job)
         await session.flush()
@@ -166,113 +186,192 @@ class StyleAnalysisJobService:
     async def process_next_pending(
         self, session_factory: async_sessionmaker[AsyncSession]
     ) -> bool:
-        async with session_factory() as session:
-            job = await session.scalar(
-                select(StyleAnalysisJob)
-                .options(
-                    selectinload(StyleAnalysisJob.provider),
-                    selectinload(StyleAnalysisJob.sample_file),
-                    selectinload(StyleAnalysisJob.style_profile),
-                )
-                .where(StyleAnalysisJob.status == "pending")
-                .order_by(StyleAnalysisJob.created_at.asc())
-            )
-            if job is None:
-                return False
+        worker_id = f"style-worker-{uuid.uuid4()}"
+        job_id = await self._claim_next_pending_job(session_factory, worker_id=worker_id)
+        if job_id is None:
+            return False
 
-            job.status = "running"
-            job.stage = "classifying_input"
-            job.error_message = None
-            job.started_at = datetime.now(UTC)
+        await self._run_claimed_job(session_factory, job_id)
+        return True
+
+    async def _claim_next_pending_job(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        worker_id: str,
+    ) -> str | None:
+        settings = get_settings()
+        async with session_factory() as session:
+            candidate_id = await session.scalar(
+                select(StyleAnalysisJob.id)
+                .where(
+                    StyleAnalysisJob.status == "pending",
+                    StyleAnalysisJob.attempt_count < settings.style_analysis_max_attempts,
+                )
+                .order_by(StyleAnalysisJob.created_at.asc())
+                .limit(1)
+            )
+            if candidate_id is None:
+                return None
+
+            now = datetime.now(UTC)
+            result = await session.execute(
+                update(StyleAnalysisJob)
+                .where(
+                    StyleAnalysisJob.id == candidate_id,
+                    StyleAnalysisJob.status == "pending",
+                )
+                .values(
+                    status="running",
+                    stage="preparing_input",
+                    error_message=None,
+                    started_at=now,
+                    completed_at=None,
+                    locked_by=worker_id,
+                    locked_at=now,
+                    last_heartbeat_at=now,
+                    attempt_count=StyleAnalysisJob.attempt_count + 1,
+                )
+            )
+            if result.rowcount != 1:
+                await session.rollback()
+                return None
+
+            await session.commit()
+            return candidate_id
+
+    async def _run_claimed_job(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+    ) -> None:
+        try:
+            context = await self._load_run_context(session_factory, job_id)
+            pipeline = await self._build_pipeline(
+                provider=context.provider,
+                model_name=context.model_name,
+                style_name=context.style_name,
+                source_filename=context.source_filename,
+                stage_callback=lambda stage: self._touch_job_stage(
+                    session_factory,
+                    job_id,
+                    stage=stage,
+                ),
+            )
+            result = await pipeline.run(
+                thread_id=job_id,
+                cleaned_text=context.cleaned_text,
+                chunks=context.chunks,
+                classification=context.classification,
+                max_concurrency=get_settings().style_analysis_chunk_max_concurrency,
+            )
+            await self._mark_job_succeeded(session_factory, job_id, result=result)
+        except Exception as exc:
+            logger.exception("style analysis job failed", extra={"job_id": job_id})
+            await self._mark_job_failed(session_factory, job_id, error_message=str(exc))
+
+    async def _load_run_context(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+    ) -> StyleAnalysisRunContext:
+        async with session_factory() as session:
+            job = await self.get_or_404(session, job_id)
+            text = self._read_sample_text(job.sample_file)
+            cleaned_text = self._clean_text(text)
+            if not cleaned_text.strip():
+                raise RuntimeError("清洗后没有可分析的有效文本")
+
+            classification = await self._classify_input(text=cleaned_text)
+            chunks = self._chunk_text(cleaned_text)
+            if not chunks:
+                raise RuntimeError("切片后没有可分析的有效文本")
+
+            classification["uses_batch_processing"] = len(chunks) > 1
+            job.sample_file.character_count = len(cleaned_text)
+            await session.commit()
+            return StyleAnalysisRunContext(
+                provider=job.provider,
+                style_name=job.style_name,
+                model_name=job.model_name,
+                source_filename=job.sample_file.original_filename,
+                cleaned_text=cleaned_text,
+                chunks=chunks,
+                classification=classification,
+            )
+
+    async def _build_pipeline(
+        self,
+        *,
+        provider: ProviderConfig,
+        model_name: str,
+        style_name: str,
+        source_filename: str,
+        stage_callback,
+    ) -> StyleAnalysisPipeline:
+        return StyleAnalysisPipeline(
+            provider=provider,
+            model_name=model_name,
+            style_name=style_name,
+            source_filename=source_filename,
+            checkpointer=await self.checkpointer_factory.get(),
+            stage_callback=stage_callback,
+        )
+
+    async def _touch_job_stage(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        stage: str | None,
+    ) -> None:
+        async with session_factory() as session:
+            job = await self.get_or_404(session, job_id)
+            if job.status != "running":
+                return
+            job.stage = stage
+            job.last_heartbeat_at = datetime.now(UTC)
             await session.commit()
 
-            try:
-                text = self._read_sample_text(job.sample_file)
-                cleaned_text = self._clean_text(text)
-                if not cleaned_text.strip():
-                    raise RuntimeError("清洗后没有可分析的有效文本")
-                job.sample_file.character_count = len(cleaned_text)
-                self._current_provider = job.provider
-                self._current_model_name = job.model_name
-                classification = await self._classify_input(text=cleaned_text)
+    async def _mark_job_succeeded(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        result: StyleAnalysisPipelineResult,
+    ) -> None:
+        async with session_factory() as session:
+            job = await self.get_or_404(session, job_id)
+            job.analysis_meta_payload = result.analysis_meta.model_dump(mode="json")
+            job.analysis_report_payload = result.analysis_report.model_dump(mode="json")
+            job.style_summary_payload = result.style_summary.model_dump(mode="json")
+            job.prompt_pack_payload = result.prompt_pack.model_dump(mode="json")
+            job.status = "succeeded"
+            job.stage = None
+            job.error_message = None
+            job.completed_at = datetime.now(UTC)
+            job.locked_by = None
+            job.locked_at = None
+            job.last_heartbeat_at = None
+            await session.commit()
 
-                chunks = self._chunk_text(cleaned_text)
-                if not chunks:
-                    raise RuntimeError("切片后没有可分析的有效文本")
-
-                classification["uses_batch_processing"] = len(chunks) > 1
-
-                job.stage = "analyzing_chunks"
-                await session.commit()
-
-                chunk_analyses = await self._analyze_chunks(
-                    chunks=chunks,
-                    classification=classification,
-                )
-
-                job.stage = "aggregating"
-                await session.commit()
-                merged_analysis = await self._merge_chunk_analyses(
-                    chunk_analyses=chunk_analyses,
-                    classification=classification,
-                )
-
-                job.stage = "reporting"
-                await session.commit()
-                report = AnalysisReport.model_validate(
-                    await self._build_analysis_report(
-                        merged_analysis=merged_analysis,
-                        classification=classification,
-                    )
-                )
-
-                job.stage = "summarizing"
-                await session.commit()
-                style_summary = StyleSummary.model_validate(
-                    await self._build_style_summary(report=report.model_dump(mode="json"))
-                )
-
-                job.stage = "composing_prompt_pack"
-                await session.commit()
-                prompt_pack = PromptPack.model_validate(
-                    await self._build_prompt_pack(
-                        report=report.model_dump(mode="json"),
-                        style_summary=style_summary.model_dump(mode="json"),
-                    )
-                )
-
-                analysis_meta = AnalysisMeta(
-                    source_filename=job.sample_file.original_filename,
-                    model_name=job.model_name,
-                    text_type=classification["text_type"],
-                    has_timestamps=classification["has_timestamps"],
-                    has_speaker_labels=classification["has_speaker_labels"],
-                    has_noise_markers=classification["has_noise_markers"],
-                    uses_batch_processing=classification["uses_batch_processing"],
-                    location_indexing=classification["location_indexing"],
-                    chunk_count=len(chunks),
-                )
-
-                job.analysis_meta_payload = analysis_meta.model_dump(mode="json")
-                job.analysis_report_payload = report.model_dump(mode="json")
-                job.style_summary_payload = style_summary.model_dump(mode="json")
-                job.prompt_pack_payload = prompt_pack.model_dump(mode="json")
-                job.status = "succeeded"
-                job.stage = None
-                job.completed_at = datetime.now(UTC)
-                await session.commit()
-            except Exception as exc:
-                logger.exception("style analysis job failed", extra={"job_id": job.id})
-                job.status = "failed"
-                job.stage = None
-                job.error_message = str(exc)
-                job.completed_at = datetime.now(UTC)
-                await session.commit()
-            finally:
-                self._current_provider = None
-                self._current_model_name = None
-
-        return True
+    async def _mark_job_failed(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        error_message: str,
+    ) -> None:
+        async with session_factory() as session:
+            job = await self.get_or_404(session, job_id)
+            job.status = "failed"
+            job.stage = None
+            job.error_message = error_message
+            job.completed_at = datetime.now(UTC)
+            job.locked_by = None
+            job.locked_at = None
+            job.last_heartbeat_at = None
+            await session.commit()
 
     async def run_worker(
         self,
@@ -292,20 +391,32 @@ class StyleAnalysisJobService:
         stale_after_seconds: int,
     ) -> None:
         cutoff = datetime.now(UTC) - timedelta(seconds=stale_after_seconds)
+        max_attempts = get_settings().style_analysis_max_attempts
         async with session_factory() as session:
             result = await session.scalars(
-                select(StyleAnalysisJob).where(
-                    StyleAnalysisJob.status == "running",
-                    StyleAnalysisJob.started_at.is_not(None),
-                    StyleAnalysisJob.started_at < cutoff,
-                )
+                select(StyleAnalysisJob).where(StyleAnalysisJob.status == "running")
             )
-            stale_jobs = list(result.all())
+            stale_jobs = [
+                job
+                for job in result.all()
+                if (
+                    (ensure_utc(job.last_heartbeat_at) or ensure_utc(job.started_at))
+                    and (ensure_utc(job.last_heartbeat_at) or ensure_utc(job.started_at)) < cutoff
+                )
+            ]
             for job in stale_jobs:
-                job.status = "failed"
+                if job.attempt_count >= max_attempts:
+                    job.status = "failed"
+                    job.error_message = "分析任务重试次数已用尽，请重新提交"
+                    job.completed_at = datetime.now(UTC)
+                else:
+                    job.status = "pending"
+                    job.error_message = None
+                    job.completed_at = None
                 job.stage = None
-                job.error_message = "分析任务因服务重启中断，请重新提交"
-                job.completed_at = datetime.now(UTC)
+                job.locked_by = None
+                job.locked_at = None
+                job.last_heartbeat_at = None
             if stale_jobs:
                 await session.commit()
 
@@ -343,7 +454,7 @@ class StyleAnalysisJobService:
             chunks.append("\n\n".join(current))
         return chunks
 
-    async def _classify_input(self, *, text: str) -> dict:
+    async def _classify_input(self, *, text: str) -> dict[str, object]:
         has_timestamps = bool(
             re.search(r"^\s*(\d{1,2}:\d{2}(?::\d{2})?|\[\d{1,2}:\d{2}(?::\d{2})?\])", text, re.MULTILINE)
         )
@@ -373,146 +484,3 @@ class StyleAnalysisJobService:
             "location_indexing": location_indexing,
             "noise_notes": "检测到显著噪声标记。" if has_noise_markers else "未发现显著噪声。",
         }
-
-    async def _analyze_chunks(self, *, chunks: list[str], classification: dict) -> list[dict]:
-        analyses: list[dict] = []
-        for index, chunk in enumerate(chunks):
-            prompt = self._build_chunk_analysis_prompt(
-                chunk=chunk,
-                chunk_index=index,
-                classification=classification,
-                chunk_count=len(chunks),
-            )
-            analyses.append(await self._invoke_json_prompt(prompt))
-        return analyses
-
-    async def _merge_chunk_analyses(self, *, chunk_analyses: list[dict], classification: dict) -> dict:
-        if len(chunk_analyses) == 1:
-            return {
-                "classification": classification,
-                "sections": chunk_analyses[0].get("sections", []),
-            }
-
-        prompt = self._build_merge_prompt(chunk_analyses=chunk_analyses, classification=classification)
-        return await self._invoke_json_prompt(prompt)
-
-    async def _build_analysis_report(self, *, merged_analysis: dict, classification: dict) -> dict:
-        prompt = self._build_report_prompt(
-            merged_analysis=merged_analysis,
-            classification=classification,
-        )
-        return await self._invoke_json_prompt(prompt)
-
-    async def _build_style_summary(self, *, report: dict) -> dict:
-        prompt = self._build_style_summary_prompt(report=report)
-        return await self._invoke_json_prompt(prompt)
-
-    async def _build_prompt_pack(self, *, report: dict, style_summary: dict) -> dict:
-        prompt = self._build_prompt_pack_prompt(report=report, style_summary=style_summary)
-        return await self._invoke_json_prompt(prompt)
-
-    async def _invoke_json_prompt(self, prompt: str) -> dict:
-        provider = getattr(self, "_current_provider", None)
-        model_name = getattr(self, "_current_model_name", None)
-        if provider is None or model_name is None:
-            raise RuntimeError("分析上下文缺失：尚未绑定 Provider 或模型")
-
-        settings = get_settings()
-        model = init_chat_model(
-            model=model_name,
-            model_provider="openai",
-            base_url=provider.base_url,
-            api_key=decrypt_secret(provider.api_key_encrypted),
-            temperature=0.0,
-            timeout=settings.llm_timeout_seconds,
-            max_retries=settings.llm_max_retries,
-        )
-        response = await model.ainvoke([HumanMessage(content=prompt)])
-        content = response.content if isinstance(response.content, str) else str(response.content)
-        return self._parse_json_payload(content)
-
-    def _build_chunk_analysis_prompt(
-        self,
-        *,
-        chunk: str,
-        chunk_index: int,
-        classification: dict,
-        chunk_count: int,
-    ) -> str:
-        sections = "\n".join(f"- {section} {title}" for section, title in SECTION_TITLES)
-        return (
-            f"{SHARED_ANALYSIS_RULES}\n\n"
-            "你正在执行分块分析阶段。请基于当前 chunk 的文本，只输出严格 JSON。\n"
-            "JSON 结构：{sections:[{section,title,overview,findings:[{label,summary,frequency,confidence,is_weak_judgment,evidence:[{excerpt,location}]}]}]}\n"
-            "要求：\n"
-            "1. sections 必须覆盖 3.1 到 3.12。\n"
-            "2. 每节可以只有 1-3 条 finding；证据不足时仍保留该节并降低置信度。\n"
-            "3. excerpt 必须来自样本文本，不得编造。\n"
-            "4. confidence 只能是 high/medium/low。\n\n"
-            f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
-            f"当前 chunk：{chunk_index + 1}/{chunk_count}\n"
-            f"章节结构：\n{sections}\n\n"
-            f"样本文本：\n{chunk}"
-        )
-
-    def _build_merge_prompt(self, *, chunk_analyses: list[dict], classification: dict) -> str:
-        sections = "\n".join(f"- {section} {title}" for section, title in SECTION_TITLES)
-        return (
-            f"{SHARED_ANALYSIS_RULES}\n\n"
-            "你正在执行全局聚合阶段。请把多个 chunk 的分析结果合并成统一 JSON。\n"
-            "要求：同义归并、重复证据去重、弱判断保留、多说话人差异不抹平。\n"
-            "JSON 结构：{sections:[{section,title,overview,findings:[{label,summary,frequency,confidence,is_weak_judgment,evidence:[{excerpt,location}]}]}]}\n\n"
-            f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
-            f"章节结构：\n{sections}\n\n"
-            f"待合并结果：\n{json.dumps(chunk_analyses, ensure_ascii=False)}"
-        )
-
-    def _build_report_prompt(self, *, merged_analysis: dict, classification: dict) -> str:
-        return (
-            f"{SHARED_ANALYSIS_RULES}\n\n"
-            "你正在把聚合结果整理成最终分析报告。请只输出严格 JSON。\n"
-            "JSON 结构：\n"
-            "{executive_summary:{summary,representative_evidence:[{excerpt,location}]},"
-            "basic_assessment:{text_type,multi_speaker,batch_mode,location_indexing,noise_handling},"
-            "sections:[{section,title,overview,findings:[{label,summary,frequency,confidence,is_weak_judgment,evidence:[{excerpt,location}]}]}],"
-            "appendix}\n"
-            "要求：sections 必须覆盖 3.1 到 3.12。\n\n"
-            f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
-            f"聚合结果：\n{json.dumps(merged_analysis, ensure_ascii=False)}"
-        )
-
-    def _build_style_summary_prompt(self, *, report: dict) -> str:
-        return (
-            f"{SHARED_ANALYSIS_RULES}\n\n"
-            "你正在从完整分析报告提炼可编辑风格摘要。请只输出严格 JSON。\n"
-            "JSON 结构："
-            "{style_name,style_positioning,core_features,lexical_preferences,rhythm_profile,punctuation_profile,"
-            "imagery_and_themes,scene_strategies:[{scene,instruction}],avoid_or_rare,generation_notes}\n"
-            "要求：不要引入报告中不存在的结论；尽量高密度、可用于后续生成。\n\n"
-            f"分析报告：\n{json.dumps(report, ensure_ascii=False)}"
-        )
-
-    def _build_prompt_pack_prompt(self, *, report: dict, style_summary: dict) -> str:
-        return (
-            "你是一位小说写作 prompt 编排器。"
-            "请基于完整分析报告和当前风格摘要，生成一个全局可复用的风格母 prompt 包。"
-            "不要绑定具体项目剧情，不要引入报告中没有的结论。"
-            "只输出严格 JSON。\n"
-            "JSON 结构："
-            "{system_prompt,scene_prompts:{dialogue,action,environment},hard_constraints,"
-            "style_controls:{tone,rhythm,evidence_anchor},few_shot_slots:[{label,type,text,purpose}]}\n\n"
-            f"分析报告：\n{json.dumps(report, ensure_ascii=False)}\n\n"
-            f"当前风格摘要：\n{json.dumps(style_summary, ensure_ascii=False)}"
-        )
-
-    def _parse_json_payload(self, content: str) -> dict:
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            if match is None:
-                raise RuntimeError("LLM 返回内容无法解析") from None
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError as exc:
-                raise RuntimeError("LLM 返回内容无法解析") from exc
