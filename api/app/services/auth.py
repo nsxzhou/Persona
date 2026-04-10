@@ -293,3 +293,11 @@ class AuthService:
 
         # execute() 用于执行不返回结果的查询（DELETE/UPDATE等）
         await session.execute(query)
+
+    async def delete_account(self, session: AsyncSession) -> None:
+        """删除所有账号数据"""
+        from app.db.models import Project, ProviderConfig
+        await session.execute(delete(Project))
+        await session.execute(delete(ProviderConfig))
+        await session.execute(delete(Session))
+        await session.execute(delete(User))

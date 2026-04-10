@@ -60,4 +60,9 @@ async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:
         # yield表示这是一个生成器依赖
         # FastAPI会把yield出来的session传给路由函数
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

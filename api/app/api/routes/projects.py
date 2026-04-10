@@ -9,80 +9,58 @@ from app.db.session import get_db_session
 from app.schemas.projects import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.services.projects import ProjectService
 
-router = APIRouter(prefix="/projects", tags=["projects"])
-
-
-def _serialize(project) -> ProjectResponse:
-    return ProjectResponse.model_validate(project)
-
+router = APIRouter(
+    prefix="/projects",
+    tags=["projects"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @router.get("", response_model=list[ProjectResponse])
 async def list_projects(
     include_archived: bool = Query(default=False),
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> list[ProjectResponse]:
-    del current_user
     projects = await ProjectService().list(db_session, include_archived=include_archived)
-    return [_serialize(project) for project in projects]
-
+    return [ProjectResponse.model_validate(project) for project in projects]
 
 @router.post("", response_model=ProjectResponse, status_code=201)
 async def create_project(
     payload: ProjectCreate,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProjectResponse:
-    del current_user
     project = await ProjectService().create(db_session, payload)
-    await db_session.commit()
-    return _serialize(project)
-
+    return ProjectResponse.model_validate(project)
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProjectResponse:
-    del current_user
     project = await ProjectService().get_or_404(db_session, project_id)
-    return _serialize(project)
-
+    return ProjectResponse.model_validate(project)
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def update_project(
     project_id: str,
     payload: ProjectUpdate,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProjectResponse:
-    del current_user
     project = await ProjectService().update(db_session, project_id, payload)
-    await db_session.commit()
-    return _serialize(project)
-
+    return ProjectResponse.model_validate(project)
 
 @router.post("/{project_id}/archive", response_model=ProjectResponse)
 async def archive_project(
     project_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProjectResponse:
-    del current_user
     project = await ProjectService().archive(db_session, project_id)
-    await db_session.commit()
-    return _serialize(project)
-
+    return ProjectResponse.model_validate(project)
 
 @router.post("/{project_id}/restore", response_model=ProjectResponse)
 async def restore_project(
     project_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProjectResponse:
-    del current_user
     project = await ProjectService().restore(db_session, project_id)
-    await db_session.commit()
-    return _serialize(project)
+    return ProjectResponse.model_validate(project)
 

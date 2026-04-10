@@ -15,8 +15,11 @@ from app.schemas.provider_configs import (
 from app.services.llm_provider import LLMProviderService
 from app.services.provider_configs import ProviderConfigService
 
-router = APIRouter(prefix="/provider-configs", tags=["provider-configs"])
-
+router = APIRouter(
+    prefix="/provider-configs",
+    tags=["provider-configs"],
+    dependencies=[Depends(get_current_user)],
+)
 
 def _serialize(provider) -> ProviderConfigResponse:
     return ProviderConfigResponse(
@@ -33,49 +36,35 @@ def _serialize(provider) -> ProviderConfigResponse:
         updated_at=provider.updated_at,
     )
 
-
 @router.get("", response_model=list[ProviderConfigResponse])
 async def list_provider_configs(
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> list[ProviderConfigResponse]:
-    del current_user
     providers = await ProviderConfigService().list(db_session)
     return [_serialize(provider) for provider in providers]
-
 
 @router.post("", response_model=ProviderConfigResponse, status_code=201)
 async def create_provider_config(
     payload: ProviderConfigCreate,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProviderConfigResponse:
-    del current_user
     provider = await ProviderConfigService().create(db_session, payload)
-    await db_session.commit()
     return _serialize(provider)
-
 
 @router.patch("/{provider_id}", response_model=ProviderConfigResponse)
 async def update_provider_config(
     provider_id: str,
     payload: ProviderConfigUpdate,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ProviderConfigResponse:
-    del current_user
     provider = await ProviderConfigService().update(db_session, provider_id, payload)
-    await db_session.commit()
     return _serialize(provider)
-
 
 @router.post("/{provider_id}/test", response_model=ConnectionTestResponse)
 async def test_provider_config(
     provider_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> ConnectionTestResponse:
-    del current_user
     provider_service = ProviderConfigService()
     provider = await provider_service.get_or_404(db_session, provider_id)
     result = await LLMProviderService().test_connection(provider)
@@ -85,20 +74,15 @@ async def test_provider_config(
         status_value=result["status"],
         error_message=None if result["status"] == "success" else result["message"],
     )
-    await db_session.commit()
 
     if result["status"] == "error":
         raise HTTPException(status_code=400, detail=result["message"])
 
     return ConnectionTestResponse(**result)
 
-
 @router.delete("/{provider_id}", status_code=204)
 async def delete_provider_config(
     provider_id: str,
     db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
 ) -> None:
-    del current_user
     await ProviderConfigService().delete(db_session, provider_id)
-    await db_session.commit()

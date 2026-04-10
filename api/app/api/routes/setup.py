@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import set_session_cookie
 from app.core.config import get_settings
 from app.db.session import get_db_session
 from app.schemas.provider_configs import ProviderConfigResponse
@@ -12,25 +13,10 @@ from app.services.provider_configs import ProviderConfigService
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
-
-def _set_session_cookie(response: Response, raw_token: str) -> None:
-    settings = get_settings()
-    response.set_cookie(
-        key=settings.session_cookie_name,
-        value=raw_token,
-        httponly=True,
-        secure=settings.session_cookie_secure,
-        samesite="lax",
-        max_age=settings.session_ttl_hours * 3600,
-        path="/",
-    )
-
-
 @router.get("/status", response_model=SetupStatusResponse)
 async def get_setup_status(db_session: AsyncSession = Depends(get_db_session)) -> SetupStatusResponse:
     initialized = await AuthService().is_initialized(db_session)
     return SetupStatusResponse(initialized=initialized)
-
 
 @router.post("", response_model=SetupResponse, status_code=status.HTTP_201_CREATED)
 async def run_setup(payload: SetupRequest, response: Response, db_session: AsyncSession = Depends(get_db_session)) -> SetupResponse:
@@ -42,9 +28,8 @@ async def run_setup(payload: SetupRequest, response: Response, db_session: Async
     user = await auth_service.create_initial_admin(db_session, payload.username, payload.password)
     provider = await provider_service.create(db_session, payload.provider)
     _, raw_token = await auth_service.create_session(db_session, user)
-    await db_session.commit()
 
-    _set_session_cookie(response, raw_token)
+    set_session_cookie(response, raw_token)
 
     return SetupResponse(
         user=user,

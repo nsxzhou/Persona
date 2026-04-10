@@ -14,8 +14,8 @@ from app.schemas.provider_configs import ProviderConfigCreate, ProviderConfigUpd
 
 class ProviderConfigService:
     async def list(self, session: AsyncSession) -> list[ProviderConfig]:
-        result = await session.scalars(select(ProviderConfig).order_by(ProviderConfig.created_at.asc()))
-        return list(result.all())
+        result = await session.stream_scalars(select(ProviderConfig).order_by(ProviderConfig.created_at.asc()))
+        return [c async for c in result]
 
     async def create(self, session: AsyncSession, payload: ProviderConfigCreate) -> ProviderConfig:
         provider = ProviderConfig(

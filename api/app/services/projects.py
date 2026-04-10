@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from app.db.models import Project, ProviderConfig
 from app.schemas.projects import ProjectCreate, ProjectUpdate
@@ -19,15 +19,15 @@ class ProjectService:
         self.style_profile_service = StyleProfileService()
 
     async def list(self, session: AsyncSession, *, include_archived: bool) -> list[Project]:
-        query = select(Project).options(selectinload(Project.provider)).order_by(Project.created_at.desc())
+        query = select(Project).options(joinedload(Project.provider)).order_by(Project.created_at.desc())
         if not include_archived:
             query = query.where(Project.archived_at.is_(None))
-        result = await session.scalars(query)
-        return list(result.all())
+        result = await session.stream_scalars(query)
+        return [p async for p in result]
 
     async def get_or_404(self, session: AsyncSession, project_id: str) -> Project:
         project = await session.scalar(
-            select(Project).options(selectinload(Project.provider)).where(Project.id == project_id)
+            select(Project).options(joinedload(Project.provider)).where(Project.id == project_id)
         )
         if project is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
