@@ -9,8 +9,13 @@ const apiMock = vi.hoisted(() => ({
   getProviderConfigs: vi.fn(),
   getStyleAnalysisJobs: vi.fn(),
   getStyleAnalysisJob: vi.fn(),
+  getStyleAnalysisJobAnalysisMeta: vi.fn(),
+  getStyleAnalysisJobAnalysisReport: vi.fn(),
+  getStyleAnalysisJobStyleSummary: vi.fn(),
+  getStyleAnalysisJobPromptPack: vi.fn(),
   createStyleAnalysisJob: vi.fn(),
   getStyleProfiles: vi.fn(),
+  getStyleProfile: vi.fn(),
   createStyleProfile: vi.fn(),
   updateStyleProfile: vi.fn(),
   getProjects: vi.fn(),
@@ -143,20 +148,6 @@ function buildSucceededJob(overrides?: Record<string, unknown>) {
       updated_at: "2026-04-09T00:01:00Z",
     },
     style_profile_id: null,
-    analysis_meta: {
-      source_filename: "sample.txt",
-      model_name: "gpt-4.1-mini",
-      text_type: "章节正文",
-      has_timestamps: false,
-      has_speaker_labels: false,
-      has_noise_markers: false,
-      uses_batch_processing: false,
-      location_indexing: "章节或段落位置",
-      chunk_count: 1,
-    },
-    analysis_report: buildReport(),
-    style_summary: buildSummary(),
-    prompt_pack: buildPromptPack(),
     ...overrides,
   };
 }
@@ -220,10 +211,6 @@ test("style lab page submits txt upload form", async () => {
     ...buildSucceededJob(),
     status: "pending",
     completed_at: null,
-    analysis_meta: null,
-    analysis_report: null,
-    style_summary: null,
-    prompt_pack: null,
   });
 
   renderDashboard();
@@ -249,12 +236,8 @@ test("style lab wizard shows running stage feedback", async () => {
     ...buildSucceededJob(),
     status: "running",
     stage: "preparing_input",
-    analysis_meta: null,
-    analysis_report: null,
-    style_summary: null,
-    prompt_pack: null,
   });
-  apiMock.getStyleProfiles.mockResolvedValueOnce([]);
+  apiMock.getStyleProfile.mockResolvedValue(null);
   apiMock.getProjects.mockResolvedValueOnce([]);
 
   renderWizard();
@@ -264,7 +247,10 @@ test("style lab wizard shows running stage feedback", async () => {
 
 test("style lab wizard renders read-only report and saves new profile with mount", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(buildSucceededJob());
-  apiMock.getStyleProfiles.mockResolvedValue([]);
+  apiMock.getStyleAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
+  apiMock.getStyleAnalysisJobStyleSummary.mockResolvedValue(buildSummary());
+  apiMock.getStyleAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
+  apiMock.getStyleProfile.mockResolvedValue(null);
   apiMock.getProjects.mockResolvedValue([
     {
       id: "project-1",
@@ -343,21 +329,19 @@ test("style lab wizard updates existing saved profile", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({ style_profile_id: "profile-1" }),
   );
-  apiMock.getStyleProfiles.mockResolvedValue([
-    {
-      id: "profile-1",
-      source_job_id: "job-1",
-      provider_id: "provider-1",
-      model_name: "gpt-4.1-mini",
-      source_filename: "sample.txt",
-      style_name: "旧名字",
-      analysis_report: buildReport(),
-      style_summary: buildSummary("旧名字"),
-      prompt_pack: buildPromptPack(),
-      created_at: "2026-04-09T00:02:00Z",
-      updated_at: "2026-04-09T00:02:00Z",
-    },
-  ]);
+  apiMock.getStyleProfile.mockResolvedValue({
+    id: "profile-1",
+    source_job_id: "job-1",
+    provider_id: "provider-1",
+    model_name: "gpt-4.1-mini",
+    source_filename: "sample.txt",
+    style_name: "旧名字",
+    analysis_report: buildReport(),
+    style_summary: buildSummary("旧名字"),
+    prompt_pack: buildPromptPack(),
+    created_at: "2026-04-09T00:02:00Z",
+    updated_at: "2026-04-09T00:02:00Z",
+  });
   apiMock.getProjects.mockResolvedValue([]);
   apiMock.updateStyleProfile.mockResolvedValueOnce({
     id: "profile-1",
@@ -377,14 +361,13 @@ test("style lab wizard updates existing saved profile", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
 
-  const styleNameLabel = await screen.findByText("风格名称", { selector: "label" });
   fireEvent.change(screen.getByLabelText("风格名称"), {
     target: { value: "覆盖后的名字" },
   });
   
   fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
 
-  fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
+  fireEvent.click(await screen.findByRole("button", { name: "保存完成" }));
 
   await waitFor(() => expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(
     "profile-1",

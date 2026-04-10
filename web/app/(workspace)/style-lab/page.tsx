@@ -18,7 +18,7 @@ export default function StyleLabPage() {
 
   const jobsQuery = useQuery({
     queryKey: ["style-analysis-jobs"],
-    queryFn: api.getStyleAnalysisJobs,
+    queryFn: () => api.getStyleAnalysisJobs(),
   });
 
   if (providersQuery.isLoading || jobsQuery.isLoading) {
