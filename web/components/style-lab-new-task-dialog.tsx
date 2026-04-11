@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Controller, useForm } from "react-hook-form";
+import { UploadCloud, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -157,6 +158,15 @@ export function StyleLabPageClient() {
   );
 }
 
+const formatBytes = (bytes: number, decimals = 2) => {
+  if (!+bytes) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+};
+
 export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig[] }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -198,7 +208,7 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
       router.push(`/style-lab/${newJob.id}`);
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "创建任务失败");
+      toast.error(error instanceof Error ? error.message : "未知错误");
     },
   });
 
@@ -284,12 +294,47 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
                 control={form.control}
                 name="file"
                 render={({ field }) => (
-                  <Input
-                    id="style-sample-file"
-                    type="file"
-                    accept=".txt,text/plain"
-                    onChange={(e) => field.onChange(e.target.files?.[0] ?? null)}
-                  />
+                  <div className="space-y-2">
+                    {!field.value ? (
+                      <div className="relative group flex flex-col items-center justify-center w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-all hover:bg-muted/40 hover:border-primary/50 cursor-pointer overflow-hidden">
+                        <input
+                          id="style-sample-file"
+                          type="file"
+                          accept=".txt,text/plain"
+                          onChange={(e) => field.onChange(e.target.files?.[0] ?? null)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        <div className="flex flex-col items-center justify-center space-y-2 text-center px-4">
+                          <div className="p-2 bg-background/50 rounded-full shadow-sm border border-border group-hover:scale-105 group-hover:text-primary transition-all duration-200">
+                            <UploadCloud className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+                          </div>
+                          <div className="text-sm font-medium">
+                            <span className="text-primary hover:underline">点击上传</span> 或拖拽文件
+                          </div>
+                          <p className="text-xs text-muted-foreground">支持 .txt 格式</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30 shadow-sm transition-all">
+                        <div className="flex items-center space-x-3 overflow-hidden">
+                          <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-sm font-medium truncate">{field.value.name}</span>
+                            <span className="text-xs text-muted-foreground">{formatBytes(field.value.size)}</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => field.onChange(null)}
+                          className="p-2 text-muted-foreground hover:text-destructive transition-colors shrink-0 rounded-md hover:bg-muted"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               />
               {form.formState.errors.file ? (
