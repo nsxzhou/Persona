@@ -1,6 +1,6 @@
 """style analysis job hot path indexes
 
-Revision ID: 0008_style_analysis_job_hot_path_indexes
+Revision ID: 0008_sa_job_hot_path_idx
 Revises: 0007_style_analysis_job_indexes
 Create Date: 2026-04-11 00:00:00.000000
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 from alembic import op
 
 
-revision = "0008_style_analysis_job_hot_path_indexes"
+revision = "0008_sa_job_hot_path_idx"
 down_revision = "0007_style_analysis_job_indexes"
 branch_labels = None
 depends_on = None

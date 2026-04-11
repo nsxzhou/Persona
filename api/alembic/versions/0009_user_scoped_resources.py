@@ -1,7 +1,7 @@
 """add user scope to resources
 
 Revision ID: 0009_user_scoped_resources
-Revises: 0008_style_analysis_job_hot_path_indexes
+Revises: 0008_sa_job_hot_path_idx
 Create Date: 2026-04-11 00:30:00.000000
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 
 
 revision = "0009_user_scoped_resources"
-down_revision = "0008_style_analysis_job_hot_path_indexes"
+down_revision = "0008_sa_job_hot_path_idx"
 branch_labels = None
 depends_on = None
 
