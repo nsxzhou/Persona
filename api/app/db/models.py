@@ -72,6 +72,21 @@ class User(TimestampMixin, Base):
     sessions: Mapped[list["Session"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    provider_configs: Mapped[list["ProviderConfig"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    projects: Mapped[list["Project"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    style_sample_files: Mapped[list["StyleSampleFile"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    style_analysis_jobs: Mapped[list["StyleAnalysisJob"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    style_profiles: Mapped[list["StyleProfile"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 # 会话表模型
@@ -109,6 +124,9 @@ class ProviderConfig(TimestampMixin, Base):
     __tablename__ = "provider_configs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     # 配置标签，给用户看的名字
     label: Mapped[str] = mapped_column(String(100), nullable=False)
     # API端点地址
@@ -139,6 +157,7 @@ class ProviderConfig(TimestampMixin, Base):
     style_profiles: Mapped[list["StyleProfile"]] = relationship(
         back_populates="provider"
     )
+    user: Mapped["User"] = relationship(back_populates="provider_configs")
 
     @property
     def api_key_hint(self) -> str:
@@ -151,6 +170,9 @@ class Project(TimestampMixin, Base):
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     # 项目名称
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     # 项目描述
@@ -175,12 +197,16 @@ class Project(TimestampMixin, Base):
     # 反向关联：一个项目属于一个提供商配置
     provider: Mapped["ProviderConfig"] = relationship(back_populates="projects")
     style_profile: Mapped["StyleProfile | None"] = relationship(back_populates="projects")
+    user: Mapped["User"] = relationship(back_populates="projects")
 
 
 class StyleSampleFile(TimestampMixin, Base):
     __tablename__ = "style_sample_files"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
@@ -189,6 +215,7 @@ class StyleSampleFile(TimestampMixin, Base):
     checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
 
     job: Mapped["StyleAnalysisJob"] = relationship(back_populates="sample_file")
+    user: Mapped["User"] = relationship(back_populates="style_sample_files")
 
 
 class StyleAnalysisJob(TimestampMixin, Base):
@@ -213,6 +240,9 @@ class StyleAnalysisJob(TimestampMixin, Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     style_name: Mapped[str] = mapped_column(String(120), nullable=False)
     provider_id: Mapped[str] = mapped_column(
         ForeignKey("provider_configs.id"), nullable=False
@@ -250,6 +280,7 @@ class StyleAnalysisJob(TimestampMixin, Base):
         back_populates="job", single_parent=True
     )
     style_profile: Mapped["StyleProfile | None"] = relationship(back_populates="source_job")
+    user: Mapped["User"] = relationship(back_populates="style_analysis_jobs")
 
     @property
     def style_profile_id(self) -> str | None:
@@ -262,6 +293,9 @@ class StyleProfile(TimestampMixin, Base):
     __tablename__ = "style_profiles"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     source_job_id: Mapped[str] = mapped_column(
         ForeignKey("style_analysis_jobs.id"), nullable=False, unique=True
     )
@@ -278,3 +312,4 @@ class StyleProfile(TimestampMixin, Base):
     source_job: Mapped["StyleAnalysisJob"] = relationship(back_populates="style_profile")
     provider: Mapped["ProviderConfig"] = relationship(back_populates="style_profiles")
     projects: Mapped[list["Project"]] = relationship(back_populates="style_profile")
+    user: Mapped["User"] = relationship(back_populates="style_profiles")
