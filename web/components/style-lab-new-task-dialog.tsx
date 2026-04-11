@@ -181,12 +181,18 @@ export function StyleLabPageClient() {
                       className="px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
                       disabled={deleteJobMutation.isPending}
                       title="删除任务"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogContent onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>确定要删除该分析任务吗？</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -194,10 +200,11 @@ export function StyleLabPageClient() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogCancel onClick={(e) => e.stopPropagation()}>取消</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           deleteJobMutation.mutate(job.id);
                         }}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
