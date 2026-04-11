@@ -20,3 +20,5 @@ __pycache__/
 .superpowers/
 docs/
 api/storage/
+storage/
+**/storage/
