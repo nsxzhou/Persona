@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import defer, joinedload, load_only, selectinload
+from sqlalchemy.orm import defer, joinedload
 
 from app.db.models import StyleAnalysisJob, StyleProfile, StyleSampleFile
 
@@ -67,7 +67,9 @@ class StyleAnalysisJobRepository:
         if user_id is None:
             return await session.scalar(stmt.where(StyleAnalysisJob.id == job_id))
         return await session.scalar(
-            stmt.where(StyleAnalysisJob.id == job_id, StyleAnalysisJob.user_id == user_id)
+            stmt.where(
+                StyleAnalysisJob.id == job_id, StyleAnalysisJob.user_id == user_id
+            )
         )
 
     async def get_status_and_payload(
@@ -78,7 +80,9 @@ class StyleAnalysisJobRepository:
         user_id: str | None = None,
         payload_column,
     ):
-        stmt = select(StyleAnalysisJob.status, payload_column).where(StyleAnalysisJob.id == job_id)
+        stmt = select(StyleAnalysisJob.status, payload_column).where(
+            StyleAnalysisJob.id == job_id
+        )
         if user_id is not None:
             stmt = stmt.where(StyleAnalysisJob.user_id == user_id)
         row = await session.execute(stmt)
@@ -95,7 +99,9 @@ class StyleAnalysisJobRepository:
             select(StyleAnalysisJob)
             .options(
                 joinedload(StyleAnalysisJob.sample_file),
-                joinedload(StyleAnalysisJob.style_profile).selectinload(StyleProfile.projects),
+                joinedload(StyleAnalysisJob.style_profile).selectinload(
+                    StyleProfile.projects
+                ),
             )
             .where(StyleAnalysisJob.id == job_id)
         )
@@ -158,7 +164,9 @@ class StyleAnalysisJobRepository:
     ) -> None:
         await session.execute(
             update(StyleAnalysisJob)
-            .where(StyleAnalysisJob.id == job_id, StyleAnalysisJob.status == running_status)
+            .where(
+                StyleAnalysisJob.id == job_id, StyleAnalysisJob.status == running_status
+            )
             .values(stage=stage, last_heartbeat_at=now)
         )
 
