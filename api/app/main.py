@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 # 导入FastAPI框架核心类 - FastAPI是一个现代、高性能的Python Web框架
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 # 导入CORS中间件 - 用于处理跨域资源共享，解决前后端跨域问题
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,12 +26,14 @@ from app.api.routes import (
 
 # 导入配置获取函数 - 用于读取环境变量和应用配置
 from app.core.config import get_settings
+from app.core.domain_errors import DomainError
 
 # 导入数据库相关工具函数
 # create_engine: 创建数据库连接引擎
 # create_session_factory: 创建数据库会话工厂
 from app.db.session import create_engine, create_session_factory
 from app.services.style_analysis_worker import StyleAnalysisWorkerService
+from fastapi.responses import JSONResponse
 
 
 # 应用工厂函数：创建并配置FastAPI应用实例
@@ -61,6 +63,10 @@ def create_app(*, session_factory=None) -> FastAPI:
     # title: API文档标题
     # version: API版本号
     app = FastAPI(title="Persona API", version="0.1.0", lifespan=lifespan)
+
+    @app.exception_handler(DomainError)
+    async def handle_domain_error(_request: Request, exc: DomainError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     # 添加CORS跨域中间件
     # 中间件是FastAPI的扩展机制，用于在请求处理前后执行逻辑

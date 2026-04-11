@@ -1,11 +1,10 @@
 # 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 
 from app.api.deps import AuthServiceDep, CurrentUserDep, DbSessionDep, set_session_cookie
 from app.core.config import get_settings
-from app.core.domain_errors import DomainError, to_http_exception
 from app.schemas.auth import LoginRequest, UserResponse
 
 router = APIRouter(tags=["auth"])
@@ -19,14 +18,11 @@ async def login(
     auth_service: AuthServiceDep,
 ) -> UserResponse:
     """用户登录接口"""
-    try:
-        await auth_service.ensure_initialized(db_session)
-        user = await auth_service.authenticate(
-            db_session, payload.username, payload.password
-        )
-        _, raw_token = await auth_service.create_session(db_session, user)
-    except DomainError as exc:
-        raise to_http_exception(exc) from exc
+    await auth_service.ensure_initialized(db_session)
+    user = await auth_service.authenticate(
+        db_session, payload.username, payload.password
+    )
+    _, raw_token = await auth_service.create_session(db_session, user)
 
     set_session_cookie(response, raw_token)
 
@@ -57,11 +53,11 @@ async def logout(
 async def delete_account(
     response: Response,
     db_session: DbSessionDep,
-    _current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
     auth_service: AuthServiceDep,
 ) -> None:
     """删除当前用户账号，清除所有数据"""
-    await auth_service.delete_account(db_session)
+    await auth_service.delete_account(db_session, user_id=current_user.id)
 
     settings = get_settings()
     response.delete_cookie(settings.session_cookie_name, path="/")

@@ -8,7 +8,6 @@ from app.api.deps import (
     ProviderConfigServiceDep,
     set_session_cookie,
 )
-from app.core.domain_errors import DomainError, to_http_exception
 from app.schemas.provider_configs import ProviderConfigResponse
 from app.schemas.setup import SetupRequest, SetupResponse, SetupStatusResponse
 
@@ -30,13 +29,14 @@ async def run_setup(
     auth_service: AuthServiceDep,
     provider_service: ProviderConfigServiceDep,
 ) -> SetupResponse:
-    try:
-        await auth_service.ensure_not_initialized(db_session)
-        user = await auth_service.create_initial_admin(db_session, payload.username, payload.password)
-        provider = await provider_service.create(db_session, payload.provider)
-        _, raw_token = await auth_service.create_session(db_session, user)
-    except DomainError as exc:
-        raise to_http_exception(exc) from exc
+    await auth_service.ensure_not_initialized(db_session)
+    user = await auth_service.create_initial_admin(db_session, payload.username, payload.password)
+    provider = await provider_service.create(
+        db_session,
+        payload.provider,
+        user_id=user.id,
+    )
+    _, raw_token = await auth_service.create_session(db_session, user)
 
     set_session_cookie(response, raw_token)
 

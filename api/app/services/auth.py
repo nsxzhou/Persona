@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # 导入FastAPI异常处理和状态码
-from fastapi import HTTPException, status
 
 # 导入异步数据库会话类型
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -204,9 +203,7 @@ class AuthService:
 
         # 第一步：令牌存在检查
         if not raw_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录"
-            )
+            raise UnauthorizedError("未登录")
 
         # 第二步：计算令牌的哈希值，然后在数据库中查找
         # 数据库里存储的是哈希值，所以我们需要对用户传过来的令牌做同样的哈希
@@ -218,18 +215,14 @@ class AuthService:
         )
 
         if session_record is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效"
-            )
+            raise UnauthorizedError("登录状态已失效")
 
         now = datetime.now(UTC)
 
         # 第三步：检查会话是否过期
         expires_at = self._normalize_datetime(session_record.expires_at)
         if expires_at < now:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效"
-            )
+            raise UnauthorizedError("登录状态已失效")
 
         # 第四步：更新最后访问时间
         # 为避免读请求写放大，仅在超过节流窗口时更新。
@@ -242,9 +235,7 @@ class AuthService:
         user = session_record.user
 
         if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录"
-            )
+            raise UnauthorizedError("未登录")
 
         return user
 
@@ -261,13 +252,15 @@ class AuthService:
             hash_session_token(raw_token),
         )
 
-    async def delete_account(self, session: AsyncSession) -> None:
+    async def delete_account(self, session: AsyncSession, *, user_id: str) -> None:
         """删除所有账号数据"""
-        sample_storage_paths, artifact_job_ids = await self.repository.list_style_lab_cleanup_targets(
-            session
+        sample_storage_paths, artifact_job_ids = (
+            await self.repository.list_style_lab_cleanup_targets(
+                session,
+                user_id=user_id,
+            )
         )
-        await self.repository.delete_all_account_data(session)
-        await session.commit()
+        await self.repository.delete_all_account_data(session, user_id=user_id)
         storage_service = StyleAnalysisStorageService()
         for storage_path in sample_storage_paths:
             try:
