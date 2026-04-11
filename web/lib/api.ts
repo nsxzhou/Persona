@@ -13,33 +13,13 @@ import type {
   StyleProfileUpdatePayload,
   User,
 } from "@/lib/types";
-import { parseApiErrorDetail } from "@/lib/request-error";
+import { createJsonRequester } from "@/lib/api/transport";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers ?? undefined);
-  if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers,
-    ...init,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(parseApiErrorDetail(text, response.statusText || "请求失败"));
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
+const request = createJsonRequester({
+  baseUrl: API_BASE_URL,
+  defaultInit: { credentials: "include" },
+});
 
 type StyleAnalysisJobStatus = Pick<
   StyleAnalysisJob,
