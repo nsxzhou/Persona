@@ -618,6 +618,7 @@ async def test_job_list_loads_style_profile_id_without_profile_payloads(
         job.style_summary_payload = summary
         job.prompt_pack_payload = prompt_pack
         profile = StyleProfile(
+            user_id=job.user_id,
             source_job_id=job.id,
             provider_id=provider_id,
             model_name=job.model_name,

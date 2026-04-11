@@ -8,9 +8,10 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import aiofiles
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 
 from app.core.config import get_settings
+from app.core.domain_errors import UnprocessableEntityError
 
 
 class StyleAnalysisStorageService:
@@ -57,10 +58,7 @@ class StyleAnalysisStorageService:
                         break
                     total_bytes += len(chunk)
                     if max_bytes and total_bytes > max_bytes:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                            detail="上传的 TXT 文件过大",
-                        )
+                        raise UnprocessableEntityError("上传的 TXT 文件过大")
                     hasher.update(chunk)
                     await handle.write(chunk)
         except Exception:
@@ -69,10 +67,7 @@ class StyleAnalysisStorageService:
 
         if total_bytes == 0:
             storage_path.unlink(missing_ok=True)
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="上传的 TXT 文件为空",
-            )
+            raise UnprocessableEntityError("上传的 TXT 文件为空")
 
         return str(storage_path), total_bytes, hasher.hexdigest()
 

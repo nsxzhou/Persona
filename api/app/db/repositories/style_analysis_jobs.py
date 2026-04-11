@@ -14,6 +14,7 @@ class StyleAnalysisJobRepository:
         self,
         session: AsyncSession,
         *,
+        user_id: str | None = None,
         offset: int,
         limit: int,
         include_payloads: bool = False,
@@ -29,6 +30,8 @@ class StyleAnalysisJobRepository:
             .offset(offset)
             .limit(limit)
         )
+        if user_id is not None:
+            stmt = stmt.where(StyleAnalysisJob.user_id == user_id)
         if not include_payloads:
             stmt = stmt.options(
                 defer(StyleAnalysisJob.analysis_report_payload),
@@ -43,6 +46,7 @@ class StyleAnalysisJobRepository:
         session: AsyncSession,
         job_id: str,
         *,
+        user_id: str | None = None,
         include_payloads: bool = True,
         include_style_profile_payloads: bool = True,
     ) -> StyleAnalysisJob | None:
@@ -60,26 +64,34 @@ class StyleAnalysisJobRepository:
                 defer(StyleAnalysisJob.style_summary_payload),
                 defer(StyleAnalysisJob.prompt_pack_payload),
             )
-        return await session.scalar(stmt.where(StyleAnalysisJob.id == job_id))
+        if user_id is None:
+            return await session.scalar(stmt.where(StyleAnalysisJob.id == job_id))
+        return await session.scalar(
+            stmt.where(StyleAnalysisJob.id == job_id, StyleAnalysisJob.user_id == user_id)
+        )
 
     async def get_status_and_payload(
         self,
         session: AsyncSession,
         job_id: str,
         *,
+        user_id: str | None = None,
         payload_column,
     ):
-        row = await session.execute(
-            select(StyleAnalysisJob.status, payload_column).where(StyleAnalysisJob.id == job_id)
-        )
+        stmt = select(StyleAnalysisJob.status, payload_column).where(StyleAnalysisJob.id == job_id)
+        if user_id is not None:
+            stmt = stmt.where(StyleAnalysisJob.user_id == user_id)
+        row = await session.execute(stmt)
         return row.one_or_none()
 
     async def get_for_delete(
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleAnalysisJob | None:
-        return await session.scalar(
+        stmt = (
             select(StyleAnalysisJob)
             .options(
                 joinedload(StyleAnalysisJob.sample_file),
@@ -87,6 +99,9 @@ class StyleAnalysisJobRepository:
             )
             .where(StyleAnalysisJob.id == job_id)
         )
+        if user_id is not None:
+            stmt = stmt.where(StyleAnalysisJob.user_id == user_id)
+        return await session.scalar(stmt)
 
     async def claim_pending_job(
         self,
@@ -196,10 +211,12 @@ class StyleAnalysisJobRepository:
         self,
         session: AsyncSession,
         *,
+        user_id: str,
         original_filename: str,
         content_type: str | None,
     ) -> StyleSampleFile:
         sample_file = StyleSampleFile(
+            user_id=user_id,
             original_filename=original_filename,
             content_type=content_type,
             storage_path="",
@@ -215,6 +232,7 @@ class StyleAnalysisJobRepository:
         self,
         session: AsyncSession,
         *,
+        user_id: str,
         style_name: str,
         provider_id: str,
         model_name: str,
@@ -222,6 +240,7 @@ class StyleAnalysisJobRepository:
         pending_status: str,
     ) -> StyleAnalysisJob:
         job = StyleAnalysisJob(
+            user_id=user_id,
             style_name=style_name,
             provider_id=provider_id,
             model_name=model_name,

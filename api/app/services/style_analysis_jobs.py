@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +29,9 @@ from app.services.style_lab_mappers import (
     build_style_profile_response_payload,
 )
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
-from app.services.style_analysis_storage import StyleAnalysisStorageService
+from app.services.style_analysis_job_file_lifecycle import (
+    StyleAnalysisJobFileLifecycleService,
+)
 
 STYLE_ANALYSIS_USER_ERROR_MESSAGE = "分析任务失败，请稍后重试。"
 
@@ -85,28 +86,37 @@ class StyleAnalysisJobService:
     ) -> None:
         self.repository = repository or StyleAnalysisJobRepository()
         self.provider_service = ProviderConfigService()
+        self.file_lifecycle = StyleAnalysisJobFileLifecycleService()
 
     async def list(
         self,
         session: AsyncSession,
         *,
+        user_id: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> list[StyleAnalysisJob]:
         limit = min(max(limit, 1), 100)
         return await self.repository.list(
             session,
+            user_id=user_id,
             offset=offset,
             limit=limit,
             include_payloads=False,
         )
 
     async def get_or_404(
-        self, session: AsyncSession, job_id: str, *, include_payloads: bool = True
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+        include_payloads: bool = True,
     ) -> StyleAnalysisJob:
         job = await self.repository.get_by_id(
             session,
             job_id,
+            user_id=user_id,
             include_payloads=include_payloads,
         )
         if job is None:
@@ -117,13 +127,24 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleAnalysisJobResponse:
-        job = await self.repository.get_by_id(
-            session,
-            job_id,
-            include_payloads=True,
-            include_style_profile_payloads=True,
-        )
+        if user_id is None:
+            job = await self.repository.get_by_id(
+                session,
+                job_id,
+                include_payloads=True,
+                include_style_profile_payloads=True,
+            )
+        else:
+            job = await self.repository.get_by_id(
+                session,
+                job_id,
+                user_id=user_id,
+                include_payloads=True,
+                include_style_profile_payloads=True,
+            )
         if job is None:
             raise NotFoundError("分析任务不存在")
         return build_job_detail_response(job)
@@ -132,8 +153,15 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleAnalysisJobStatusResponse:
-        job = await self.get_or_404(session, job_id, include_payloads=False)
+        job = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
         return StyleAnalysisJobStatusResponse(
             id=job.id,
             status=job.status,
@@ -147,15 +175,24 @@ class StyleAnalysisJobService:
         session: AsyncSession,
         job_id: str,
         *,
+        user_id: str | None = None,
         payload_column,
         parser,
         not_ready_detail: str,
     ):
-        result = await self.repository.get_status_and_payload(
-            session,
-            job_id,
-            payload_column=payload_column,
-        )
+        if user_id is None:
+            result = await self.repository.get_status_and_payload(
+                session,
+                job_id,
+                payload_column=payload_column,
+            )
+        else:
+            result = await self.repository.get_status_and_payload(
+                session,
+                job_id,
+                user_id=user_id,
+                payload_column=payload_column,
+            )
         if result is None:
             raise NotFoundError("分析任务不存在")
         job_status, payload = result
@@ -167,10 +204,13 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> AnalysisMeta:
         return await self._get_payload_or_409(
             session,
             job_id,
+            user_id=user_id,
             payload_column=StyleAnalysisJob.analysis_meta_payload,
             parser=AnalysisMeta.model_validate,
             not_ready_detail="分析任务尚未完成，暂无法读取元数据",
@@ -180,10 +220,13 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> AnalysisReport:
         return await self._get_payload_or_409(
             session,
             job_id,
+            user_id=user_id,
             payload_column=StyleAnalysisJob.analysis_report_payload,
             parser=AnalysisReport.model_validate,
             not_ready_detail="分析任务尚未完成，暂无法读取分析报告",
@@ -193,10 +236,13 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleSummary:
         return await self._get_payload_or_409(
             session,
             job_id,
+            user_id=user_id,
             payload_column=StyleAnalysisJob.style_summary_payload,
             parser=StyleSummary.model_validate,
             not_ready_detail="分析任务尚未完成，暂无法读取风格摘要",
@@ -206,10 +252,13 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> PromptPack:
         return await self._get_payload_or_409(
             session,
             job_id,
+            user_id=user_id,
             payload_column=StyleAnalysisJob.prompt_pack_payload,
             parser=PromptPack.model_validate,
             not_ready_detail="分析任务尚未完成，暂无法读取 Prompt 包",
@@ -312,22 +361,28 @@ class StyleAnalysisJobService:
         self,
         session: AsyncSession,
         *,
+        user_id: str | None = None,
         style_name: str,
         provider_id: str,
         model: str | None,
         upload_file: UploadFile,
     ) -> StyleAnalysisJob:
-        provider = await self.provider_service.ensure_enabled(session, provider_id)
+        provider = await self.provider_service.ensure_enabled(
+            session,
+            provider_id,
+            user_id=user_id,
+        )
+        resolved_user_id = user_id or provider.user_id
         file_name = (upload_file.filename or "").strip()
 
         sample_file = await self.repository.create_sample_file(
             session,
+            user_id=resolved_user_id,
             original_filename=file_name,
             content_type=upload_file.content_type,
         )
 
-        storage_service = StyleAnalysisStorageService()
-        storage_path, total_bytes, checksum = await storage_service.save_file(
+        storage_path, total_bytes, checksum = await self.file_lifecycle.persist_sample_upload(
             sample_file.id,
             upload_file,
         )
@@ -340,6 +395,7 @@ class StyleAnalysisJobService:
         selected_model = model.strip() if model else ""
         job = await self.repository.create_job(
             session,
+            user_id=resolved_user_id,
             style_name=style_name.strip(),
             provider_id=provider.id,
             model_name=selected_model or provider.default_model,
@@ -347,10 +403,21 @@ class StyleAnalysisJobService:
             pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
         )
 
-        return await self.get_or_404(session, job.id, include_payloads=False)
+        return await self.get_or_404(
+            session,
+            job.id,
+            user_id=resolved_user_id,
+            include_payloads=False,
+        )
 
-    async def delete(self, session: AsyncSession, job_id: str) -> None:
-        job = await self.repository.get_for_delete(session, job_id)
+    async def delete(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> None:
+        job = await self.repository.get_for_delete(session, job_id, user_id=user_id)
         if job is None:
             raise NotFoundError("分析任务不存在")
         if job.style_profile is not None and job.style_profile.projects:
@@ -358,12 +425,7 @@ class StyleAnalysisJobService:
 
         sample_storage_path = job.sample_file.storage_path
         await self.repository.delete_job_graph(session, job)
-        await session.commit()
-
-        if sample_storage_path:
-            try:
-                Path(sample_storage_path).unlink(missing_ok=True)
-            except OSError:
-                pass
-        storage_service = StyleAnalysisStorageService()
-        await storage_service.cleanup_job_artifacts(job_id)
+        await self.file_lifecycle.cleanup_after_job_delete(
+            sample_storage_path=sample_storage_path,
+            job_id=job_id,
+        )
