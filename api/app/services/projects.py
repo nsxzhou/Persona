@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.domain_errors import NotFoundError
 from app.db.models import Project, ProviderConfig
 from app.db.repositories.projects import ProjectRepository
 from app.schemas.projects import ProjectCreate, ProjectUpdate
@@ -29,7 +29,7 @@ class ProjectService:
     async def get_or_404(self, session: AsyncSession, project_id: str) -> Project:
         project = await self.repository.get_by_id(session, project_id)
         if project is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
+            raise NotFoundError("项目不存在")
         return project
 
     async def create(self, session: AsyncSession, payload: ProjectCreate) -> Project:
@@ -99,5 +99,5 @@ class ProjectService:
             style_profile_id,
         )
         if project is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
+            raise NotFoundError("项目不存在")
         return project

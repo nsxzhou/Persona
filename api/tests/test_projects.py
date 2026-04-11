@@ -31,8 +31,7 @@ def test_projects_routes_use_annotated_service_dependency() -> None:
 async def test_project_service_can_bind_style_profile_id_by_project_id(
     app_with_db: FastAPI,
 ) -> None:
-    from fastapi import HTTPException
-
+    from app.core.domain_errors import NotFoundError
     from app.schemas.projects import ProjectCreate
     from app.schemas.provider_configs import ProviderConfigCreate
     from app.services.projects import ProjectService
@@ -70,7 +69,7 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
         assert updated.id == project.id
         assert updated.style_profile_id == target_style_profile_id
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(NotFoundError) as exc_info:
             await ProjectService().set_style_profile_id(
                 session,
                 "non-existent-project-id",

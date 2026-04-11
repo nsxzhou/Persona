@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import logging
+
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
 from app.core.config import get_settings
 from app.core.security import decrypt_secret
 from app.db.models import ProviderConfig
+
+logger = logging.getLogger(__name__)
+
+CONNECTION_TEST_FAILED_MESSAGE = "Provider 连通性测试失败，请检查配置后重试"
 
 
 class LLMProviderService:
@@ -23,6 +29,6 @@ class LLMProviderService:
             )
             await model.ainvoke([HumanMessage(content="Reply with OK")])
             return {"status": "success", "message": "连接成功"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
+        except Exception:
+            logger.exception("provider connection test failed", extra={"provider_id": provider_config.id})
+            return {"status": "error", "message": CONNECTION_TEST_FAILED_MESSAGE}

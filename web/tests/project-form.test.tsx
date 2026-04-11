@@ -54,9 +54,8 @@ test("project form lets user select a style profile and submit it", async () => 
 test("new project page is a server wrapper around the new-project client container", async () => {
   vi.resetModules();
   vi.doMock("@/components/project-form", () => ({
-    ProjectNewPageClient: () => <div>new-project-client-container</div>,
-    ProjectDetailPageClient: ({ projectId }: { projectId: string }) => (
-      <div>detail-project-client-{projectId}</div>
+    ProjectPageClient: ({ mode, projectId }: { mode: "new" | "detail"; projectId?: string }) => (
+      <div>project-page-client-{mode}-{projectId ?? "none"}</div>
     ),
     ProjectForm: () => null,
   }));
@@ -65,15 +64,14 @@ test("new project page is a server wrapper around the new-project client contain
 
   render(<NewProjectPage />);
 
-  expect(screen.getByText("new-project-client-container")).toBeInTheDocument();
+  expect(screen.getByText("project-page-client-new-none")).toBeInTheDocument();
 });
 
 test("project detail page is a server wrapper around the detail client container", async () => {
   vi.resetModules();
   vi.doMock("@/components/project-form", () => ({
-    ProjectNewPageClient: () => <div>new-project-client-container</div>,
-    ProjectDetailPageClient: ({ projectId }: { projectId: string }) => (
-      <div>detail-project-client-{projectId}</div>
+    ProjectPageClient: ({ mode, projectId }: { mode: "new" | "detail"; projectId?: string }) => (
+      <div>project-page-client-{mode}-{projectId ?? "none"}</div>
     ),
     ProjectForm: () => null,
   }));
@@ -85,5 +83,5 @@ test("project detail page is a server wrapper around the detail client container
 
   render(page);
 
-  expect(screen.getByText("detail-project-client-project-42")).toBeInTheDocument();
+  expect(screen.getByText("project-page-client-detail-project-42")).toBeInTheDocument();
 });

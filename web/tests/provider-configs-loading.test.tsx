@@ -21,11 +21,9 @@ test("provider configs page disables and marks the testing button while testing"
       onOpenCreate={() => undefined}
       onTest={() => undefined}
       testingId="provider-1"
-      testing={true}
     />
   );
 
   const button = screen.getByRole("button", { name: "测试中…" });
   expect(button).toBeDisabled();
 });
-

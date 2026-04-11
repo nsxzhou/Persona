@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 # 导入Python标准库时间处理模块
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 # 导入FastAPI异常处理和状态码
 from fastapi import HTTPException, status
@@ -18,10 +19,12 @@ from app.core.security import (
     hash_session_token,
     verify_password,
 )
+from app.core.domain_errors import ConflictError, ForbiddenError, UnauthorizedError
 
 # 导入数据库模型
 from app.db.models import Session, User
 from app.db.repositories.auth import AuthRepository
+from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 
 # ==================================================
@@ -45,6 +48,8 @@ from app.db.repositories.auth import AuthRepository
 # ❌ 不要在Model里写业务逻辑
 # ==================================================
 class AuthService:
+    LAST_ACCESSED_UPDATE_INTERVAL = timedelta(minutes=5)
+
     def __init__(self, repository: AuthRepository | None = None) -> None:
         self.repository = repository or AuthRepository()
 
@@ -107,6 +112,14 @@ class AuthService:
             password_hash=hash_password(password),
         )
 
+    async def ensure_initialized(self, session: AsyncSession) -> None:
+        if not await self.is_initialized(session):
+            raise ForbiddenError("系统尚未初始化")
+
+    async def ensure_not_initialized(self, session: AsyncSession) -> None:
+        if await self.is_initialized(session):
+            raise ConflictError("系统已初始化")
+
     async def authenticate(
         self, session: AsyncSession, username: str, password: str
     ) -> User:
@@ -131,15 +144,11 @@ class AuthService:
         # ==================================================
         if user is None:
             # 用户不存在，也返回"账号或密码错误"
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误"
-            )
+            raise UnauthorizedError("账号或密码错误")
 
         if not verify_password(password, user.password_hash):
             # 密码错误，返回完全一样的错误
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误"
-            )
+            raise UnauthorizedError("账号或密码错误")
 
         return user
 
@@ -213,20 +222,24 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效"
             )
 
+        now = datetime.now(UTC)
+
         # 第三步：检查会话是否过期
         expires_at = self._normalize_datetime(session_record.expires_at)
-        if expires_at < datetime.now(UTC):
+        if expires_at < now:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效"
             )
 
         # 第四步：更新最后访问时间
-        # 每次用户访问都更新这个时间，可以用来判断用户活跃状态
-        session_record.last_accessed_at = datetime.now(UTC)
-        await self.repository.flush(session)
+        # 为避免读请求写放大，仅在超过节流窗口时更新。
+        last_accessed_at = self._normalize_datetime(session_record.last_accessed_at)
+        if now - last_accessed_at >= self.LAST_ACCESSED_UPDATE_INTERVAL:
+            session_record.last_accessed_at = now
+            await self.repository.flush(session)
 
-        # 第五步：查询关联的用户对象
-        user = await self.repository.get_user_by_id(session, session_record.user_id)
+        # 第五步：直接使用会话已加载的用户对象，避免重复查询
+        user = session_record.user
 
         if user is None:
             raise HTTPException(
@@ -250,4 +263,17 @@ class AuthService:
 
     async def delete_account(self, session: AsyncSession) -> None:
         """删除所有账号数据"""
+        sample_storage_paths, artifact_job_ids = await self.repository.list_style_lab_cleanup_targets(
+            session
+        )
         await self.repository.delete_all_account_data(session)
+        await session.commit()
+        storage_service = StyleAnalysisStorageService()
+        for storage_path in sample_storage_paths:
+            try:
+                Path(storage_path).unlink(missing_ok=True)
+            except OSError:
+                # 磁盘文件清理失败不影响数据库事务提交
+                continue
+        for job_id in artifact_job_ids:
+            await storage_service.cleanup_job_artifacts(job_id)

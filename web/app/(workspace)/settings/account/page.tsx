@@ -14,6 +14,7 @@ export default function AccountPage() {
   const userQuery = useQuery({
     queryKey: ["current-user"],
     queryFn: api.getCurrentUser,
+    staleTime: 60_000,
   });
 
   const logoutMutation = useMutation({
@@ -40,4 +41,3 @@ export default function AccountPage() {
     </div>
   );
 }
-

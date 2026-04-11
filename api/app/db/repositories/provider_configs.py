@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import ProviderConfig
+from app.db.models import ProviderConfig, StyleAnalysisJob, StyleProfile
 
 
 class ProviderConfigRepository:
@@ -57,6 +57,26 @@ class ProviderConfigRepository:
 
     async def flush(self, session: AsyncSession) -> None:
         await session.flush()
+
+    async def has_style_lab_references(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+    ) -> bool:
+        style_job_ref = await session.scalar(
+            select(StyleAnalysisJob.id)
+            .where(StyleAnalysisJob.provider_id == provider_id)
+            .limit(1)
+        )
+        if style_job_ref is not None:
+            return True
+
+        style_profile_ref = await session.scalar(
+            select(StyleProfile.id)
+            .where(StyleProfile.provider_id == provider_id)
+            .limit(1)
+        )
+        return style_profile_ref is not None
 
     async def delete(self, session: AsyncSession, provider: ProviderConfig) -> None:
         await session.delete(provider)

@@ -4,8 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useEffect, useMemo } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -116,6 +116,14 @@ export function ProjectForm({
     });
   }, [form, project]);
 
+  const selectedStatus = useWatch({ control: form.control, name: "status" });
+  const selectedProviderId = useWatch({ control: form.control, name: "default_provider_id" });
+  const selectedStyleProfileId = useWatch({ control: form.control, name: "style_profile_id" });
+  const selectedProvider = useMemo(
+    () => providers.find((provider) => provider.id === selectedProviderId),
+    [providers, selectedProviderId],
+  );
+
   return (
     <form
       onSubmit={form.handleSubmit(async (values) => {
@@ -135,7 +143,7 @@ export function ProjectForm({
           <div className="grid gap-2">
             <Label htmlFor="project-status">状态</Label>
             <Select
-              value={form.watch("status")}
+              value={selectedStatus}
               onValueChange={(val) => form.setValue("status", val as "draft" | "active" | "paused")}
             >
               <SelectTrigger id="project-status" className="bg-background">
@@ -159,11 +167,10 @@ export function ProjectForm({
                   className="w-full justify-between font-normal bg-background hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent h-10 px-3 py-2 text-sm border-input"
                 >
                   <span className="truncate">
-                    {form.watch("default_provider_id")
-                      ? (() => {
-                          const selected = providers.find((p) => p.id === form.watch("default_provider_id"));
-                          return selected ? `${selected.label} / ${selected.default_model}` : "选择 Provider";
-                        })()
+                    {selectedProviderId
+                      ? selectedProvider
+                        ? `${selectedProvider.label} / ${selectedProvider.default_model}`
+                        : "选择 Provider"
                       : "选择 Provider"}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform duration-200" />
@@ -188,7 +195,7 @@ export function ProjectForm({
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              form.watch("default_provider_id") === provider.id ? "opacity-100" : "opacity-0"
+                              selectedProviderId === provider.id ? "opacity-100" : "opacity-0"
                             )}
                           />
                           {provider.label}
@@ -208,7 +215,7 @@ export function ProjectForm({
           <div className="grid gap-2">
             <Label htmlFor="project-style-profile">风格档案</Label>
             <Select
-              value={form.watch("style_profile_id") ?? "__none__"}
+              value={selectedStyleProfileId ?? "__none__"}
               onValueChange={(val) => form.setValue("style_profile_id", val === "__none__" ? null : val)}
             >
               <SelectTrigger id="project-style-profile" aria-label="风格档案" className="bg-background">
@@ -239,13 +246,32 @@ export function ProjectForm({
   );
 }
 
-export function ProjectNewPageClient() {
+type ProjectPageMode = "new" | "detail";
+
+export function ProjectPageClient({
+  mode,
+  projectId,
+}: {
+  mode: ProjectPageMode;
+  projectId?: string;
+}) {
   const router = useRouter();
-  const formData = useProjectFormPageData();
+  const formData = useProjectFormPageData(projectId);
+  const isDetailMode = mode === "detail";
   const mutation = useMutation({
-    mutationFn: (payload: ProjectPayload) => api.createProject(payload),
-    onError: (error) => toast.error(`项目创建失败: ${error.message}`),
-    onSuccess: (project) => {
+    mutationFn: (payload: ProjectPayload | Partial<ProjectPayload>) => {
+      if (isDetailMode) {
+        return api.updateProject(projectId as string, payload as Partial<ProjectPayload>);
+      }
+      return api.createProject(payload as ProjectPayload);
+    },
+    onError: (error) => toast.error(`${isDetailMode ? "保存失败" : "项目创建失败"}: ${error.message}`),
+    onSuccess: async (project) => {
+      if (isDetailMode) {
+        toast.success("项目配置已保存");
+        await formData.refetchProject();
+        return;
+      }
       toast.success("项目创建成功");
       router.replace(`/projects/${project.id}`);
     },
@@ -255,14 +281,20 @@ export function ProjectNewPageClient() {
     return <PageLoading />;
   }
 
-  if (formData.hasError) {
+  if (formData.hasError || (isDetailMode && !formData.project)) {
     return (
       <PageError
-        title="无法加载项目配置数据"
+        title={isDetailMode ? "项目详情加载失败" : "无法加载项目配置数据"}
         message={formData.errorMessage}
       />
     );
   }
+
+  const breadcrumbName = isDetailMode ? formData.project?.name : "新建项目";
+  const pageTitle = isDetailMode ? formData.project?.name : "新建项目";
+  const pageDescription = isDetailMode
+    ? "更新项目基本信息、默认模型与未来的 Style Profile 挂载入口。"
+    : "先定义项目本身，再在下一阶段接入 Style Profile 和编辑器。";
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -271,70 +303,14 @@ export function ProjectNewPageClient() {
           项目管理
         </Link>
         <ChevronRight className="h-4 w-4 mx-1" />
-        <span className="text-foreground font-medium">新建项目</span>
+        <span className="text-foreground font-medium">{breadcrumbName}</span>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">新建项目</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{pageTitle}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            先定义项目本身，再在下一阶段接入 Style Profile 和编辑器。
-          </p>
-        </div>
-      </div>
-
-      <ProjectForm
-        providers={formData.providers}
-        styleProfiles={formData.styleProfiles}
-        submitting={mutation.isPending}
-        onSubmit={async (values) => {
-          await mutation.mutateAsync(values as ProjectPayload);
-        }}
-      />
-    </div>
-  );
-}
-
-export function ProjectDetailPageClient({ projectId }: { projectId: string }) {
-  const formData = useProjectFormPageData(projectId);
-  const mutation = useMutation({
-    mutationFn: (payload: Partial<ProjectPayload>) =>
-      api.updateProject(projectId, payload),
-    onError: (error) => toast.error(`保存失败: ${error.message}`),
-    onSuccess: async () => {
-      toast.success("项目配置已保存");
-      await formData.refetchProject();
-    },
-  });
-
-  if (formData.isLoading) {
-    return <PageLoading />;
-  }
-
-  if (formData.hasError || !formData.project) {
-    return (
-      <PageError
-        title="项目详情加载失败"
-        message={formData.errorMessage}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="flex items-center text-sm text-muted-foreground">
-        <Link href="/projects" className="hover:text-foreground transition-colors">
-          项目管理
-        </Link>
-        <ChevronRight className="h-4 w-4 mx-1" />
-        <span className="text-foreground font-medium">{formData.project.name}</span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{formData.project.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            更新项目基本信息、默认模型与未来的 Style Profile 挂载入口。
+            {pageDescription}
           </p>
         </div>
       </div>
@@ -345,7 +321,7 @@ export function ProjectDetailPageClient({ projectId }: { projectId: string }) {
         styleProfiles={formData.styleProfiles}
         submitting={mutation.isPending}
         onSubmit={async (values) => {
-          await mutation.mutateAsync(values as Partial<ProjectPayload>);
+          await mutation.mutateAsync(values as ProjectPayload | Partial<ProjectPayload>);
         }}
       />
     </div>

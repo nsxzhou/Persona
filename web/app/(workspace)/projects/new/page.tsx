@@ -1,5 +1,5 @@
-import { ProjectNewPageClient } from "@/components/project-form";
+import { ProjectPageClient } from "@/components/project-form";
 
 export default function NewProjectPage() {
-  return <ProjectNewPageClient />;
+  return <ProjectPageClient mode="new" />;
 }

@@ -4,8 +4,17 @@ from datetime import datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.db.models import Project, ProviderConfig, Session, User
+from app.db.models import (
+    Project,
+    ProviderConfig,
+    Session,
+    StyleAnalysisJob,
+    StyleProfile,
+    StyleSampleFile,
+    User,
+)
 
 
 class AuthRepository:
@@ -55,7 +64,11 @@ class AuthRepository:
         session: AsyncSession,
         token_hash: str,
     ) -> Session | None:
-        return await session.scalar(select(Session).where(Session.token_hash == token_hash))
+        return await session.scalar(
+            select(Session)
+            .options(joinedload(Session.user))
+            .where(Session.token_hash == token_hash)
+        )
 
     async def get_user_by_id(
         self,
@@ -74,8 +87,21 @@ class AuthRepository:
     ) -> None:
         await session.execute(delete(Session).where(Session.token_hash == token_hash))
 
+    async def list_style_lab_cleanup_targets(
+        self, session: AsyncSession
+    ) -> tuple[list[str], list[str]]:
+        sample_paths = await session.stream_scalars(select(StyleSampleFile.storage_path))
+        job_ids = await session.stream_scalars(select(StyleAnalysisJob.id))
+        return (
+            [path async for path in sample_paths if path],
+            [job_id async for job_id in job_ids if job_id],
+        )
+
     async def delete_all_account_data(self, session: AsyncSession) -> None:
         await session.execute(delete(Project))
+        await session.execute(delete(StyleProfile))
+        await session.execute(delete(StyleAnalysisJob))
+        await session.execute(delete(StyleSampleFile))
         await session.execute(delete(ProviderConfig))
         await session.execute(delete(Session))
         await session.execute(delete(User))

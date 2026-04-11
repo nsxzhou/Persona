@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUserDep, DbSessionDep, ProjectServiceDep
+from app.core.domain_errors import DomainError, to_http_exception
 from app.schemas.projects import ProjectCreate, ProjectResponse, ProjectUpdate
 
 router = APIRouter(
@@ -27,8 +28,11 @@ async def create_project(
     db_session: DbSessionDep,
     project_service: ProjectServiceDep,
 ) -> ProjectResponse:
-    project = await project_service.create(db_session, payload)
-    return ProjectResponse.model_validate(project)
+    try:
+        project = await project_service.create(db_session, payload)
+        return ProjectResponse.model_validate(project)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
@@ -37,8 +41,11 @@ async def get_project(
     db_session: DbSessionDep,
     project_service: ProjectServiceDep,
 ) -> ProjectResponse:
-    project = await project_service.get_or_404(db_session, project_id)
-    return ProjectResponse.model_validate(project)
+    try:
+        project = await project_service.get_or_404(db_session, project_id)
+        return ProjectResponse.model_validate(project)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def update_project(
@@ -48,8 +55,11 @@ async def update_project(
     db_session: DbSessionDep,
     project_service: ProjectServiceDep,
 ) -> ProjectResponse:
-    project = await project_service.update(db_session, project_id, payload)
-    return ProjectResponse.model_validate(project)
+    try:
+        project = await project_service.update(db_session, project_id, payload)
+        return ProjectResponse.model_validate(project)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 @router.post("/{project_id}/archive", response_model=ProjectResponse)
 async def archive_project(
@@ -58,8 +68,11 @@ async def archive_project(
     db_session: DbSessionDep,
     project_service: ProjectServiceDep,
 ) -> ProjectResponse:
-    project = await project_service.archive(db_session, project_id)
-    return ProjectResponse.model_validate(project)
+    try:
+        project = await project_service.archive(db_session, project_id)
+        return ProjectResponse.model_validate(project)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 @router.post("/{project_id}/restore", response_model=ProjectResponse)
 async def restore_project(
@@ -68,5 +81,8 @@ async def restore_project(
     db_session: DbSessionDep,
     project_service: ProjectServiceDep,
 ) -> ProjectResponse:
-    project = await project_service.restore(db_session, project_id)
-    return ProjectResponse.model_validate(project)
+    try:
+        project = await project_service.restore(db_session, project_id)
+        return ProjectResponse.model_validate(project)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc

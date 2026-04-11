@@ -1,8 +1,5 @@
 import type {
-  AnalysisMeta,
-  AnalysisReport,
   LoginPayload,
-  PromptPack,
   Project,
   ProjectPayload,
   ProviderConfig,
@@ -14,9 +11,9 @@ import type {
   StyleProfileCreatePayload,
   StyleProfileListItem,
   StyleProfileUpdatePayload,
-  StyleSummary,
   User,
 } from "@/lib/types";
+import { parseApiErrorDetail } from "@/lib/request-error";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -34,13 +31,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { detail: text || response.statusText || "请求失败" };
-    }
-    throw new Error(data.detail ?? "请求失败");
+    throw new Error(parseApiErrorDetail(text, response.statusText || "请求失败"));
   }
 
   if (response.status === 204) {
@@ -49,6 +40,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   return response.json() as Promise<T>;
 }
+
+type StyleAnalysisJobStatus = Pick<
+  StyleAnalysisJob,
+  "id" | "status" | "stage" | "error_message" | "updated_at"
+>;
 
 export const api = {
   getSetupStatus: () => request<{ initialized: boolean }>("/api/v1/setup/status"),
@@ -118,16 +114,10 @@ export const api = {
       `/api/v1/style-analysis-jobs?offset=${offset}&limit=${limit}`
     );
   },
+  getStyleAnalysisJobStatus: (id: string) =>
+    request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/status`),
   getStyleAnalysisJob: (id: string) =>
     request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
-  getStyleAnalysisJobAnalysisMeta: (id: string) =>
-    request<AnalysisMeta>(`/api/v1/style-analysis-jobs/${id}/analysis-meta`),
-  getStyleAnalysisJobAnalysisReport: (id: string) =>
-    request<AnalysisReport>(`/api/v1/style-analysis-jobs/${id}/analysis-report`),
-  getStyleAnalysisJobStyleSummary: (id: string) =>
-    request<StyleSummary>(`/api/v1/style-analysis-jobs/${id}/style-summary`),
-  getStyleAnalysisJobPromptPack: (id: string) =>
-    request<PromptPack>(`/api/v1/style-analysis-jobs/${id}/prompt-pack`),
   createStyleAnalysisJob: (payload: {
     style_name: string;
     provider_id: string;

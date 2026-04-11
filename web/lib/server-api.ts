@@ -1,6 +1,9 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 
 import type { User } from "@/lib/types";
+import { parseApiErrorDetail } from "@/lib/request-error";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -25,16 +28,7 @@ async function requestFromServer(path: string): Promise<Response> {
 
 async function readError(response: Response): Promise<string> {
   const text = await response.text();
-  if (!text) {
-    return response.statusText || "请求失败";
-  }
-
-  try {
-    const data = JSON.parse(text) as { detail?: string };
-    return data.detail ?? text;
-  } catch {
-    return text;
-  }
+  return parseApiErrorDetail(text, response.statusText || "请求失败");
 }
 
 export async function getServerSetupStatus(): Promise<SetupStatus> {

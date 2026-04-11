@@ -1,4 +1,4 @@
-import { ProjectDetailPageClient } from "@/components/project-form";
+import { ProjectPageClient } from "@/components/project-form";
 
 export default async function ProjectDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ProjectDetailPageClient projectId={id} />;
+  return <ProjectPageClient mode="detail" projectId={id} />;
 }

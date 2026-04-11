@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.api.deps import AuthServiceDep, CurrentUserDep, DbSessionDep, set_session_cookie
 from app.core.config import get_settings
+from app.core.domain_errors import DomainError, to_http_exception
 from app.schemas.auth import LoginRequest, UserResponse
 
 router = APIRouter(tags=["auth"])
@@ -18,14 +19,14 @@ async def login(
     auth_service: AuthServiceDep,
 ) -> UserResponse:
     """用户登录接口"""
-    if not await auth_service.is_initialized(db_session):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="系统尚未初始化"
+    try:
+        await auth_service.ensure_initialized(db_session)
+        user = await auth_service.authenticate(
+            db_session, payload.username, payload.password
         )
-    user = await auth_service.authenticate(
-        db_session, payload.username, payload.password
-    )
-    _, raw_token = await auth_service.create_session(db_session, user)
+        _, raw_token = await auth_service.create_session(db_session, user)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
     set_session_cookie(response, raw_token)
 

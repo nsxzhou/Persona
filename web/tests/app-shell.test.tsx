@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi } from "vitest";
 
 import { AppShell } from "@/components/app-shell";
+
+vi.mock("server-only", () => ({}));
 
 
 test("app shell renders left navigation items", () => {
@@ -99,8 +102,45 @@ test("workspace layout renders app shell for authenticated user", async () => {
 
   const WorkspaceLayout = (await import("@/app/(workspace)/layout")).default;
   const node = await WorkspaceLayout({ children: <div>workspace-content</div> });
-  render(node);
+  render(<QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>);
 
   expect(screen.getByText("workspace-content")).toBeInTheDocument();
+  expect(redirectMock).not.toHaveBeenCalled();
+});
+
+test("workspace layout seeds current-user query cache for hydration", async () => {
+  vi.resetModules();
+  const redirectMock = vi.fn();
+  const setQueryDataMock = vi.fn();
+  const dehydrateMock = vi.fn(() => ({ mocked: true }));
+
+  vi.doMock("next/navigation", () => ({
+    redirect: redirectMock,
+  }));
+  vi.doMock("@tanstack/react-query", () => ({
+    QueryClient: class {
+      setQueryData = setQueryDataMock;
+    },
+    dehydrate: dehydrateMock,
+    HydrationBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  }));
+  vi.doMock("@/lib/server-api", () => ({
+    getServerSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    getServerCurrentUser: vi.fn().mockResolvedValue({
+      id: "user-2",
+      username: "cached-user",
+      created_at: "2026-04-10T00:00:00Z",
+    }),
+  }));
+
+  const WorkspaceLayout = (await import("@/app/(workspace)/layout")).default;
+  const node = await WorkspaceLayout({ children: <div>hydrated-content</div> });
+  render(node);
+
+  expect(setQueryDataMock).toHaveBeenCalledWith(
+    ["current-user"],
+    expect.objectContaining({ id: "user-2" }),
+  );
+  expect(dehydrateMock).toHaveBeenCalledTimes(1);
   expect(redirectMock).not.toHaveBeenCalled();
 });
