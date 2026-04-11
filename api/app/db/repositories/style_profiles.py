@@ -12,10 +12,11 @@ class StyleProfileRepository:
         self,
         session: AsyncSession,
         *,
+        user_id: str | None = None,
         offset: int,
         limit: int,
     ) -> list[StyleProfile]:
-        result = await session.stream_scalars(
+        stmt = (
             select(StyleProfile)
             .options(
                 defer(StyleProfile.analysis_report_payload),
@@ -26,41 +27,59 @@ class StyleProfileRepository:
             .offset(offset)
             .limit(limit)
         )
+        if user_id is not None:
+            stmt = stmt.where(StyleProfile.user_id == user_id)
+        result = await session.stream_scalars(stmt)
         return [profile async for profile in result]
 
     async def get_by_id(
         self,
         session: AsyncSession,
         profile_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleProfile | None:
-        return await session.get(StyleProfile, profile_id)
+        stmt = select(StyleProfile).where(StyleProfile.id == profile_id)
+        if user_id is not None:
+            stmt = stmt.where(StyleProfile.user_id == user_id)
+        return await session.scalar(stmt)
 
     async def get_with_projects(
         self,
         session: AsyncSession,
         profile_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleProfile | None:
-        return await session.scalar(
+        stmt = (
             select(StyleProfile)
             .options(selectinload(StyleProfile.projects))
             .where(StyleProfile.id == profile_id)
         )
+        if user_id is not None:
+            stmt = stmt.where(StyleProfile.user_id == user_id)
+        return await session.scalar(stmt)
 
     async def get_by_source_job_id(
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleProfile | None:
-        return await session.scalar(
-            select(StyleProfile).where(StyleProfile.source_job_id == job_id)
-        )
+        stmt = select(StyleProfile).where(StyleProfile.source_job_id == job_id)
+        if user_id is not None:
+            stmt = stmt.where(StyleProfile.user_id == user_id)
+        return await session.scalar(stmt)
 
     async def get_job_for_profile_creation(
         self,
         session: AsyncSession,
         job_id: str,
+        *,
+        user_id: str | None = None,
     ) -> StyleAnalysisJob | None:
-        return await session.scalar(
+        stmt = (
             select(StyleAnalysisJob)
             .options(
                 joinedload(StyleAnalysisJob.sample_file),
@@ -69,6 +88,9 @@ class StyleProfileRepository:
             )
             .where(StyleAnalysisJob.id == job_id)
         )
+        if user_id is not None:
+            stmt = stmt.where(StyleAnalysisJob.user_id == user_id)
+        return await session.scalar(stmt)
 
     async def create(
         self,
@@ -82,6 +104,7 @@ class StyleProfileRepository:
         analysis_report_payload: dict,
         style_summary_payload: dict,
         prompt_pack_payload: dict,
+        user_id: str,
     ) -> StyleProfile:
         profile = StyleProfile(
             source_job_id=source_job_id,
@@ -92,6 +115,7 @@ class StyleProfileRepository:
             analysis_report_payload=analysis_report_payload,
             style_summary_payload=style_summary_payload,
             prompt_pack_payload=prompt_pack_payload,
+            user_id=user_id,
         )
         session.add(profile)
         await session.flush()

@@ -24,14 +24,21 @@ class StyleProfileService:
         self,
         session: AsyncSession,
         *,
+        user_id: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> list[StyleProfile]:
         limit = min(max(limit, 1), 100)
-        return await self.repository.list(session, offset=offset, limit=limit)
+        return await self.repository.list(session, user_id=user_id, offset=offset, limit=limit)
 
-    async def get_or_404(self, session: AsyncSession, profile_id: str) -> StyleProfile:
-        profile = await self.repository.get_by_id(session, profile_id)
+    async def get_or_404(
+        self,
+        session: AsyncSession,
+        profile_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> StyleProfile:
+        profile = await self.repository.get_by_id(session, profile_id, user_id=user_id)
         if profile is None:
             raise NotFoundError("风格档案不存在")
         return profile
@@ -42,6 +49,7 @@ class StyleProfileService:
         *,
         project_id: str | None,
         profile_id: str,
+        user_id: str | None = None,
     ) -> None:
         if project_id is None:
             return
@@ -50,22 +58,36 @@ class StyleProfileService:
             session,
             project_id,
             profile_id,
+            user_id=user_id,
         )
         if project is None:
             raise NotFoundError("项目不存在")
 
-    async def create(self, session: AsyncSession, payload: StyleProfileCreate) -> StyleProfile:
-        existing = await self.repository.get_by_source_job_id(session, payload.job_id)
+    async def create(
+        self,
+        session: AsyncSession,
+        payload: StyleProfileCreate,
+        *,
+        user_id: str | None = None,
+    ) -> StyleProfile:
+        existing = await self.repository.get_by_source_job_id(
+            session, payload.job_id, user_id=user_id
+        )
         if existing is not None:
             raise ConflictError("该分析任务已保存为风格档案")
 
-        job = await self.repository.get_job_for_profile_creation(session, payload.job_id)
+        job = await self.repository.get_job_for_profile_creation(
+            session,
+            payload.job_id,
+            user_id=user_id,
+        )
         if job is None:
             raise NotFoundError("分析任务不存在")
 
         _, analysis_report, _, _ = build_job_result_bundle(job)
         if job.status != "succeeded" or analysis_report is None:
             raise ConflictError("仅已成功完成的分析任务可以保存为风格档案")
+        resolved_user_id = user_id or job.user_id
 
         style_summary = StyleSummary.model_validate(payload.style_summary)
         prompt_pack = PromptPack.model_validate(payload.prompt_pack)
@@ -80,11 +102,13 @@ class StyleProfileService:
             analysis_report_payload=analysis_report.model_dump(mode="json"),
             style_summary_payload=style_summary.model_dump(mode="json"),
             prompt_pack_payload=prompt_pack.model_dump(mode="json"),
+            user_id=resolved_user_id,
         )
         await self._mount_project(
             session,
             project_id=payload.mount_project_id,
             profile_id=profile.id,
+            user_id=resolved_user_id,
         )
         return profile
 
@@ -93,8 +117,10 @@ class StyleProfileService:
         session: AsyncSession,
         profile_id: str,
         payload: StyleProfileUpdate,
+        *,
+        user_id: str | None = None,
     ) -> StyleProfile:
-        profile = await self.get_or_404(session, profile_id)
+        profile = await self.get_or_404(session, profile_id, user_id=user_id)
         style_summary = StyleSummary.model_validate(payload.style_summary)
         prompt_pack = PromptPack.model_validate(payload.prompt_pack)
 
@@ -106,11 +132,22 @@ class StyleProfileService:
             session,
             project_id=payload.mount_project_id,
             profile_id=profile.id,
+            user_id=user_id,
         )
         return profile
 
-    async def delete(self, session: AsyncSession, profile_id: str) -> None:
-        profile = await self.repository.get_with_projects(session, profile_id)
+    async def delete(
+        self,
+        session: AsyncSession,
+        profile_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> None:
+        profile = await self.repository.get_with_projects(
+            session,
+            profile_id,
+            user_id=user_id,
+        )
         if profile is None:
             raise NotFoundError("风格档案不存在")
         if profile.projects:
