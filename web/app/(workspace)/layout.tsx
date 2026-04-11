@@ -8,13 +8,11 @@ export default async function WorkspaceLayout({ children }: PropsWithChildren) {
   const setupStatus = await getServerSetupStatus();
   if (!setupStatus.initialized) {
     redirect("/setup");
-    return null;
   }
 
   const currentUser = await getServerCurrentUser();
   if (!currentUser) {
     redirect("/login");
-    return null;
   }
 
   return <AppShell>{children}</AppShell>;

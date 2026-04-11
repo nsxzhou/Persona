@@ -2,21 +2,12 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { PropsWithChildren } from "react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { LoginPageView } from "@/components/login-page-view";
 import { SetupPageView } from "@/components/setup-page-view";
 import type { LoginPayload, SetupPayload } from "@/lib/types";
-
-export function PublicRouteGuard({ children }: PropsWithChildren) {
-  return <>{children}</>;
-}
-
-export function ProtectedRouteGuard({ children }: PropsWithChildren) {
-  return <>{children}</>;
-}
 
 export function SetupPageClient() {
   const router = useRouter();
