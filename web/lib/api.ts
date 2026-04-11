@@ -98,6 +98,10 @@ export const api = {
     request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/status`),
   getStyleAnalysisJob: (id: string) =>
     request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
+  deleteStyleAnalysisJob: (id: string) =>
+    request<void>(`/api/v1/style-analysis-jobs/${id}`, {
+      method: "DELETE",
+    }),
   createStyleAnalysisJob: (payload: {
     style_name: string;
     provider_id: string;

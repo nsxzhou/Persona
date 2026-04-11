@@ -57,6 +57,8 @@ const createTaskSchema = z.object({
 type CreateTaskFormValues = z.infer<typeof createTaskSchema>;
 
 export function StyleLabPageClient() {
+  const queryClient = useQueryClient();
+
   const providersQuery = useQuery({
     queryKey: ["provider-configs"],
     queryFn: api.getProviderConfigs,
@@ -66,6 +68,25 @@ export function StyleLabPageClient() {
     queryKey: ["style-analysis-jobs"],
     queryFn: () => api.getStyleAnalysisJobs(),
   });
+
+  const deleteJobMutation = useMutation({
+    mutationFn: api.deleteStyleAnalysisJob,
+    onSuccess: () => {
+      toast.success("分析任务已删除");
+      queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs"] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "删除失败");
+    },
+  });
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm("确定要删除该分析任务吗？此操作不可恢复。")) {
+      deleteJobMutation.mutate(id);
+    }
+  };
 
   if (providersQuery.isLoading || jobsQuery.isLoading) {
     return <PageLoading title="正在载入 Style Lab..." />;
@@ -145,9 +166,19 @@ export function StyleLabPageClient() {
                   ) : null}
                 </div>
               </CardContent>
-              <CardFooter className="pt-4 border-t bg-muted/20">
-                <Button variant="secondary" size="sm" className="w-full" asChild>
+              <CardFooter className="pt-4 border-t bg-muted/20 flex gap-2">
+                <Button variant="secondary" size="sm" className="flex-1" asChild>
                   <Link href={`/style-lab/${job.id}`}>进入工作台</Link>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={(e) => handleDelete(e, job.id)}
+                  disabled={deleteJobMutation.isPending}
+                  title="删除任务"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </CardFooter>
             </Card>
