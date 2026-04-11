@@ -29,6 +29,11 @@ api:
 	@if lsof -iTCP:$(API_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then \
 		echo "后端已在 $(API_PORT) 端口运行，跳过启动"; \
 	else \
+		if pgrep -f 'uvicorn app.main:app' >/dev/null 2>&1; then \
+			echo "检测到残留 uvicorn 进程，正在清理..."; \
+			pgrep -f 'uvicorn app.main:app' | xargs kill >/dev/null 2>&1 || true; \
+			sleep 1; \
+		fi; \
 		echo "后端未运行，正在启动..."; \
 		if [ ! -f "$(API_DIR)/.env" ] && [ -f "$(API_DIR)/.env.example" ]; then cp "$(API_DIR)/.env.example" "$(API_DIR)/.env"; fi; \
 		cd "$(API_DIR)" && uv sync; \
@@ -114,6 +119,9 @@ stop: stop-api stop-worker stop-web
 stop-api:
 	@if lsof -tiTCP:$(API_PORT) -sTCP:LISTEN >/dev/null 2>&1; then \
 		lsof -tiTCP:$(API_PORT) -sTCP:LISTEN | xargs kill; \
+		echo "已停止后端"; \
+	elif pgrep -f 'uvicorn app.main:app' >/dev/null 2>&1; then \
+		pgrep -f 'uvicorn app.main:app' | xargs kill; \
 		echo "已停止后端"; \
 	else \
 		echo "后端未运行"; \
