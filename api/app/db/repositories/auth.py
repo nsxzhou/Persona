@@ -88,20 +88,29 @@ class AuthRepository:
         await session.execute(delete(Session).where(Session.token_hash == token_hash))
 
     async def list_style_lab_cleanup_targets(
-        self, session: AsyncSession
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str | None = None,
     ) -> tuple[list[str], list[str]]:
-        sample_paths = await session.stream_scalars(select(StyleSampleFile.storage_path))
-        job_ids = await session.stream_scalars(select(StyleAnalysisJob.id))
+        sample_stmt = select(StyleSampleFile.storage_path)
+        if user_id is not None:
+            sample_stmt = sample_stmt.where(StyleSampleFile.user_id == user_id)
+        sample_paths = await session.stream_scalars(sample_stmt)
+        job_stmt = select(StyleAnalysisJob.id)
+        if user_id is not None:
+            job_stmt = job_stmt.where(StyleAnalysisJob.user_id == user_id)
+        job_ids = await session.stream_scalars(job_stmt)
         return (
             [path async for path in sample_paths if path],
             [job_id async for job_id in job_ids if job_id],
         )
 
-    async def delete_all_account_data(self, session: AsyncSession) -> None:
-        await session.execute(delete(Project))
-        await session.execute(delete(StyleProfile))
-        await session.execute(delete(StyleAnalysisJob))
-        await session.execute(delete(StyleSampleFile))
-        await session.execute(delete(ProviderConfig))
-        await session.execute(delete(Session))
-        await session.execute(delete(User))
+    async def delete_all_account_data(self, session: AsyncSession, *, user_id: str) -> None:
+        await session.execute(delete(Project).where(Project.user_id == user_id))
+        await session.execute(delete(StyleProfile).where(StyleProfile.user_id == user_id))
+        await session.execute(delete(StyleAnalysisJob).where(StyleAnalysisJob.user_id == user_id))
+        await session.execute(delete(StyleSampleFile).where(StyleSampleFile.user_id == user_id))
+        await session.execute(delete(ProviderConfig).where(ProviderConfig.user_id == user_id))
+        await session.execute(delete(Session).where(Session.user_id == user_id))
+        await session.execute(delete(User).where(User.id == user_id))
