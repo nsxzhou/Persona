@@ -31,13 +31,20 @@ def test_projects_routes_use_annotated_service_dependency() -> None:
 async def test_project_service_can_bind_style_profile_id_by_project_id(
     app_with_db: FastAPI,
 ) -> None:
+    from app.core.security import hash_password
     from app.core.domain_errors import NotFoundError
+    from app.db.repositories.auth import AuthRepository
     from app.schemas.projects import ProjectCreate
     from app.schemas.provider_configs import ProviderConfigCreate
     from app.services.projects import ProjectService
     from app.services.provider_configs import ProviderConfigService
 
     async with app_with_db.state.session_factory() as session:
+        user = await AuthRepository().create_user(
+            session,
+            username="project-owner",
+            password_hash=hash_password("password123"),
+        )
         provider = await ProviderConfigService().create(
             session,
             ProviderConfigCreate(
@@ -47,6 +54,7 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
                 default_model="gpt-4.1-mini",
                 is_enabled=True,
             ),
+            user_id=user.id,
         )
         project = await ProjectService().create(
             session,
@@ -58,6 +66,7 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
                 default_model="gpt-4.1-mini",
                 style_profile_id=None,
             ),
+            user_id=user.id,
         )
 
         target_style_profile_id = "11111111-1111-1111-1111-111111111111"
@@ -65,6 +74,7 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
             session,
             project.id,
             target_style_profile_id,
+            user_id=user.id,
         )
         assert updated.id == project.id
         assert updated.style_profile_id == target_style_profile_id
@@ -74,6 +84,7 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
                 session,
                 "non-existent-project-id",
                 target_style_profile_id,
+                user_id=user.id,
             )
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "项目不存在"

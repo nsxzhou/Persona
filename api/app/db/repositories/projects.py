@@ -12,6 +12,7 @@ class ProjectRepository:
         self,
         session: AsyncSession,
         *,
+        user_id: str | None = None,
         include_archived: bool,
     ) -> list[Project]:
         query = (
@@ -19,6 +20,8 @@ class ProjectRepository:
             .options(joinedload(Project.provider))
             .order_by(Project.created_at.desc())
         )
+        if user_id is not None:
+            query = query.where(Project.user_id == user_id)
         if not include_archived:
             query = query.where(Project.archived_at.is_(None))
         result = await session.stream_scalars(query)
@@ -28,11 +31,18 @@ class ProjectRepository:
         self,
         session: AsyncSession,
         project_id: str,
+        *,
+        user_id: str | None = None,
     ) -> Project | None:
-        return await session.scalar(
+        stmt = (
             select(Project)
             .options(joinedload(Project.provider))
             .where(Project.id == project_id)
+        )
+        if user_id is not None:
+            stmt = stmt.where(Project.user_id == user_id)
+        return await session.scalar(
+            stmt
         )
 
     async def create(
@@ -45,6 +55,7 @@ class ProjectRepository:
         default_provider_id: str,
         default_model: str,
         style_profile_id: str | None,
+        user_id: str,
     ) -> Project:
         project = Project(
             name=name,
@@ -53,6 +64,7 @@ class ProjectRepository:
             default_provider_id=default_provider_id,
             default_model=default_model,
             style_profile_id=style_profile_id,
+            user_id=user_id,
         )
         session.add(project)
         await session.flush()
@@ -66,8 +78,10 @@ class ProjectRepository:
         session: AsyncSession,
         project_id: str,
         style_profile_id: str | None,
+        *,
+        user_id: str | None = None,
     ) -> Project | None:
-        project = await self.get_by_id(session, project_id)
+        project = await self.get_by_id(session, project_id, user_id=user_id)
         if project is None:
             return None
         project.style_profile_id = style_profile_id
