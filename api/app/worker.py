@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 
 from app.core.config import get_settings
 from app.db.session import create_engine, create_session_factory
@@ -15,31 +14,15 @@ async def run_worker() -> None:
     session_factory = create_session_factory(engine)
     service = StyleAnalysisWorkerService()
 
-    last_stale_check = 0.0
-    stale_check_interval = max(5.0, float(settings.style_analysis_stale_timeout_seconds) / 3.0)
-    current_poll_interval = settings.style_analysis_poll_interval_seconds
-    max_poll_interval = max(
-        settings.style_analysis_poll_interval_seconds,
-        settings.style_analysis_poll_interval_seconds * 4,
-    )
-
     try:
-        while True:
-            now = time.monotonic()
-            if now - last_stale_check >= stale_check_interval:
-                await service.fail_stale_running_jobs(
-                    session_factory,
-                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
-                )
-                last_stale_check = now
-
-            processed = await service.process_next_pending(session_factory)
-            if processed:
-                current_poll_interval = settings.style_analysis_poll_interval_seconds
-                continue
-
-            await asyncio.sleep(current_poll_interval)
-            current_poll_interval = min(max_poll_interval, current_poll_interval * 2)
+        await service.run_worker(
+            session_factory,
+            poll_interval_seconds=settings.style_analysis_poll_interval_seconds,
+            max_poll_interval_seconds=max(
+                settings.style_analysis_poll_interval_seconds,
+                settings.style_analysis_poll_interval_seconds * 4,
+            ),
+        )
     finally:
         await service.aclose()
         await engine.dispose()

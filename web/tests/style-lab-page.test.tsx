@@ -8,11 +8,8 @@ import { StyleLabWizardView } from "@/components/style-lab-wizard-view";
 const apiMock = vi.hoisted(() => ({
   getProviderConfigs: vi.fn(),
   getStyleAnalysisJobs: vi.fn(),
+  getStyleAnalysisJobStatus: vi.fn(),
   getStyleAnalysisJob: vi.fn(),
-  getStyleAnalysisJobAnalysisMeta: vi.fn(),
-  getStyleAnalysisJobAnalysisReport: vi.fn(),
-  getStyleAnalysisJobStyleSummary: vi.fn(),
-  getStyleAnalysisJobPromptPack: vi.fn(),
   createStyleAnalysisJob: vi.fn(),
   getStyleProfiles: vi.fn(),
   getStyleProfile: vi.fn(),
@@ -232,6 +229,13 @@ test("style lab page submits txt upload form", async () => {
 });
 
 test("style lab wizard shows running stage feedback", async () => {
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "running",
+    stage: "preparing_input",
+    error_message: null,
+    updated_at: "2026-04-09T00:00:30Z",
+  });
   apiMock.getStyleAnalysisJob.mockResolvedValueOnce({
     ...buildSucceededJob(),
     status: "running",
@@ -242,6 +246,31 @@ test("style lab wizard shows running stage feedback", async () => {
   renderWizard();
 
   expect(await screen.findByText("当前阶段: preparing_input")).toBeInTheDocument();
+  expect(apiMock.getStyleAnalysisJobStatus).toHaveBeenCalledWith("job-1");
+  expect(apiMock.getStyleAnalysisJob).toHaveBeenCalledWith("job-1");
+});
+
+test("style lab wizard fetches mountable projects only when entering final step", async () => {
+  apiMock.getStyleAnalysisJob.mockResolvedValue(
+    buildSucceededJob({
+      analysis_report: buildReport(),
+      style_summary: buildSummary(),
+      prompt_pack: buildPromptPack(),
+      style_profile: null,
+    }),
+  );
+  apiMock.getProjects.mockResolvedValue([]);
+
+  renderWizard();
+
+  expect(await screen.findByText("口头禅与常用表达")).toBeInTheDocument();
+  expect(apiMock.getProjects).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "审阅完毕，下一步" }));
+  expect(apiMock.getProjects).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
+  await waitFor(() => expect(apiMock.getProjects).toHaveBeenCalledTimes(1));
 });
 
 test("style lab wizard renders read-only report and saves new profile with mount", async () => {
@@ -318,9 +347,6 @@ test("style lab wizard renders read-only report and saves new profile with mount
   );
   expect(apiMock.updateProject).not.toHaveBeenCalled();
   expect(apiMock.getStyleProfile).not.toHaveBeenCalled();
-  expect(apiMock.getStyleAnalysisJobAnalysisReport).not.toHaveBeenCalled();
-  expect(apiMock.getStyleAnalysisJobStyleSummary).not.toHaveBeenCalled();
-  expect(apiMock.getStyleAnalysisJobPromptPack).not.toHaveBeenCalled();
 });
 
 test("style lab wizard updates existing saved profile", async () => {
@@ -376,7 +402,4 @@ test("style lab wizard updates existing saved profile", async () => {
     }),
   ));
   expect(apiMock.getStyleProfile).not.toHaveBeenCalled();
-  expect(apiMock.getStyleAnalysisJobAnalysisReport).not.toHaveBeenCalled();
-  expect(apiMock.getStyleAnalysisJobStyleSummary).not.toHaveBeenCalled();
-  expect(apiMock.getStyleAnalysisJobPromptPack).not.toHaveBeenCalled();
 });

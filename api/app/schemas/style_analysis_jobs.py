@@ -264,6 +264,16 @@ class StyleAnalysisJobResponse(BaseModel):
     style_profile: StyleProfileEmbeddedResponse | None = None
 
 
+class StyleAnalysisJobStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    status: StyleAnalysisJobStatus
+    stage: StyleAnalysisJobStage | None
+    error_message: str | None
+    updated_at: datetime
+
+
 class StyleAnalysisJobListItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

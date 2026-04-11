@@ -1,4 +1,4 @@
-import type { PromptPackFewShotSlot, StyleSummarySceneStrategy } from "@/lib/types";
+import type { StyleSummarySceneStrategy } from "@/lib/types";
 
 export function linesToList(value: string) {
   return value
@@ -28,26 +28,3 @@ export function linesToSceneStrategies(value: string) {
       };
     });
 }
-
-export function fewShotSlotsToLines(values: PromptPackFewShotSlot[]) {
-  return values
-    .map((item) => `${item.label}|${item.type}|${item.purpose}|${item.text}`)
-    .join("\n");
-}
-
-export function linesToFewShotSlots(value: string) {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line, index) => {
-      const [label, type, purpose, ...rest] = line.split("|");
-      return {
-        label: label?.trim() || `slot-${index + 1}`,
-        type: type?.trim() || "generic",
-        purpose: purpose?.trim() || "补充风格示例",
-        text: rest.join("|").trim() || line,
-      };
-    });
-}
-

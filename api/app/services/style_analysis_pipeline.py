@@ -185,31 +185,35 @@ class StyleAnalysisPipeline:
 
     async def _merge_chunks(self, state: StyleAnalysisState) -> dict[str, Any]:
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_AGGREGATING)
-        chunk_analysis_payloads: list[dict[str, Any]] = []
+        merged: MergedAnalysis | None = None
         async for batch in self.storage_service.read_chunk_analysis_batches(
             state["job_id"],
             batch_size=8,
         ):
-            chunk_analysis_payloads.extend(batch)
-
-        chunk_analyses = sorted(
-            (ChunkAnalysis.model_validate(item) for item in chunk_analysis_payloads),
-            key=lambda item: item.chunk_index,
-        )
-        if len(chunk_analyses) == 1:
-            merged = MergedAnalysis(
-                classification=state["classification"],
-                sections=chunk_analyses[0].sections,
+            chunk_analyses = sorted(
+                (ChunkAnalysis.model_validate(item) for item in batch),
+                key=lambda item: item.chunk_index,
             )
-        else:
+            if merged is None and len(chunk_analyses) == 1:
+                merged = MergedAnalysis(
+                    classification=state["classification"],
+                    sections=chunk_analyses[0].sections,
+                )
+                continue
+
+            merge_inputs = [item.model_dump(mode="json") for item in chunk_analyses]
+            if merged is not None:
+                merge_inputs.insert(0, merged.model_dump(mode="json"))
             merged = await self.llm_client.ainvoke_structured(
                 model=self.chat_model,
                 schema=MergedAnalysis,
                 prompt=build_merge_prompt(
-                    chunk_analyses=[item.model_dump(mode="json") for item in chunk_analyses],
+                    chunk_analyses=merge_inputs,
                     classification=state["classification"],
                 ),
             )
+        if merged is None:
+            raise RuntimeError("聚合阶段没有读到任何 chunk 分析结果")
         return {"merged_analysis": merged.model_dump(mode="json")}
 
     async def _build_report(self, state: StyleAnalysisState) -> dict[str, Any]:

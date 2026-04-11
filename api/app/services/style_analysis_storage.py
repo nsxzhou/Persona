@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import shutil
@@ -130,7 +131,7 @@ class StyleAnalysisStorageService:
     async def cleanup_job_artifacts(self, job_id: str) -> None:
         artifact_dir = self._job_artifact_dir(job_id)
         if artifact_dir.exists():
-            shutil.rmtree(artifact_dir, ignore_errors=True)
+            await asyncio.to_thread(shutil.rmtree, artifact_dir, ignore_errors=True)
 
     async def job_artifacts_exist(self, job_id: str) -> bool:
         return self._job_artifact_dir(job_id).exists()

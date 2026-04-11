@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +16,13 @@ from app.services.style_analysis_jobs import (
 )
 from app.services.style_analysis_worker import StyleAnalysisWorkerService
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
+
+
+def test_style_profile_service_does_not_import_job_module_helpers() -> None:
+    import app.services.style_profiles as style_profiles_module
+
+    source = inspect.getsource(style_profiles_module)
+    assert "from app.services.style_analysis_jobs import build_job_result_bundle" not in source
 
 
 def build_fake_analysis_report() -> dict:
@@ -279,6 +287,9 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     job_detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     assert job_detail_response.status_code == 200
     assert job_detail_response.json()["style_profile"]["id"] == profile["id"]
+    assert job_detail_response.json()["analysis_report"]["sections"][0]["section"] == "3.1"
+    assert job_detail_response.json()["style_summary"]["style_name"] == "王家卫风格（修订版）"
+    assert job_detail_response.json()["prompt_pack"]["system_prompt"].startswith("以迟滞")
 
 
 @pytest.mark.asyncio
@@ -469,3 +480,98 @@ async def test_create_style_profile_rolls_back_when_mount_project_is_missing(
     async with app_with_db.state.session_factory() as session:
         profile = await session.scalar(select(StyleProfile).where(StyleProfile.source_job_id == job_id))
         assert profile is None
+
+
+@pytest.mark.asyncio
+async def test_delete_style_profile_rejects_when_mounted_to_project(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    project_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "挂载中的项目",
+            "description": "验证删除保护",
+            "status": "draft",
+            "default_provider_id": provider_id,
+            "default_model": "",
+            "style_profile_id": None,
+        },
+    )
+    assert project_response.status_code == 201
+    project_id = project_response.json()["id"]
+
+    job_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "删除保护风格", "provider_id": provider_id},
+        files={"file": ("sample.txt", "雨下得很慢。".encode("utf-8"), "text/plain")},
+    )
+    job_id = job_response.json()["id"]
+
+    async def fake_build_pipeline(
+        self,
+        *,
+        provider,
+        model_name: str,
+        style_name: str,
+        source_filename: str,
+        stage_callback,
+    ):
+        del provider, stage_callback
+        assert model_name
+        assert style_name == "删除保护风格"
+        assert source_filename == "sample.txt"
+
+        class FakePipeline:
+            async def run(
+                self,
+                *,
+                job_id: str,
+                chunk_count: int,
+                classification: dict,
+                max_concurrency: int,
+            ) -> StyleAnalysisPipelineResult:
+                del job_id
+                assert chunk_count == 1
+                assert classification["text_type"] == "章节正文"
+                assert max_concurrency == 5
+                return StyleAnalysisPipelineResult(
+                    analysis_meta=AnalysisMeta(
+                        source_filename="sample.txt",
+                        model_name=model_name,
+                        text_type="章节正文",
+                        has_timestamps=False,
+                        has_speaker_labels=False,
+                        has_noise_markers=False,
+                        uses_batch_processing=False,
+                        location_indexing="章节或段落位置",
+                        chunk_count=1,
+                    ),
+                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
+                    style_summary=StyleSummary.model_validate(build_fake_style_summary("删除保护风格")),
+                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
+                )
+
+        return FakePipeline()
+
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
+    assert processed is True
+
+    create_profile_response = await initialized_client.post(
+        "/api/v1/style-profiles",
+        json={
+            "job_id": job_id,
+            "mount_project_id": project_id,
+            "style_summary": build_fake_style_summary("删除保护风格"),
+            "prompt_pack": build_fake_prompt_pack(),
+        },
+    )
+    assert create_profile_response.status_code == 201
+    profile_id = create_profile_response.json()["id"]
+
+    delete_response = await initialized_client.delete(f"/api/v1/style-profiles/{profile_id}")
+    assert delete_response.status_code == 409
+    assert delete_response.json()["detail"] == "该风格档案正被项目引用，无法删除"

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import StyleAnalysisJob, StyleProfile
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
 from app.schemas.style_analysis_jobs import (
@@ -17,42 +19,25 @@ from app.schemas.style_analysis_jobs import (
     STYLE_ANALYSIS_JOB_STATUS_RUNNING,
     STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
     StyleAnalysisJobResponse,
+    StyleAnalysisJobStatusResponse,
     StyleProfileEmbeddedResponse,
     StyleSummary,
 )
 from app.services.provider_configs import ProviderConfigService
+from app.services.style_lab_mappers import (
+    build_job_result_bundle,
+    build_profile_result_bundle,
+    build_style_profile_response_payload,
+)
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 
-
-def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
-    AnalysisMeta | None,
-    AnalysisReport | None,
-    StyleSummary | None,
-    PromptPack | None,
-]:
-    if (
-        job.analysis_meta_payload
-        and job.analysis_report_payload
-        and job.style_summary_payload
-        and job.prompt_pack_payload
-    ):
-        return (
-            AnalysisMeta.model_validate(job.analysis_meta_payload),
-            AnalysisReport.model_validate(job.analysis_report_payload),
-            StyleSummary.model_validate(job.style_summary_payload),
-            PromptPack.model_validate(job.prompt_pack_payload),
-        )
-
-    return None, None, None, None
+STYLE_ANALYSIS_USER_ERROR_MESSAGE = "分析任务失败，请稍后重试。"
 
 
-def build_profile_result_bundle(profile: StyleProfile) -> tuple[AnalysisReport, StyleSummary, PromptPack]:
-    return (
-        AnalysisReport.model_validate(profile.analysis_report_payload),
-        StyleSummary.model_validate(profile.style_summary_payload),
-        PromptPack.model_validate(profile.prompt_pack_payload),
-    )
+def sanitize_style_analysis_error_message(error_message: str | None) -> str:
+    del error_message
+    return STYLE_ANALYSIS_USER_ERROR_MESSAGE
 
 
 def build_style_profile_embedded_response(
@@ -60,24 +45,16 @@ def build_style_profile_embedded_response(
 ) -> StyleProfileEmbeddedResponse | None:
     if profile is None:
         return None
-    analysis_report, style_summary, prompt_pack = build_profile_result_bundle(profile)
-    return StyleProfileEmbeddedResponse(
-        id=profile.id,
-        source_job_id=profile.source_job_id,
-        provider_id=profile.provider_id,
-        model_name=profile.model_name,
-        source_filename=profile.source_filename,
-        style_name=profile.style_name,
-        analysis_report=analysis_report,
-        style_summary=style_summary,
-        prompt_pack=prompt_pack,
-        created_at=profile.created_at,
-        updated_at=profile.updated_at,
-    )
+    return StyleProfileEmbeddedResponse(**build_style_profile_response_payload(profile))
 
 
 def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse:
+    style_profile = build_style_profile_embedded_response(job.style_profile)
     analysis_meta, analysis_report, style_summary, prompt_pack = build_job_result_bundle(job)
+    if style_profile is not None:
+        analysis_report = style_profile.analysis_report
+        style_summary = style_profile.style_summary
+        prompt_pack = style_profile.prompt_pack
     return StyleAnalysisJobResponse(
         id=job.id,
         style_name=job.style_name,
@@ -97,7 +74,7 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
         analysis_report=analysis_report,
         style_summary=style_summary,
         prompt_pack=prompt_pack,
-        style_profile=build_style_profile_embedded_response(job.style_profile),
+        style_profile=style_profile,
     )
 
 
@@ -133,7 +110,7 @@ class StyleAnalysisJobService:
             include_payloads=include_payloads,
         )
         if job is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分析任务不存在")
+            raise NotFoundError("分析任务不存在")
         return job
 
     async def get_detail_or_404(
@@ -141,8 +118,29 @@ class StyleAnalysisJobService:
         session: AsyncSession,
         job_id: str,
     ) -> StyleAnalysisJobResponse:
-        job = await self.get_or_404(session, job_id, include_payloads=True)
+        job = await self.repository.get_by_id(
+            session,
+            job_id,
+            include_payloads=True,
+            include_style_profile_payloads=True,
+        )
+        if job is None:
+            raise NotFoundError("分析任务不存在")
         return build_job_detail_response(job)
+
+    async def get_status_or_404(
+        self,
+        session: AsyncSession,
+        job_id: str,
+    ) -> StyleAnalysisJobStatusResponse:
+        job = await self.get_or_404(session, job_id, include_payloads=False)
+        return StyleAnalysisJobStatusResponse(
+            id=job.id,
+            status=job.status,
+            stage=job.stage,
+            error_message=job.error_message,
+            updated_at=job.updated_at,
+        )
 
     async def _get_payload_or_409(
         self,
@@ -159,10 +157,10 @@ class StyleAnalysisJobService:
             payload_column=payload_column,
         )
         if result is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分析任务不存在")
+            raise NotFoundError("分析任务不存在")
         job_status, payload = result
         if job_status != STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED or payload is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=not_ready_detail)
+            raise ConflictError(not_ready_detail)
         return parser(payload)
 
     async def get_analysis_meta_or_409(
@@ -275,15 +273,23 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         error_message: str,
-    ) -> None:
+        max_attempts: int,
+    ) -> bool:
         job = await self.get_or_404(session, job_id)
-        job.status = STYLE_ANALYSIS_JOB_STATUS_FAILED
+        retryable = job.attempt_count < max_attempts
+        job.status = (
+            STYLE_ANALYSIS_JOB_STATUS_PENDING
+            if retryable
+            else STYLE_ANALYSIS_JOB_STATUS_FAILED
+        )
         job.stage = None
-        job.error_message = error_message
-        job.completed_at = datetime.now(UTC)
+        job.error_message = sanitize_style_analysis_error_message(error_message)
+        job.started_at = None if retryable else job.started_at
+        job.completed_at = None if retryable else datetime.now(UTC)
         job.locked_by = None
         job.locked_at = None
         job.last_heartbeat_at = None
+        return not retryable
 
     async def recover_stale_jobs(
         self,
@@ -341,4 +347,23 @@ class StyleAnalysisJobService:
             pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
         )
 
-        return await self.get_or_404(session, job.id)
+        return await self.get_or_404(session, job.id, include_payloads=False)
+
+    async def delete(self, session: AsyncSession, job_id: str) -> None:
+        job = await self.repository.get_for_delete(session, job_id)
+        if job is None:
+            raise NotFoundError("分析任务不存在")
+        if job.style_profile is not None and job.style_profile.projects:
+            raise ConflictError("该分析任务的风格档案正被项目引用，无法删除")
+
+        sample_storage_path = job.sample_file.storage_path
+        await self.repository.delete_job_graph(session, job)
+        await session.commit()
+
+        if sample_storage_path:
+            try:
+                Path(sample_storage_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        storage_service = StyleAnalysisStorageService()
+        await storage_service.cleanup_job_artifacts(job_id)

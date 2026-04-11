@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +16,8 @@ from app.schemas.style_analysis_jobs import (
 )
 from app.services.style_analysis_llm import StructuredLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
+from app.services.style_analysis_text import read_chunks_and_classification
+from app.services.style_analysis_pipeline import StyleAnalysisPipeline
 
 
 def build_section(section: str, title: str) -> dict:
@@ -106,6 +109,23 @@ def test_chunk_and_merged_analysis_share_section_validation() -> None:
         ChunkAnalysis.model_validate(
             {"chunk_index": 0, "chunk_count": 1, "sections": valid_sections[:-1]}
         )
+
+
+def test_settings_reject_invalid_worker_interval_and_chunk_concurrency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import Settings
+
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+
+    with pytest.raises(ValidationError):
+        Settings(PERSONA_STYLE_ANALYSIS_POLL_INTERVAL_SECONDS="0")
+
+    with pytest.raises(ValidationError):
+        Settings(PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY="0")
+
+    with pytest.raises(ValidationError):
+        Settings(PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY="128")
 
 
 @pytest.mark.asyncio
@@ -206,3 +226,118 @@ async def test_storage_service_batches_chunk_analysis_artifacts_and_cleans_job_a
     await storage_service.cleanup_job_artifacts(job_id)
     assert await storage_service.job_artifacts_exist(job_id) is False
     get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_storage_cleanup_uses_asyncio_to_thread(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    storage_service = StyleAnalysisStorageService()
+    job_id = "job-cleanup-thread"
+    await storage_service.write_chunk_artifact(job_id, 0, "chunk-0")
+    assert await storage_service.job_artifacts_exist(job_id) is True
+
+    called: list[tuple[object, tuple, dict]] = []
+
+    async def fake_to_thread(func, /, *args, **kwargs):
+        called.append((func, args, kwargs))
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "to_thread", fake_to_thread)
+
+    await storage_service.cleanup_job_artifacts(job_id)
+
+    assert called
+    assert await storage_service.job_artifacts_exist(job_id) is False
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_read_chunks_and_classification_streams_chunks_via_callback() -> None:
+    emitted_chunks: list[tuple[int, str]] = []
+
+    async def stream():
+        yield "第一段。\n\n第二段。\n\n第三段。".encode("utf-8")
+
+    async def on_chunk(index: int, chunk_text: str) -> None:
+        emitted_chunks.append((index, chunk_text))
+
+    chunk_count, character_count, classification = await read_chunks_and_classification(
+        stream(),
+        chunk_size=5,
+        on_chunk=on_chunk,
+    )
+
+    assert chunk_count == 3
+    assert [chunk for _index, chunk in emitted_chunks] == ["第一段。", "第二段。", "第三段。"]
+    assert character_count == len("第一段。") + len("第二段。") + len("第三段。")
+    assert classification["location_indexing"] == "章节或段落位置"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
+    class FakeStorageService:
+        async def read_chunk_analysis_batches(self, job_id: str, *, batch_size: int):
+            del job_id, batch_size
+            sections = [build_section(section, title) for section, title in SECTION_TITLES]
+            yield [
+                {"chunk_index": 0, "chunk_count": 10, "sections": sections},
+                {"chunk_index": 1, "chunk_count": 10, "sections": sections},
+            ]
+            yield [
+                {"chunk_index": 2, "chunk_count": 10, "sections": sections},
+                {"chunk_index": 3, "chunk_count": 10, "sections": sections},
+            ]
+
+    class FakeMergeClient:
+        def __init__(self) -> None:
+            self.merge_calls = 0
+
+        def build_model(self, *, provider: object, model_name: str) -> object:
+            return SimpleNamespace(provider=provider, model_name=model_name)
+
+        async def ainvoke_structured(self, *, model: object, schema: type, prompt: str):
+            del model, prompt
+            assert schema is MergedAnalysis
+            self.merge_calls += 1
+            return MergedAnalysis.model_validate(
+                {
+                    "classification": {"text_type": "章节正文"},
+                    "sections": [build_section(section, title) for section, title in SECTION_TITLES],
+                }
+            )
+
+    client = FakeMergeClient()
+    pipeline = StyleAnalysisPipeline(
+        provider=SimpleNamespace(base_url="https://api.example.test/v1", api_key_encrypted="encrypted"),
+        model_name="gpt-4.1-mini",
+        style_name="古龙风格实验",
+        source_filename="sample.txt",
+        llm_client=client,
+    )
+    pipeline.storage_service = FakeStorageService()
+
+    merged = await pipeline._merge_chunks(
+        {
+            "job_id": "job-merge",
+            "style_name": "古龙风格实验",
+            "source_filename": "sample.txt",
+            "model_name": "gpt-4.1-mini",
+            "chunk_count": 4,
+            "classification": {
+                "text_type": "章节正文",
+                "has_timestamps": False,
+                "has_speaker_labels": False,
+                "has_noise_markers": False,
+                "uses_batch_processing": True,
+                "location_indexing": "章节或段落位置",
+                "noise_notes": "未发现显著噪声。",
+            },
+        }
+    )
+
+    assert client.merge_calls == 2
+    assert merged["merged_analysis"]["sections"][0]["section"] == "3.1"

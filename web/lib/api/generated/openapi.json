@@ -1,0 +1,3110 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Persona API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/setup/status": {
+      "get": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Get Setup Status",
+        "operationId": "get_setup_status_api_v1_setup_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/setup": {
+      "post": {
+        "tags": [
+          "setup"
+        ],
+        "summary": "Run Setup",
+        "operationId": "run_setup_api_v1_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login",
+        "description": "用户登录接口",
+        "operationId": "login_api_v1_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "用户登出接口",
+        "operationId": "logout_api_v1_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/account": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Delete Account",
+        "description": "删除当前用户账号，清除所有数据",
+        "operationId": "delete_account_api_v1_account_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me",
+        "description": "获取当前登录用户信息",
+        "operationId": "me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/provider-configs": {
+      "get": {
+        "tags": [
+          "provider-configs"
+        ],
+        "summary": "List Provider Configs",
+        "operationId": "list_provider_configs_api_v1_provider_configs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderConfigResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Provider Configs Api V1 Provider Configs Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "provider-configs"
+        ],
+        "summary": "Create Provider Config",
+        "operationId": "create_provider_config_api_v1_provider_configs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderConfigCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/provider-configs/{provider_id}": {
+      "patch": {
+        "tags": [
+          "provider-configs"
+        ],
+        "summary": "Update Provider Config",
+        "operationId": "update_provider_config_api_v1_provider_configs__provider_id__patch",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderConfigUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "provider-configs"
+        ],
+        "summary": "Delete Provider Config",
+        "operationId": "delete_provider_config_api_v1_provider_configs__provider_id__delete",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/provider-configs/{provider_id}/test": {
+      "post": {
+        "tags": [
+          "provider-configs"
+        ],
+        "summary": "Test Provider Config",
+        "operationId": "test_provider_config_api_v1_provider_configs__provider_id__test_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Projects",
+        "operationId": "list_projects_api_v1_projects_get",
+        "parameters": [
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Archived"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResponse"
+                  },
+                  "title": "Response List Projects Api V1 Projects Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project",
+        "operationId": "create_project_api_v1_projects_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get Project",
+        "operationId": "get_project_api_v1_projects__project_id__get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update Project",
+        "operationId": "update_project_api_v1_projects__project_id__patch",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/archive": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Archive Project",
+        "operationId": "archive_project_api_v1_projects__project_id__archive_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/restore": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Restore Project",
+        "operationId": "restore_project_api_v1_projects__project_id__restore_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "List Style Analysis Jobs",
+        "operationId": "list_style_analysis_jobs_api_v1_style_analysis_jobs_get",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StyleAnalysisJobListItemResponse"
+                  },
+                  "title": "Response List Style Analysis Jobs Api V1 Style Analysis Jobs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Create Style Analysis Job",
+        "operationId": "create_style_analysis_job_api_v1_style_analysis_jobs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_style_analysis_job_api_v1_style_analysis_jobs_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleAnalysisJobListItemResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job",
+        "operationId": "get_style_analysis_job_api_v1_style_analysis_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleAnalysisJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Delete Style Analysis Job",
+        "operationId": "delete_style_analysis_job_api_v1_style_analysis_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/status": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job Status",
+        "operationId": "get_style_analysis_job_status_api_v1_style_analysis_jobs__job_id__status_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/analysis-meta": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job Analysis Meta",
+        "operationId": "get_style_analysis_job_analysis_meta_api_v1_style_analysis_jobs__job_id__analysis_meta_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisMeta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/analysis-report": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job Analysis Report",
+        "operationId": "get_style_analysis_job_analysis_report_api_v1_style_analysis_jobs__job_id__analysis_report_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/style-summary": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job Style Summary",
+        "operationId": "get_style_analysis_job_style_summary_api_v1_style_analysis_jobs__job_id__style_summary_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/prompt-pack": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job Prompt Pack",
+        "operationId": "get_style_analysis_job_prompt_pack_api_v1_style_analysis_jobs__job_id__prompt_pack_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptPack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-profiles": {
+      "get": {
+        "tags": [
+          "style-profiles"
+        ],
+        "summary": "List Style Profiles",
+        "operationId": "list_style_profiles_api_v1_style_profiles_get",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StyleProfileListItemResponse"
+                  },
+                  "title": "Response List Style Profiles Api V1 Style Profiles Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "style-profiles"
+        ],
+        "summary": "Create Style Profile",
+        "operationId": "create_style_profile_api_v1_style_profiles_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleProfileCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-profiles/{profile_id}": {
+      "get": {
+        "tags": [
+          "style-profiles"
+        ],
+        "summary": "Get Style Profile",
+        "operationId": "get_style_profile_api_v1_style_profiles__profile_id__get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "style-profiles"
+        ],
+        "summary": "Update Style Profile",
+        "operationId": "update_style_profile_api_v1_style_profiles__profile_id__patch",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "style-profiles"
+        ],
+        "summary": "Delete Style Profile",
+        "operationId": "delete_style_profile_api_v1_style_profiles__profile_id__delete",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisMeta": {
+        "properties": {
+          "source_filename": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Filename",
+            "description": "Original uploaded TXT filename."
+          },
+          "model_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Model Name",
+            "description": "LLM model used for analysis."
+          },
+          "text_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text Type",
+            "description": "Detected source text type."
+          },
+          "has_timestamps": {
+            "type": "boolean",
+            "title": "Has Timestamps",
+            "description": "Whether timestamp markers were detected."
+          },
+          "has_speaker_labels": {
+            "type": "boolean",
+            "title": "Has Speaker Labels",
+            "description": "Whether speaker labels were detected."
+          },
+          "has_noise_markers": {
+            "type": "boolean",
+            "title": "Has Noise Markers",
+            "description": "Whether bracketed/noise markers were detected."
+          },
+          "uses_batch_processing": {
+            "type": "boolean",
+            "title": "Uses Batch Processing",
+            "description": "Whether chunked batch analysis was used."
+          },
+          "location_indexing": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Location Indexing",
+            "description": "Evidence location indexing strategy."
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Chunk Count",
+            "description": "Number of chunks analyzed."
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_filename",
+          "model_name",
+          "text_type",
+          "has_timestamps",
+          "has_speaker_labels",
+          "has_noise_markers",
+          "uses_batch_processing",
+          "location_indexing",
+          "chunk_count"
+        ],
+        "title": "AnalysisMeta"
+      },
+      "AnalysisReport": {
+        "properties": {
+          "executive_summary": {
+            "$ref": "#/components/schemas/ExecutiveSummary",
+            "description": "Top-level summary and representative evidence."
+          },
+          "basic_assessment": {
+            "$ref": "#/components/schemas/BasicAssessment",
+            "description": "Input classification and processing notes."
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisReportSection"
+            },
+            "type": "array",
+            "title": "Sections",
+            "description": "Dossier sections 3.1 through 3.12 in order."
+          },
+          "appendix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appendix",
+            "description": "Optional extra evidence index or caveats."
+          }
+        },
+        "type": "object",
+        "required": [
+          "executive_summary",
+          "basic_assessment",
+          "sections"
+        ],
+        "title": "AnalysisReport"
+      },
+      "AnalysisReportSection": {
+        "properties": {
+          "section": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Section",
+            "description": "Dossier section id from 3.1 through 3.12."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title",
+            "description": "Chinese title for the dossier section."
+          },
+          "overview": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Overview",
+            "description": "Section-level overview."
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/SectionFinding"
+            },
+            "type": "array",
+            "title": "Findings",
+            "description": "Evidence-grounded findings for the section."
+          }
+        },
+        "type": "object",
+        "required": [
+          "section",
+          "title",
+          "overview",
+          "findings"
+        ],
+        "title": "AnalysisReportSection"
+      },
+      "BasicAssessment": {
+        "properties": {
+          "text_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text Type",
+            "description": "Detected source text type."
+          },
+          "multi_speaker": {
+            "type": "boolean",
+            "title": "Multi Speaker",
+            "description": "Whether the sample appears to contain multiple speakers."
+          },
+          "batch_mode": {
+            "type": "boolean",
+            "title": "Batch Mode",
+            "description": "Whether chunked batch analysis was used."
+          },
+          "location_indexing": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Location Indexing",
+            "description": "How evidence locations are indexed."
+          },
+          "noise_handling": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Noise Handling",
+            "description": "How timestamps, labels, or noise markers were handled."
+          }
+        },
+        "type": "object",
+        "required": [
+          "text_type",
+          "multi_speaker",
+          "batch_mode",
+          "location_indexing",
+          "noise_handling"
+        ],
+        "title": "BasicAssessment"
+      },
+      "Body_create_style_analysis_job_api_v1_style_analysis_jobs_post": {
+        "properties": {
+          "style_name": {
+            "type": "string",
+            "title": "Style Name"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "style_name",
+          "provider_id",
+          "file"
+        ],
+        "title": "Body_create_style_analysis_job_api_v1_style_analysis_jobs_post"
+      },
+      "ConnectionTestResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "ConnectionTestResponse"
+      },
+      "EvidenceSnippet": {
+        "properties": {
+          "excerpt": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Excerpt",
+            "description": "Verbatim evidence excerpt copied from the analyzed sample text."
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Location",
+            "description": "Timestamp, chapter, paragraph, or fallback location for the excerpt."
+          }
+        },
+        "type": "object",
+        "required": [
+          "excerpt",
+          "location"
+        ],
+        "title": "EvidenceSnippet"
+      },
+      "ExecutiveSummary": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Summary",
+            "description": "Concise Chinese summary under 300 words."
+          },
+          "representative_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSnippet"
+            },
+            "type": "array",
+            "title": "Representative Evidence",
+            "description": "Representative excerpts that support the summary."
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "representative_evidence"
+        ],
+        "title": "ExecutiveSummary"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "ProjectCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Description",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "paused"
+            ],
+            "title": "Status",
+            "default": "draft"
+          },
+          "default_provider_id": {
+            "type": "string",
+            "title": "Default Provider Id"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "default_provider_id"
+        ],
+        "title": "ProjectCreate"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "paused"
+            ],
+            "title": "Status"
+          },
+          "default_provider_id": {
+            "type": "string",
+            "title": "Default Provider Id"
+          },
+          "default_model": {
+            "type": "string",
+            "title": "Default Model"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "default_provider_id",
+          "default_model",
+          "style_profile_id",
+          "archived_at",
+          "created_at",
+          "updated_at",
+          "provider"
+        ],
+        "title": "ProjectResponse"
+      },
+      "ProjectUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active",
+                  "paused"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "default_provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Provider Id"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          }
+        },
+        "type": "object",
+        "title": "ProjectUpdate"
+      },
+      "PromptPack": {
+        "properties": {
+          "system_prompt": {
+            "type": "string",
+            "minLength": 1,
+            "title": "System Prompt",
+            "description": "Reusable global style system prompt."
+          },
+          "scene_prompts": {
+            "$ref": "#/components/schemas/StyleScenePrompts",
+            "description": "Scene-specific reusable prompts."
+          },
+          "hard_constraints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hard Constraints",
+            "description": "Non-negotiable style constraints."
+          },
+          "style_controls": {
+            "$ref": "#/components/schemas/PromptPackStyleControls",
+            "description": "Compact controllable style knobs."
+          },
+          "few_shot_slots": {
+            "items": {
+              "$ref": "#/components/schemas/PromptPackFewShotSlot"
+            },
+            "type": "array",
+            "title": "Few Shot Slots",
+            "description": "Reusable few-shot placeholders."
+          }
+        },
+        "type": "object",
+        "required": [
+          "system_prompt",
+          "scene_prompts",
+          "hard_constraints",
+          "style_controls",
+          "few_shot_slots"
+        ],
+        "title": "PromptPack"
+      },
+      "PromptPackFewShotSlot": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label",
+            "description": "Few-shot slot label."
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Type",
+            "description": "Few-shot category."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text",
+            "description": "Short illustrative sample text."
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Purpose",
+            "description": "Why this few-shot slot exists."
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "type",
+          "text",
+          "purpose"
+        ],
+        "title": "PromptPackFewShotSlot"
+      },
+      "PromptPackStyleControls": {
+        "properties": {
+          "tone": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Tone",
+            "description": "Tone control for style generation."
+          },
+          "rhythm": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Rhythm",
+            "description": "Rhythm control for style generation."
+          },
+          "evidence_anchor": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Evidence Anchor",
+            "description": "How generation should stay anchored to evidence."
+          }
+        },
+        "type": "object",
+        "required": [
+          "tone",
+          "rhythm",
+          "evidence_anchor"
+        ],
+        "title": "PromptPackStyleControls"
+      },
+      "ProviderConfigCreate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "base_url": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Base Url"
+          },
+          "api_key": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 4,
+            "title": "Api Key"
+          },
+          "default_model": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Default Model"
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "title": "Is Enabled",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "base_url",
+          "api_key",
+          "default_model"
+        ],
+        "title": "ProviderConfigCreate"
+      },
+      "ProviderConfigResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "default_model": {
+            "type": "string",
+            "title": "Default Model"
+          },
+          "api_key_hint": {
+            "type": "string",
+            "title": "Api Key Hint"
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "title": "Is Enabled"
+          },
+          "last_test_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test Status"
+          },
+          "last_test_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Test Error"
+          },
+          "last_tested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Tested At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "base_url",
+          "default_model",
+          "api_key_hint",
+          "is_enabled",
+          "last_test_status",
+          "last_test_error",
+          "last_tested_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderConfigResponse"
+      },
+      "ProviderConfigUpdate": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512,
+                "minLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          }
+        },
+        "type": "object",
+        "title": "ProviderConfigUpdate"
+      },
+      "ProviderSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "default_model": {
+            "type": "string",
+            "title": "Default Model"
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "title": "Is Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "base_url",
+          "default_model",
+          "is_enabled"
+        ],
+        "title": "ProviderSummary"
+      },
+      "SectionFinding": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label",
+            "description": "Short label for this style feature."
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Summary",
+            "description": "Evidence-grounded explanation in simplified Chinese."
+          },
+          "frequency": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Frequency",
+            "description": "Observed frequency or low-evidence note."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "description": "Confidence level supported by evidence."
+          },
+          "is_weak_judgment": {
+            "type": "boolean",
+            "title": "Is Weak Judgment",
+            "description": "True when the conclusion is evidence-limited or inferential.",
+            "default": false
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSnippet"
+            },
+            "type": "array",
+            "title": "Evidence",
+            "description": "Evidence excerpts supporting this finding."
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "summary",
+          "frequency",
+          "confidence",
+          "evidence"
+        ],
+        "title": "SectionFinding"
+      },
+      "SetupRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderConfigCreate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "provider"
+        ],
+        "title": "SetupRequest"
+      },
+      "SetupResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderConfigResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "provider"
+        ],
+        "title": "SetupResponse"
+      },
+      "SetupStatusResponse": {
+        "properties": {
+          "initialized": {
+            "type": "boolean",
+            "title": "Initialized"
+          }
+        },
+        "type": "object",
+        "required": [
+          "initialized"
+        ],
+        "title": "SetupStatusResponse"
+      },
+      "StyleAnalysisJobListItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "style_name": {
+            "type": "string",
+            "title": "Style Name"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing_input",
+                  "analyzing_chunks",
+                  "aggregating",
+                  "reporting",
+                  "summarizing",
+                  "composing_prompt_pack"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderSummary"
+          },
+          "sample_file": {
+            "$ref": "#/components/schemas/StyleSampleFileResponse"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "style_name",
+          "provider_id",
+          "model_name",
+          "status",
+          "stage",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at",
+          "provider",
+          "sample_file"
+        ],
+        "title": "StyleAnalysisJobListItemResponse"
+      },
+      "StyleAnalysisJobResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "style_name": {
+            "type": "string",
+            "title": "Style Name"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing_input",
+                  "analyzing_chunks",
+                  "aggregating",
+                  "reporting",
+                  "summarizing",
+                  "composing_prompt_pack"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderSummary"
+          },
+          "sample_file": {
+            "$ref": "#/components/schemas/StyleSampleFileResponse"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          },
+          "analysis_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "style_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StyleSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PromptPack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "style_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StyleProfileEmbeddedResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "style_name",
+          "provider_id",
+          "model_name",
+          "status",
+          "stage",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at",
+          "provider",
+          "sample_file"
+        ],
+        "title": "StyleAnalysisJobResponse"
+      },
+      "StyleAnalysisJobStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing_input",
+                  "analyzing_chunks",
+                  "aggregating",
+                  "reporting",
+                  "summarizing",
+                  "composing_prompt_pack"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "stage",
+          "error_message",
+          "updated_at"
+        ],
+        "title": "StyleAnalysisJobStatusResponse"
+      },
+      "StyleProfileCreate": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "mount_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Project Id"
+          },
+          "style_summary": {
+            "$ref": "#/components/schemas/StyleSummary"
+          },
+          "prompt_pack": {
+            "$ref": "#/components/schemas/PromptPack"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "style_summary",
+          "prompt_pack"
+        ],
+        "title": "StyleProfileCreate"
+      },
+      "StyleProfileEmbeddedResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_job_id": {
+            "type": "string",
+            "title": "Source Job Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "style_name": {
+            "type": "string",
+            "title": "Style Name"
+          },
+          "analysis_report": {
+            "$ref": "#/components/schemas/AnalysisReport"
+          },
+          "style_summary": {
+            "$ref": "#/components/schemas/StyleSummary"
+          },
+          "prompt_pack": {
+            "$ref": "#/components/schemas/PromptPack"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_job_id",
+          "provider_id",
+          "model_name",
+          "source_filename",
+          "style_name",
+          "analysis_report",
+          "style_summary",
+          "prompt_pack",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "StyleProfileEmbeddedResponse"
+      },
+      "StyleProfileListItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "style_name": {
+            "type": "string",
+            "title": "Style Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider_id",
+          "model_name",
+          "source_filename",
+          "style_name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "StyleProfileListItemResponse"
+      },
+      "StyleProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_job_id": {
+            "type": "string",
+            "title": "Source Job Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "style_name": {
+            "type": "string",
+            "title": "Style Name"
+          },
+          "analysis_report": {
+            "$ref": "#/components/schemas/AnalysisReport"
+          },
+          "style_summary": {
+            "$ref": "#/components/schemas/StyleSummary"
+          },
+          "prompt_pack": {
+            "$ref": "#/components/schemas/PromptPack"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_job_id",
+          "provider_id",
+          "model_name",
+          "source_filename",
+          "style_name",
+          "analysis_report",
+          "style_summary",
+          "prompt_pack",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "StyleProfileResponse"
+      },
+      "StyleProfileUpdate": {
+        "properties": {
+          "mount_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Project Id"
+          },
+          "style_summary": {
+            "$ref": "#/components/schemas/StyleSummary"
+          },
+          "prompt_pack": {
+            "$ref": "#/components/schemas/PromptPack"
+          }
+        },
+        "type": "object",
+        "required": [
+          "style_summary",
+          "prompt_pack"
+        ],
+        "title": "StyleProfileUpdate"
+      },
+      "StyleSampleFileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "original_filename": {
+            "type": "string",
+            "title": "Original Filename"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "byte_size": {
+            "type": "integer",
+            "title": "Byte Size"
+          },
+          "character_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Count"
+          },
+          "checksum_sha256": {
+            "type": "string",
+            "title": "Checksum Sha256"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "original_filename",
+          "content_type",
+          "byte_size",
+          "character_count",
+          "checksum_sha256",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "StyleSampleFileResponse"
+      },
+      "StyleScenePrompts": {
+        "properties": {
+          "dialogue": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Dialogue",
+            "description": "Reusable prompt for dialogue scenes."
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Action",
+            "description": "Reusable prompt for action scenes."
+          },
+          "environment": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Environment",
+            "description": "Reusable prompt for environment scenes."
+          }
+        },
+        "type": "object",
+        "required": [
+          "dialogue",
+          "action",
+          "environment"
+        ],
+        "title": "StyleScenePrompts"
+      },
+      "StyleSummary": {
+        "properties": {
+          "style_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Style Name",
+            "description": "Editable display name for the style."
+          },
+          "style_positioning": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Style Positioning",
+            "description": "Compact positioning statement for the style."
+          },
+          "core_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Core Features",
+            "description": "Core style features backed by the analysis report."
+          },
+          "lexical_preferences": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Lexical Preferences",
+            "description": "Preferred words, phrases, and lexical patterns."
+          },
+          "rhythm_profile": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rhythm Profile",
+            "description": "Sentence rhythm and paragraph cadence controls."
+          },
+          "punctuation_profile": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Punctuation Profile",
+            "description": "Punctuation habits to preserve or avoid."
+          },
+          "imagery_and_themes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Imagery And Themes",
+            "description": "Recurring images, metaphors, and motifs."
+          },
+          "scene_strategies": {
+            "items": {
+              "$ref": "#/components/schemas/StyleSummarySceneStrategy"
+            },
+            "type": "array",
+            "title": "Scene Strategies",
+            "description": "Scene-specific writing strategies."
+          },
+          "avoid_or_rare": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Avoid Or Rare",
+            "description": "Patterns that are absent, rare, or should be avoided."
+          },
+          "generation_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Generation Notes",
+            "description": "Practical notes for downstream generation."
+          }
+        },
+        "type": "object",
+        "required": [
+          "style_name",
+          "style_positioning",
+          "core_features",
+          "lexical_preferences",
+          "rhythm_profile",
+          "punctuation_profile",
+          "imagery_and_themes",
+          "scene_strategies",
+          "avoid_or_rare",
+          "generation_notes"
+        ],
+        "title": "StyleSummary"
+      },
+      "StyleSummarySceneStrategy": {
+        "properties": {
+          "scene": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Scene",
+            "description": "Scene category such as dialogue, action, or environment."
+          },
+          "instruction": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Instruction",
+            "description": "Actionable generation instruction for the scene."
+          }
+        },
+        "type": "object",
+        "required": [
+          "scene",
+          "instruction"
+        ],
+        "title": "StyleSummarySceneStrategy"
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "created_at"
+        ],
+        "title": "UserResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

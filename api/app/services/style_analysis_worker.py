@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.db.models import ProviderConfig
+from app.schemas.style_analysis_jobs import STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT
 from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
 from app.services.style_analysis_jobs import StyleAnalysisJobService
 from app.services.style_analysis_pipeline import (
@@ -76,6 +79,28 @@ class StyleAnalysisWorkerService:
         session_factory: async_sessionmaker[AsyncSession],
         job_id: str,
     ) -> None:
+        should_cleanup = False
+        current_stage: str | None = STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT
+        stop_heartbeat = asyncio.Event()
+        heartbeat_task = asyncio.create_task(
+            self._run_stage_heartbeat_loop(
+                session_factory,
+                job_id,
+                get_stage=lambda: current_stage,
+                stop_event=stop_heartbeat,
+                interval_seconds=self._heartbeat_interval_seconds(),
+            )
+        )
+
+        async def stage_callback(stage: str | None) -> None:
+            nonlocal current_stage
+            current_stage = stage
+            await self._touch_job_stage(
+                session_factory,
+                job_id,
+                stage=stage,
+            )
+
         try:
             context = await self._load_run_context(session_factory, job_id)
             pipeline = await self._build_pipeline(
@@ -83,25 +108,66 @@ class StyleAnalysisWorkerService:
                 model_name=context.model_name,
                 style_name=context.style_name,
                 source_filename=context.source_filename,
-                stage_callback=lambda stage: self._touch_job_stage(
-                    session_factory,
-                    job_id,
-                    stage=stage,
-                ),
+                stage_callback=stage_callback,
+            )
+            max_concurrency = max(
+                1,
+                min(get_settings().style_analysis_chunk_max_concurrency, 32),
             )
             result = await pipeline.run(
                 job_id=job_id,
                 chunk_count=context.chunk_count,
                 classification=context.classification,
-                max_concurrency=get_settings().style_analysis_chunk_max_concurrency,
+                max_concurrency=max_concurrency,
             )
             await self._mark_job_succeeded(session_factory, job_id, result=result)
+            should_cleanup = True
         except Exception as exc:
-            logger.exception("style analysis job failed", extra={"job_id": job_id})
-            await self._mark_job_failed(session_factory, job_id, error_message=str(exc))
+            logger.exception(
+                "style analysis job failed: %s",
+                exc,
+                extra={"job_id": job_id},
+            )
+            should_cleanup = await self._mark_job_failed(
+                session_factory,
+                job_id,
+                error_message=str(exc),
+            )
         finally:
-            await self.storage_service.cleanup_job_artifacts(job_id)
-            await self._delete_checkpointer_thread(job_id)
+            stop_heartbeat.set()
+            await heartbeat_task
+            if should_cleanup:
+                await self.storage_service.cleanup_job_artifacts(job_id)
+                await self._delete_checkpointer_thread(job_id)
+
+    def _heartbeat_interval_seconds(self) -> float:
+        stale_timeout_seconds = max(1, get_settings().style_analysis_stale_timeout_seconds)
+        return max(0.2, min(30.0, stale_timeout_seconds / 3))
+
+    async def _run_stage_heartbeat_loop(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        get_stage: Callable[[], str | None],
+        stop_event: asyncio.Event,
+        interval_seconds: float,
+    ) -> None:
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
+                break
+            except TimeoutError:
+                stage = get_stage()
+                if stage is None:
+                    continue
+                try:
+                    await self._touch_job_stage(session_factory, job_id, stage=stage)
+                except Exception:
+                    logger.exception(
+                        "Failed to send periodic style analysis heartbeat",
+                        extra={"job_id": job_id, "stage": stage},
+                    )
 
     async def _load_run_context(
         self,
@@ -110,20 +176,22 @@ class StyleAnalysisWorkerService:
     ) -> StyleAnalysisRunContext:
         async with session_factory() as session:
             job = await self.job_service.get_or_404(session, job_id)
-            chunks, character_count, base_classification = await read_chunks_and_classification(
+
+            async def persist_chunk(index: int, chunk_text: str) -> None:
+                await self.storage_service.write_chunk_artifact(job_id, index, chunk_text)
+
+            chunk_count, character_count, base_classification = await read_chunks_and_classification(
                 self.storage_service.stream_file(job.sample_file.id),
                 chunk_size=4000,
+                on_chunk=persist_chunk,
             )
 
-            if not chunks:
+            if chunk_count < 1:
                 raise RuntimeError("切片后没有可分析的有效文本")
-
-            for index, chunk in enumerate(chunks):
-                await self.storage_service.write_chunk_artifact(job_id, index, chunk)
 
             classification: InputClassification = {
                 **base_classification,
-                "uses_batch_processing": len(chunks) > 1,
+                "uses_batch_processing": chunk_count > 1,
             }
             job.sample_file.character_count = character_count
             await session.commit()
@@ -132,7 +200,7 @@ class StyleAnalysisWorkerService:
                 style_name=job.style_name,
                 model_name=job.model_name,
                 source_filename=job.sample_file.original_filename,
-                chunk_count=len(chunks),
+                chunk_count=chunk_count,
                 classification=classification,
             )
 
@@ -182,10 +250,16 @@ class StyleAnalysisWorkerService:
         job_id: str,
         *,
         error_message: str,
-    ) -> None:
+    ) -> bool:
         async with session_factory() as session:
-            await self.job_service.mark_job_failed(session, job_id, error_message=error_message)
+            is_terminal = await self.job_service.mark_job_failed(
+                session,
+                job_id,
+                error_message=error_message,
+                max_attempts=get_settings().style_analysis_max_attempts,
+            )
             await session.commit()
+            return is_terminal
 
     async def _delete_checkpointer_thread(self, job_id: str) -> None:
         try:
@@ -202,9 +276,28 @@ class StyleAnalysisWorkerService:
         poll_interval_seconds: float,
         max_poll_interval_seconds: float | None = None,
     ) -> None:
+        if poll_interval_seconds <= 0:
+            raise ValueError("poll_interval_seconds must be greater than 0")
+        if max_poll_interval_seconds is not None and max_poll_interval_seconds <= 0:
+            raise ValueError("max_poll_interval_seconds must be greater than 0")
         max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
+        if max_poll_interval_seconds < poll_interval_seconds:
+            max_poll_interval_seconds = poll_interval_seconds
+        settings = get_settings()
+        last_stale_check = 0.0
+        stale_check_interval = max(
+            5.0,
+            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
+        )
         current_interval = poll_interval_seconds
         while True:
+            now = time.monotonic()
+            if now - last_stale_check >= stale_check_interval:
+                await self.fail_stale_running_jobs(
+                    session_factory,
+                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
+                )
+                last_stale_check = now
             processed = await self.process_next_pending(session_factory)
             if processed:
                 current_interval = poll_interval_seconds

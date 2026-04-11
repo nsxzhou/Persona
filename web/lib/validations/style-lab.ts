@@ -1,6 +1,13 @@
 import { z } from "zod";
 import type { PromptPack, StyleSummary } from "@/lib/types";
 
+type AssertExtends<T extends U, U> = true;
+
+const styleSummarySceneStrategySchema = z.object({
+  scene: z.string().min(1),
+  instruction: z.string().min(1),
+});
+
 export const styleSummarySchema = z.object({
   style_name: z.string().min(1),
   style_positioning: z.string().min(1),
@@ -9,37 +16,36 @@ export const styleSummarySchema = z.object({
   rhythm_profile: z.array(z.string()),
   punctuation_profile: z.array(z.string()),
   imagery_and_themes: z.array(z.string()),
-  scene_strategies: z.array(
-    z.object({
-      scene: z.string().min(1),
-      instruction: z.string().min(1),
-    }),
-  ),
+  scene_strategies: z.array(styleSummarySceneStrategySchema),
   avoid_or_rare: z.array(z.string()),
   generation_notes: z.array(z.string()),
 });
 
+const scenePromptsSchema = z.object({
+  dialogue: z.string(),
+  action: z.string(),
+  environment: z.string(),
+});
+
+const styleControlsSchema = z.object({
+  tone: z.string(),
+  rhythm: z.string(),
+  evidence_anchor: z.string(),
+});
+
+const fewShotSlotSchema = z.object({
+  label: z.string(),
+  type: z.string(),
+  purpose: z.string(),
+  text: z.string(),
+});
+
 export const promptPackSchema = z.object({
   system_prompt: z.string(),
-  scene_prompts: z.object({
-    dialogue: z.string(),
-    action: z.string(),
-    environment: z.string(),
-  }),
+  scene_prompts: scenePromptsSchema,
   hard_constraints: z.array(z.string()),
-  style_controls: z.object({
-    tone: z.string(),
-    rhythm: z.string(),
-    evidence_anchor: z.string(),
-  }),
-  few_shot_slots: z.array(
-    z.object({
-      label: z.string(),
-      type: z.string(),
-      purpose: z.string(),
-      text: z.string(),
-    }),
-  ),
+  style_controls: styleControlsSchema,
+  few_shot_slots: z.array(fewShotSlotSchema),
 });
 
 export const formSchema = z.object({
@@ -48,6 +54,23 @@ export const formSchema = z.object({
 });
 
 export type FormValues = z.infer<typeof formSchema>;
+
+type _StyleSummarySchemaExtendsContract = AssertExtends<
+  z.output<typeof styleSummarySchema>,
+  StyleSummary
+>;
+type _StyleSummaryContractExtendsSchema = AssertExtends<
+  StyleSummary,
+  z.output<typeof styleSummarySchema>
+>;
+type _PromptPackSchemaExtendsContract = AssertExtends<
+  z.output<typeof promptPackSchema>,
+  PromptPack
+>;
+type _PromptPackContractExtendsSchema = AssertExtends<
+  PromptPack,
+  z.output<typeof promptPackSchema>
+>;
 
 export function makeEmptyStyleSummary(): StyleSummary {
   return {

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUserDep, DbSessionDep, StyleProfileServiceDep
+from app.core.domain_errors import DomainError, to_http_exception
 from app.schemas.style_profiles import (
     StyleProfileCreate,
     StyleProfileListItemResponse,
     StyleProfileResponse,
     StyleProfileUpdate,
 )
-from app.services.style_analysis_jobs import build_profile_result_bundle
+from app.services.style_lab_mappers import build_style_profile_response_payload
 
 router = APIRouter(
     prefix="/style-profiles",
@@ -17,20 +18,7 @@ router = APIRouter(
 )
 
 def _serialize(profile) -> StyleProfileResponse:
-    analysis_report, style_summary, prompt_pack = build_profile_result_bundle(profile)
-    return StyleProfileResponse(
-        id=profile.id,
-        source_job_id=profile.source_job_id,
-        provider_id=profile.provider_id,
-        model_name=profile.model_name,
-        source_filename=profile.source_filename,
-        style_name=profile.style_name,
-        analysis_report=analysis_report,
-        style_summary=style_summary,
-        prompt_pack=prompt_pack,
-        created_at=profile.created_at,
-        updated_at=profile.updated_at,
-    )
+    return StyleProfileResponse(**build_style_profile_response_payload(profile))
 
 
 def _serialize_list_item(profile) -> StyleProfileListItemResponse:
@@ -63,8 +51,11 @@ async def get_style_profile(
     db_session: DbSessionDep,
     style_profile_service: StyleProfileServiceDep,
 ) -> StyleProfileResponse:
-    profile = await style_profile_service.get_or_404(db_session, profile_id)
-    return _serialize(profile)
+    try:
+        profile = await style_profile_service.get_or_404(db_session, profile_id)
+        return _serialize(profile)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 @router.post("", response_model=StyleProfileResponse, status_code=201)
 async def create_style_profile(
@@ -73,8 +64,11 @@ async def create_style_profile(
     db_session: DbSessionDep,
     style_profile_service: StyleProfileServiceDep,
 ) -> StyleProfileResponse:
-    profile = await style_profile_service.create(db_session, payload)
-    return _serialize(profile)
+    try:
+        profile = await style_profile_service.create(db_session, payload)
+        return _serialize(profile)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 @router.patch("/{profile_id}", response_model=StyleProfileResponse)
 async def update_style_profile(
@@ -84,5 +78,21 @@ async def update_style_profile(
     db_session: DbSessionDep,
     style_profile_service: StyleProfileServiceDep,
 ) -> StyleProfileResponse:
-    profile = await style_profile_service.update(db_session, profile_id, payload)
-    return _serialize(profile)
+    try:
+        profile = await style_profile_service.update(db_session, profile_id, payload)
+        return _serialize(profile)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_style_profile(
+    profile_id: str,
+    _current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    style_profile_service: StyleProfileServiceDep,
+) -> None:
+    try:
+        await style_profile_service.delete(db_session, profile_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc

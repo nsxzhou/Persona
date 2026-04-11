@@ -1,10 +1,13 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +42,18 @@ function getStyleAnalysisJobBadgeVariant(job: StyleAnalysisJobListItem) {
   if (job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED) return "default";
   return "secondary";
 }
+
+const createTaskSchema = z.object({
+  style_name: z.string().trim().min(1, "请输入风格档案名称"),
+  provider_id: z.string().min(1, "请选择 Provider"),
+  model: z.string(),
+  file: z.custom<File | null>(
+    (value) => value instanceof File,
+    { message: "请上传 TXT 样本" },
+  ),
+});
+
+type CreateTaskFormValues = z.infer<typeof createTaskSchema>;
 
 export function StyleLabPageClient() {
   const providersQuery = useQuery({
@@ -146,34 +161,39 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
-  const [styleNameInput, setStyleNameInput] = React.useState("");
-  const [selectedProviderId, setSelectedProviderId] = React.useState("");
-  const [modelOverride, setModelOverride] = React.useState("");
-  const [sampleFile, setSampleFile] = React.useState<File | null>(null);
+  const form = useForm<CreateTaskFormValues>({
+    resolver: zodResolver(createTaskSchema, undefined, { mode: "sync" }),
+    defaultValues: {
+      style_name: "",
+      provider_id: providers[0]?.id ?? "",
+      model: "",
+      file: null,
+    },
+  });
+
+  const resetForm = React.useCallback(() => {
+    form.reset({
+      style_name: "",
+      provider_id: providers[0]?.id ?? "",
+      model: "",
+      file: null,
+    });
+  }, [form, providers]);
 
   React.useEffect(() => {
-    if (!selectedProviderId && providers?.length) {
-      setSelectedProviderId(providers[0].id);
+    const selectedProviderId = form.getValues("provider_id");
+    if (!selectedProviderId && providers.length > 0) {
+      form.setValue("provider_id", providers[0].id, { shouldValidate: true });
     }
-  }, [providers, selectedProviderId]);
+  }, [form, providers]);
 
   const createJobMutation = useMutation({
-    mutationFn: async () => {
-      if (!styleNameInput.trim()) throw new Error("请输入风格档案名称");
-      if (!selectedProviderId) throw new Error("请选择 Provider");
-      if (!sampleFile) throw new Error("请上传 TXT 样本");
-
-      return api.createStyleAnalysisJob({
-        style_name: styleNameInput.trim(),
-        provider_id: selectedProviderId,
-        model: modelOverride.trim() || undefined,
-        file: sampleFile,
-      });
-    },
+    mutationFn: api.createStyleAnalysisJob,
     onSuccess: (newJob) => {
       toast.success("分析任务已创建");
       queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs"] });
       setOpen(false);
+      resetForm();
       // Redirect to the new wizard page
       router.push(`/style-lab/${newJob.id}`);
     },
@@ -183,71 +203,106 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          resetForm();
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           + 新建分析任务
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>新建分析任务</DialogTitle>
-          <DialogDescription>
-            上传样本，创建新的风格分析任务。
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="style-name-input">风格档案名称</Label>
-            <Input
-              id="style-name-input"
-              value={styleNameInput}
-              onChange={(e) => setStyleNameInput(e.target.value)}
-              placeholder="例如：金庸武侠风"
-            />
+        <form
+          onSubmit={form.handleSubmit((values) => {
+            createJobMutation.mutate({
+              style_name: values.style_name.trim(),
+              provider_id: values.provider_id,
+              model: values.model.trim() || undefined,
+              file: values.file as File,
+            });
+          })}
+        >
+          <DialogHeader>
+            <DialogTitle>新建分析任务</DialogTitle>
+            <DialogDescription>
+              上传样本，创建新的风格分析任务。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="style-name-input">风格档案名称</Label>
+              <Input
+                id="style-name-input"
+                placeholder="例如：金庸武侠风"
+                {...form.register("style_name")}
+              />
+              {form.formState.errors.style_name ? (
+                <p className="text-xs text-destructive">{form.formState.errors.style_name.message}</p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="style-provider-select">Provider</Label>
+              <Controller
+                control={form.control}
+                name="provider_id"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="style-provider-select">
+                      <SelectValue placeholder="选择 Provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providers.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.label} / {provider.default_model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.provider_id ? (
+                <p className="text-xs text-destructive">{form.formState.errors.provider_id.message}</p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="style-model-override">模型覆盖 (选填)</Label>
+              <Input
+                id="style-model-override"
+                placeholder="留空则使用 Provider 默认模型"
+                {...form.register("model")}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="style-sample-file">TXT 样本</Label>
+              <Controller
+                control={form.control}
+                name="file"
+                render={({ field }) => (
+                  <Input
+                    id="style-sample-file"
+                    type="file"
+                    accept=".txt,text/plain"
+                    onChange={(e) => field.onChange(e.target.files?.[0] ?? null)}
+                  />
+                )}
+              />
+              {form.formState.errors.file ? (
+                <p className="text-xs text-destructive">{form.formState.errors.file.message}</p>
+              ) : null}
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="style-provider-select">Provider</Label>
-            <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
-              <SelectTrigger id="style-provider-select">
-                <SelectValue placeholder="选择 Provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id}>
-                    {provider.label} / {provider.default_model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={createJobMutation.isPending}>
+              {createJobMutation.isPending ? "创建中..." : "开始分析"}
+            </Button>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="style-model-override">模型覆盖 (选填)</Label>
-            <Input
-              id="style-model-override"
-              value={modelOverride}
-              onChange={(e) => setModelOverride(e.target.value)}
-              placeholder="留空则使用 Provider 默认模型"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="style-sample-file">TXT 样本</Label>
-            <Input
-              id="style-sample-file"
-              type="file"
-              accept=".txt,text/plain"
-              onChange={(e) => setSampleFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <Button
-            onClick={() => createJobMutation.mutate()}
-            disabled={createJobMutation.isPending}
-          >
-            {createJobMutation.isPending ? "创建中..." : "开始分析"}
-          </Button>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

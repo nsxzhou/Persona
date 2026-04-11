@@ -140,6 +140,10 @@ class ProviderConfig(TimestampMixin, Base):
         back_populates="provider"
     )
 
+    @property
+    def api_key_hint(self) -> str:
+        return f"****{self.api_key_hint_last4}"
+
 
 # 项目表模型
 # 存储用户创建的项目信息
@@ -194,6 +198,17 @@ class StyleAnalysisJob(TimestampMixin, Base):
             "ix_style_analysis_jobs_status_created_at",
             "status",
             "created_at",
+        ),
+        Index(
+            "ix_style_analysis_jobs_status_attempt_count_created_at",
+            "status",
+            "attempt_count",
+            "created_at",
+        ),
+        Index(
+            "ix_style_analysis_jobs_status_last_heartbeat_at",
+            "status",
+            "last_heartbeat_at",
         ),
     )
 

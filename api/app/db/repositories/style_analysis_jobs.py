@@ -4,9 +4,9 @@ from datetime import datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import defer, joinedload
+from sqlalchemy.orm import defer, joinedload, load_only, selectinload
 
-from app.db.models import StyleAnalysisJob, StyleSampleFile
+from app.db.models import StyleAnalysisJob, StyleProfile, StyleSampleFile
 
 
 class StyleAnalysisJobRepository:
@@ -23,7 +23,7 @@ class StyleAnalysisJobRepository:
             .options(
                 joinedload(StyleAnalysisJob.provider),
                 joinedload(StyleAnalysisJob.sample_file),
-                joinedload(StyleAnalysisJob.style_profile),
+                joinedload(StyleAnalysisJob.style_profile).load_only(StyleProfile.id),
             )
             .order_by(StyleAnalysisJob.created_at.desc())
             .offset(offset)
@@ -31,7 +31,6 @@ class StyleAnalysisJobRepository:
         )
         if not include_payloads:
             stmt = stmt.options(
-                defer(StyleAnalysisJob.analysis_meta_payload),
                 defer(StyleAnalysisJob.analysis_report_payload),
                 defer(StyleAnalysisJob.style_summary_payload),
                 defer(StyleAnalysisJob.prompt_pack_payload),
@@ -45,15 +44,18 @@ class StyleAnalysisJobRepository:
         job_id: str,
         *,
         include_payloads: bool = True,
+        include_style_profile_payloads: bool = True,
     ) -> StyleAnalysisJob | None:
+        style_profile_option = joinedload(StyleAnalysisJob.style_profile)
+        if not include_style_profile_payloads:
+            style_profile_option = style_profile_option.load_only(StyleProfile.id)
         stmt = select(StyleAnalysisJob).options(
             joinedload(StyleAnalysisJob.provider),
             joinedload(StyleAnalysisJob.sample_file),
-            joinedload(StyleAnalysisJob.style_profile),
+            style_profile_option,
         )
         if not include_payloads:
             stmt = stmt.options(
-                defer(StyleAnalysisJob.analysis_meta_payload),
                 defer(StyleAnalysisJob.analysis_report_payload),
                 defer(StyleAnalysisJob.style_summary_payload),
                 defer(StyleAnalysisJob.prompt_pack_payload),
@@ -72,6 +74,20 @@ class StyleAnalysisJobRepository:
         )
         return row.one_or_none()
 
+    async def get_for_delete(
+        self,
+        session: AsyncSession,
+        job_id: str,
+    ) -> StyleAnalysisJob | None:
+        return await session.scalar(
+            select(StyleAnalysisJob)
+            .options(
+                joinedload(StyleAnalysisJob.sample_file),
+                joinedload(StyleAnalysisJob.style_profile).selectinload(StyleProfile.projects),
+            )
+            .where(StyleAnalysisJob.id == job_id)
+        )
+
     async def claim_pending_job(
         self,
         session: AsyncSession,
@@ -83,7 +99,7 @@ class StyleAnalysisJobRepository:
         pending_status: str,
         now: datetime,
     ) -> str | None:
-        candidate_id = await session.scalar(
+        candidate_subquery = (
             select(StyleAnalysisJob.id)
             .where(
                 StyleAnalysisJob.status == pending_status,
@@ -91,15 +107,15 @@ class StyleAnalysisJobRepository:
             )
             .order_by(StyleAnalysisJob.created_at.asc())
             .limit(1)
+            .scalar_subquery()
         )
-        if candidate_id is None:
-            return None
 
         result = await session.execute(
             update(StyleAnalysisJob)
             .where(
-                StyleAnalysisJob.id == candidate_id,
+                StyleAnalysisJob.id == candidate_subquery,
                 StyleAnalysisJob.status == pending_status,
+                StyleAnalysisJob.attempt_count < max_attempts,
             )
             .values(
                 status=running_status,
@@ -112,10 +128,9 @@ class StyleAnalysisJobRepository:
                 last_heartbeat_at=now,
                 attempt_count=StyleAnalysisJob.attempt_count + 1,
             )
+            .returning(StyleAnalysisJob.id)
         )
-        if result.rowcount != 1:
-            return None
-        return candidate_id
+        return result.scalar_one_or_none()
 
     async def heartbeat(
         self,
@@ -229,3 +244,14 @@ class StyleAnalysisJobRepository:
 
     async def flush(self, session: AsyncSession) -> None:
         await session.flush()
+
+    async def delete_job_graph(
+        self,
+        session: AsyncSession,
+        job: StyleAnalysisJob,
+    ) -> None:
+        if job.style_profile is not None:
+            await session.delete(job.style_profile)
+        await session.delete(job)
+        if job.sample_file is not None:
+            await session.delete(job.sample_file)

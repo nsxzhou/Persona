@@ -34,6 +34,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
   const isProcessing = STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some(
     (status) => status === job.status,
   );
+  const failedMessage = job.error_message?.trim() || "分析任务失败，请稍后重试。";
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -49,7 +50,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
       ) : job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED ? (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="pt-6 text-center text-destructive">
-            <p>分析失败: {job.error_message}</p>
+            <p>分析失败: {failedMessage}</p>
           </CardContent>
         </Card>
       ) : (

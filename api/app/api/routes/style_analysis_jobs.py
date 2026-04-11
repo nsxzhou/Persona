@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from app.api.deps import CurrentUserDep, DbSessionDep, StyleAnalysisJobServiceDep
+from app.core.domain_errors import DomainError, to_http_exception
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
     AnalysisReport,
     PromptPack,
     StyleAnalysisJobListItemResponse,
     StyleAnalysisJobResponse,
+    StyleAnalysisJobStatusResponse,
     StyleSummary,
 )
-from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_detail_response
-
 router = APIRouter(
     prefix="/style-analysis-jobs",
     tags=["style-analysis-jobs"],
@@ -36,8 +36,24 @@ async def get_style_analysis_job(
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> StyleAnalysisJobResponse:
-    job = await job_service.get_or_404(db_session, job_id, include_payloads=True)
-    return build_job_detail_response(job)
+    try:
+        return await job_service.get_detail_or_404(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.get("/{job_id}/status", response_model=StyleAnalysisJobStatusResponse)
+async def get_style_analysis_job_status(
+    job_id: str,
+    _current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    job_service: StyleAnalysisJobServiceDep,
+) -> StyleAnalysisJobStatusResponse:
+    try:
+        return await job_service.get_status_or_404(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
+
 
 @router.post("", response_model=StyleAnalysisJobListItemResponse, status_code=201)
 async def create_style_analysis_job(
@@ -51,16 +67,17 @@ async def create_style_analysis_job(
 ) -> StyleAnalysisJobListItemResponse:
     if not (file.filename or "").lower().endswith(".txt"):
         raise HTTPException(status_code=422, detail="仅支持上传 .txt 样本文件")
-    job = await job_service.create(
-        db_session,
-        style_name=style_name,
-        provider_id=provider_id,
-        model=model,
-        upload_file=file,
-    )
-    # 我们也可以把下面这行省略，因为下面我们会去修改 service.create 让他返回完整的对象，但是现在先保留
-    job = await job_service.get_or_404(db_session, job.id, include_payloads=False)
-    return StyleAnalysisJobListItemResponse.model_validate(job)
+    try:
+        job = await job_service.create(
+            db_session,
+            style_name=style_name,
+            provider_id=provider_id,
+            model=model,
+            upload_file=file,
+        )
+        return StyleAnalysisJobListItemResponse.model_validate(job)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.get("/{job_id}/analysis-meta", response_model=AnalysisMeta)
@@ -70,7 +87,10 @@ async def get_style_analysis_job_analysis_meta(
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> AnalysisMeta:
-    return await job_service.get_analysis_meta_or_409(db_session, job_id)
+    try:
+        return await job_service.get_analysis_meta_or_409(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.get("/{job_id}/analysis-report", response_model=AnalysisReport)
@@ -80,7 +100,10 @@ async def get_style_analysis_job_analysis_report(
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> AnalysisReport:
-    return await job_service.get_analysis_report_or_409(db_session, job_id)
+    try:
+        return await job_service.get_analysis_report_or_409(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.get("/{job_id}/style-summary", response_model=StyleSummary)
@@ -90,7 +113,10 @@ async def get_style_analysis_job_style_summary(
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> StyleSummary:
-    return await job_service.get_style_summary_or_409(db_session, job_id)
+    try:
+        return await job_service.get_style_summary_or_409(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.get("/{job_id}/prompt-pack", response_model=PromptPack)
@@ -100,4 +126,20 @@ async def get_style_analysis_job_prompt_pack(
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> PromptPack:
-    return await job_service.get_prompt_pack_or_409(db_session, job_id)
+    try:
+        return await job_service.get_prompt_pack_or_409(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_style_analysis_job(
+    job_id: str,
+    _current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    job_service: StyleAnalysisJobServiceDep,
+) -> None:
+    try:
+        await job_service.delete(db_session, job_id)
+    except DomainError as exc:
+        raise to_http_exception(exc) from exc

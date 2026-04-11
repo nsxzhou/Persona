@@ -1,3 +1,7 @@
+import type { components } from "@/lib/api/generated/openapi";
+
+type OpenApiSchema<Name extends keyof components["schemas"]> = components["schemas"][Name];
+
 export type User = {
   id: string;
   username: string;
@@ -40,114 +44,20 @@ export type Project = {
   provider: ProviderSummary;
 };
 
-export type EvidenceSnippet = {
-  excerpt: string;
-  location: string;
-};
-
-export type ExecutiveSummary = {
-  summary: string;
-  representative_evidence: EvidenceSnippet[];
-};
-
-export type BasicAssessment = {
-  text_type: string;
-  multi_speaker: boolean;
-  batch_mode: boolean;
-  location_indexing: string;
-  noise_handling: string;
-};
-
-export type SectionFinding = {
-  label: string;
-  summary: string;
-  frequency: string;
-  confidence: "high" | "medium" | "low";
-  is_weak_judgment: boolean;
-  evidence: EvidenceSnippet[];
-};
-
-export type AnalysisReportSection = {
-  section: string;
-  title: string;
-  overview: string;
-  findings: SectionFinding[];
-};
-
-export type AnalysisReport = {
-  executive_summary: ExecutiveSummary;
-  basic_assessment: BasicAssessment;
-  sections: AnalysisReportSection[];
-  appendix: string | null;
-};
-
-export type StyleSummarySceneStrategy = {
-  scene: string;
-  instruction: string;
-};
-
-export type StyleSummary = {
-  style_name: string;
-  style_positioning: string;
-  core_features: string[];
-  lexical_preferences: string[];
-  rhythm_profile: string[];
-  punctuation_profile: string[];
-  imagery_and_themes: string[];
-  scene_strategies: StyleSummarySceneStrategy[];
-  avoid_or_rare: string[];
-  generation_notes: string[];
-};
-
-export type StyleScenePrompts = {
-  dialogue: string;
-  action: string;
-  environment: string;
-};
-
-export type PromptPackStyleControls = {
-  tone: string;
-  rhythm: string;
-  evidence_anchor: string;
-};
-
-export type PromptPackFewShotSlot = {
-  label: string;
-  type: string;
-  text: string;
-  purpose: string;
-};
-
-export type PromptPack = {
-  system_prompt: string;
-  scene_prompts: StyleScenePrompts;
-  hard_constraints: string[];
-  style_controls: PromptPackStyleControls;
-  few_shot_slots: PromptPackFewShotSlot[];
-};
-
-export type AnalysisMeta = {
-  source_filename: string;
-  model_name: string;
-  text_type: string;
-  has_timestamps: boolean;
-  has_speaker_labels: boolean;
-  has_noise_markers: boolean;
-  uses_batch_processing: boolean;
-  location_indexing: string;
-  chunk_count: number;
-};
-
-export type StyleSampleFile = {
-  id: string;
-  original_filename: string;
-  content_type: string | null;
-  byte_size: number;
-  character_count: number | null;
-  checksum_sha256: string;
-  created_at: string;
-  updated_at: string;
-};
+export type EvidenceSnippet = OpenApiSchema<"EvidenceSnippet">;
+export type ExecutiveSummary = OpenApiSchema<"ExecutiveSummary">;
+export type BasicAssessment = OpenApiSchema<"BasicAssessment">;
+export type SectionFinding = OpenApiSchema<"SectionFinding">;
+export type AnalysisReportSection = OpenApiSchema<"AnalysisReportSection">;
+export type AnalysisReport = OpenApiSchema<"AnalysisReport">;
+export type StyleSummarySceneStrategy = OpenApiSchema<"StyleSummarySceneStrategy">;
+export type StyleSummary = OpenApiSchema<"StyleSummary">;
+export type StyleScenePrompts = OpenApiSchema<"StyleScenePrompts">;
+export type PromptPackStyleControls = OpenApiSchema<"PromptPackStyleControls">;
+export type PromptPackFewShotSlot = OpenApiSchema<"PromptPackFewShotSlot">;
+export type PromptPack = OpenApiSchema<"PromptPack">;
+export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
+export type StyleSampleFile = OpenApiSchema<"StyleSampleFileResponse">;
 
 export const STYLE_ANALYSIS_JOB_STATUS = {
   PENDING: "pending",
@@ -280,8 +190,4 @@ export type StyleProfileCreatePayload = {
   prompt_pack: PromptPack;
 };
 
-export type StyleProfileUpdatePayload = {
-  mount_project_id?: string | null;
-  style_summary: StyleSummary;
-  prompt_pack: PromptPack;
-};
+export type StyleProfileUpdatePayload = OpenApiSchema<"StyleProfileUpdate">;

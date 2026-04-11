@@ -79,7 +79,10 @@ class Settings(BaseSettings):
 
     # worker 轮询间隔（秒）
     style_analysis_poll_interval_seconds: float = Field(
-        default=1.0, alias="PERSONA_STYLE_ANALYSIS_POLL_INTERVAL_SECONDS"
+        default=1.0,
+        gt=0,
+        le=60,
+        alias="PERSONA_STYLE_ANALYSIS_POLL_INTERVAL_SECONDS",
     )
 
     # 运行中任务的陈旧判定阈值（秒）
@@ -89,7 +92,10 @@ class Settings(BaseSettings):
 
     # Style Lab chunk 并发上限
     style_analysis_chunk_max_concurrency: int = Field(
-        default=5, alias="PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY"
+        default=5,
+        ge=1,
+        le=32,
+        alias="PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY",
     )
 
     # Style Lab 最大尝试次数

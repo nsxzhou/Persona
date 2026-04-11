@@ -31,6 +31,11 @@ type DetailResource<T> = {
   error: Error | null;
 };
 
+type StyleAnalysisJobStatusSnapshot = Pick<
+  StyleAnalysisJob,
+  "id" | "status" | "stage" | "error_message" | "updated_at"
+>;
+
 function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
   return Boolean(
     status && STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some((value) => value === status),
@@ -49,18 +54,59 @@ function makeDetailResource<T>(
   };
 }
 
-function useStyleLabJobDetailQuery(jobId: string) {
+function mergeStatusIntoJob(
+  job: StyleAnalysisJob | null,
+  statusSnapshot: StyleAnalysisJobStatusSnapshot | null,
+) {
+  if (!job || !statusSnapshot) return job;
+  return {
+    ...job,
+    status: statusSnapshot.status,
+    stage: statusSnapshot.stage,
+    error_message: statusSnapshot.error_message,
+    updated_at: statusSnapshot.updated_at,
+  };
+}
+
+function useStyleLabJobStatusQuery(jobId: string) {
   return useQuery({
-    queryKey: ["style-analysis-jobs", jobId],
-    queryFn: () => api.getStyleAnalysisJob(jobId),
+    queryKey: ["style-analysis-jobs", jobId, "status"],
+    queryFn: () => api.getStyleAnalysisJobStatus(jobId),
     refetchInterval: (query) =>
       isProcessingStatus(query.state.data?.status) ? 2000 : false,
   });
 }
 
+function useStyleLabJobDetailQuery(jobId: string) {
+  return useQuery({
+    queryKey: ["style-analysis-jobs", jobId],
+    queryFn: () => api.getStyleAnalysisJob(jobId),
+  });
+}
+
 function useStyleLabJobDetail(jobId: string) {
+  const statusQuery = useStyleLabJobStatusQuery(jobId);
   const jobQuery = useStyleLabJobDetailQuery(jobId);
-  const job = jobQuery.data ?? null;
+
+  React.useEffect(() => {
+    if (
+      statusQuery.data?.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED &&
+      jobQuery.data?.status !== STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED &&
+      !jobQuery.isFetching
+    ) {
+      void jobQuery.refetch();
+    }
+  }, [
+    jobQuery.data?.status,
+    jobQuery.isFetching,
+    jobQuery.refetch,
+    statusQuery.data?.status,
+  ]);
+
+  const job = mergeStatusIntoJob(
+    jobQuery.data ?? null,
+    statusQuery.data ?? null,
+  );
   const existingProfile = job?.style_profile ?? null;
 
   const report = existingProfile?.analysis_report ?? job?.analysis_report ?? null;
@@ -68,10 +114,11 @@ function useStyleLabJobDetail(jobId: string) {
   const promptPack = existingProfile?.prompt_pack ?? job?.prompt_pack ?? null;
 
   let errorState: { title: string; message: string } | null = null;
-  if (jobQuery.isError) {
+  if (jobQuery.isError || (statusQuery.isError && !jobQuery.data)) {
+    const queryError = jobQuery.error ?? statusQuery.error;
     errorState = {
       title: "加载任务失败",
-      message: jobQuery.error instanceof Error ? jobQuery.error.message : "请重试",
+      message: queryError instanceof Error ? queryError.message : "请重试",
     };
   } else if (!jobQuery.isLoading && !job) {
     errorState = { title: "任务不存在", message: "未找到对应的风格分析任务" };
@@ -83,15 +130,16 @@ function useStyleLabJobDetail(jobId: string) {
     reportResource: makeDetailResource<AnalysisReport>(report, jobQuery),
     summaryResource: makeDetailResource<StyleSummary>(summary, jobQuery),
     promptPackResource: makeDetailResource<PromptPack>(promptPack, jobQuery),
-    isLoading: jobQuery.isLoading,
+    isLoading: jobQuery.isLoading && !jobQuery.data,
     errorState,
   };
 }
 
-function useMountableProjects() {
+function useMountableProjects(enabled: boolean) {
   const projectsQuery = useQuery({
     queryKey: ["projects"],
     queryFn: () => api.getProjects(false),
+    enabled,
   });
 
   return {
@@ -210,7 +258,6 @@ function useSaveStyleProfileMutation({
 
 export function useStyleLabWizardLogic(jobId: string) {
   const detail = useStyleLabJobDetail(jobId);
-  const projectsState = useMountableProjects();
   const wizardState = useStyleLabWizardState({
     jobId,
     job: detail.job,
@@ -218,6 +265,7 @@ export function useStyleLabWizardLogic(jobId: string) {
     summary: detail.summaryResource.data,
     promptPack: detail.promptPackResource.data,
   });
+  const projectsState = useMountableProjects(wizardState.step >= 3);
   const saveProfileMutation = useSaveStyleProfileMutation({
     job: detail.job,
     form: wizardState.form,

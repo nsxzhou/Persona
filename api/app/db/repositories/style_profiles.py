@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import defer, joinedload
+from sqlalchemy.orm import defer, joinedload, selectinload
 
 from app.db.models import StyleAnalysisJob, StyleProfile
 
@@ -34,6 +34,17 @@ class StyleProfileRepository:
         profile_id: str,
     ) -> StyleProfile | None:
         return await session.get(StyleProfile, profile_id)
+
+    async def get_with_projects(
+        self,
+        session: AsyncSession,
+        profile_id: str,
+    ) -> StyleProfile | None:
+        return await session.scalar(
+            select(StyleProfile)
+            .options(selectinload(StyleProfile.projects))
+            .where(StyleProfile.id == profile_id)
+        )
 
     async def get_by_source_job_id(
         self,
@@ -88,3 +99,6 @@ class StyleProfileRepository:
 
     async def flush(self, session: AsyncSession) -> None:
         await session.flush()
+
+    async def delete(self, session: AsyncSession, profile: StyleProfile) -> None:
+        await session.delete(profile)
