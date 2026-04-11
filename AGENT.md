@@ -84,6 +84,12 @@
 - `lib/`: 存放无副作用的工具函数、类型定义和 API 客户端代码。
 - `hooks/`: 存放自定义 React Hooks。
 
+### 3.5 前端 API 契约一致性 (Contract Consistency)
+- **单一事实源 (Single Source of Truth)**：前端接口 DTO 类型必须以 OpenAPI 生成类型为唯一事实源。手写类型仅允许用于纯 UI ViewModel 或展示态组合类型，禁止与接口响应结构同构重复定义。
+- **禁止双轨并存**：严禁长期同时维护“手写接口类型 + OpenAPI 生成类型”两套并行契约。该模式会导致契约漂移，尤其容易出现字段可选性（optional/nullable）与后端定义不一致的问题。
+- **变更同步规则**：后端 Schema 或路由响应发生变更时，必须先更新 OpenAPI 产物，再修正前端引用与测试；禁止先改手写类型临时兜底。
+- **契约回归校验**：涉及 `web/lib/types.ts`、`web/lib/api.ts`、`web/lib/server-api.ts` 的改动，必须同步检查契约测试与关键页面测试，确保字段必填/可选语义未退化。
+
 ## 4. 测试与质量保证 (Testing & Delivery)
 
 - **无验证，不交付**：AI 在修改核心业务逻辑后，必须运行相关的 `pytest` 单元测试，并确保未引入退化。
