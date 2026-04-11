@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { vi } from "vitest";
 
 import { ProjectsPageView } from "@/components/projects-page-view";
 
@@ -34,3 +35,16 @@ test("projects page renders active projects and archive toggle", () => {
   expect(screen.getByLabelText("显示已归档")).toBeInTheDocument();
 });
 
+test("projects page is a server wrapper around the projects client container", async () => {
+  vi.resetModules();
+  vi.doMock("@/components/projects-page-view", () => ({
+    ProjectsPageClient: () => <div>projects-client-container</div>,
+    ProjectsPageView: () => null,
+  }));
+
+  const { default: ProjectsPage } = await import("@/app/(workspace)/projects/page");
+
+  render(<ProjectsPage />);
+
+  expect(screen.getByText("projects-client-container")).toBeInTheDocument();
+});

@@ -1,35 +1,20 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { LoginPageClient } from "@/components/route-guards";
+import { getServerCurrentUser, getServerSetupStatus } from "@/lib/server-api";
 
-import { LoginPageView } from "@/components/login-page-view";
-import { PublicRouteGuard } from "@/components/route-guards";
-import { api } from "@/lib/api";
-import type { LoginPayload } from "@/lib/types";
+export default async function LoginPage() {
+  const setupStatus = await getServerSetupStatus();
+  if (!setupStatus.initialized) {
+    redirect("/setup");
+    return null;
+  }
 
-export default function LoginPage() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: (payload: LoginPayload) => api.login(payload),
-    onError: (error) => toast.error(`登录失败: ${error.message}`),
-    onSuccess: async () => {
-      toast.success("登录成功");
-      await queryClient.invalidateQueries({ queryKey: ["current-user"] });
-      router.replace("/projects");
-    },
-  });
+  const currentUser = await getServerCurrentUser();
+  if (currentUser) {
+    redirect("/projects");
+    return null;
+  }
 
-  return (
-    <PublicRouteGuard>
-      <LoginPageView
-        onSubmit={async (values) => {
-          await mutation.mutateAsync(values);
-        }}
-        submitting={mutation.isPending}
-      />
-    </PublicRouteGuard>
-  );
+  return <LoginPageClient />;
 }

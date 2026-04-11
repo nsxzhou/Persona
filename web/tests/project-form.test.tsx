@@ -50,3 +50,40 @@ test("project form lets user select a style profile and submit it", async () => 
     style_profile_id: "profile-1",
   })));
 });
+
+test("new project page is a server wrapper around the new-project client container", async () => {
+  vi.resetModules();
+  vi.doMock("@/components/project-form", () => ({
+    ProjectNewPageClient: () => <div>new-project-client-container</div>,
+    ProjectDetailPageClient: ({ projectId }: { projectId: string }) => (
+      <div>detail-project-client-{projectId}</div>
+    ),
+    ProjectForm: () => null,
+  }));
+
+  const { default: NewProjectPage } = await import("@/app/(workspace)/projects/new/page");
+
+  render(<NewProjectPage />);
+
+  expect(screen.getByText("new-project-client-container")).toBeInTheDocument();
+});
+
+test("project detail page is a server wrapper around the detail client container", async () => {
+  vi.resetModules();
+  vi.doMock("@/components/project-form", () => ({
+    ProjectNewPageClient: () => <div>new-project-client-container</div>,
+    ProjectDetailPageClient: ({ projectId }: { projectId: string }) => (
+      <div>detail-project-client-{projectId}</div>
+    ),
+    ProjectForm: () => null,
+  }));
+
+  const { default: ProjectDetailPage } = await import("@/app/(workspace)/projects/[id]/page");
+  const page = await ProjectDetailPage({
+    params: Promise.resolve({ id: "project-42" }),
+  });
+
+  render(page);
+
+  expect(screen.getByText("detail-project-client-project-42")).toBeInTheDocument();
+});

@@ -2,26 +2,22 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { type FieldError, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Bot, ChevronRight, Server, ShieldCheck, Sparkles, User as UserIcon } from "lucide-react";
 
+import { ProviderFormFields } from "@/components/provider-form-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SetupPayload } from "@/lib/types";
+import { createProviderFormDefaults, createProviderFormSchema } from "@/lib/validations/provider";
 
 const schema = z.object({
   username: z.string().min(3, "用户名至少需要 3 个字符"),
   password: z.string().min(8, "密码至少需要 8 个字符"),
-  provider: z.object({
-    label: z.string().min(1, "必填"),
-    base_url: z.string().url("需为有效 URL").min(1),
-    api_key: z.string().min(4, "必填"),
-    default_model: z.string().min(1, "必填"),
-    is_enabled: z.boolean(),
-  }),
+  provider: createProviderFormSchema({ requireApiKey: true }),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -39,13 +35,7 @@ export function SetupPageView({
     defaultValues: {
       username: "",
       password: "",
-      provider: {
-        label: "",
-        base_url: "https://api.openai.com/v1",
-        api_key: "",
-        default_model: "gpt-4o-mini",
-        is_enabled: true,
-      },
+      provider: createProviderFormDefaults(),
     },
   });
 
@@ -61,6 +51,7 @@ export function SetupPageView({
       ...values,
       provider: {
         ...values.provider,
+        api_key: values.provider.api_key ?? "",
         is_enabled: true,
       },
     };
@@ -151,34 +142,28 @@ export function SetupPageView({
 
                 {step === 2 && (
                   <div className="grid gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="grid gap-2">
-                      <Label htmlFor="provider-label">Provider 名称</Label>
-                      <Input id="provider-label" {...form.register("provider.label")} placeholder="例如：OpenAI" />
-                      {form.formState.errors.provider?.label && (
-                        <p className="text-sm text-destructive">{form.formState.errors.provider.label.message}</p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="provider-base-url">Base URL</Label>
-                      <Input id="provider-base-url" {...form.register("provider.base_url")} />
-                      {form.formState.errors.provider?.base_url && (
-                        <p className="text-sm text-destructive">{form.formState.errors.provider.base_url.message}</p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="provider-api-key">API Key</Label>
-                      <Input id="provider-api-key" type="password" {...form.register("provider.api_key")} placeholder="sk-..." />
-                      {form.formState.errors.provider?.api_key && (
-                        <p className="text-sm text-destructive">{form.formState.errors.provider.api_key.message}</p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="provider-default-model">默认模型</Label>
-                      <Input id="provider-default-model" {...form.register("provider.default_model")} />
-                      {form.formState.errors.provider?.default_model && (
-                        <p className="text-sm text-destructive">{form.formState.errors.provider.default_model.message}</p>
-                      )}
-                    </div>
+                    <ProviderFormFields
+                      ids={{
+                        label: "provider-label",
+                        baseUrl: "provider-base-url",
+                        apiKey: "provider-api-key",
+                        defaultModel: "provider-default-model",
+                      }}
+                      labelField={form.register("provider.label")}
+                      baseUrlField={form.register("provider.base_url")}
+                      apiKeyField={form.register("provider.api_key")}
+                      defaultModelField={form.register("provider.default_model")}
+                      placeholders={{
+                        label: "例如：OpenAI",
+                        apiKey: "sk-...",
+                      }}
+                      errors={{
+                        label: form.formState.errors.provider?.label as FieldError | undefined,
+                        base_url: form.formState.errors.provider?.base_url as FieldError | undefined,
+                        api_key: form.formState.errors.provider?.api_key as FieldError | undefined,
+                        default_model: form.formState.errors.provider?.default_model as FieldError | undefined,
+                      }}
+                    />
                     <div className="flex gap-3 mt-4">
                       <Button type="button" variant="outline" className="w-1/3" onClick={() => setStep(1)}>
                         返回

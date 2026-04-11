@@ -1,83 +1,66 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { usePathname, useRouter } from "next/navigation";
-import { PropsWithChildren, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { PropsWithChildren } from "react";
+import { toast } from "sonner";
 
 import { api } from "@/lib/api";
-import { PageLoading } from "@/components/page-state";
+import { LoginPageView } from "@/components/login-page-view";
+import { SetupPageView } from "@/components/setup-page-view";
+import type { LoginPayload, SetupPayload } from "@/lib/types";
 
 export function PublicRouteGuard({ children }: PropsWithChildren) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const setupQuery = useQuery({
-    queryKey: ["setup-status"],
-    queryFn: api.getSetupStatus,
-  });
-  const meQuery = useQuery({
-    queryKey: ["current-user"],
-    queryFn: api.getCurrentUser,
-    retry: false,
-  });
-
-  useEffect(() => {
-    if (!setupQuery.data) {
-      return;
-    }
-
-    if (!setupQuery.data.initialized) {
-      if (pathname !== "/setup") {
-        router.replace("/setup");
-      }
-      return;
-    }
-
-    if (meQuery.data && !meQuery.isError) {
-      router.replace("/projects");
-      return;
-    }
-
-    if (pathname === "/setup") {
-      router.replace("/login");
-    }
-  }, [meQuery.data, meQuery.isError, pathname, router, setupQuery.data]);
-
-  if (setupQuery.isLoading || (setupQuery.data?.initialized && meQuery.isLoading)) {
-    return <PageLoading title="正在检查 Persona 状态..." />;
-  }
-
   return <>{children}</>;
 }
 
 export function ProtectedRouteGuard({ children }: PropsWithChildren) {
-  const router = useRouter();
-  const setupQuery = useQuery({
-    queryKey: ["setup-status"],
-    queryFn: api.getSetupStatus,
-  });
-  const meQuery = useQuery({
-    queryKey: ["current-user"],
-    queryFn: api.getCurrentUser,
-    retry: false,
-  });
-
-  useEffect(() => {
-    if (!setupQuery.data) {
-      return;
-    }
-    if (!setupQuery.data.initialized) {
-      router.replace("/setup");
-      return;
-    }
-    if (meQuery.isError) {
-      router.replace("/login");
-    }
-  }, [meQuery.isError, router, setupQuery.data]);
-
-  if (setupQuery.isLoading || meQuery.isLoading || !meQuery.data || meQuery.isError) {
-    return <PageLoading title="正在进入工作台..." />;
-  }
-
   return <>{children}</>;
 }
 
+export function SetupPageClient() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (payload: SetupPayload) => api.setup(payload),
+    onError: (error) => toast.error(`初始化失败: ${error.message}`),
+    onSuccess: async () => {
+      toast.success("系统初始化成功");
+      await queryClient.invalidateQueries({ queryKey: ["setup-status"] });
+      await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      router.replace("/projects");
+    },
+  });
+
+  return (
+    <SetupPageView
+      onSubmit={async (values) => {
+        await mutation.mutateAsync(values);
+      }}
+      submitting={mutation.isPending}
+    />
+  );
+}
+
+export function LoginPageClient() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (payload: LoginPayload) => api.login(payload),
+    onError: (error) => toast.error(`登录失败: ${error.message}`),
+    onSuccess: async () => {
+      toast.success("登录成功");
+      await queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      router.replace("/projects");
+    },
+  });
+
+  return (
+    <LoginPageView
+      onSubmit={async (values) => {
+        await mutation.mutateAsync(values);
+      }}
+      submitting={mutation.isPending}
+    />
+  );
+}

@@ -2,23 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { type FieldError, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { ProviderFormFields } from "@/components/provider-form-fields";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import type { ProviderConfig, ProviderPayload } from "@/lib/types";
+import { createProviderFormDefaults, createProviderFormSchema } from "@/lib/validations/provider";
 
-const schema = z.object({
-  label: z.string().min(1),
-  base_url: z.string().min(1),
-  api_key: z.string().optional(),
-  default_model: z.string().min(1),
-  is_enabled: z.boolean(),
-});
+const schema = createProviderFormSchema();
 
 type FormValues = z.infer<typeof schema>;
 
@@ -37,23 +30,11 @@ export function ProviderConfigFormDialog({
 }) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema, undefined, { mode: "sync" }),
-    defaultValues: {
-      label: "",
-      base_url: "https://api.openai.com/v1",
-      api_key: "",
-      default_model: "gpt-4.1-mini",
-      is_enabled: true,
-    },
+    defaultValues: createProviderFormDefaults(),
   });
 
   useEffect(() => {
-    form.reset({
-      label: provider?.label ?? "",
-      base_url: provider?.base_url ?? "https://api.openai.com/v1",
-      api_key: "",
-      default_model: provider?.default_model ?? "gpt-4.1-mini",
-      is_enabled: provider?.is_enabled ?? true,
-    });
+    form.reset(createProviderFormDefaults(provider));
   }, [form, provider]);
 
   return (
@@ -64,32 +45,31 @@ export function ProviderConfigFormDialog({
           <DialogDescription>API Key 只写入后台加密存储，前端不会回显明文。</DialogDescription>
         </DialogHeader>
         <form className="mt-6 grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid gap-2">
-            <Label htmlFor="provider-form-label">名称</Label>
-            <Input id="provider-form-label" {...form.register("label")} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="provider-form-base-url">Base URL</Label>
-            <Input id="provider-form-base-url" {...form.register("base_url")} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="provider-form-api-key">API Key</Label>
-            <Input id="provider-form-api-key" type="password" placeholder={provider ? "留空则保留原值" : ""} {...form.register("api_key")} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="provider-form-default-model">默认模型</Label>
-            <Input id="provider-form-default-model" {...form.register("default_model")} />
-          </div>
-          <div className="flex items-center space-x-2 text-muted-foreground">
-            <Switch
-              id="provider-form-is-enabled"
-              checked={form.watch("is_enabled")}
-              onCheckedChange={(checked) => form.setValue("is_enabled", checked)}
-            />
-            <Label htmlFor="provider-form-is-enabled">
-              启用该配置
-            </Label>
-          </div>
+          <ProviderFormFields
+            ids={{
+              label: "provider-form-label",
+              baseUrl: "provider-form-base-url",
+              apiKey: "provider-form-api-key",
+              defaultModel: "provider-form-default-model",
+              isEnabled: "provider-form-is-enabled",
+            }}
+            labelField={form.register("label")}
+            baseUrlField={form.register("base_url")}
+            apiKeyField={form.register("api_key")}
+            defaultModelField={form.register("default_model")}
+            showEnabled
+            isEnabled={form.watch("is_enabled")}
+            onEnabledChange={(checked) => form.setValue("is_enabled", checked)}
+            placeholders={{
+              apiKey: provider ? "留空则保留原值" : "",
+            }}
+            errors={{
+              label: form.formState.errors.label as FieldError | undefined,
+              base_url: form.formState.errors.base_url as FieldError | undefined,
+              api_key: form.formState.errors.api_key as FieldError | undefined,
+              default_model: form.formState.errors.default_model as FieldError | undefined,
+            }}
+          />
           <Button type="submit" disabled={submitting}>
             {provider ? "保存修改" : "创建配置"}
           </Button>

@@ -1,13 +1,69 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 import { Plus, ArchiveRestore, Archive } from "lucide-react";
+import { toast } from "sonner";
+
+import { PageError, PageLoading } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { api } from "@/lib/api";
 import type { Project } from "@/lib/types";
+
+export function ProjectsPageClient() {
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const queryClient = useQueryClient();
+  const projectsQuery = useQuery({
+    queryKey: ["projects", includeArchived],
+    queryFn: () => api.getProjects(includeArchived),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (projectId: string) => api.archiveProject(projectId),
+    onError: (error) => toast.error(`归档失败: ${error.message}`),
+    onSuccess: async () => {
+      toast.success("项目已归档");
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (projectId: string) => api.restoreProject(projectId),
+    onError: (error) => toast.error(`恢复失败: ${error.message}`),
+    onSuccess: async () => {
+      toast.success("项目已恢复");
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  if (projectsQuery.isLoading) {
+    return <PageLoading />;
+  }
+
+  if (projectsQuery.isError || !projectsQuery.data) {
+    return (
+      <PageError
+        title="项目列表加载失败"
+        message={projectsQuery.error instanceof Error ? projectsQuery.error.message : "请重试"}
+      />
+    );
+  }
+
+  return (
+    <ProjectsPageView
+      includeArchived={includeArchived}
+      projects={projectsQuery.data}
+      onArchive={(projectId) => archiveMutation.mutate(projectId)}
+      onIncludeArchivedChange={setIncludeArchived}
+      onRestore={(projectId) => restoreMutation.mutate(projectId)}
+    />
+  );
+}
 
 export function ProjectsPageView({
   projects,
