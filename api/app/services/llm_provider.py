@@ -6,6 +6,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
 from app.core.config import get_settings
+from app.core.redaction import summarize_exception
 from app.core.security import decrypt_secret
 from app.db.models import ProviderConfig
 
@@ -29,6 +30,10 @@ class LLMProviderService:
             )
             await model.ainvoke([HumanMessage(content="Reply with OK")])
             return {"status": "success", "message": "连接成功"}
-        except Exception:
+        except Exception as exc:
             logger.exception("provider connection test failed", extra={"provider_id": provider_config.id})
-            return {"status": "error", "message": CONNECTION_TEST_FAILED_MESSAGE}
+            return {
+                "status": "error",
+                "message": CONNECTION_TEST_FAILED_MESSAGE,
+                "error_summary": summarize_exception(exc),
+            }

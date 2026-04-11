@@ -103,11 +103,14 @@ async def test_provider_connection_test_masks_sensitive_error_details(
     response = await initialized_client.post(f"/api/v1/provider-configs/{provider_id}/test")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Provider 连通性测试失败，请检查配置后重试"
+    detail = response.json()["detail"]
+    assert detail.startswith("Provider 连通性测试失败，请检查配置后重试（原因：")
+    assert "sk-secret-1234" not in detail
+    assert "[REDACTED]" in detail
 
     refreshed = (await initialized_client.get("/api/v1/provider-configs")).json()[0]
     assert refreshed["last_test_status"] == "error"
-    assert refreshed["last_test_error"] == "Provider 连通性测试失败，请检查配置后重试"
+    assert refreshed["last_test_error"] == "upstream timeout: [REDACTED]"
 
 
 @pytest.mark.asyncio

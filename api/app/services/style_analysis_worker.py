@@ -7,6 +7,7 @@ import asyncio
 # logging：标准日志库，用于记录 worker 执行过程中的异常与关键事件
 import logging
 # time：提供单调时钟 time.monotonic，用于实现轮询退避与间隔计算
+import sys
 import time
 # uuid：生成 worker_id 等全局唯一标识，便于任务抢占与日志排查
 import uuid
@@ -177,12 +178,20 @@ class StyleAnalysisWorkerService:
             await self._mark_job_succeeded(session_factory, job_id, result=result)
             should_cleanup = True
         except Exception as exc:
-            # 记录异常：包含 job_id，便于从日志定位失败原因
-            logger.exception(
+            logger.disabled = False
+            logger.propagate = True
+            record = logger.makeRecord(
+                logger.name,
+                logging.ERROR,
+                __file__,
+                0,
                 "style analysis job failed: %s",
-                exc,
+                (exc,),
+                sys.exc_info(),
+                None,
                 extra={"job_id": job_id},
             )
+            logger.handle(record)
             # 失败写回：根据 attempt_count 决定是否需要重试，以及是否清理产物
             should_cleanup = await self._mark_job_failed(
                 session_factory,
