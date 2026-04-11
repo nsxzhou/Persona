@@ -149,20 +149,40 @@ export type StyleSampleFile = {
   updated_at: string;
 };
 
+export const STYLE_ANALYSIS_JOB_STATUS = {
+  PENDING: "pending",
+  RUNNING: "running",
+  SUCCEEDED: "succeeded",
+  FAILED: "failed",
+} as const;
+
+export type StyleAnalysisJobStatus =
+  (typeof STYLE_ANALYSIS_JOB_STATUS)[keyof typeof STYLE_ANALYSIS_JOB_STATUS];
+
+export const STYLE_ANALYSIS_JOB_STAGE = {
+  PREPARING_INPUT: "preparing_input",
+  ANALYZING_CHUNKS: "analyzing_chunks",
+  AGGREGATING: "aggregating",
+  REPORTING: "reporting",
+  SUMMARIZING: "summarizing",
+  COMPOSING_PROMPT_PACK: "composing_prompt_pack",
+} as const;
+
+export type StyleAnalysisJobStage =
+  (typeof STYLE_ANALYSIS_JOB_STAGE)[keyof typeof STYLE_ANALYSIS_JOB_STAGE];
+
+export const STYLE_ANALYSIS_JOB_PROCESSING_STATUSES = [
+  STYLE_ANALYSIS_JOB_STATUS.PENDING,
+  STYLE_ANALYSIS_JOB_STATUS.RUNNING,
+] as const;
+
 export type StyleAnalysisJob = {
   id: string;
   style_name: string;
   provider_id: string;
   model_name: string;
-  status: "pending" | "running" | "succeeded" | "failed";
-  stage:
-    | "preparing_input"
-    | "analyzing_chunks"
-    | "aggregating"
-    | "reporting"
-    | "summarizing"
-    | "composing_prompt_pack"
-    | null;
+  status: StyleAnalysisJobStatus;
+  stage: StyleAnalysisJobStage | null;
   error_message: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -171,6 +191,11 @@ export type StyleAnalysisJob = {
   provider: ProviderSummary;
   sample_file: StyleSampleFile;
   style_profile_id: string | null;
+  analysis_meta?: AnalysisMeta | null;
+  analysis_report?: AnalysisReport | null;
+  style_summary?: StyleSummary | null;
+  prompt_pack?: PromptPack | null;
+  style_profile?: StyleProfile | null;
 };
 
 export type StyleAnalysisJobListItem = {
@@ -250,11 +275,13 @@ export type ProviderPayload = {
 
 export type StyleProfileCreatePayload = {
   job_id: string;
+  mount_project_id?: string | null;
   style_summary: StyleSummary;
   prompt_pack: PromptPack;
 };
 
 export type StyleProfileUpdatePayload = {
+  mount_project_id?: string | null;
   style_summary: StyleSummary;
   prompt_pack: PromptPack;
 };

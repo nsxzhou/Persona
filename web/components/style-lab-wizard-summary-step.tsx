@@ -11,7 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaListEditor } from "@/components/textarea-list-editor";
 import { listToLines, linesToList, linesToSceneStrategies, sceneStrategiesToLines } from "@/lib/style-lab-transformers";
-import type { PromptPack, StyleAnalysisJob, StyleProfile, StyleSummary } from "@/lib/types";
+import {
+  STYLE_ANALYSIS_JOB_STATUS,
+  type PromptPack,
+  type StyleAnalysisJob,
+  type StyleProfile,
+  type StyleSummary,
+} from "@/lib/types";
 
 export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSummaryStep({
   job,
@@ -46,7 +52,7 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
           {isError && !existingProfile ? (
             <p className="text-destructive">{errorMessage}</p>
           ) : null}
-          {job.status === "succeeded" ? (
+          {job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED ? (
             <>
               <div className="grid gap-2">
                 <Label htmlFor="style-name">风格名称</Label>

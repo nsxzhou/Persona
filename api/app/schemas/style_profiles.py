@@ -9,11 +9,13 @@ from app.schemas.style_analysis_jobs import AnalysisReport, PromptPack, StyleSum
 
 class StyleProfileCreate(BaseModel):
     job_id: str
+    mount_project_id: str | None = None
     style_summary: StyleSummary
     prompt_pack: PromptPack
 
 
 class StyleProfileUpdate(BaseModel):
+    mount_project_id: str | None = None
     style_summary: StyleSummary
     prompt_pack: PromptPack
 

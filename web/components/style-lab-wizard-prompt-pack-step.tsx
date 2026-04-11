@@ -11,7 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaListEditor } from "@/components/textarea-list-editor";
 import { listToLines, linesToList } from "@/lib/style-lab-transformers";
-import type { PromptPack, Project, StyleAnalysisJob, StyleProfile, StyleSummary } from "@/lib/types";
+import {
+  STYLE_ANALYSIS_JOB_STATUS,
+  type PromptPack,
+  type Project,
+  type StyleAnalysisJob,
+  type StyleProfile,
+  type StyleSummary,
+} from "@/lib/types";
 
 const NONE_VALUE = "__none__";
 
@@ -56,7 +63,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
           {isError && !existingProfile ? (
             <p className="text-destructive">{errorMessage}</p>
           ) : null}
-          {job.status === "succeeded" ? (
+          {job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED ? (
             <>
               <div className="grid gap-2">
                 <Label htmlFor="system-prompt">System Prompt</Label>

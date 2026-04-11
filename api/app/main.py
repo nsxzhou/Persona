@@ -50,8 +50,12 @@ def create_app(*, session_factory=None) -> FastAPI:
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
         )
-        yield
-        await worker_service.aclose()
+        try:
+            yield
+        finally:
+            await worker_service.aclose()
+            if getattr(app.state, "owns_engine", False):
+                await app.state.engine.dispose()
 
     # 创建FastAPI应用实例
     # title: API文档标题
@@ -81,6 +85,9 @@ def create_app(*, session_factory=None) -> FastAPI:
         session_factory = create_session_factory(engine)
         # 将引擎存储在app.state中 - app.state是FastAPI提供的全局状态存储
         app.state.engine = engine
+        app.state.owns_engine = True
+    else:
+        app.state.owns_engine = False
 
     # 将会话工厂存储在app.state中，供整个应用使用
     app.state.session_factory = session_factory

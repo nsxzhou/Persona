@@ -2,7 +2,13 @@
 
 import * as React from "react";
 
-import type { AnalysisReport, StyleAnalysisJob, StyleProfile } from "@/lib/types";
+import {
+  STYLE_ANALYSIS_JOB_PROCESSING_STATUSES,
+  STYLE_ANALYSIS_JOB_STATUS,
+  type AnalysisReport,
+  type StyleAnalysisJob,
+  type StyleProfile,
+} from "@/lib/types";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +31,9 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
   errorMessage?: string;
   onNext: () => void;
 }) {
-  const isProcessing = job.status === "pending" || job.status === "running";
+  const isProcessing = STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some(
+    (status) => status === job.status,
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -38,7 +46,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
             <p className="text-sm text-muted-foreground mt-1">这可能需要几分钟时间，请耐心等待。</p>
           </CardContent>
         </Card>
-      ) : job.status === "failed" ? (
+      ) : job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED ? (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="pt-6 text-center text-destructive">
             <p>分析失败: {job.error_message}</p>
@@ -95,4 +103,3 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
     </div>
   );
 });
-

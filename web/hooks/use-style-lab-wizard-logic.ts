@@ -1,25 +1,122 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import {
   formSchema,
-  type FormValues,
-  makeEmptyStyleSummary,
   makeEmptyPromptPack,
+  makeEmptyStyleSummary,
+  type FormValues,
 } from "@/lib/validations/style-lab";
+import {
+  STYLE_ANALYSIS_JOB_PROCESSING_STATUSES,
+  STYLE_ANALYSIS_JOB_STATUS,
+  type AnalysisReport,
+  type PromptPack,
+  type StyleAnalysisJob,
+  type StyleProfile,
+  type StyleSummary,
+} from "@/lib/types";
 
-const NONE_VALUE = "__none__";
+type WizardStep = 1 | 2 | 3;
 
-export function useStyleLabWizardLogic(jobId: string) {
-  const router = useRouter();
-  const [step, setStep] = React.useState<1 | 2 | 3>(1);
+type DetailResource<T> = {
+  data: T | null;
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+};
+
+function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
+  return Boolean(
+    status && STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some((value) => value === status),
+  );
+}
+
+function makeDetailResource<T>(
+  data: T | null | undefined,
+  jobQuery: ReturnType<typeof useStyleLabJobDetailQuery>,
+): DetailResource<T> {
+  return {
+    data: data ?? null,
+    isLoading: jobQuery.isLoading,
+    isError: jobQuery.isError,
+    error: jobQuery.error instanceof Error ? jobQuery.error : null,
+  };
+}
+
+function useStyleLabJobDetailQuery(jobId: string) {
+  return useQuery({
+    queryKey: ["style-analysis-jobs", jobId],
+    queryFn: () => api.getStyleAnalysisJob(jobId),
+    refetchInterval: (query) =>
+      isProcessingStatus(query.state.data?.status) ? 2000 : false,
+  });
+}
+
+function useStyleLabJobDetail(jobId: string) {
+  const jobQuery = useStyleLabJobDetailQuery(jobId);
+  const job = jobQuery.data ?? null;
+  const existingProfile = job?.style_profile ?? null;
+
+  const report = existingProfile?.analysis_report ?? job?.analysis_report ?? null;
+  const summary = existingProfile?.style_summary ?? job?.style_summary ?? null;
+  const promptPack = existingProfile?.prompt_pack ?? job?.prompt_pack ?? null;
+
+  let errorState: { title: string; message: string } | null = null;
+  if (jobQuery.isError) {
+    errorState = {
+      title: "加载任务失败",
+      message: jobQuery.error instanceof Error ? jobQuery.error.message : "请重试",
+    };
+  } else if (!jobQuery.isLoading && !job) {
+    errorState = { title: "任务不存在", message: "未找到对应的风格分析任务" };
+  }
+
+  return {
+    job,
+    existingProfile,
+    reportResource: makeDetailResource<AnalysisReport>(report, jobQuery),
+    summaryResource: makeDetailResource<StyleSummary>(summary, jobQuery),
+    promptPackResource: makeDetailResource<PromptPack>(promptPack, jobQuery),
+    isLoading: jobQuery.isLoading,
+    errorState,
+  };
+}
+
+function useMountableProjects() {
+  const projectsQuery = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => api.getProjects(false),
+  });
+
+  return {
+    projects: projectsQuery.data ?? [],
+    isLoading: projectsQuery.isLoading,
+  };
+}
+
+function useStyleLabWizardState({
+  jobId,
+  job,
+  existingProfile,
+  summary,
+  promptPack,
+}: {
+  jobId: string;
+  job: StyleAnalysisJob | null;
+  existingProfile: StyleProfile | null;
+  summary: StyleSummary | null;
+  promptPack: PromptPack | null;
+}) {
+  const [step, setStep] = React.useState<WizardStep>(1);
   const [mountProjectId, setMountProjectId] = React.useState<string | null>(null);
-  
+  const initializedJobId = React.useRef<string | null>(null);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema, undefined, { mode: "sync" }),
     defaultValues: {
@@ -28,104 +125,78 @@ export function useStyleLabWizardLogic(jobId: string) {
     },
   });
 
-  // Queries
-  const jobQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId],
-    queryFn: () => api.getStyleAnalysisJob(jobId),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "pending" || status === "running" ? 2000 : false;
-    },
-  });
-  
-  const projectsQuery = useQuery({
-    queryKey: ["projects"],
-    queryFn: () => api.getProjects(false),
-  });
-
-  const job = jobQuery.data;
-  const projects = projectsQuery.data ?? [];
-  
-  const profileQuery = useQuery({
-    queryKey: ["style-profiles", job?.style_profile_id ?? NONE_VALUE],
-    queryFn: async () => (await api.getStyleProfile(job?.style_profile_id ?? "")) ?? null,
-    enabled: Boolean(job?.style_profile_id),
-  });
-  const existingProfile = profileQuery.data ?? null;
-
-  const reportQuery = useQuery({
-    queryKey: ["style-analysis-jobs", job?.id, "analysis-report"],
-    queryFn: () => api.getStyleAnalysisJobAnalysisReport(job!.id),
-    enabled: job?.status === "succeeded" && !existingProfile,
-  });
-
-  const summaryQuery = useQuery({
-    queryKey: ["style-analysis-jobs", job?.id, "style-summary"],
-    queryFn: () => api.getStyleAnalysisJobStyleSummary(job!.id),
-    enabled: job?.status === "succeeded" && !existingProfile,
-  });
-
-  const promptPackQuery = useQuery({
-    queryKey: ["style-analysis-jobs", job?.id, "prompt-pack"],
-    queryFn: () => api.getStyleAnalysisJobPromptPack(job!.id),
-    enabled: job?.status === "succeeded" && !existingProfile,
-  });
-
-  const isInitialized = React.useRef(false);
+  React.useEffect(() => {
+    initializedJobId.current = null;
+    setStep(1);
+    setMountProjectId(null);
+    form.reset({
+      styleSummary: makeEmptyStyleSummary(),
+      promptPack: makeEmptyPromptPack(),
+    });
+  }, [jobId, form]);
 
   React.useEffect(() => {
-    if (isInitialized.current) return;
+    if (initializedJobId.current === jobId) return;
 
     if (existingProfile) {
       form.reset({
         styleSummary: existingProfile.style_summary,
         promptPack: existingProfile.prompt_pack,
       });
-      isInitialized.current = true;
+      initializedJobId.current = jobId;
       return;
     }
 
-    if (
-      job?.status === "succeeded" &&
-      summaryQuery.isSuccess &&
-      promptPackQuery.isSuccess
-    ) {
+    if (job?.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED && summary && promptPack) {
       form.reset({
-        styleSummary: summaryQuery.data,
-        promptPack: promptPackQuery.data,
+        styleSummary: summary,
+        promptPack,
       });
-      isInitialized.current = true;
+      initializedJobId.current = jobId;
     }
-  }, [existingProfile, job?.status, summaryQuery.isSuccess, summaryQuery.data, promptPackQuery.isSuccess, promptPackQuery.data, form]);
+  }, [existingProfile, form, job?.status, jobId, promptPack, summary]);
 
-  const handleStep2Next = async () => {
-    setStep(3);
+  return {
+    step,
+    setStep,
+    mountProjectId,
+    setMountProjectId,
+    form,
+    handleStep2Next: () => setStep(3),
   };
+}
 
-  const saveProfileMutation = useMutation({
+function useSaveStyleProfileMutation({
+  job,
+  form,
+  mountProjectId,
+}: {
+  job: StyleAnalysisJob | null;
+  form: UseFormReturn<FormValues>;
+  mountProjectId: string | null;
+}) {
+  const router = useRouter();
+
+  return useMutation({
     mutationFn: async () => {
       const values = form.getValues();
       if (!job) throw new Error("缺少保存数据");
+
+      const mountPayload = mountProjectId ? { mount_project_id: mountProjectId } : {};
+      const payload = {
+        ...mountPayload,
+        style_summary: values.styleSummary,
+        prompt_pack: values.promptPack,
+      };
+
       if (job.style_profile_id) {
-        const profile = await api.updateStyleProfile(job.style_profile_id, {
-          style_summary: values.styleSummary,
-          prompt_pack: values.promptPack,
-        });
-        if (mountProjectId) {
-          await api.updateProject(mountProjectId, { style_profile_id: profile.id });
-        }
-        return profile;
-      } else {
-        const profile = await api.createStyleProfile({
-          job_id: job.id,
-          style_summary: values.styleSummary,
-          prompt_pack: values.promptPack,
-        });
-        if (mountProjectId) {
-          await api.updateProject(mountProjectId, { style_profile_id: profile.id });
-        }
-        return profile;
+        return api.updateStyleProfile(job.style_profile_id, payload);
       }
+
+      return api.createStyleProfile({
+        ...payload,
+        job_id: job.id,
+      });
     },
     onSuccess: () => {
       toast.success("风格档案已保存");
@@ -135,35 +206,35 @@ export function useStyleLabWizardLogic(jobId: string) {
       toast.error(error instanceof Error ? error.message : "保存失败");
     },
   });
+}
 
-  const handleSave = () => {
-    saveProfileMutation.mutate();
-  };
-
-  const isLoading = jobQuery.isLoading || projectsQuery.isLoading || profileQuery.isLoading;
-  const isError = jobQuery.isError || profileQuery.isError || !job;
-  
-  let errorState = null;
-  if (jobQuery.isError) errorState = { title: "加载任务失败", message: jobQuery.error.message };
-  else if (profileQuery.isError) errorState = { title: "加载风格档案失败", message: profileQuery.error.message };
-  else if (!isLoading && !job) errorState = { title: "任务不存在", message: "未找到对应的风格分析任务" };
+export function useStyleLabWizardLogic(jobId: string) {
+  const detail = useStyleLabJobDetail(jobId);
+  const projectsState = useMountableProjects();
+  const wizardState = useStyleLabWizardState({
+    jobId,
+    job: detail.job,
+    existingProfile: detail.existingProfile,
+    summary: detail.summaryResource.data,
+    promptPack: detail.promptPackResource.data,
+  });
+  const saveProfileMutation = useSaveStyleProfileMutation({
+    job: detail.job,
+    form: wizardState.form,
+    mountProjectId: wizardState.mountProjectId,
+  });
 
   return {
-    step,
-    setStep,
-    mountProjectId,
-    setMountProjectId,
-    form,
-    job,
-    projects,
-    existingProfile,
-    reportQuery,
-    summaryQuery,
-    promptPackQuery,
+    ...wizardState,
+    job: detail.job,
+    projects: projectsState.projects,
+    existingProfile: detail.existingProfile,
+    reportResource: detail.reportResource,
+    summaryResource: detail.summaryResource,
+    promptPackResource: detail.promptPackResource,
     saveProfileMutation,
-    handleStep2Next,
-    handleSave,
-    isLoading,
-    errorState,
+    handleSave: () => saveProfileMutation.mutate(),
+    isLoading: detail.isLoading || projectsState.isLoading,
+    errorState: detail.errorState,
   };
 }

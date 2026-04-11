@@ -17,6 +17,11 @@ async def run_worker() -> None:
 
     last_stale_check = 0.0
     stale_check_interval = max(5.0, float(settings.style_analysis_stale_timeout_seconds) / 3.0)
+    current_poll_interval = settings.style_analysis_poll_interval_seconds
+    max_poll_interval = max(
+        settings.style_analysis_poll_interval_seconds,
+        settings.style_analysis_poll_interval_seconds * 4,
+    )
 
     try:
         while True:
@@ -29,8 +34,12 @@ async def run_worker() -> None:
                 last_stale_check = now
 
             processed = await service.process_next_pending(session_factory)
-            if not processed:
-                await asyncio.sleep(settings.style_analysis_poll_interval_seconds)
+            if processed:
+                current_poll_interval = settings.style_analysis_poll_interval_seconds
+                continue
+
+            await asyncio.sleep(current_poll_interval)
+            current_poll_interval = min(max_poll_interval, current_poll_interval * 2)
     finally:
         await service.aclose()
         await engine.dispose()

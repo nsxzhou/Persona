@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -10,7 +12,9 @@ from httpx import AsyncClient
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.db.models import StyleAnalysisJob
+from app.main import create_app
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
     AnalysisReport,
@@ -262,13 +266,13 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
             async def run(
                 self,
                 *,
-                thread_id: str,
-                chunks: list[str],
+                job_id: str,
+                chunk_count: int,
                 classification: dict,
                 max_concurrency: int,
             ) -> StyleAnalysisPipelineResult:
-                assert thread_id == job_id
-                assert len(chunks) == 1
+                assert job_id == create_response.json()["id"]
+                assert chunk_count == 1
                 assert classification["text_type"] == "章节正文"
                 assert max_concurrency == 5
                 report = build_fake_analysis_report()
@@ -305,6 +309,11 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert detail["stage"] is None
     assert detail["error_message"] is None
     assert detail["sample_file"]["character_count"] == len("夜色很冷。\n\n他忽然笑了。")
+    assert detail["analysis_meta"]["text_type"] == "章节正文"
+    assert detail["analysis_report"]["sections"][0]["section"] == "3.1"
+    assert detail["style_summary"]["style_name"] == "古龙风格实验"
+    assert detail["prompt_pack"]["system_prompt"].startswith("以冷峻")
+    assert detail["style_profile"] is None
 
     meta_response = await initialized_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/analysis-meta"
@@ -331,6 +340,8 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     )
     assert prompt_pack_response.status_code == 200
     assert prompt_pack_response.json()["system_prompt"].startswith("以冷峻")
+    artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
+    assert artifact_dir.exists() is False
 
 
 @pytest.mark.asyncio
@@ -489,3 +500,119 @@ def test_style_analysis_job_response_rejects_legacy_stage() -> None:
     payload["stage"] = "classifying_input"
     with pytest.raises(ValidationError):
         StyleAnalysisJobResponse.model_validate(payload)
+
+
+@pytest.mark.asyncio
+async def test_process_next_pending_job_cleans_chunk_artifacts_after_pipeline_failure(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "失败清理任务", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。\n\n第二段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    async def fake_build_pipeline(
+        self,
+        *,
+        provider,
+        model_name: str,
+        style_name: str,
+        source_filename: str,
+        stage_callback,
+    ):
+        del provider, model_name, style_name, source_filename, stage_callback
+
+        class FakePipeline:
+            async def run(
+                self,
+                *,
+                job_id: str,
+                chunk_count: int,
+                classification: dict,
+                max_concurrency: int,
+            ) -> StyleAnalysisPipelineResult:
+                del chunk_count, classification, max_concurrency
+                assert job_id
+                raise RuntimeError("报告生成失败")
+
+        return FakePipeline()
+
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
+
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
+    assert processed is True
+
+    detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["status"] == "failed"
+    assert detail["error_message"] == "报告生成失败"
+    artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
+    assert artifact_dir.exists() is False
+
+
+@pytest.mark.asyncio
+async def test_run_worker_uses_backoff_polling_and_resets_after_processing(
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = StyleAnalysisWorkerService()
+    results = iter([False, False, True, False])
+    sleep_calls: list[float] = []
+
+    async def fake_process_next_pending(session_factory) -> bool:
+        del session_factory
+        try:
+            return next(results)
+        except StopIteration as exc:
+            raise asyncio.CancelledError() from exc
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(service, "process_next_pending", fake_process_next_pending)
+    monkeypatch.setattr("app.services.style_analysis_worker.asyncio.sleep", fake_sleep)
+
+    with pytest.raises(asyncio.CancelledError):
+        await service.run_worker(
+            app_with_db.state.session_factory,
+            poll_interval_seconds=1.0,
+            max_poll_interval_seconds=4.0,
+        )
+
+    assert sleep_calls == [1.0, 2.0, 1.0]
+
+
+@pytest.mark.asyncio
+async def test_create_app_disposes_owned_engine_on_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeEngine:
+        def __init__(self) -> None:
+            self.dispose_calls = 0
+
+        async def dispose(self) -> None:
+            self.dispose_calls += 1
+
+    class FakeWorkerService:
+        async def fail_stale_running_jobs(self, session_factory, *, stale_after_seconds: int) -> None:
+            del session_factory, stale_after_seconds
+
+        async def aclose(self) -> None:
+            return None
+
+    fake_engine = FakeEngine()
+    monkeypatch.setattr("app.main.create_engine", lambda database_url: fake_engine)
+    monkeypatch.setattr("app.main.create_session_factory", lambda engine: "fake-session-factory")
+    monkeypatch.setattr("app.main.StyleAnalysisWorkerService", lambda: FakeWorkerService())
+
+    app = create_app()
+    async with LifespanManager(app):
+        pass
+
+    assert fake_engine.dispose_calls == 1

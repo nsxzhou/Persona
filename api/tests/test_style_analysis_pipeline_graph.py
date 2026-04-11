@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
+from app.core.config import get_settings
 from app.schemas.style_analysis_jobs import (
     SECTION_TITLES,
     AnalysisReport,
@@ -16,6 +17,7 @@ from app.schemas.style_analysis_jobs import (
     StyleSummary,
 )
 from app.services.style_analysis_pipeline import StyleAnalysisPipeline
+from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 
 def build_section(section: str, title: str) -> dict:
@@ -162,13 +164,23 @@ def build_pipeline(client: FakeStructuredLLMClient, checkpointer: InMemorySaver)
 
 
 @pytest.mark.asyncio
-async def test_pipeline_analyzes_chunks_with_configured_max_concurrency() -> None:
+async def test_pipeline_analyzes_chunks_with_configured_max_concurrency(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
     client = FakeStructuredLLMClient()
     pipeline = build_pipeline(client, InMemorySaver())
+    storage_service = StyleAnalysisStorageService()
+    job_id = "job-concurrency"
+    for index in range(10):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index}")
 
     result = await pipeline.run(
-        thread_id="job-concurrency",
-        chunks=[f"chunk {index}" for index in range(10)],
+        job_id=job_id,
+        chunk_count=10,
         classification={
             "text_type": "章节正文",
             "has_timestamps": False,
@@ -185,17 +197,28 @@ async def test_pipeline_analyzes_chunks_with_configured_max_concurrency() -> Non
     assert client.max_active_chunks <= 3
     assert result.analysis_meta.chunk_count == 10
     assert result.analysis_report.sections[0].section == "3.1"
+    get_settings.cache_clear()
 
 
 @pytest.mark.asyncio
-async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks() -> None:
+async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
     checkpointer = InMemorySaver()
     client = FakeStructuredLLMClient(fail_report_once=True)
     pipeline = build_pipeline(client, checkpointer)
+    storage_service = StyleAnalysisStorageService()
+    job_id = "job-resume"
+    for index in range(3):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index}")
 
     kwargs = {
-        "thread_id": "job-resume",
-        "chunks": ["chunk 0", "chunk 1", "chunk 2"],
+        "job_id": job_id,
+        "chunk_count": 3,
         "classification": {
             "text_type": "章节正文",
             "has_timestamps": False,
@@ -212,9 +235,13 @@ async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks()
         await pipeline.run(**kwargs)
 
     assert client.chunk_calls == 3
+    checkpoint_state = await pipeline.graph.aget_state({"configurable": {"thread_id": job_id}})
+    assert "chunks" not in checkpoint_state.values
+    assert "chunk_analyses" not in checkpoint_state.values
 
     result = await pipeline.run(**kwargs)
 
     assert client.chunk_calls == 3
     assert client.report_calls == 2
     assert result.prompt_pack.system_prompt.startswith("以冷峻")
+    get_settings.cache_clear()

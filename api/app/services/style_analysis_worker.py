@@ -4,23 +4,22 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
-from app.db.models import ProviderConfig, StyleAnalysisJob
+from app.db.models import ProviderConfig
 from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
 from app.services.style_analysis_jobs import StyleAnalysisJobService
 from app.services.style_analysis_pipeline import (
     StyleAnalysisPipeline,
     StyleAnalysisPipelineResult,
 )
+from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import InputClassification, read_chunks_and_classification
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class StyleAnalysisRunContext:
@@ -28,7 +27,7 @@ class StyleAnalysisRunContext:
     style_name: str
     model_name: str
     source_filename: str
-    chunks: list[str]
+    chunk_count: int
     classification: InputClassification
 
 
@@ -36,6 +35,7 @@ class StyleAnalysisWorkerService:
     def __init__(self) -> None:
         self.job_service = StyleAnalysisJobService()
         self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
+        self.storage_service = StyleAnalysisStorageService()
 
     async def aclose(self) -> None:
         await self.checkpointer_factory.aclose()
@@ -90,8 +90,8 @@ class StyleAnalysisWorkerService:
                 ),
             )
             result = await pipeline.run(
-                thread_id=job_id,
-                chunks=context.chunks,
+                job_id=job_id,
+                chunk_count=context.chunk_count,
                 classification=context.classification,
                 max_concurrency=get_settings().style_analysis_chunk_max_concurrency,
             )
@@ -99,6 +99,9 @@ class StyleAnalysisWorkerService:
         except Exception as exc:
             logger.exception("style analysis job failed", extra={"job_id": job_id})
             await self._mark_job_failed(session_factory, job_id, error_message=str(exc))
+        finally:
+            await self.storage_service.cleanup_job_artifacts(job_id)
+            await self._delete_checkpointer_thread(job_id)
 
     async def _load_run_context(
         self,
@@ -107,18 +110,16 @@ class StyleAnalysisWorkerService:
     ) -> StyleAnalysisRunContext:
         async with session_factory() as session:
             job = await self.job_service.get_or_404(session, job_id)
-            
-            from app.services.style_analysis_storage import StyleAnalysisStorageService
-            storage_service = StyleAnalysisStorageService()
-            stream = storage_service.stream_file(job.sample_file.id)
-            
             chunks, character_count, base_classification = await read_chunks_and_classification(
-                stream,
+                self.storage_service.stream_file(job.sample_file.id),
                 chunk_size=4000,
             )
-            
+
             if not chunks:
                 raise RuntimeError("切片后没有可分析的有效文本")
+
+            for index, chunk in enumerate(chunks):
+                await self.storage_service.write_chunk_artifact(job_id, index, chunk)
 
             classification: InputClassification = {
                 **base_classification,
@@ -131,7 +132,7 @@ class StyleAnalysisWorkerService:
                 style_name=job.style_name,
                 model_name=job.model_name,
                 source_filename=job.sample_file.original_filename,
-                chunks=chunks,
+                chunk_count=len(chunks),
                 classification=classification,
             )
 
@@ -161,11 +162,7 @@ class StyleAnalysisWorkerService:
         stage: str | None,
     ) -> None:
         async with session_factory() as session:
-            await session.execute(
-                update(StyleAnalysisJob)
-                .where(StyleAnalysisJob.id == job_id, StyleAnalysisJob.status == "running")
-                .values(stage=stage, last_heartbeat_at=datetime.now(UTC))
-            )
+            await self.job_service.heartbeat_job(session, job_id, stage=stage)
             await session.commit()
 
     async def _mark_job_succeeded(
@@ -176,26 +173,8 @@ class StyleAnalysisWorkerService:
         result: StyleAnalysisPipelineResult,
     ) -> None:
         async with session_factory() as session:
-            job = await self.job_service.get_or_404(session, job_id)
-            job.analysis_meta_payload = result.analysis_meta.model_dump(mode="json")
-            job.analysis_report_payload = result.analysis_report.model_dump(mode="json")
-            job.style_summary_payload = result.style_summary.model_dump(mode="json")
-            job.prompt_pack_payload = result.prompt_pack.model_dump(mode="json")
-            job.status = "succeeded"
-            job.stage = None
-            job.error_message = None
-            job.completed_at = datetime.now(UTC)
-            job.locked_by = None
-            job.locked_at = None
-            job.last_heartbeat_at = None
+            await self.job_service.mark_job_succeeded(session, job_id, result=result)
             await session.commit()
-            
-        try:
-            checkpointer = await self.checkpointer_factory.get()
-            if hasattr(checkpointer, "adelete_thread"):
-                await checkpointer.adelete_thread(job_id)
-        except Exception:
-            logger.exception("Failed to delete checkpointer thread", extra={"job_id": job_id})
 
     async def _mark_job_failed(
         self,
@@ -205,16 +184,10 @@ class StyleAnalysisWorkerService:
         error_message: str,
     ) -> None:
         async with session_factory() as session:
-            job = await self.job_service.get_or_404(session, job_id)
-            job.status = "failed"
-            job.stage = None
-            job.error_message = error_message
-            job.completed_at = datetime.now(UTC)
-            job.locked_by = None
-            job.locked_at = None
-            job.last_heartbeat_at = None
+            await self.job_service.mark_job_failed(session, job_id, error_message=error_message)
             await session.commit()
 
+    async def _delete_checkpointer_thread(self, job_id: str) -> None:
         try:
             checkpointer = await self.checkpointer_factory.get()
             if hasattr(checkpointer, "adelete_thread"):
@@ -227,11 +200,17 @@ class StyleAnalysisWorkerService:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         poll_interval_seconds: float,
+        max_poll_interval_seconds: float | None = None,
     ) -> None:
+        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
+        current_interval = poll_interval_seconds
         while True:
             processed = await self.process_next_pending(session_factory)
-            if not processed:
-                await asyncio.sleep(poll_interval_seconds)
+            if processed:
+                current_interval = poll_interval_seconds
+                continue
+            await asyncio.sleep(current_interval)
+            current_interval = min(max_poll_interval_seconds, current_interval * 2)
 
     async def fail_stale_running_jobs(
         self,
@@ -239,44 +218,10 @@ class StyleAnalysisWorkerService:
         *,
         stale_after_seconds: int,
     ) -> None:
-        cutoff = datetime.now(UTC) - timedelta(seconds=stale_after_seconds)
-        max_attempts = get_settings().style_analysis_max_attempts
         async with session_factory() as session:
-            stale_condition = (StyleAnalysisJob.status == "running") & (
-                func.coalesce(
-                    StyleAnalysisJob.last_heartbeat_at,
-                    StyleAnalysisJob.started_at,
-                ) < cutoff
+            await self.job_service.recover_stale_jobs(
+                session,
+                stale_after_seconds=stale_after_seconds,
+                max_attempts=get_settings().style_analysis_max_attempts,
             )
-
-            # 超过最大重试次数，标记为 failed
-            await session.execute(
-                update(StyleAnalysisJob)
-                .where(stale_condition, StyleAnalysisJob.attempt_count >= max_attempts)
-                .values(
-                    status="failed",
-                    error_message="分析任务重试次数已用尽，请重新提交",
-                    completed_at=datetime.now(UTC),
-                    stage=None,
-                    locked_by=None,
-                    locked_at=None,
-                    last_heartbeat_at=None,
-                )
-            )
-
-            # 未超过最大重试次数，重置为 pending
-            await session.execute(
-                update(StyleAnalysisJob)
-                .where(stale_condition, StyleAnalysisJob.attempt_count < max_attempts)
-                .values(
-                    status="pending",
-                    error_message=None,
-                    completed_at=None,
-                    stage=None,
-                    locked_by=None,
-                    locked_at=None,
-                    last_heartbeat_at=None,
-                )
-            )
-
             await session.commit()

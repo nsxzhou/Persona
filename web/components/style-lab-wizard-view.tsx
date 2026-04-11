@@ -12,6 +12,7 @@ import { StyleLabWizardPromptPackStep } from "@/components/style-lab-wizard-prom
 import { StyleLabWizardReportStep } from "@/components/style-lab-wizard-report-step";
 import { StyleLabWizardSummaryStep } from "@/components/style-lab-wizard-summary-step";
 import { useStyleLabWizardLogic } from "@/hooks/use-style-lab-wizard-logic";
+import { STYLE_ANALYSIS_JOB_STATUS } from "@/lib/types";
 
 export function StyleLabWizardView({ jobId }: { jobId: string }) {
   const {
@@ -23,9 +24,9 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
     job,
     projects,
     existingProfile,
-    reportQuery,
-    summaryQuery,
-    promptPackQuery,
+    reportResource,
+    summaryResource,
+    promptPackResource,
     saveProfileMutation,
     handleStep2Next,
     handleSave,
@@ -48,7 +49,7 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{job.style_name}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant={job.status === "failed" ? "destructive" : "secondary"}>{job.status}</Badge>
+            <Badge variant={job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED ? "destructive" : "secondary"}>{job.status}</Badge>
             <span className="text-sm text-muted-foreground">模型: {job.model_name}</span>
           </div>
         </div>
@@ -81,10 +82,10 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardReportStep
           job={job}
           existingProfile={existingProfile}
-          report={existingProfile?.analysis_report ?? reportQuery.data ?? null}
-          isLoading={reportQuery.isLoading}
-          isError={reportQuery.isError}
-          errorMessage={reportQuery.error?.message}
+          report={reportResource.data}
+          isLoading={reportResource.isLoading}
+          isError={reportResource.isError}
+          errorMessage={reportResource.error?.message}
           onNext={() => setStep(2)}
         />
       ) : null}
@@ -93,10 +94,10 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardSummaryStep
           job={job}
           existingProfile={existingProfile}
-          summary={existingProfile?.style_summary ?? summaryQuery.data ?? null}
-          isLoading={summaryQuery.isLoading}
-          isError={summaryQuery.isError}
-          errorMessage={summaryQuery.error?.message}
+          summary={summaryResource.data}
+          isLoading={summaryResource.isLoading}
+          isError={summaryResource.isError}
+          errorMessage={summaryResource.error?.message}
           form={form}
           onBack={() => setStep(1)}
           onNext={handleStep2Next}
@@ -107,10 +108,10 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardPromptPackStep
           job={job}
           existingProfile={existingProfile}
-          promptPack={existingProfile?.prompt_pack ?? promptPackQuery.data ?? null}
-          isLoading={promptPackQuery.isLoading}
-          isError={promptPackQuery.isError}
-          errorMessage={promptPackQuery.error?.message}
+          promptPack={promptPackResource.data}
+          isLoading={promptPackResource.isLoading}
+          isError={promptPackResource.isError}
+          errorMessage={promptPackResource.error?.message}
           projects={projects}
           mountProjectId={mountProjectId}
           setMountProjectId={setMountProjectId}

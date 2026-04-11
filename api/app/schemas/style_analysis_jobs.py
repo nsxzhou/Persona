@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Self, TypeAlias, Any
+from typing import Any, Literal, Self, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -180,7 +180,40 @@ class StyleSampleFileResponse(BaseModel):
     updated_at: datetime
 
 
-StyleAnalysisJobStatus: TypeAlias = Literal["pending", "running", "succeeded", "failed"]
+STYLE_ANALYSIS_JOB_STATUS_PENDING = "pending"
+STYLE_ANALYSIS_JOB_STATUS_RUNNING = "running"
+STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED = "succeeded"
+STYLE_ANALYSIS_JOB_STATUS_FAILED = "failed"
+
+STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT = "preparing_input"
+STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS = "analyzing_chunks"
+STYLE_ANALYSIS_JOB_STAGE_AGGREGATING = "aggregating"
+STYLE_ANALYSIS_JOB_STAGE_REPORTING = "reporting"
+STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING = "summarizing"
+STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK = "composing_prompt_pack"
+
+STYLE_ANALYSIS_JOB_STATUSES = (
+    STYLE_ANALYSIS_JOB_STATUS_PENDING,
+    STYLE_ANALYSIS_JOB_STATUS_RUNNING,
+    STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
+    STYLE_ANALYSIS_JOB_STATUS_FAILED,
+)
+
+STYLE_ANALYSIS_JOB_STAGES = (
+    STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
+    STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS,
+    STYLE_ANALYSIS_JOB_STAGE_AGGREGATING,
+    STYLE_ANALYSIS_JOB_STAGE_REPORTING,
+    STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING,
+    STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK,
+)
+
+StyleAnalysisJobStatus: TypeAlias = Literal[
+    "pending",
+    "running",
+    "succeeded",
+    "failed",
+]
 StyleAnalysisJobStage: TypeAlias = Literal[
     "preparing_input",
     "analyzing_chunks",
@@ -189,6 +222,22 @@ StyleAnalysisJobStage: TypeAlias = Literal[
     "summarizing",
     "composing_prompt_pack",
 ]
+
+
+class StyleProfileEmbeddedResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    source_job_id: str
+    provider_id: str
+    model_name: str
+    source_filename: str
+    style_name: str
+    analysis_report: AnalysisReport
+    style_summary: StyleSummary
+    prompt_pack: PromptPack
+    created_at: datetime
+    updated_at: datetime
 
 
 class StyleAnalysisJobResponse(BaseModel):
@@ -212,6 +261,7 @@ class StyleAnalysisJobResponse(BaseModel):
     analysis_report: AnalysisReport | None = None
     style_summary: StyleSummary | None = None
     prompt_pack: PromptPack | None = None
+    style_profile: StyleProfileEmbeddedResponse | None = None
 
 
 class StyleAnalysisJobListItemResponse(BaseModel):

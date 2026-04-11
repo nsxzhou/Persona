@@ -237,7 +237,6 @@ test("style lab wizard shows running stage feedback", async () => {
     status: "running",
     stage: "preparing_input",
   });
-  apiMock.getStyleProfile.mockResolvedValue(null);
   apiMock.getProjects.mockResolvedValueOnce([]);
 
   renderWizard();
@@ -246,11 +245,14 @@ test("style lab wizard shows running stage feedback", async () => {
 });
 
 test("style lab wizard renders read-only report and saves new profile with mount", async () => {
-  apiMock.getStyleAnalysisJob.mockResolvedValue(buildSucceededJob());
-  apiMock.getStyleAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
-  apiMock.getStyleAnalysisJobStyleSummary.mockResolvedValue(buildSummary());
-  apiMock.getStyleAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
-  apiMock.getStyleProfile.mockResolvedValue(null);
+  apiMock.getStyleAnalysisJob.mockResolvedValue(
+    buildSucceededJob({
+      analysis_report: buildReport(),
+      style_summary: buildSummary(),
+      prompt_pack: buildPromptPack(),
+      style_profile: null,
+    }),
+  );
   apiMock.getProjects.mockResolvedValue([
     {
       id: "project-1",
@@ -282,22 +284,6 @@ test("style lab wizard renders read-only report and saves new profile with mount
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:02:00Z",
   });
-  apiMock.updateProject.mockResolvedValueOnce({
-    id: "project-1",
-    name: "风格挂载项目",
-    description: "项目简介",
-    status: "draft",
-    default_model: "gpt-4.1-mini",
-    style_profile_id: "profile-1",
-    archived_at: null,
-    provider: {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      is_enabled: true,
-    },
-  });
 
   renderWizard();
 
@@ -322,26 +308,40 @@ test("style lab wizard renders read-only report and saves new profile with mount
   fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
 
   await waitFor(() => expect(apiMock.createStyleProfile).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(apiMock.updateProject).toHaveBeenCalledWith("project-1", { style_profile_id: "profile-1" }));
+  await waitFor(() =>
+    expect(apiMock.createStyleProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job_id: "job-1",
+        mount_project_id: "project-1",
+      }),
+    ),
+  );
+  expect(apiMock.updateProject).not.toHaveBeenCalled();
+  expect(apiMock.getStyleProfile).not.toHaveBeenCalled();
+  expect(apiMock.getStyleAnalysisJobAnalysisReport).not.toHaveBeenCalled();
+  expect(apiMock.getStyleAnalysisJobStyleSummary).not.toHaveBeenCalled();
+  expect(apiMock.getStyleAnalysisJobPromptPack).not.toHaveBeenCalled();
 });
 
 test("style lab wizard updates existing saved profile", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(
-    buildSucceededJob({ style_profile_id: "profile-1" }),
+    buildSucceededJob({
+      style_profile_id: "profile-1",
+      style_profile: {
+        id: "profile-1",
+        source_job_id: "job-1",
+        provider_id: "provider-1",
+        model_name: "gpt-4.1-mini",
+        source_filename: "sample.txt",
+        style_name: "旧名字",
+        analysis_report: buildReport(),
+        style_summary: buildSummary("旧名字"),
+        prompt_pack: buildPromptPack(),
+        created_at: "2026-04-09T00:02:00Z",
+        updated_at: "2026-04-09T00:02:00Z",
+      },
+    }),
   );
-  apiMock.getStyleProfile.mockResolvedValue({
-    id: "profile-1",
-    source_job_id: "job-1",
-    provider_id: "provider-1",
-    model_name: "gpt-4.1-mini",
-    source_filename: "sample.txt",
-    style_name: "旧名字",
-    analysis_report: buildReport(),
-    style_summary: buildSummary("旧名字"),
-    prompt_pack: buildPromptPack(),
-    created_at: "2026-04-09T00:02:00Z",
-    updated_at: "2026-04-09T00:02:00Z",
-  });
   apiMock.getProjects.mockResolvedValue([]);
   apiMock.updateStyleProfile.mockResolvedValueOnce({
     id: "profile-1",
@@ -375,4 +375,8 @@ test("style lab wizard updates existing saved profile", async () => {
       style_summary: expect.objectContaining({ style_name: "覆盖后的名字" }),
     }),
   ));
+  expect(apiMock.getStyleProfile).not.toHaveBeenCalled();
+  expect(apiMock.getStyleAnalysisJobAnalysisReport).not.toHaveBeenCalled();
+  expect(apiMock.getStyleAnalysisJobStyleSummary).not.toHaveBeenCalled();
+  expect(apiMock.getStyleAnalysisJobPromptPack).not.toHaveBeenCalled();
 });

@@ -119,7 +119,7 @@ export const api = {
     );
   },
   getStyleAnalysisJob: (id: string) =>
-    request<StyleAnalysisJobListItem>(`/api/v1/style-analysis-jobs/${id}`),
+    request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
   getStyleAnalysisJobAnalysisMeta: (id: string) =>
     request<AnalysisMeta>(`/api/v1/style-analysis-jobs/${id}/analysis-meta`),
   getStyleAnalysisJobAnalysisReport: (id: string) =>

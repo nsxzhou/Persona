@@ -14,6 +14,7 @@ from app.schemas.style_analysis_jobs import (
     MergedAnalysis,
 )
 from app.services.style_analysis_llm import StructuredLLMClient
+from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 
 def build_section(section: str, title: str) -> dict:
@@ -167,4 +168,41 @@ async def test_structured_llm_client_invokes_pydantic_schema_with_strict_json_sc
             "max_retries": 2,
         }
     ]
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_storage_service_batches_chunk_analysis_artifacts_and_cleans_job_artifacts(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    storage_service = StyleAnalysisStorageService()
+    job_id = "job-artifacts"
+
+    await storage_service.write_chunk_artifact(job_id, 0, "chunk-0")
+    await storage_service.write_chunk_artifact(job_id, 1, "chunk-1")
+    await storage_service.write_chunk_artifact(job_id, 2, "chunk-2")
+    assert await storage_service.read_chunk_artifact(job_id, 1) == "chunk-1"
+
+    for index in range(3):
+        await storage_service.write_chunk_analysis_artifact(
+            job_id,
+            index,
+            {"chunk_index": index, "sections": [build_section(section, title) for section, title in SECTION_TITLES]},
+        )
+
+    batches = [
+        batch
+        async for batch in storage_service.read_chunk_analysis_batches(
+            job_id,
+            batch_size=2,
+        )
+    ]
+
+    assert [[item["chunk_index"] for item in batch] for batch in batches] == [[0, 1], [2]]
+
+    await storage_service.cleanup_job_artifacts(job_id)
+    assert await storage_service.job_artifacts_exist(job_id) is False
     get_settings.cache_clear()

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
-import operator
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Annotated, Any, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -17,26 +15,32 @@ from app.schemas.style_analysis_jobs import (
     ChunkAnalysis,
     MergedAnalysis,
     PromptPack,
+    STYLE_ANALYSIS_JOB_STAGE_AGGREGATING,
+    STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS,
+    STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK,
+    STYLE_ANALYSIS_JOB_STAGE_REPORTING,
+    STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING,
     StyleSummary,
 )
 from app.services.style_analysis_llm import StructuredLLMClient
-from app.services.style_analysis_text import InputClassification
 from app.services.style_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
+    build_prompt_pack_prompt,
     build_report_prompt,
     build_style_summary_prompt,
-    build_prompt_pack_prompt,
 )
+from app.services.style_analysis_storage import StyleAnalysisStorageService
+from app.services.style_analysis_text import InputClassification
+
 
 class StyleAnalysisState(TypedDict):
-    job_id: NotRequired[str]
+    job_id: str
     style_name: str
     source_filename: str
     model_name: str
-    chunks: list[str]
+    chunk_count: int
     classification: InputClassification
-    chunk_analyses: Annotated[list[dict[str, Any]], operator.add]
     merged_analysis: NotRequired[dict[str, Any]]
     analysis_report: NotRequired[dict[str, Any]]
     style_summary: NotRequired[dict[str, Any]]
@@ -45,9 +49,9 @@ class StyleAnalysisState(TypedDict):
 
 
 class ChunkMapState(TypedDict):
+    job_id: str
     style_name: str
     model_name: str
-    chunk: str
     chunk_index: int
     chunk_count: int
     classification: InputClassification
@@ -84,26 +88,27 @@ class StyleAnalysisPipeline:
         self.chat_model = self.llm_client.build_model(provider=provider, model_name=model_name)
         self.checkpointer = checkpointer or InMemorySaver()
         self.stage_callback = stage_callback
+        self.storage_service = StyleAnalysisStorageService()
         self.graph = self._build_graph()
 
     async def run(
         self,
         *,
-        thread_id: str,
-        chunks: list[str],
+        job_id: str,
+        chunk_count: int,
         classification: InputClassification,
         max_concurrency: int,
     ) -> StyleAnalysisPipelineResult:
         initial_state: StyleAnalysisState = {
+            "job_id": job_id,
             "style_name": self.style_name,
             "source_filename": self.source_filename,
             "model_name": self.model_name,
-            "chunks": chunks,
+            "chunk_count": chunk_count,
             "classification": classification,
-            "chunk_analyses": [],
         }
         config = {
-            "configurable": {"thread_id": thread_id},
+            "configurable": {"thread_id": job_id},
             "max_concurrency": max_concurrency,
         }
         checkpoint_state = await self.graph.aget_state(config)
@@ -137,31 +142,31 @@ class StyleAnalysisPipeline:
         return builder.compile(checkpointer=self.checkpointer)
 
     async def _prepare_input(self, state: StyleAnalysisState) -> dict[str, Any]:
-        if not state["chunks"]:
+        if state["chunk_count"] < 1:
             raise RuntimeError("切片后没有可分析的有效文本")
-        await self._set_stage("analyzing_chunks")
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS)
         return {}
 
     def _route_chunks(self, state: StyleAnalysisState) -> list[Send]:
-        chunk_count = len(state["chunks"])
         return [
             Send(
                 "analyze_chunk",
                 {
+                    "job_id": state["job_id"],
                     "style_name": state["style_name"],
                     "model_name": state["model_name"],
-                    "chunk": chunk,
                     "chunk_index": index,
-                    "chunk_count": chunk_count,
+                    "chunk_count": state["chunk_count"],
                     "classification": state["classification"],
                 },
             )
-            for index, chunk in enumerate(state["chunks"])
+            for index in range(state["chunk_count"])
         ]
 
     async def _analyze_chunk(self, state: ChunkMapState) -> dict[str, Any]:
+        chunk = await self.storage_service.read_chunk_artifact(state["job_id"], state["chunk_index"])
         prompt = build_chunk_analysis_prompt(
-            chunk=state["chunk"],
+            chunk=chunk,
             chunk_index=state["chunk_index"],
             classification=state["classification"],
             chunk_count=state["chunk_count"],
@@ -171,12 +176,24 @@ class StyleAnalysisPipeline:
             schema=ChunkAnalysis,
             prompt=prompt,
         )
-        return {"chunk_analyses": [analysis.model_dump(mode="json")]}
+        await self.storage_service.write_chunk_analysis_artifact(
+            state["job_id"],
+            state["chunk_index"],
+            analysis.model_dump(mode="json"),
+        )
+        return {}
 
     async def _merge_chunks(self, state: StyleAnalysisState) -> dict[str, Any]:
-        await self._set_stage("aggregating")
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_AGGREGATING)
+        chunk_analysis_payloads: list[dict[str, Any]] = []
+        async for batch in self.storage_service.read_chunk_analysis_batches(
+            state["job_id"],
+            batch_size=8,
+        ):
+            chunk_analysis_payloads.extend(batch)
+
         chunk_analyses = sorted(
-            (ChunkAnalysis.model_validate(item) for item in state["chunk_analyses"]),
+            (ChunkAnalysis.model_validate(item) for item in chunk_analysis_payloads),
             key=lambda item: item.chunk_index,
         )
         if len(chunk_analyses) == 1:
@@ -185,19 +202,18 @@ class StyleAnalysisPipeline:
                 sections=chunk_analyses[0].sections,
             )
         else:
-            prompt = build_merge_prompt(
-                chunk_analyses=[item.model_dump(mode="json") for item in chunk_analyses],
-                classification=state["classification"],
-            )
             merged = await self.llm_client.ainvoke_structured(
                 model=self.chat_model,
                 schema=MergedAnalysis,
-                prompt=prompt,
+                prompt=build_merge_prompt(
+                    chunk_analyses=[item.model_dump(mode="json") for item in chunk_analyses],
+                    classification=state["classification"],
+                ),
             )
         return {"merged_analysis": merged.model_dump(mode="json")}
 
     async def _build_report(self, state: StyleAnalysisState) -> dict[str, Any]:
-        await self._set_stage("reporting")
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_REPORTING)
         report = await self.llm_client.ainvoke_structured(
             model=self.chat_model,
             schema=AnalysisReport,
@@ -209,7 +225,7 @@ class StyleAnalysisPipeline:
         return {"analysis_report": report.model_dump(mode="json")}
 
     async def _build_summary(self, state: StyleAnalysisState) -> dict[str, Any]:
-        await self._set_stage("summarizing")
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING)
         summary = await self.llm_client.ainvoke_structured(
             model=self.chat_model,
             schema=StyleSummary,
@@ -221,7 +237,7 @@ class StyleAnalysisPipeline:
         return {"style_summary": summary.model_dump(mode="json")}
 
     async def _build_prompt_pack(self, state: StyleAnalysisState) -> dict[str, Any]:
-        await self._set_stage("composing_prompt_pack")
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK)
         prompt_pack = await self.llm_client.ainvoke_structured(
             model=self.chat_model,
             schema=PromptPack,
@@ -242,7 +258,7 @@ class StyleAnalysisPipeline:
             has_noise_markers=state["classification"]["has_noise_markers"],
             uses_batch_processing=state["classification"]["uses_batch_processing"],
             location_indexing=state["classification"]["location_indexing"],
-            chunk_count=len(state["chunks"]),
+            chunk_count=state["chunk_count"],
         )
         return {"analysis_meta": analysis_meta.model_dump(mode="json")}
 

@@ -5,7 +5,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from app.db.models import Project, StyleProfile
 from app.schemas.style_analysis_jobs import AnalysisMeta, AnalysisReport, PromptPack, StyleSummary
 from app.services.style_analysis_jobs import (
     StyleAnalysisJobService,
@@ -166,13 +168,13 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
             async def run(
                 self,
                 *,
-                thread_id: str,
-                chunks: list[str],
+                job_id: str,
+                chunk_count: int,
                 classification: dict,
                 max_concurrency: int,
             ) -> StyleAnalysisPipelineResult:
-                del thread_id
-                assert len(chunks) == 1
+                del job_id
+                assert chunk_count == 1
                 assert classification["text_type"] == "章节正文"
                 assert max_concurrency == 5
                 return StyleAnalysisPipelineResult(
@@ -203,6 +205,7 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
+            "mount_project_id": project_id,
             "style_summary": {
                 **build_fake_style_summary("王家卫风格（修订版）"),
                 "style_name": "王家卫风格（修订版）",
@@ -223,10 +226,29 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     assert profile["analysis_report"]["sections"][0]["section"] == "3.1"
     assert profile["style_summary"]["style_name"] == "王家卫风格（修订版）"
     assert profile["prompt_pack"]["system_prompt"].startswith("以迟滞")
+    async with app_with_db.state.session_factory() as session:
+        project = await session.scalar(select(Project).where(Project.id == project_id))
+        assert project is not None
+        assert project.style_profile_id == profile["id"]
+
+    second_project_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "风格挂载项目 2",
+            "description": "用于验证更新时重新挂载",
+            "status": "draft",
+            "default_provider_id": provider_id,
+            "default_model": "",
+            "style_profile_id": None,
+        },
+    )
+    assert second_project_response.status_code == 201
+    second_project_id = second_project_response.json()["id"]
 
     update_profile_response = await initialized_client.patch(
         f"/api/v1/style-profiles/{profile['id']}",
         json={
+            "mount_project_id": second_project_id,
             "style_summary": {
                 **profile["style_summary"],
                 "generation_notes": ["突出潮湿感与延迟情绪。"],
@@ -241,6 +263,10 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     updated_profile = update_profile_response.json()
     assert updated_profile["style_summary"]["generation_notes"] == ["突出潮湿感与延迟情绪。"]
     assert updated_profile["prompt_pack"]["hard_constraints"] == ["避免口号式抒情。"]
+    async with app_with_db.state.session_factory() as session:
+        second_project = await session.scalar(select(Project).where(Project.id == second_project_id))
+        assert second_project is not None
+        assert second_project.style_profile_id == profile["id"]
 
     list_profiles_response = await initialized_client.get("/api/v1/style-profiles")
     assert list_profiles_response.status_code == 200
@@ -250,12 +276,9 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     assert detail_response.status_code == 200
     assert detail_response.json()["id"] == profile["id"]
 
-    mount_response = await initialized_client.patch(
-        f"/api/v1/projects/{project_id}",
-        json={"style_profile_id": profile["id"]},
-    )
-    assert mount_response.status_code == 200
-    assert mount_response.json()["style_profile_id"] == profile["id"]
+    job_detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
+    assert job_detail_response.status_code == 200
+    assert job_detail_response.json()["style_profile"]["id"] == profile["id"]
 
 
 @pytest.mark.asyncio
@@ -290,13 +313,13 @@ async def test_update_profile_keeps_analysis_report_payload_unchanged(
             async def run(
                 self,
                 *,
-                thread_id: str,
-                chunks: list[str],
+                job_id: str,
+                chunk_count: int,
                 classification: dict,
                 max_concurrency: int,
             ) -> StyleAnalysisPipelineResult:
-                del thread_id
-                assert len(chunks) == 1
+                del job_id
+                assert chunk_count == 1
                 assert classification["text_type"] == "章节正文"
                 assert max_concurrency == 5
                 return StyleAnalysisPipelineResult(
@@ -368,3 +391,81 @@ def test_build_profile_result_bundle_only_depends_on_new_payload_fields() -> Non
     assert result_report.executive_summary.summary == analysis_report["executive_summary"]["summary"]
     assert result_summary.style_name == style_summary["style_name"]
     assert result_prompt_pack.system_prompt == prompt_pack["system_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_create_style_profile_rolls_back_when_mount_project_is_missing(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    job_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "事务校验风格", "provider_id": provider_id},
+        files={"file": ("sample.txt", "雨下得很慢，时间也很慢。".encode("utf-8"), "text/plain")},
+    )
+    job_id = job_response.json()["id"]
+
+    async def fake_build_pipeline(
+        self,
+        *,
+        provider,
+        model_name: str,
+        style_name: str,
+        source_filename: str,
+        stage_callback,
+    ):
+        del provider, stage_callback
+        assert model_name
+        assert style_name == "事务校验风格"
+        assert source_filename == "sample.txt"
+
+        class FakePipeline:
+            async def run(
+                self,
+                *,
+                job_id: str,
+                chunk_count: int,
+                classification: dict,
+                max_concurrency: int,
+            ) -> StyleAnalysisPipelineResult:
+                del job_id, chunk_count, classification, max_concurrency
+                return StyleAnalysisPipelineResult(
+                    analysis_meta=AnalysisMeta(
+                        source_filename="sample.txt",
+                        model_name=model_name,
+                        text_type="章节正文",
+                        has_timestamps=False,
+                        has_speaker_labels=False,
+                        has_noise_markers=False,
+                        uses_batch_processing=False,
+                        location_indexing="章节或段落位置",
+                        chunk_count=1,
+                    ),
+                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
+                    style_summary=StyleSummary.model_validate(build_fake_style_summary("事务校验风格")),
+                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
+                )
+
+        return FakePipeline()
+
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
+    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
+    assert processed is True
+
+    create_profile_response = await initialized_client.post(
+        "/api/v1/style-profiles",
+        json={
+            "job_id": job_id,
+            "mount_project_id": "missing-project",
+            "style_summary": build_fake_style_summary("事务校验风格"),
+            "prompt_pack": build_fake_prompt_pack(),
+        },
+    )
+
+    assert create_profile_response.status_code == 404
+    assert create_profile_response.json()["detail"] == "项目不存在"
+    async with app_with_db.state.session_factory() as session:
+        profile = await session.scalar(select(StyleProfile).where(StyleProfile.source_job_id == job_id))
+        assert profile is None
