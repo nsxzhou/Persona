@@ -11,6 +11,17 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { PageError, PageLoading } from "@/components/page-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,14 +90,6 @@ export function StyleLabPageClient() {
       toast.error(error instanceof Error ? error.message : "删除失败");
     },
   });
-
-  const handleDelete = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (window.confirm("确定要删除该分析任务吗？此操作不可恢复。")) {
-      deleteJobMutation.mutate(id);
-    }
-  };
 
   if (providersQuery.isLoading || jobsQuery.isLoading) {
     return <PageLoading title="正在载入 Style Lab..." />;
@@ -170,16 +173,40 @@ export function StyleLabPageClient() {
                 <Button variant="secondary" size="sm" className="flex-1" asChild>
                   <Link href={`/style-lab/${job.id}`}>进入工作台</Link>
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  onClick={(e) => handleDelete(e, job.id)}
-                  disabled={deleteJobMutation.isPending}
-                  title="删除任务"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      disabled={deleteJobMutation.isPending}
+                      title="删除任务"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确定要删除该分析任务吗？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        此操作不可恢复，将永久删除该分析任务及相关数据。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteJobMutation.mutate(job.id);
+                        }}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        删除
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </CardFooter>
             </Card>
           ))}
