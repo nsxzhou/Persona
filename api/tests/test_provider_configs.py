@@ -213,12 +213,18 @@ async def test_provider_test_route_maps_domain_error_without_manual_commit() -> 
             self.commit_calls += 1
 
     class FakeProviderService:
-        async def test_connection_and_update(self, session, provider_id: str) -> dict[str, str]:
-            del session, provider_id
+        async def test_connection_and_update(
+            self,
+            session,
+            provider_id: str,
+            *,
+            user_id: str | None = None,
+        ) -> dict[str, str]:
+            del session, provider_id, user_id
             raise BadRequestError("Provider 连通性测试失败，请检查配置后重试")
 
     session = FakeSession()
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(BadRequestError) as exc_info:
         await test_provider_config(
             provider_id="provider-1",
             _current_user=SimpleNamespace(),

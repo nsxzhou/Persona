@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import (
@@ -11,7 +12,7 @@ from app.core.domain_errors import (
     UnprocessableEntityError,
 )
 from app.core.security import encrypt_secret
-from app.db.models import ProviderConfig
+from app.db.models import ProviderConfig, User
 from app.db.repositories.provider_configs import ProviderConfigRepository
 from app.schemas.provider_configs import ProviderConfigCreate, ProviderConfigUpdate
 from app.services.llm_provider import LLMProviderService
@@ -28,10 +29,31 @@ class ProviderConfigService:
         self.repository = repository or ProviderConfigRepository()
         self.llm_provider_service = llm_provider_service or LLMProviderService()
 
-    async def list(self, session: AsyncSession) -> list[ProviderConfig]:
-        return await self.repository.list(session)
+    async def _resolve_user_id(
+        self,
+        session: AsyncSession,
+        user_id: str | None,
+    ) -> str:
+        if user_id is not None:
+            return user_id
+        resolved = await session.scalar(select(User.id).limit(1))
+        if resolved is None:
+            raise UnprocessableEntityError("缺少用户上下文，无法创建 Provider")
+        return resolved
 
-    async def create(self, session: AsyncSession, payload: ProviderConfigCreate) -> ProviderConfig:
+    async def list(
+        self, session: AsyncSession, *, user_id: str | None = None
+    ) -> list[ProviderConfig]:
+        return await self.repository.list(session, user_id=user_id)
+
+    async def create(
+        self,
+        session: AsyncSession,
+        payload: ProviderConfigCreate,
+        *,
+        user_id: str | None = None,
+    ) -> ProviderConfig:
+        resolved_user_id = await self._resolve_user_id(session, user_id)
         return await self.repository.create(
             session,
             label=payload.label,
@@ -40,16 +62,33 @@ class ProviderConfigService:
             api_key_hint_last4=payload.api_key[-4:],
             default_model=payload.default_model,
             is_enabled=payload.is_enabled,
+            user_id=resolved_user_id,
         )
 
-    async def get_or_404(self, session: AsyncSession, provider_id: str) -> ProviderConfig:
-        provider = await self.repository.get_by_id(session, provider_id)
+    async def get_or_404(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> ProviderConfig:
+        if user_id is None:
+            provider = await self.repository.get_by_id(session, provider_id)
+        else:
+            provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
         if provider is None:
             raise NotFoundError("Provider 不存在")
         return provider
 
-    async def update(self, session: AsyncSession, provider_id: str, payload: ProviderConfigUpdate) -> ProviderConfig:
-        provider = await self.get_or_404(session, provider_id)
+    async def update(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        payload: ProviderConfigUpdate,
+        *,
+        user_id: str | None = None,
+    ) -> ProviderConfig:
+        provider = await self.get_or_404(session, provider_id, user_id=user_id)
         data = payload.model_dump(exclude_unset=True)
         if "label" in data:
             provider.label = data["label"]
@@ -83,8 +122,10 @@ class ProviderConfigService:
         self,
         session: AsyncSession,
         provider_id: str,
+        *,
+        user_id: str | None = None,
     ) -> dict[str, str]:
-        provider = await self.get_or_404(session, provider_id)
+        provider = await self.get_or_404(session, provider_id, user_id=user_id)
         result = await self.llm_provider_service.test_connection(provider)
         if result["status"] == "success":
             await self.update_test_result(
@@ -104,8 +145,17 @@ class ProviderConfigService:
         await session.commit()
         raise BadRequestError(PROVIDER_CONNECTION_TEST_ERROR_MESSAGE)
 
-    async def delete(self, session: AsyncSession, provider_id: str) -> None:
-        provider = await self.repository.get_with_projects(session, provider_id)
+    async def delete(
+        self, session: AsyncSession, provider_id: str, *, user_id: str | None = None
+    ) -> None:
+        if user_id is None:
+            provider = await self.repository.get_with_projects(session, provider_id)
+        else:
+            provider = await self.repository.get_with_projects(
+                session,
+                provider_id,
+                user_id=user_id,
+            )
         if provider is None:
             raise NotFoundError("Provider 不存在")
 
@@ -113,13 +163,30 @@ class ProviderConfigService:
         if has_active_project:
             raise ConflictError("该 Provider 正被项目引用，无法删除")
 
-        if await self.repository.has_style_lab_references(session, provider_id):
+        if user_id is None:
+            has_refs = await self.repository.has_style_lab_references(session, provider_id)
+        else:
+            has_refs = await self.repository.has_style_lab_references(
+                session,
+                provider_id,
+                user_id=user_id,
+            )
+        if has_refs:
             raise ConflictError("该 Provider 正被 Style Lab 引用，无法删除")
 
         await self.repository.delete(session, provider)
 
-    async def ensure_enabled(self, session: AsyncSession, provider_id: str) -> ProviderConfig:
-        provider = await self.repository.get_by_id(session, provider_id)
+    async def ensure_enabled(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> ProviderConfig:
+        if user_id is None:
+            provider = await self.repository.get_by_id(session, provider_id)
+        else:
+            provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
         if provider is None or not provider.is_enabled:
             raise UnprocessableEntityError("默认 Provider 不存在或未启用")
         return provider
