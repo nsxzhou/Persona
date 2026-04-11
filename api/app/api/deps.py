@@ -1,6 +1,8 @@
 # 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
+from typing import Annotated
+
 # 导入FastAPI依赖注入系统
 # Depends是FastAPI最强大也是最独特的功能
 from fastapi import Depends, Request, Response
@@ -11,7 +13,12 @@ from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_db_session
 from app.services.auth import AuthService
+from app.services.projects import ProjectService
+from app.services.provider_configs import ProviderConfigService
 from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.services.style_profiles import StyleProfileService
+
+DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 def set_session_cookie(response: Response, raw_token: str) -> None:
@@ -27,17 +34,62 @@ def set_session_cookie(response: Response, raw_token: str) -> None:
     )
 
 
+def get_auth_service() -> AuthService:
+    return AuthService()
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
 async def get_current_user(
     request: Request,
-    db_session: AsyncSession = Depends(get_db_session),
+    db_session: DbSessionDep,
+    auth_service: AuthServiceDep,
 ) -> User:
     settings = get_settings()
-    auth_service = AuthService()
     return await auth_service.resolve_user_by_token(
         db_session,
         request.cookies.get(settings.session_cookie_name),
     )
 
 
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+
+
+def get_provider_config_service() -> ProviderConfigService:
+    return ProviderConfigService()
+
+
+ProviderConfigServiceDep = Annotated[
+    ProviderConfigService,
+    Depends(get_provider_config_service),
+]
+
+
+def get_project_service(
+    provider_service: ProviderConfigServiceDep,
+) -> ProjectService:
+    return ProjectService(provider_service=provider_service)
+
+
+ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
+
+
 def get_style_analysis_job_service() -> StyleAnalysisJobService:
     return StyleAnalysisJobService()
+
+
+StyleAnalysisJobServiceDep = Annotated[
+    StyleAnalysisJobService,
+    Depends(get_style_analysis_job_service),
+]
+
+
+def get_style_profile_service() -> StyleProfileService:
+    return StyleProfileService()
+
+
+StyleProfileServiceDep = Annotated[
+    StyleProfileService,
+    Depends(get_style_profile_service),
+]

@@ -18,9 +18,9 @@
 
 ### 2.1 架构分层
 严格区分职责，禁止在 Router 中直接编写复杂的业务逻辑或数据库查询：
-- **Router (`api/routes/`)**: 仅负责接收请求、解析参数（依赖注入）、调用 Service 层，以及格式化返回值。
-- **Service (`services/`)**: 包含核心业务逻辑，协调多个数据模型或外部服务。
-- **Repository/DB (`db/`)**: 仅负责与数据库的直接交互（CRUD），隐藏 SQLAlchemy 的复杂查询细节。
+- **Router (`api/app/api/routes/`)**: 仅负责接收请求、解析参数（依赖注入）、调用 Service 层，以及格式化返回值。
+- **Service (`api/app/services/`)**: 包含核心业务逻辑，协调多个数据模型或外部服务。
+- **Repository (`api/app/db/repositories/`)**: 仅负责与数据库的直接交互（CRUD），隐藏 SQLAlchemy 查询细节。
 
 ### 2.2 类型与校验 (Typing & Validation)
 - **现代 Python 语法**：强制使用 Python 3.11+ 类型提示（如 `list[str]`, `dict[str, Any]`, `str | None`）。所有函数必须有明确的参数和返回类型。

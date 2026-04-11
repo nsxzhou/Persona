@@ -1,15 +1,11 @@
 # 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from app.api.deps import get_current_user, set_session_cookie
+from app.api.deps import AuthServiceDep, CurrentUserDep, DbSessionDep, set_session_cookie
 from app.core.config import get_settings
-from app.db.models import User
-from app.db.session import get_db_session
 from app.schemas.auth import LoginRequest, UserResponse
-from app.services.auth import AuthService
 
 router = APIRouter(tags=["auth"])
 
@@ -18,10 +14,10 @@ router = APIRouter(tags=["auth"])
 async def login(
     payload: LoginRequest,
     response: Response,
-    db_session: AsyncSession = Depends(get_db_session),
+    db_session: DbSessionDep,
+    auth_service: AuthServiceDep,
 ) -> UserResponse:
     """用户登录接口"""
-    auth_service = AuthService()
     if not await auth_service.is_initialized(db_session):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="系统尚未初始化"
@@ -41,13 +37,14 @@ async def login(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     request: Request,
-    db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
+    db_session: DbSessionDep,
+    _current_user: CurrentUserDep,
+    auth_service: AuthServiceDep,
 ) -> Response:
     """用户登出接口"""
     settings = get_settings()
     raw_token = request.cookies.get(settings.session_cookie_name)
-    await AuthService().delete_session(db_session, raw_token)
+    await auth_service.delete_session(db_session, raw_token)
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(settings.session_cookie_name, path="/")
@@ -58,11 +55,12 @@ async def logout(
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(
     response: Response,
-    db_session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
+    db_session: DbSessionDep,
+    _current_user: CurrentUserDep,
+    auth_service: AuthServiceDep,
 ) -> None:
     """删除当前用户账号，清除所有数据"""
-    await AuthService().delete_account(db_session)
+    await auth_service.delete_account(db_session)
 
     settings = get_settings()
     response.delete_cookie(settings.session_cookie_name, path="/")
@@ -74,7 +72,7 @@ async def me(
     # 这就是依赖注入的魔力！
     # 只要写这一行，这个接口就自动需要登录
     # FastAPI会自动完成所有认证工作
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUserDep,
 ) -> UserResponse:
     """获取当前登录用户信息"""
 

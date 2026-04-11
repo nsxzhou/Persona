@@ -1,7 +1,33 @@
 from __future__ import annotations
 
+from typing import get_type_hints
+
 import pytest
 from httpx import AsyncClient
+
+
+def test_auth_service_supports_repository_injection() -> None:
+    from app.db.repositories.auth import AuthRepository
+    from app.services.auth import AuthService
+
+    repository = AuthRepository()
+    service = AuthService(repository=repository)
+
+    assert service.repository is repository
+
+
+def test_auth_and_setup_routes_use_annotated_dependency_aliases() -> None:
+    from app.api.deps import AuthServiceDep, DbSessionDep
+    from app.api.routes.auth import login
+    from app.api.routes.setup import run_setup
+
+    login_hints = get_type_hints(login, include_extras=True)
+    setup_hints = get_type_hints(run_setup, include_extras=True)
+
+    assert login_hints["db_session"] == DbSessionDep
+    assert login_hints["auth_service"] == AuthServiceDep
+    assert setup_hints["db_session"] == DbSessionDep
+    assert setup_hints["auth_service"] == AuthServiceDep
 
 
 @pytest.mark.asyncio
@@ -92,4 +118,3 @@ async def test_login_logout_and_me_flow(initialized_client: AsyncClient) -> None
 
     after_logout = await initialized_client.get("/api/v1/me")
     assert after_logout.status_code == 401
-

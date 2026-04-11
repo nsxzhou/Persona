@@ -1,27 +1,34 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import set_session_cookie
-from app.core.config import get_settings
-from app.db.session import get_db_session
+from app.api.deps import (
+    AuthServiceDep,
+    DbSessionDep,
+    ProviderConfigServiceDep,
+    set_session_cookie,
+)
 from app.schemas.provider_configs import ProviderConfigResponse
 from app.schemas.setup import SetupRequest, SetupResponse, SetupStatusResponse
-from app.services.auth import AuthService
-from app.services.provider_configs import ProviderConfigService
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
 @router.get("/status", response_model=SetupStatusResponse)
-async def get_setup_status(db_session: AsyncSession = Depends(get_db_session)) -> SetupStatusResponse:
-    initialized = await AuthService().is_initialized(db_session)
+async def get_setup_status(
+    db_session: DbSessionDep,
+    auth_service: AuthServiceDep,
+) -> SetupStatusResponse:
+    initialized = await auth_service.is_initialized(db_session)
     return SetupStatusResponse(initialized=initialized)
 
 @router.post("", response_model=SetupResponse, status_code=status.HTTP_201_CREATED)
-async def run_setup(payload: SetupRequest, response: Response, db_session: AsyncSession = Depends(get_db_session)) -> SetupResponse:
-    auth_service = AuthService()
-    provider_service = ProviderConfigService()
+async def run_setup(
+    payload: SetupRequest,
+    response: Response,
+    db_session: DbSessionDep,
+    auth_service: AuthServiceDep,
+    provider_service: ProviderConfigServiceDep,
+) -> SetupResponse:
     if await auth_service.is_initialized(db_session):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="系统已初始化")
 
@@ -47,4 +54,3 @@ async def run_setup(payload: SetupRequest, response: Response, db_session: Async
             updated_at=provider.updated_at,
         ),
     )
-

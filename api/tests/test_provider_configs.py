@@ -1,7 +1,29 @@
 from __future__ import annotations
 
+from typing import get_type_hints
+
 import pytest
 from httpx import AsyncClient
+
+
+def test_provider_service_supports_repository_injection() -> None:
+    from app.db.repositories.provider_configs import ProviderConfigRepository
+    from app.services.provider_configs import ProviderConfigService
+
+    repository = ProviderConfigRepository()
+    service = ProviderConfigService(repository=repository)
+
+    assert service.repository is repository
+
+
+def test_provider_routes_use_annotated_service_dependency() -> None:
+    from app.api.deps import DbSessionDep, ProviderConfigServiceDep
+    from app.api.routes.provider_configs import list_provider_configs
+
+    hints = get_type_hints(list_provider_configs, include_extras=True)
+
+    assert hints["db_session"] == DbSessionDep
+    assert hints["provider_service"] == ProviderConfigServiceDep
 
 
 @pytest.mark.asyncio

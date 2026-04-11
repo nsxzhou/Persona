@@ -7,9 +7,6 @@ from datetime import UTC, datetime
 # 导入FastAPI异常处理和状态码
 from fastapi import HTTPException, status
 
-# 导入SQLAlchemy查询构造器
-from sqlalchemy import delete, select
-
 # 导入异步数据库会话类型
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +21,7 @@ from app.core.security import (
 
 # 导入数据库模型
 from app.db.models import Session, User
+from app.db.repositories.auth import AuthRepository
 
 
 # ==================================================
@@ -47,6 +45,9 @@ from app.db.models import Session, User
 # ❌ 不要在Model里写业务逻辑
 # ==================================================
 class AuthService:
+    def __init__(self, repository: AuthRepository | None = None) -> None:
+        self.repository = repository or AuthRepository()
+
     # ==================================================
     # @staticmethod 说明：
     # 这个方法不需要访问类的任何属性，所以声明为静态方法
@@ -85,22 +86,7 @@ class AuthService:
         - session: AsyncSession类型的异步数据库会话，用于执行数据库查询
         """
 
-        # select(User.id).limit(1) 是查询"是否存在"的最优化写法
-        # 为什么不写 select(User)？因为不需要查询整个对象，只需要判断有没有
-        # 为什么加limit(1)？因为找到第一个就可以停止查询了，不用扫描整个表
-        # 这条查询的速度永远是O(1)，不会随着用户数量增加而变慢
-        query = select(User.id).limit(1)
-
-        # ==================================================
-        # await 关键字说明：
-        # 在这里暂停当前函数的执行，让CPU去处理其他请求
-        # 等数据库返回结果之后，再回来继续执行后面的代码
-        # 这就是异步IO的核心：不等待，不阻塞
-        # ==================================================
-        result = await session.scalar(query)
-
-        # 如果结果不是None，说明至少有一个用户存在
-        return result is not None
+        return await self.repository.has_any_user(session)
 
     async def create_initial_admin(
         self, session: AsyncSession, username: str, password: str
@@ -115,30 +101,11 @@ class AuthService:
         - password: 管理员的明文密码，会被哈希后存储
         """
 
-        # 创建用户对象
-        # 🔴 安全原则第一条：永远不要在数据库中存储明文密码
-        # hash_password 返回的是Argon2哈希值，这个值是单向的，数学上无法反推出原始密码
-        # 即使数据库完全泄露，攻击者也无法得到用户的密码
-        user = User(username=username, password_hash=hash_password(password))
-
-        # 将对象添加到会话中
-        # 注意：此时还没有发送任何SQL到数据库，只是在内存中标记了这个对象要被插入
-        session.add(user)
-
-        # ==================================================
-        # flush() 和 commit() 的本质区别：
-        #
-        # flush()  → 把SQL发送到数据库执行，但是事务还没有提交
-        #            执行后对象就有id了，但是出错了还可以回滚
-        #
-        # commit() → 提交事务，所有修改永久写入磁盘，无法回滚
-        #
-        # Service层永远只调用flush()，永远不要调用commit()
-        # commit()应该在最外层的依赖注入中统一处理
-        # ==================================================
-        await session.flush()
-
-        return user
+        return await self.repository.create_user(
+            session,
+            username=username,
+            password_hash=hash_password(password),
+        )
 
     async def authenticate(
         self, session: AsyncSession, username: str, password: str
@@ -153,10 +120,7 @@ class AuthService:
         - password: 用户输入的明文密码
         """
 
-        # 通过用户名查询用户
-        # where(User.username == username) 生成参数化查询，防止SQL注入
-        query = select(User).where(User.username == username)
-        user = await session.scalar(query)
+        user = await self.repository.get_user_by_username(session, username)
 
         # ==================================================
         # 🔴 安全最佳实践：
@@ -201,21 +165,13 @@ class AuthService:
         # 这个令牌会通过Cookie发送给用户的浏览器
         raw_token = generate_session_token()
 
-        # 创建数据库中的会话记录
-        session_record = Session(
+        session_record = await self.repository.create_session(
+            session,
             user_id=user.id,
-            # 🔴 数据库中只存储HMAC哈希后的令牌，不存储原始令牌
-            # 即使数据库被盗，攻击者也无法伪造有效会话
-            # 这就是为什么你从来没听过这个系统的用户会话被窃取的新闻
             token_hash=hash_session_token(raw_token),
-            # 会话过期时间
             expires_at=get_session_expiration(),
-            # 最后访问时间
             last_accessed_at=datetime.now(UTC),
         )
-
-        session.add(session_record)
-        await session.flush()
 
         # 这是整个系统中唯一会返回原始令牌的地方
         # 除此之外，整个系统的任何地方都不会再看到原始令牌
@@ -247,8 +203,10 @@ class AuthService:
         # 数据库里存储的是哈希值，所以我们需要对用户传过来的令牌做同样的哈希
         # 注意：我们从来不会在数据库里存储原始令牌
         token_hash = hash_session_token(raw_token)
-        query = select(Session).where(Session.token_hash == token_hash)
-        session_record = await session.scalar(query)
+        session_record = await self.repository.get_session_by_token_hash(
+            session,
+            token_hash,
+        )
 
         if session_record is None:
             raise HTTPException(
@@ -265,12 +223,10 @@ class AuthService:
         # 第四步：更新最后访问时间
         # 每次用户访问都更新这个时间，可以用来判断用户活跃状态
         session_record.last_accessed_at = datetime.now(UTC)
-        await session.flush()
+        await self.repository.flush(session)
 
         # 第五步：查询关联的用户对象
-        # session.get() 是SQLAlchemy根据主键查询的最快方法
-        # 会自动使用缓存，不会重复查询
-        user = await session.get(User, session_record.user_id)
+        user = await self.repository.get_user_by_id(session, session_record.user_id)
 
         if user is None:
             raise HTTPException(
@@ -287,17 +243,11 @@ class AuthService:
         if not raw_token:
             return
 
-        # 计算令牌哈希，然后删除对应的会话记录
-        token_hash = hash_session_token(raw_token)
-        query = delete(Session).where(Session.token_hash == token_hash)
-
-        # execute() 用于执行不返回结果的查询（DELETE/UPDATE等）
-        await session.execute(query)
+        await self.repository.delete_session_by_token_hash(
+            session,
+            hash_session_token(raw_token),
+        )
 
     async def delete_account(self, session: AsyncSession) -> None:
         """删除所有账号数据"""
-        from app.db.models import Project, ProviderConfig
-        await session.execute(delete(Project))
-        await session.execute(delete(ProviderConfig))
-        await session.execute(delete(Session))
-        await session.execute(delete(User))
+        await self.repository.delete_all_account_data(session)
