@@ -30,7 +30,7 @@ export function ProviderConfigsPageClient() {
       }
       return api.createProviderConfig(payload);
     },
-    onError: (error) => toast.error(`保存失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("Provider 已保存");
       setDialogOpen(false);
@@ -45,7 +45,7 @@ export function ProviderConfigsPageClient() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteProviderConfig(id),
-    onError: (error) => toast.error(`删除失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("Provider 已删除");
       await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
@@ -60,7 +60,7 @@ export function ProviderConfigsPageClient() {
       toast.success(res.message || "测试完成", { id: toastId });
     } catch (error) {
       toast.error(
-        `测试失败: ${error instanceof Error ? error.message : "未知错误"}`,
+        error instanceof Error ? error.message : "未知错误",
         { id: toastId },
       );
     } finally {

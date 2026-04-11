@@ -19,7 +19,7 @@ export default function AccountPage() {
 
   const logoutMutation = useMutation({
     mutationFn: api.logout,
-    onError: (error) => toast.error(`退出失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("已安全退出");
       queryClient.clear();

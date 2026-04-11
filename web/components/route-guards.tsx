@@ -14,7 +14,7 @@ export function SetupPageClient() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (payload: SetupPayload) => api.setup(payload),
-    onError: (error) => toast.error(`初始化失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("系统初始化成功");
       await queryClient.invalidateQueries({ queryKey: ["setup-status"] });
@@ -38,7 +38,7 @@ export function LoginPageClient() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (payload: LoginPayload) => api.login(payload),
-    onError: (error) => toast.error(`登录失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("登录成功");
       await queryClient.invalidateQueries({ queryKey: ["current-user"] });

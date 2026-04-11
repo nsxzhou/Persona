@@ -251,7 +251,7 @@ function useSaveStyleProfileMutation({
       router.push("/style-lab");
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "保存失败");
+      toast.error(error instanceof Error ? error.message : "未知错误");
     },
   });
 }

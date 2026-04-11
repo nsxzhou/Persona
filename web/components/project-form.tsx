@@ -265,7 +265,7 @@ export function ProjectPageClient({
       }
       return api.createProject(payload as ProjectPayload);
     },
-    onError: (error) => toast.error(`${isDetailMode ? "保存失败" : "项目创建失败"}: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async (project) => {
       if (isDetailMode) {
         toast.success("项目配置已保存");

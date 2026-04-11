@@ -25,7 +25,7 @@ export function ProjectsPageClient() {
 
   const archiveMutation = useMutation({
     mutationFn: (projectId: string) => api.archiveProject(projectId),
-    onError: (error) => toast.error(`归档失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("项目已归档");
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -34,7 +34,7 @@ export function ProjectsPageClient() {
 
   const restoreMutation = useMutation({
     mutationFn: (projectId: string) => api.restoreProject(projectId),
-    onError: (error) => toast.error(`恢复失败: ${error.message}`),
+    onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("项目已恢复");
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
