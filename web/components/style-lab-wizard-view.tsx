@@ -82,7 +82,7 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardReportStep
           job={job}
           existingProfile={existingProfile}
-          report={reportResource.data}
+          reportMarkdown={reportResource.data}
           isLoading={reportResource.isLoading}
           isError={reportResource.isError}
           errorMessage={reportResource.error?.message}
@@ -94,7 +94,7 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardSummaryStep
           job={job}
           existingProfile={existingProfile}
-          summary={summaryResource.data}
+          summaryMarkdown={summaryResource.data}
           isLoading={summaryResource.isLoading}
           isError={summaryResource.isError}
           errorMessage={summaryResource.error?.message}
@@ -108,7 +108,7 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardPromptPackStep
           job={job}
           existingProfile={existingProfile}
-          promptPack={promptPackResource.data}
+          promptPackMarkdown={promptPackResource.data}
           isLoading={promptPackResource.isLoading}
           isError={promptPackResource.isError}
           errorMessage={promptPackResource.error?.message}

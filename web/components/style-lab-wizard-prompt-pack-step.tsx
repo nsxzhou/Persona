@@ -1,7 +1,6 @@
 "use client";
 
 import type { UseFormReturn } from "react-hook-form";
-import { Controller } from "react-hook-form";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,23 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { TextareaListEditor } from "@/components/textarea-list-editor";
-import { listToLines, linesToList } from "@/lib/style-lab-transformers";
-import {
-  STYLE_ANALYSIS_JOB_STATUS,
-  type PromptPack,
-  type Project,
-  type StyleAnalysisJob,
-  type StyleProfile,
-  type StyleSummary,
-} from "@/lib/types";
+import { STYLE_ANALYSIS_JOB_STATUS, type Project, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
+import type { FormValues } from "@/lib/validations/style-lab";
 
 const NONE_VALUE = "__none__";
 
 export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPromptPackStep({
   job,
   existingProfile,
-  promptPack,
+  promptPackMarkdown,
   isLoading,
   isError,
   errorMessage,
@@ -39,14 +30,14 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
 }: {
   job: StyleAnalysisJob;
   existingProfile: StyleProfile | null;
-  promptPack: PromptPack | null;
+  promptPackMarkdown: string | null;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
   projects: Project[];
   mountProjectId: string | null;
   setMountProjectId: (value: string | null) => void;
-  form: UseFormReturn<{ styleSummary: StyleSummary; promptPack: PromptPack }>;
+  form: UseFormReturn<FormValues>;
   onBack: () => void;
   onSave: () => void;
   saving: boolean;
@@ -56,50 +47,20 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
       <Card>
         <CardHeader>
           <CardTitle>母 Prompt 包配置</CardTitle>
-          <CardDescription>最后一步，配置用于全局调用的系统指令和 Few-shot 槽位。</CardDescription>
+          <CardDescription>最后一步，直接编辑 Markdown 风格母 Prompt 包。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
-          {isError && !existingProfile ? (
-            <p className="text-destructive">{errorMessage}</p>
-          ) : null}
+          {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
           {job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED ? (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="system-prompt">System Prompt</Label>
+                <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
                 <Textarea
-                  id="system-prompt"
-                  className="min-h-[120px]"
-                  {...form.register("promptPack.system_prompt")}
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="grid gap-2">
-                  <Label>对白 Prompt</Label>
-                  <Textarea {...form.register("promptPack.scene_prompts.dialogue")} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>动作 Prompt</Label>
-                  <Textarea {...form.register("promptPack.scene_prompts.action")} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>环境 Prompt</Label>
-                  <Textarea {...form.register("promptPack.scene_prompts.environment")} />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label>硬约束 (每行一项)</Label>
-                <Controller
-                  control={form.control}
-                  name="promptPack.hard_constraints"
-                  render={({ field }) => (
-                    <TextareaListEditor
-                      {...field}
-                      value={field.value ?? []}
-                      formatter={listToLines}
-                      parser={linesToList}
-                    />
-                  )}
+                  id="prompt-pack-markdown"
+                  className="min-h-[420px] font-mono text-sm"
+                  defaultValue={promptPackMarkdown ?? ""}
+                  {...form.register("promptPackMarkdown")}
                 />
               </div>
 

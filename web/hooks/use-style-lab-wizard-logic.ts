@@ -6,20 +6,12 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
-import {
-  formSchema,
-  makeEmptyPromptPack,
-  makeEmptyStyleSummary,
-  type FormValues,
-} from "@/lib/validations/style-lab";
+import { formSchema, makeEmptyFormValues, type FormValues } from "@/lib/validations/style-lab";
 import {
   STYLE_ANALYSIS_JOB_PROCESSING_STATUSES,
   STYLE_ANALYSIS_JOB_STATUS,
-  type AnalysisReport,
-  type PromptPack,
   type StyleAnalysisJob,
   type StyleProfile,
-  type StyleSummary,
 } from "@/lib/types";
 
 type WizardStep = 1 | 2 | 3;
@@ -72,8 +64,7 @@ function useStyleLabJobStatusQuery(jobId: string) {
   return useQuery({
     queryKey: ["style-analysis-jobs", jobId, "status"],
     queryFn: () => api.getStyleAnalysisJobStatus(jobId),
-    refetchInterval: (query) =>
-      isProcessingStatus(query.state.data?.status) ? 2000 : false,
+    refetchInterval: (query) => (isProcessingStatus(query.state.data?.status) ? 2000 : false),
   });
 }
 
@@ -96,22 +87,14 @@ function useStyleLabJobDetail(jobId: string) {
     ) {
       void jobQuery.refetch();
     }
-  }, [
-    jobQuery.data?.status,
-    jobQuery.isFetching,
-    jobQuery.refetch,
-    statusQuery.data?.status,
-  ]);
+  }, [jobQuery.data?.status, jobQuery.isFetching, jobQuery.refetch, statusQuery.data?.status]);
 
-  const job = mergeStatusIntoJob(
-    jobQuery.data ?? null,
-    statusQuery.data ?? null,
-  );
+  const job = mergeStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
   const existingProfile = job?.style_profile ?? null;
 
-  const report = existingProfile?.analysis_report ?? job?.analysis_report ?? null;
-  const summary = existingProfile?.style_summary ?? job?.style_summary ?? null;
-  const promptPack = existingProfile?.prompt_pack ?? job?.prompt_pack ?? null;
+  const report = existingProfile?.analysis_report_markdown ?? job?.analysis_report_markdown ?? null;
+  const summary = existingProfile?.style_summary_markdown ?? job?.style_summary_markdown ?? null;
+  const promptPack = existingProfile?.prompt_pack_markdown ?? job?.prompt_pack_markdown ?? null;
 
   let errorState: { title: string; message: string } | null = null;
   if (jobQuery.isError || (statusQuery.isError && !jobQuery.data)) {
@@ -127,9 +110,9 @@ function useStyleLabJobDetail(jobId: string) {
   return {
     job,
     existingProfile,
-    reportResource: makeDetailResource<AnalysisReport>(report, jobQuery),
-    summaryResource: makeDetailResource<StyleSummary>(summary, jobQuery),
-    promptPackResource: makeDetailResource<PromptPack>(promptPack, jobQuery),
+    reportResource: makeDetailResource<string>(report, jobQuery),
+    summaryResource: makeDetailResource<string>(summary, jobQuery),
+    promptPackResource: makeDetailResource<string>(promptPack, jobQuery),
     isLoading: jobQuery.isLoading && !jobQuery.data,
     errorState,
   };
@@ -138,7 +121,7 @@ function useStyleLabJobDetail(jobId: string) {
 function useMountableProjects(enabled: boolean) {
   const projectsQuery = useQuery({
     queryKey: ["projects"],
-    queryFn: () => api.getProjects(false),
+    queryFn: () => api.getProjects({ includeArchived: false, limit: 100 }),
     enabled,
   });
 
@@ -152,14 +135,14 @@ function useStyleLabWizardState({
   jobId,
   job,
   existingProfile,
-  summary,
-  promptPack,
+  summaryMarkdown,
+  promptPackMarkdown,
 }: {
   jobId: string;
   job: StyleAnalysisJob | null;
   existingProfile: StyleProfile | null;
-  summary: StyleSummary | null;
-  promptPack: PromptPack | null;
+  summaryMarkdown: string | null;
+  promptPackMarkdown: string | null;
 }) {
   const [step, setStep] = React.useState<WizardStep>(1);
   const [mountProjectId, setMountProjectId] = React.useState<string | null>(null);
@@ -167,20 +150,14 @@ function useStyleLabWizardState({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema, undefined, { mode: "sync" }),
-    defaultValues: {
-      styleSummary: makeEmptyStyleSummary(),
-      promptPack: makeEmptyPromptPack(),
-    },
+    defaultValues: makeEmptyFormValues(),
   });
 
   React.useEffect(() => {
     initializedJobId.current = null;
     setStep(1);
     setMountProjectId(null);
-    form.reset({
-      styleSummary: makeEmptyStyleSummary(),
-      promptPack: makeEmptyPromptPack(),
-    });
+    form.reset(makeEmptyFormValues());
   }, [jobId, form]);
 
   React.useEffect(() => {
@@ -188,21 +165,23 @@ function useStyleLabWizardState({
 
     if (existingProfile) {
       form.reset({
-        styleSummary: existingProfile.style_summary,
-        promptPack: existingProfile.prompt_pack,
+        styleName: existingProfile.style_name,
+        styleSummaryMarkdown: existingProfile.style_summary_markdown,
+        promptPackMarkdown: existingProfile.prompt_pack_markdown,
       });
       initializedJobId.current = jobId;
       return;
     }
 
-    if (job?.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED && summary && promptPack) {
+    if (job?.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED && summaryMarkdown && promptPackMarkdown) {
       form.reset({
-        styleSummary: summary,
-        promptPack,
+        styleName: job.style_name,
+        styleSummaryMarkdown: summaryMarkdown,
+        promptPackMarkdown: promptPackMarkdown,
       });
       initializedJobId.current = jobId;
     }
-  }, [existingProfile, form, job?.status, jobId, promptPack, summary]);
+  }, [existingProfile, form, job, jobId, promptPackMarkdown, summaryMarkdown]);
 
   return {
     step,
@@ -233,8 +212,9 @@ function useSaveStyleProfileMutation({
       const mountPayload = mountProjectId ? { mount_project_id: mountProjectId } : {};
       const payload = {
         ...mountPayload,
-        style_summary: values.styleSummary,
-        prompt_pack: values.promptPack,
+        style_name: values.styleName,
+        style_summary_markdown: values.styleSummaryMarkdown,
+        prompt_pack_markdown: values.promptPackMarkdown,
       };
 
       if (job.style_profile_id) {
@@ -262,10 +242,11 @@ export function useStyleLabWizardLogic(jobId: string) {
     jobId,
     job: detail.job,
     existingProfile: detail.existingProfile,
-    summary: detail.summaryResource.data,
-    promptPack: detail.promptPackResource.data,
+    summaryMarkdown: detail.summaryResource.data,
+    promptPackMarkdown: detail.promptPackResource.data,
   });
-  const projectsState = useMountableProjects(wizardState.step >= 3);
+  const shouldLoadProjects = wizardState.step === 3 && !detail.existingProfile;
+  const { projects } = useMountableProjects(shouldLoadProjects);
   const saveProfileMutation = useSaveStyleProfileMutation({
     job: detail.job,
     form: wizardState.form,
@@ -275,14 +256,14 @@ export function useStyleLabWizardLogic(jobId: string) {
   return {
     ...wizardState,
     job: detail.job,
-    projects: projectsState.projects,
     existingProfile: detail.existingProfile,
     reportResource: detail.reportResource,
     summaryResource: detail.summaryResource,
     promptPackResource: detail.promptPackResource,
+    projects,
     saveProfileMutation,
-    handleSave: () => saveProfileMutation.mutate(),
-    isLoading: detail.isLoading || projectsState.isLoading,
+    handleSave: () => void saveProfileMutation.mutateAsync(),
+    isLoading: detail.isLoading,
     errorState: detail.errorState,
   };
 }

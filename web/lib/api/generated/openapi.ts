@@ -468,74 +468,11 @@ export interface components {
              */
             chunk_count: number;
         };
-        /** AnalysisReport */
-        AnalysisReport: {
-            /** @description Top-level summary and representative evidence. */
-            executive_summary: components["schemas"]["ExecutiveSummary"];
-            /** @description Input classification and processing notes. */
-            basic_assessment: components["schemas"]["BasicAssessment"];
-            /**
-             * Sections
-             * @description Dossier sections 3.1 through 3.12 in order.
-             */
-            sections: components["schemas"]["AnalysisReportSection"][];
-            /**
-             * Appendix
-             * @description Optional extra evidence index or caveats.
-             */
-            appendix?: string | null;
-        };
-        /** AnalysisReportSection */
-        AnalysisReportSection: {
-            /**
-             * Section
-             * @description Dossier section id from 3.1 through 3.12.
-             */
-            section: string;
-            /**
-             * Title
-             * @description Chinese title for the dossier section.
-             */
-            title: string;
-            /**
-             * Overview
-             * @description Section-level overview.
-             */
-            overview: string;
-            /**
-             * Findings
-             * @description Evidence-grounded findings for the section.
-             */
-            findings: components["schemas"]["SectionFinding"][];
-        };
-        /** BasicAssessment */
-        BasicAssessment: {
-            /**
-             * Text Type
-             * @description Detected source text type.
-             */
-            text_type: string;
-            /**
-             * Multi Speaker
-             * @description Whether the sample appears to contain multiple speakers.
-             */
-            multi_speaker: boolean;
-            /**
-             * Batch Mode
-             * @description Whether chunked batch analysis was used.
-             */
-            batch_mode: boolean;
-            /**
-             * Location Indexing
-             * @description How evidence locations are indexed.
-             */
-            location_indexing: string;
-            /**
-             * Noise Handling
-             * @description How timestamps, labels, or noise markers were handled.
-             */
-            noise_handling: string;
-        };
+        /**
+         * AnalysisReportMarkdown
+         * @description Markdown analysis report for Style Lab.
+         */
+        AnalysisReportMarkdown: string;
         /** Body_create_style_analysis_job_api_v1_style_analysis_jobs_post */
         Body_create_style_analysis_job_api_v1_style_analysis_jobs_post: {
             /** Style Name */
@@ -553,32 +490,6 @@ export interface components {
             status: string;
             /** Message */
             message: string;
-        };
-        /** EvidenceSnippet */
-        EvidenceSnippet: {
-            /**
-             * Excerpt
-             * @description Verbatim evidence excerpt copied from the analyzed sample text.
-             */
-            excerpt: string;
-            /**
-             * Location
-             * @description Timestamp, chapter, paragraph, or fallback location for the excerpt.
-             */
-            location: string;
-        };
-        /** ExecutiveSummary */
-        ExecutiveSummary: {
-            /**
-             * Summary
-             * @description Concise Chinese summary under 300 words.
-             */
-            summary: string;
-            /**
-             * Representative Evidence
-             * @description Representative excerpts that support the summary.
-             */
-            representative_evidence: components["schemas"]["EvidenceSnippet"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -662,69 +573,11 @@ export interface components {
             /** Style Profile Id */
             style_profile_id?: string | null;
         };
-        /** PromptPack */
-        PromptPack: {
-            /**
-             * System Prompt
-             * @description Reusable global style system prompt.
-             */
-            system_prompt: string;
-            /** @description Scene-specific reusable prompts. */
-            scene_prompts: components["schemas"]["StyleScenePrompts"];
-            /**
-             * Hard Constraints
-             * @description Non-negotiable style constraints.
-             */
-            hard_constraints: string[];
-            /** @description Compact controllable style knobs. */
-            style_controls: components["schemas"]["PromptPackStyleControls"];
-            /**
-             * Few Shot Slots
-             * @description Reusable few-shot placeholders.
-             */
-            few_shot_slots: components["schemas"]["PromptPackFewShotSlot"][];
-        };
-        /** PromptPackFewShotSlot */
-        PromptPackFewShotSlot: {
-            /**
-             * Label
-             * @description Few-shot slot label.
-             */
-            label: string;
-            /**
-             * Type
-             * @description Few-shot category.
-             */
-            type: string;
-            /**
-             * Text
-             * @description Short illustrative sample text.
-             */
-            text: string;
-            /**
-             * Purpose
-             * @description Why this few-shot slot exists.
-             */
-            purpose: string;
-        };
-        /** PromptPackStyleControls */
-        PromptPackStyleControls: {
-            /**
-             * Tone
-             * @description Tone control for style generation.
-             */
-            tone: string;
-            /**
-             * Rhythm
-             * @description Rhythm control for style generation.
-             */
-            rhythm: string;
-            /**
-             * Evidence Anchor
-             * @description How generation should stay anchored to evidence.
-             */
-            evidence_anchor: string;
-        };
+        /**
+         * PromptPackMarkdown
+         * @description Reusable markdown prompt pack.
+         */
+        PromptPackMarkdown: string;
         /** ProviderConfigCreate */
         ProviderConfigCreate: {
             /** Label */
@@ -797,41 +650,6 @@ export interface components {
             default_model: string;
             /** Is Enabled */
             is_enabled: boolean;
-        };
-        /** SectionFinding */
-        SectionFinding: {
-            /**
-             * Label
-             * @description Short label for this style feature.
-             */
-            label: string;
-            /**
-             * Summary
-             * @description Evidence-grounded explanation in simplified Chinese.
-             */
-            summary: string;
-            /**
-             * Frequency
-             * @description Observed frequency or low-evidence note.
-             */
-            frequency: string;
-            /**
-             * Confidence
-             * @description Confidence level supported by evidence.
-             * @enum {string}
-             */
-            confidence: "high" | "medium" | "low";
-            /**
-             * Is Weak Judgment
-             * @description True when the conclusion is evidence-limited or inferential.
-             * @default false
-             */
-            is_weak_judgment: boolean;
-            /**
-             * Evidence
-             * @description Evidence excerpts supporting this finding.
-             */
-            evidence: components["schemas"]["EvidenceSnippet"][];
         };
         /** SetupRequest */
         SetupRequest: {
@@ -927,9 +745,12 @@ export interface components {
             /** Style Profile Id */
             style_profile_id?: string | null;
             analysis_meta?: components["schemas"]["AnalysisMeta"] | null;
-            analysis_report?: components["schemas"]["AnalysisReport"] | null;
-            style_summary?: components["schemas"]["StyleSummary"] | null;
-            prompt_pack?: components["schemas"]["PromptPack"] | null;
+            /** Analysis Report Markdown */
+            analysis_report_markdown?: string | null;
+            /** Style Summary Markdown */
+            style_summary_markdown?: string | null;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown?: string | null;
             style_profile?: components["schemas"]["StyleProfileEmbeddedResponse"] | null;
         };
         /** StyleAnalysisJobStatusResponse */
@@ -955,10 +776,14 @@ export interface components {
         StyleProfileCreate: {
             /** Job Id */
             job_id: string;
+            /** Style Name */
+            style_name: string;
             /** Mount Project Id */
             mount_project_id?: string | null;
-            style_summary: components["schemas"]["StyleSummary"];
-            prompt_pack: components["schemas"]["PromptPack"];
+            /** Style Summary Markdown */
+            style_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
         };
         /** StyleProfileEmbeddedResponse */
         StyleProfileEmbeddedResponse: {
@@ -974,9 +799,12 @@ export interface components {
             source_filename: string;
             /** Style Name */
             style_name: string;
-            analysis_report: components["schemas"]["AnalysisReport"];
-            style_summary: components["schemas"]["StyleSummary"];
-            prompt_pack: components["schemas"]["PromptPack"];
+            /** Analysis Report Markdown */
+            analysis_report_markdown: string;
+            /** Style Summary Markdown */
+            style_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
             /**
              * Created At
              * Format: date-time
@@ -1025,9 +853,12 @@ export interface components {
             source_filename: string;
             /** Style Name */
             style_name: string;
-            analysis_report: components["schemas"]["AnalysisReport"];
-            style_summary: components["schemas"]["StyleSummary"];
-            prompt_pack: components["schemas"]["PromptPack"];
+            /** Analysis Report Markdown */
+            analysis_report_markdown: string;
+            /** Style Summary Markdown */
+            style_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
             /**
              * Created At
              * Format: date-time
@@ -1041,10 +872,14 @@ export interface components {
         };
         /** StyleProfileUpdate */
         StyleProfileUpdate: {
+            /** Style Name */
+            style_name: string;
             /** Mount Project Id */
             mount_project_id?: string | null;
-            style_summary: components["schemas"]["StyleSummary"];
-            prompt_pack: components["schemas"]["PromptPack"];
+            /** Style Summary Markdown */
+            style_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
         };
         /** StyleSampleFileResponse */
         StyleSampleFileResponse: {
@@ -1071,90 +906,11 @@ export interface components {
              */
             updated_at: string;
         };
-        /** StyleScenePrompts */
-        StyleScenePrompts: {
-            /**
-             * Dialogue
-             * @description Reusable prompt for dialogue scenes.
-             */
-            dialogue: string;
-            /**
-             * Action
-             * @description Reusable prompt for action scenes.
-             */
-            action: string;
-            /**
-             * Environment
-             * @description Reusable prompt for environment scenes.
-             */
-            environment: string;
-        };
-        /** StyleSummary */
-        StyleSummary: {
-            /**
-             * Style Name
-             * @description Editable display name for the style.
-             */
-            style_name: string;
-            /**
-             * Style Positioning
-             * @description Compact positioning statement for the style.
-             */
-            style_positioning: string;
-            /**
-             * Core Features
-             * @description Core style features backed by the analysis report.
-             */
-            core_features: string[];
-            /**
-             * Lexical Preferences
-             * @description Preferred words, phrases, and lexical patterns.
-             */
-            lexical_preferences: string[];
-            /**
-             * Rhythm Profile
-             * @description Sentence rhythm and paragraph cadence controls.
-             */
-            rhythm_profile: string[];
-            /**
-             * Punctuation Profile
-             * @description Punctuation habits to preserve or avoid.
-             */
-            punctuation_profile: string[];
-            /**
-             * Imagery And Themes
-             * @description Recurring images, metaphors, and motifs.
-             */
-            imagery_and_themes: string[];
-            /**
-             * Scene Strategies
-             * @description Scene-specific writing strategies.
-             */
-            scene_strategies: components["schemas"]["StyleSummarySceneStrategy"][];
-            /**
-             * Avoid Or Rare
-             * @description Patterns that are absent, rare, or should be avoided.
-             */
-            avoid_or_rare: string[];
-            /**
-             * Generation Notes
-             * @description Practical notes for downstream generation.
-             */
-            generation_notes: string[];
-        };
-        /** StyleSummarySceneStrategy */
-        StyleSummarySceneStrategy: {
-            /**
-             * Scene
-             * @description Scene category such as dialogue, action, or environment.
-             */
-            scene: string;
-            /**
-             * Instruction
-             * @description Actionable generation instruction for the scene.
-             */
-            instruction: string;
-        };
+        /**
+         * StyleSummaryMarkdown
+         * @description Editable markdown style summary.
+         */
+        StyleSummaryMarkdown: string;
         /** UserResponse */
         UserResponse: {
             /** Id */
@@ -1897,7 +1653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AnalysisReport"];
+                    "application/json": components["schemas"]["AnalysisReportMarkdown"];
                 };
             };
             /** @description Validation Error */
@@ -1928,7 +1684,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleSummary"];
+                    "application/json": components["schemas"]["StyleSummaryMarkdown"];
                 };
             };
             /** @description Validation Error */
@@ -1959,7 +1715,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PromptPack"];
+                    "application/json": components["schemas"]["PromptPackMarkdown"];
                 };
             };
             /** @description Validation Error */

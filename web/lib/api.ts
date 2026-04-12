@@ -53,7 +53,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  updateProviderConfig: (id: string, payload: ProviderPayload) =>
+  updateProviderConfig: (id: string, payload: Partial<ProviderPayload>) =>
     request<ProviderConfig>(`/api/v1/provider-configs/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -66,8 +66,14 @@ export const api = {
     request<void>(`/api/v1/provider-configs/${id}`, {
       method: "DELETE",
     }),
-  getProjects: (includeArchived: boolean) =>
-    request<Project[]>(`/api/v1/projects?include_archived=${includeArchived}`),
+  getProjects: (params?: { includeArchived?: boolean; offset?: number; limit?: number }) => {
+    const includeArchived = params?.includeArchived ?? false;
+    const offset = params?.offset ?? 0;
+    const limit = params?.limit ?? 50;
+    return request<Project[]>(
+      `/api/v1/projects?include_archived=${includeArchived}&offset=${offset}&limit=${limit}`
+    );
+  },
   getProject: (id: string) => request<Project>(`/api/v1/projects/${id}`),
   createProject: (payload: ProjectPayload) =>
     request<Project>("/api/v1/projects", {

@@ -5,19 +5,17 @@ import * as React from "react";
 import {
   STYLE_ANALYSIS_JOB_PROCESSING_STATUSES,
   STYLE_ANALYSIS_JOB_STATUS,
-  type AnalysisReport,
   type StyleAnalysisJob,
   type StyleProfile,
 } from "@/lib/types";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReportStep({
   job,
   existingProfile,
-  report,
+  reportMarkdown,
   isLoading,
   isError,
   errorMessage,
@@ -25,7 +23,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
 }: {
   job: StyleAnalysisJob;
   existingProfile: StyleProfile | null;
-  report: AnalysisReport | null;
+  reportMarkdown: string | null;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
@@ -57,41 +55,15 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
         <Card>
           <CardHeader>
             <CardTitle>完整分析报告</CardTitle>
-            <CardDescription>这是 AI 提取的原始风格分析报告，仅供审阅。</CardDescription>
+            <CardDescription>这是 AI 生成的 Markdown 分析报告，仅供审阅。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {isLoading && !existingProfile ? <p>加载中...</p> : null}
-            {isError && !existingProfile ? (
-              <p className="text-destructive">{errorMessage}</p>
-            ) : null}
-            {report ? (
-              <>
-                <div className="rounded-lg border bg-zinc-50 p-4 dark:bg-zinc-900">
-                  <h3 className="font-semibold text-lg mb-2">执行摘要</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {report.executive_summary.summary}
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  {report.sections.map((section) => (
-                    <div key={section.section} className="rounded-lg border p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="secondary">{section.section}</Badge>
-                        <h3 className="font-medium">{section.title}</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4">{section.overview}</p>
-                      <div className="grid gap-3">
-                        {section.findings.map((finding) => (
-                          <div key={finding.label} className="bg-muted/50 rounded p-3 text-sm">
-                            <div className="font-medium mb-1">{finding.label}</div>
-                            <div className="text-muted-foreground">{finding.summary}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+            {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
+            {reportMarkdown ? (
+              <pre className="overflow-x-auto rounded-lg border bg-zinc-50 p-4 text-sm leading-relaxed whitespace-pre-wrap dark:bg-zinc-900">
+                {reportMarkdown}
+              </pre>
             ) : (
               <p>无报告数据。</p>
             )}

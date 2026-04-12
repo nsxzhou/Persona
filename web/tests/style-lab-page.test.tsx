@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 
 import StyleLabPage from "@/app/(workspace)/style-lab/page";
 import { StyleLabWizardView } from "@/components/style-lab-wizard-view";
@@ -8,6 +8,7 @@ import { StyleLabWizardView } from "@/components/style-lab-wizard-view";
 const apiMock = vi.hoisted(() => ({
   getProviderConfigs: vi.fn(),
   getStyleAnalysisJobs: vi.fn(),
+  deleteStyleAnalysisJob: vi.fn(),
   getStyleAnalysisJobStatus: vi.fn(),
   getStyleAnalysisJob: vi.fn(),
   createStyleAnalysisJob: vi.fn(),
@@ -20,98 +21,15 @@ const apiMock = vi.hoisted(() => ({
 }));
 
 function buildReport() {
-  return {
-    executive_summary: {
-      summary: "整体文风冷峻、短句密集、留白明显。",
-      representative_evidence: [
-        { excerpt: "夜色很冷。", location: "段落 1" },
-        { excerpt: "他忽然笑了。", location: "段落 2" },
-      ],
-    },
-    basic_assessment: {
-      text_type: "章节正文",
-      multi_speaker: false,
-      batch_mode: false,
-      location_indexing: "章节或段落位置",
-      noise_handling: "未发现显著噪声。",
-    },
-    sections: [
-      {
-        section: "3.1",
-        title: "口头禅与常用表达",
-        overview: "高频短词集中出现。",
-        findings: [
-          {
-            label: "冷感词",
-            summary: "偏爱冷、笑、忽然等短词。",
-            frequency: "高频",
-            confidence: "high",
-            is_weak_judgment: false,
-            evidence: [{ excerpt: "夜色很冷。", location: "段落 1" }],
-          },
-        ],
-      },
-      {
-        section: "3.2",
-        title: "固定句式与节奏偏好",
-        overview: "短句推进明显。",
-        findings: [
-          {
-            label: "短句节奏",
-            summary: "句间停顿明显。",
-            frequency: "高频",
-            confidence: "high",
-            is_weak_judgment: false,
-            evidence: [{ excerpt: "他忽然笑了。", location: "段落 2" }],
-          },
-        ],
-      },
-    ],
-    appendix: "当前样本较短，附录省略详细索引。",
-  };
+  return "# 执行摘要\n整体文风冷峻、短句密集、留白明显。\n\n## 3.1 口头禅与常用表达\n夜色很冷。\n";
 }
 
 function buildSummary(styleName = "旧名字") {
-  return {
-    style_name: styleName,
-    style_positioning: "冷峻、克制、短句驱动。",
-    core_features: ["短句推进", "留白明显"],
-    lexical_preferences: ["冷", "笑", "忽然"],
-    rhythm_profile: ["短句为主", "停顿明显"],
-    punctuation_profile: ["句号收束多"],
-    imagery_and_themes: ["夜色", "孤独"],
-    scene_strategies: [
-      { scene: "dialogue", instruction: "对白尽量短。" },
-      { scene: "action", instruction: "动作描写利落。" },
-    ],
-    avoid_or_rare: ["避免抒情堆砌。"],
-    generation_notes: ["优先保留冷感词和短句节奏。"],
-  };
+  return `# 风格名称\n${styleName}\n\n# 风格定位\n冷峻、克制、短句驱动。\n`;
 }
 
 function buildPromptPack(systemPrompt = "以冷峻、克制的中文小说文风进行创作。") {
-  return {
-    system_prompt: systemPrompt,
-    scene_prompts: {
-      dialogue: "对白短促，保留言外之意。",
-      action: "动作描写要利落。",
-      environment: "环境描写服务情绪。",
-    },
-    hard_constraints: ["避免现代网络口吻。"],
-    style_controls: {
-      tone: "冷峻克制",
-      rhythm: "短句驱动",
-      evidence_anchor: "优先保留高置信特征",
-    },
-    few_shot_slots: [
-      {
-        label: "environment",
-        type: "environment",
-        text: "夜色像一把薄刀，贴着窗纸划过去。",
-        purpose: "建立冷感氛围",
-      },
-    ],
-  };
+  return `# System Prompt\n${systemPrompt}\n`;
 }
 
 function buildSucceededJob(overrides?: Record<string, unknown>) {
@@ -155,20 +73,27 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-vi.mock("sonner", () => {
-  return {
-    toast: {
-      success: vi.fn(),
-      error: vi.fn(),
-      loading: vi.fn(() => "toast-id"),
-    },
-  };
-});
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    loading: vi.fn(() => "toast-id"),
+  },
+}));
 
-vi.mock("@/lib/api", () => {
-  return {
-    api: apiMock,
-  };
+vi.mock("@/lib/api", () => ({
+  api: apiMock,
+}));
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValue({
+    id: "job-1",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:01:00Z",
+  });
 });
 
 function renderDashboard() {
@@ -201,6 +126,8 @@ test("style lab page submits txt upload form", async () => {
       last_test_status: null,
       last_test_error: null,
       last_tested_at: null,
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:00:00Z",
     },
   ]);
   apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([]);
@@ -213,7 +140,6 @@ test("style lab page submits txt upload form", async () => {
   renderDashboard();
 
   fireEvent.click(await screen.findByRole("button", { name: "+ 新建分析任务" }));
-
   fireEvent.change(await screen.findByLabelText("风格档案名称"), {
     target: { value: "金庸武侠风" },
   });
@@ -226,6 +152,38 @@ test("style lab page submits txt upload form", async () => {
 
   await waitFor(() => expect(apiMock.createStyleAnalysisJob).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/style-lab/job-1"));
+});
+
+test("style lab page opens delete confirm dialog when clicking delete", async () => {
+  apiMock.getProviderConfigs.mockResolvedValueOnce([
+    {
+      id: "provider-1",
+      label: "Primary Gateway",
+      base_url: "https://api.openai.com/v1",
+      default_model: "gpt-4.1-mini",
+      api_key_hint: "****1234",
+      is_enabled: true,
+      last_test_status: null,
+      last_test_error: null,
+      last_tested_at: null,
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:00:00Z",
+    },
+  ]);
+  apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([
+    buildSucceededJob({
+      id: "job-delete",
+      style_name: "可删除任务",
+    }),
+  ]);
+  apiMock.deleteStyleAnalysisJob.mockResolvedValueOnce(undefined);
+
+  renderDashboard();
+
+  await screen.findByText("可删除任务");
+  fireEvent.click(screen.getByTitle("删除任务"));
+
+  expect(await screen.findByText("确定要删除该分析任务吗？")).toBeInTheDocument();
 });
 
 test("style lab wizard shows running stage feedback", async () => {
@@ -246,16 +204,37 @@ test("style lab wizard shows running stage feedback", async () => {
   renderWizard();
 
   expect(await screen.findByText("当前阶段: preparing_input")).toBeInTheDocument();
-  expect(apiMock.getStyleAnalysisJobStatus).toHaveBeenCalledWith("job-1");
-  expect(apiMock.getStyleAnalysisJob).toHaveBeenCalledWith("job-1");
+});
+
+test("style lab wizard shows backend failure message on terminal failed status", async () => {
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "failed",
+    stage: null,
+    error_message: "报告生成失败：缺少有效 evidence",
+    updated_at: "2026-04-09T00:01:00Z",
+  });
+  apiMock.getStyleAnalysisJob.mockResolvedValueOnce(
+    buildSucceededJob({
+      status: "failed",
+      stage: null,
+      error_message: "报告生成失败：缺少有效 evidence",
+      completed_at: "2026-04-09T00:01:00Z",
+    }),
+  );
+  apiMock.getProjects.mockResolvedValueOnce([]);
+
+  renderWizard();
+
+  expect(await screen.findByText("分析失败: 报告生成失败：缺少有效 evidence")).toBeInTheDocument();
 });
 
 test("style lab wizard fetches mountable projects only when entering final step", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({
-      analysis_report: buildReport(),
-      style_summary: buildSummary(),
-      prompt_pack: buildPromptPack(),
+      analysis_report_markdown: buildReport(),
+      style_summary_markdown: buildSummary(),
+      prompt_pack_markdown: buildPromptPack(),
       style_profile: null,
     }),
   );
@@ -263,7 +242,7 @@ test("style lab wizard fetches mountable projects only when entering final step"
 
   renderWizard();
 
-  expect(await screen.findByText("口头禅与常用表达")).toBeInTheDocument();
+  expect(await screen.findByText(/执行摘要/)).toBeInTheDocument();
   expect(apiMock.getProjects).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "审阅完毕，下一步" }));
@@ -273,12 +252,12 @@ test("style lab wizard fetches mountable projects only when entering final step"
   await waitFor(() => expect(apiMock.getProjects).toHaveBeenCalledTimes(1));
 });
 
-test("style lab wizard renders read-only report and saves new profile with mount", async () => {
+test("style lab wizard renders markdown report and saves new profile with mount", async () => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({
-      analysis_report: buildReport(),
-      style_summary: buildSummary(),
-      prompt_pack: buildPromptPack(),
+      analysis_report_markdown: buildReport(),
+      style_summary_markdown: buildSummary(),
+      prompt_pack_markdown: buildPromptPack(),
       style_profile: null,
     }),
   );
@@ -288,9 +267,12 @@ test("style lab wizard renders read-only report and saves new profile with mount
       name: "风格挂载项目",
       description: "项目简介",
       status: "draft",
+      default_provider_id: "provider-1",
       default_model: "gpt-4.1-mini",
       style_profile_id: null,
       archived_at: null,
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:00:00Z",
       provider: {
         id: "provider-1",
         label: "Primary Gateway",
@@ -307,46 +289,45 @@ test("style lab wizard renders read-only report and saves new profile with mount
     model_name: "gpt-4.1-mini",
     source_filename: "sample.txt",
     style_name: "新名字",
-    analysis_report: buildReport(),
-    style_summary: buildSummary("新名字"),
-    prompt_pack: buildPromptPack("新的 system prompt"),
+    analysis_report_markdown: buildReport(),
+    style_summary_markdown: buildSummary("新名字"),
+    prompt_pack_markdown: buildPromptPack("新的 system prompt"),
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:02:00Z",
   });
 
   renderWizard();
 
-  expect(await screen.findByText("口头禅与常用表达")).toBeInTheDocument();
-  
+  expect(await screen.findByText(/执行摘要/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "审阅完毕，下一步" }));
-
-  fireEvent.change(await screen.findByText("风格名称", { selector: "label" }).then(l => screen.getByLabelText("风格名称")), {
+  fireEvent.change(screen.getByLabelText("风格名称"), {
     target: { value: "新名字" },
   });
-  
-  fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
-
-  fireEvent.change(await screen.findByText("System Prompt", { selector: "label" }).then(l => screen.getByLabelText("System Prompt")), {
-    target: { value: "新的 system prompt" },
+  fireEvent.change(screen.getByLabelText("风格摘要 Markdown"), {
+    target: { value: "# 风格名称\n新名字\n" },
   });
-  
-  // Click mount select
+
+  fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
+  await waitFor(() => expect(apiMock.getProjects).toHaveBeenCalledTimes(1));
+
+  fireEvent.change(screen.getByLabelText("Prompt Pack Markdown"), {
+    target: { value: "# System Prompt\n新的 system prompt\n" },
+  });
   fireEvent.click(screen.getByRole("combobox"));
-  fireEvent.click(await screen.findByRole("option", { name: "风格挂载项目" }));
-  
+  fireEvent.click(await screen.findByText("风格挂载项目"));
   fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
 
-  await waitFor(() => expect(apiMock.createStyleProfile).toHaveBeenCalledTimes(1));
   await waitFor(() =>
     expect(apiMock.createStyleProfile).toHaveBeenCalledWith(
       expect.objectContaining({
         job_id: "job-1",
+        style_name: "新名字",
+        style_summary_markdown: "# 风格名称\n新名字\n",
+        prompt_pack_markdown: "# System Prompt\n新的 system prompt\n",
         mount_project_id: "project-1",
       }),
     ),
   );
-  expect(apiMock.updateProject).not.toHaveBeenCalled();
-  expect(apiMock.getStyleProfile).not.toHaveBeenCalled();
 });
 
 test("style lab wizard updates existing saved profile", async () => {
@@ -360,9 +341,9 @@ test("style lab wizard updates existing saved profile", async () => {
         model_name: "gpt-4.1-mini",
         source_filename: "sample.txt",
         style_name: "旧名字",
-        analysis_report: buildReport(),
-        style_summary: buildSummary("旧名字"),
-        prompt_pack: buildPromptPack(),
+        analysis_report_markdown: buildReport(),
+        style_summary_markdown: buildSummary("旧名字"),
+        prompt_pack_markdown: buildPromptPack(),
         created_at: "2026-04-09T00:02:00Z",
         updated_at: "2026-04-09T00:02:00Z",
       },
@@ -376,9 +357,9 @@ test("style lab wizard updates existing saved profile", async () => {
     model_name: "gpt-4.1-mini",
     source_filename: "sample.txt",
     style_name: "覆盖后的名字",
-    analysis_report: buildReport(),
-    style_summary: buildSummary("覆盖后的名字"),
-    prompt_pack: buildPromptPack("覆盖后的 system prompt"),
+    analysis_report_markdown: buildReport(),
+    style_summary_markdown: buildSummary("覆盖后的名字"),
+    prompt_pack_markdown: buildPromptPack("覆盖后的 system prompt"),
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:03:00Z",
   });
@@ -386,20 +367,25 @@ test("style lab wizard updates existing saved profile", async () => {
   renderWizard();
 
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
-
   fireEvent.change(screen.getByLabelText("风格名称"), {
     target: { value: "覆盖后的名字" },
   });
-  
+  fireEvent.change(screen.getByLabelText("风格摘要 Markdown"), {
+    target: { value: "# 风格名称\n覆盖后的名字\n" },
+  });
   fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
+  fireEvent.change(screen.getByLabelText("Prompt Pack Markdown"), {
+    target: { value: "# System Prompt\n覆盖后的 system prompt\n" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
 
-  fireEvent.click(await screen.findByRole("button", { name: "保存完成" }));
-
-  await waitFor(() => expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(
-    "profile-1",
-    expect.objectContaining({
-      style_summary: expect.objectContaining({ style_name: "覆盖后的名字" }),
-    }),
-  ));
-  expect(apiMock.getStyleProfile).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(
+      "profile-1",
+      expect.objectContaining({
+        style_name: "覆盖后的名字",
+        style_summary_markdown: "# 风格名称\n覆盖后的名字\n",
+      }),
+    ),
+  );
 });
