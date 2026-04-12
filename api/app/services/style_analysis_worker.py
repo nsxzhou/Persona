@@ -266,7 +266,6 @@ class StyleAnalysisWorkerService:
             # 读样本文件流并切块，同时做输入分类与字符统计
             chunk_count, character_count, base_classification = await read_chunks_and_classification(
                 self.storage_service.stream_file(job.sample_file.id),
-                chunk_size=4000,
                 on_chunk=persist_chunk,
             )
 

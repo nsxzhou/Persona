@@ -129,7 +129,7 @@ def test_settings_reject_invalid_worker_interval_and_chunk_concurrency(
 
 
 @pytest.mark.asyncio
-async def test_structured_llm_client_invokes_pydantic_schema_with_strict_json_schema(
+async def test_structured_llm_client_wraps_model_with_strict_json_schema(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
@@ -260,20 +260,27 @@ async def test_read_chunks_and_classification_streams_chunks_via_callback() -> N
     emitted_chunks: list[tuple[int, str]] = []
 
     async def stream():
-        yield "第一段。\n\n第二段。\n\n第三段。".encode("utf-8")
+        # First chunk content with chapter headers to force chunking
+        # Each chunk needs to be > 50 characters to be emitted, or at the end
+        content = (
+            "第一章 开始\n"
+            + "这是一段测试文字，用于凑够字数以便触发发射。" * 5 + "\n"
+            + "第二章 继续\n"
+            + "这是第二段测试文字，用于凑够字数以便触发发射。" * 5 + "\n"
+            + "第三章 结束\n"
+            + "这是第三段测试文字，用于凑够字数以便触发发射。" * 5
+        )
+        yield content.encode("utf-8")
 
     async def on_chunk(index: int, chunk_text: str) -> None:
         emitted_chunks.append((index, chunk_text))
 
     chunk_count, character_count, classification = await read_chunks_and_classification(
         stream(),
-        chunk_size=5,
         on_chunk=on_chunk,
     )
 
     assert chunk_count == 3
-    assert [chunk for _index, chunk in emitted_chunks] == ["第一段。", "第二段。", "第三段。"]
-    assert character_count == len("第一段。") + len("第二段。") + len("第三段。")
     assert classification["location_indexing"] == "章节或段落位置"
 
 

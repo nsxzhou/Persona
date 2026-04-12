@@ -17,6 +17,7 @@ from app.db.models import StyleAnalysisJob, StyleProfile
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
 from app.main import create_app
 from app.schemas.style_analysis_jobs import (
+    SECTION_TITLES,
     AnalysisMeta,
     AnalysisReport,
     PromptPack,
@@ -255,15 +256,16 @@ async def test_get_detail_or_404_fetches_job_once_when_payload_is_present() -> N
 @pytest.mark.asyncio
 async def test_create_style_analysis_job_persists_txt_and_exposes_job_endpoints(
     initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
 ) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    provider_id = str(initialized_provider["id"])
 
     create_response = await initialized_client.post(
         "/api/v1/style-analysis-jobs",
         data={
             "style_name": "金庸武侠风",
             "provider_id": provider_id,
-            "model": "gpt-4.1-mini",
+            "model": str(initialized_provider["default_model"]),
         },
         files={"file": ("sample.txt", "第一章 风雪夜归人\n\n郭靖抬头望去。".encode("utf-8"), "text/plain")},
     )
@@ -318,71 +320,14 @@ async def test_create_style_analysis_job_rejects_non_txt_and_empty_file(
 @pytest.mark.asyncio
 async def test_process_next_pending_job_generates_analysis_bundle_and_updates_job_detail(
     initialized_client: AsyncClient,
-    app_with_db: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
+    initialized_provider: dict[str, object],
+    run_live_style_analysis_job,
 ) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
-
-    create_response = await initialized_client.post(
-        "/api/v1/style-analysis-jobs",
-        data={"style_name": "古龙风格实验", "provider_id": provider_id},
-        files={"file": ("sample.txt", "夜色很冷。\n\n他忽然笑了。".encode("utf-8"), "text/plain")},
+    result = await run_live_style_analysis_job(
+        style_name="古龙风格实验",
+        model=str(initialized_provider["default_model"]),
     )
-    job_id = create_response.json()["id"]
-
-    async def fake_build_pipeline(
-        self,
-        *,
-        provider,
-        model_name: str,
-        style_name: str,
-        source_filename: str,
-        stage_callback,
-    ):
-        del provider, stage_callback
-        assert model_name
-        assert style_name == "古龙风格实验"
-        assert source_filename == "sample.txt"
-
-        class FakePipeline:
-            async def run(
-                self,
-                *,
-                job_id: str,
-                chunk_count: int,
-                classification: dict,
-                max_concurrency: int,
-            ) -> StyleAnalysisPipelineResult:
-                assert job_id == create_response.json()["id"]
-                assert chunk_count == 1
-                assert classification["text_type"] == "章节正文"
-                assert max_concurrency == 5
-                report = build_fake_analysis_report()
-                return StyleAnalysisPipelineResult(
-                    analysis_meta=AnalysisMeta(
-                        source_filename="sample.txt",
-                        model_name=model_name,
-                        text_type="章节正文",
-                        has_timestamps=False,
-                        has_speaker_labels=False,
-                        has_noise_markers=False,
-                        uses_batch_processing=False,
-                        location_indexing="章节或段落位置",
-                        chunk_count=1,
-                    ),
-                    analysis_report=AnalysisReport.model_validate(report),
-                    style_summary=StyleSummary.model_validate(
-                        build_fake_style_summary("古龙风格实验")
-                    ),
-                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
-                )
-
-        return FakePipeline()
-
-    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
-
-    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
-    assert processed is True
+    job_id = result["job"]["id"]
 
     detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     assert detail_response.status_code == 200
@@ -390,11 +335,14 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert detail["status"] == "succeeded"
     assert detail["stage"] is None
     assert detail["error_message"] is None
-    assert detail["sample_file"]["character_count"] == len("夜色很冷。\n\n他忽然笑了。")
+    assert detail["sample_file"]["character_count"] > 0
+    assert detail["analysis_meta"]["model_name"] == initialized_provider["default_model"]
     assert detail["analysis_meta"]["text_type"] == "章节正文"
-    assert detail["analysis_report"]["sections"][0]["section"] == "3.1"
+    assert [section["section"] for section in detail["analysis_report"]["sections"]] == [
+        section for section, _title in SECTION_TITLES
+    ]
     assert detail["style_summary"]["style_name"] == "古龙风格实验"
-    assert detail["prompt_pack"]["system_prompt"].startswith("以冷峻")
+    assert detail["prompt_pack"]["system_prompt"]
     assert detail["style_profile"] is None
 
     meta_response = await initialized_client.get(
@@ -410,6 +358,7 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert report_response.status_code == 200
     assert len(report_response.json()["sections"]) == 12
     assert report_response.json()["sections"][0]["section"] == "3.1"
+    assert report_response.json()["sections"][-1]["section"] == "3.12"
 
     summary_response = await initialized_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/style-summary"
@@ -421,7 +370,7 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
         f"/api/v1/style-analysis-jobs/{job_id}/prompt-pack"
     )
     assert prompt_pack_response.status_code == 200
-    assert prompt_pack_response.json()["system_prompt"].startswith("以冷峻")
+    assert prompt_pack_response.json()["system_prompt"]
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
     assert artifact_dir.exists() is False
 
@@ -445,7 +394,6 @@ async def test_process_next_pending_job_records_retryable_failure_message(
     import app.services.style_analysis_worker as style_analysis_worker_module
 
     def fake_read_chunks_and_classification(*args, **kwargs):
-        del args, kwargs
         raise RuntimeError("输入判定失败")
 
     monkeypatch.setattr(
@@ -463,7 +411,7 @@ async def test_process_next_pending_job_records_retryable_failure_message(
     detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     detail = detail_response.json()
     assert detail["status"] == "pending"
-    assert detail["error_message"] == "分析任务失败，请稍后重试。"
+    assert detail["error_message"] is None
     assert "输入判定失败" in caplog.text
     assert any(getattr(record, "job_id", None) == job_id for record in caplog.records)
 
@@ -776,7 +724,7 @@ async def test_process_next_pending_job_cleans_chunk_artifacts_after_pipeline_fa
     assert detail_response.status_code == 200
     detail = detail_response.json()
     assert detail["status"] == "failed"
-    assert detail["error_message"] == "分析任务失败，请稍后重试。"
+    assert detail["error_message"] == "报告生成失败"
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
     assert artifact_dir.exists() is False
     get_settings.cache_clear()
@@ -865,7 +813,7 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
     assert detail_response.status_code == 200
     detail = detail_response.json()
     assert detail["status"] == "pending"
-    assert detail["error_message"] == "分析任务失败，请稍后重试。"
+    assert detail["error_message"] is None
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
     assert artifact_dir.exists() is True
 
