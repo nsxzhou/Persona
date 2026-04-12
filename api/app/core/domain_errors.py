@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from fastapi import HTTPException
-
 
 class DomainError(Exception):
     def __init__(self, status_code: int, detail: str) -> None:
@@ -38,7 +36,3 @@ class ConflictError(DomainError):
 class UnprocessableEntityError(DomainError):
     def __init__(self, detail: str) -> None:
         super().__init__(422, detail)
-
-
-def to_http_exception(error: DomainError) -> HTTPException:
-    return HTTPException(status_code=error.status_code, detail=error.detail)

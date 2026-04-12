@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import type { ProviderConfig } from "@/lib/types";
 
-export const DEFAULT_PROVIDER_BASE_URL = "https://api.openai.com/v1";
-export const DEFAULT_PROVIDER_MODEL = "gpt-4.1-mini";
+const DEFAULT_PROVIDER_BASE_URL = "https://api.openai.com/v1";
+const DEFAULT_PROVIDER_MODEL = "gpt-4.1-mini";
 
 type ProviderFormSchemaOptions = {
   requireApiKey?: boolean;

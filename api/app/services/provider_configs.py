@@ -74,10 +74,7 @@ class ProviderConfigService:
         *,
         user_id: str | None = None,
     ) -> ProviderConfig:
-        if user_id is None:
-            provider = await self.repository.get_by_id(session, provider_id)
-        else:
-            provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
+        provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
         if provider is None:
             raise NotFoundError("Provider 不存在")
         return provider
@@ -157,14 +154,7 @@ class ProviderConfigService:
     async def delete(
         self, session: AsyncSession, provider_id: str, *, user_id: str | None = None
     ) -> None:
-        if user_id is None:
-            provider = await self.repository.get_with_projects(session, provider_id)
-        else:
-            provider = await self.repository.get_with_projects(
-                session,
-                provider_id,
-                user_id=user_id,
-            )
+        provider = await self.repository.get_with_projects(session, provider_id, user_id=user_id)
         if provider is None:
             raise NotFoundError("Provider 不存在")
 
@@ -172,14 +162,7 @@ class ProviderConfigService:
         if has_active_project:
             raise ConflictError("该 Provider 正被项目引用，无法删除")
 
-        if user_id is None:
-            has_refs = await self.repository.has_style_lab_references(session, provider_id)
-        else:
-            has_refs = await self.repository.has_style_lab_references(
-                session,
-                provider_id,
-                user_id=user_id,
-            )
+        has_refs = await self.repository.has_style_lab_references(session, provider_id, user_id=user_id)
         if has_refs:
             raise ConflictError("该 Provider 正被 Style Lab 引用，无法删除")
 
@@ -192,10 +175,7 @@ class ProviderConfigService:
         *,
         user_id: str | None = None,
     ) -> ProviderConfig:
-        if user_id is None:
-            provider = await self.repository.get_by_id(session, provider_id)
-        else:
-            provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
+        provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
         if provider is None or not provider.is_enabled:
             raise UnprocessableEntityError("默认 Provider 不存在或未启用")
         return provider

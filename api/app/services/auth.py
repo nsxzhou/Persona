@@ -268,5 +268,10 @@ class AuthService:
             except OSError:
                 # 磁盘文件清理失败不影响数据库事务提交
                 continue
-        for job_id in artifact_job_ids:
-            await storage_service.cleanup_job_artifacts(job_id)
+                
+        if artifact_job_ids:
+            import asyncio
+            await asyncio.gather(*[
+                storage_service.cleanup_job_artifacts(job_id) 
+                for job_id in artifact_job_ids
+            ])

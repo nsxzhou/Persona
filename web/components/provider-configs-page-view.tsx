@@ -46,9 +46,16 @@ export function ProviderConfigsPageClient() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteProviderConfig(id),
     onError: (error) => toast.error(error.message),
-    onSuccess: async () => {
+    onSuccess: async (_, deletedId) => {
       toast.success("Provider 已删除");
-      await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
+      queryClient.setQueryData<ProviderConfig[]>(["provider-configs"], (current) => {
+        if (!current) return current;
+        return current.filter((provider) => provider.id !== deletedId);
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["provider-configs"],
+        refetchType: "none",
+      });
     },
   });
 
@@ -104,7 +111,10 @@ export function ProviderConfigsPageClient() {
         submitting={saveMutation.isPending}
         onOpenChange={setDialogOpen}
         onSubmit={async (values) => {
-          await saveMutation.mutateAsync(values);
+          await saveMutation.mutateAsync({
+            ...values,
+            api_key: values.api_key ?? "",
+          });
         }}
       />
     </div>

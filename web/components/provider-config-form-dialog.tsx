@@ -26,7 +26,7 @@ export function ProviderConfigFormDialog({
   provider: ProviderConfig | null;
   submitting: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: ProviderPayload) => Promise<void>;
+  onSubmit: (values: FormValues) => Promise<void>;
 }) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema, undefined, { mode: "sync" }),

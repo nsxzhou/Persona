@@ -16,6 +16,8 @@ test("provider configs page disables and marks the testing button while testing"
           last_test_status: "success",
           last_test_error: null,
           last_tested_at: "2026-04-07T12:00:00Z",
+          created_at: "2026-04-09T00:00:00Z",
+          updated_at: "2026-04-09T00:00:00Z",
         },
       ]}
       onOpenCreate={() => undefined}
