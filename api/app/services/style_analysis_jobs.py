@@ -10,8 +10,6 @@ from app.db.models import StyleAnalysisJob, StyleProfile
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
-    AnalysisReport,
-    PromptPack,
     STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
     STYLE_ANALYSIS_JOB_STATUS_FAILED,
     STYLE_ANALYSIS_JOB_STATUS_PENDING,
@@ -20,7 +18,6 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobResponse,
     StyleAnalysisJobStatusResponse,
     StyleProfileEmbeddedResponse,
-    StyleSummary,
 )
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_lab_mappers import (
@@ -37,8 +34,12 @@ STYLE_ANALYSIS_USER_ERROR_MESSAGE = "分析任务失败，请稍后重试。"
 
 
 def sanitize_style_analysis_error_message(error_message: str | None) -> str:
-    del error_message
-    return STYLE_ANALYSIS_USER_ERROR_MESSAGE
+    if error_message is None:
+        return STYLE_ANALYSIS_USER_ERROR_MESSAGE
+    normalized_message = error_message.strip()
+    if not normalized_message:
+        return STYLE_ANALYSIS_USER_ERROR_MESSAGE
+    return normalized_message
 
 
 def build_style_profile_embedded_response(
@@ -51,11 +52,13 @@ def build_style_profile_embedded_response(
 
 def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse:
     style_profile = build_style_profile_embedded_response(job.style_profile)
-    analysis_meta, analysis_report, style_summary, prompt_pack = build_job_result_bundle(job)
+    analysis_meta, analysis_report_markdown, style_summary_markdown, prompt_pack_markdown = (
+        build_job_result_bundle(job)
+    )
     if style_profile is not None:
-        analysis_report = style_profile.analysis_report
-        style_summary = style_profile.style_summary
-        prompt_pack = style_profile.prompt_pack
+        analysis_report_markdown = style_profile.analysis_report_markdown
+        style_summary_markdown = style_profile.style_summary_markdown
+        prompt_pack_markdown = style_profile.prompt_pack_markdown
     return StyleAnalysisJobResponse(
         id=job.id,
         style_name=job.style_name,
@@ -72,9 +75,9 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
         sample_file=job.sample_file,
         style_profile_id=job.style_profile_id,
         analysis_meta=analysis_meta,
-        analysis_report=analysis_report,
-        style_summary=style_summary,
-        prompt_pack=prompt_pack,
+        analysis_report_markdown=analysis_report_markdown,
+        style_summary_markdown=style_summary_markdown,
+        prompt_pack_markdown=prompt_pack_markdown,
         style_profile=style_profile,
     )
 
@@ -222,13 +225,13 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         user_id: str | None = None,
-    ) -> AnalysisReport:
+    ) -> str:
         return await self._get_payload_or_409(
             session,
             job_id,
             user_id=user_id,
             payload_column=StyleAnalysisJob.analysis_report_payload,
-            parser=AnalysisReport.model_validate,
+            parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取分析报告",
         )
 
@@ -238,13 +241,13 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         user_id: str | None = None,
-    ) -> StyleSummary:
+    ) -> str:
         return await self._get_payload_or_409(
             session,
             job_id,
             user_id=user_id,
             payload_column=StyleAnalysisJob.style_summary_payload,
-            parser=StyleSummary.model_validate,
+            parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取风格摘要",
         )
 
@@ -254,13 +257,13 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         user_id: str | None = None,
-    ) -> PromptPack:
+    ) -> str:
         return await self._get_payload_or_409(
             session,
             job_id,
             user_id=user_id,
             payload_column=StyleAnalysisJob.prompt_pack_payload,
-            parser=PromptPack.model_validate,
+            parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取 Prompt 包",
         )
 
@@ -305,9 +308,9 @@ class StyleAnalysisJobService:
     ) -> None:
         job = await self.get_or_404(session, job_id)
         job.analysis_meta_payload = result.analysis_meta.model_dump(mode="json")
-        job.analysis_report_payload = result.analysis_report.model_dump(mode="json")
-        job.style_summary_payload = result.style_summary.model_dump(mode="json")
-        job.prompt_pack_payload = result.prompt_pack.model_dump(mode="json")
+        job.analysis_report_payload = result.analysis_report_markdown
+        job.style_summary_payload = result.style_summary_markdown
+        job.prompt_pack_payload = result.prompt_pack_markdown
         job.status = STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None
         job.error_message = None
@@ -332,7 +335,9 @@ class StyleAnalysisJobService:
             else STYLE_ANALYSIS_JOB_STATUS_FAILED
         )
         job.stage = None
-        job.error_message = sanitize_style_analysis_error_message(error_message)
+        job.error_message = (
+            None if retryable else sanitize_style_analysis_error_message(error_message)
+        )
         job.started_at = None if retryable else job.started_at
         job.completed_at = None if retryable else datetime.now(UTC)
         job.locked_by = None

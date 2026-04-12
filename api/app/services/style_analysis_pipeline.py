@@ -21,20 +21,17 @@ from app.db.models import ProviderConfig
 # 所有分析阶段的 Pydantic 模型定义与阶段常量
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
-    AnalysisReport,
     ChunkAnalysis,
     MergedAnalysis,
-    PromptPack,
     STYLE_ANALYSIS_JOB_STAGE_AGGREGATING,
     STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS,
     STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK,
     STYLE_ANALYSIS_JOB_STAGE_REPORTING,
     STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING,
-    StyleSummary,
 )
 
-# StructuredLLMClient：结构化输出 LLM 客户端，保证输出符合指定 Pydantic Schema
-from app.services.style_analysis_llm import StructuredLLMClient
+# MarkdownLLMClient：Markdown 优先输出 LLM 客户端，保证输出符合 Markdown 格式要求
+from app.services.style_analysis_llm import MarkdownLLMClient
 
 # 所有阶段的 Prompt 构建函数，集中管理提示词模板
 from app.services.style_analysis_prompts import (
@@ -72,10 +69,10 @@ class StyleAnalysisState(TypedDict):
     classification: InputClassification  # 文本分类结果，影响所有阶段的 Prompt 生成
 
     # 以下字段会在流水线执行过程中逐步生成并填充到状态中
-    merged_analysis: NotRequired[dict[str, Any]]  # 多 chunk 聚合后的完整分析结果
-    analysis_report: NotRequired[dict[str, Any]]  # 结构化完整分析报告
-    style_summary: NotRequired[dict[str, Any]]  # 风格核心特征摘要
-    prompt_pack: NotRequired[dict[str, Any]]  # 可直接调用的风格母 Prompt 包
+    merged_analysis_markdown: NotRequired[str]  # 多 chunk 聚合后的完整 markdown 分析
+    analysis_report_markdown: NotRequired[str]  # 最终 markdown 分析报告
+    style_summary_markdown: NotRequired[str]  # markdown 风格摘要
+    prompt_pack_markdown: NotRequired[str]  # markdown 风格母 Prompt 包
     analysis_meta: NotRequired[dict[str, Any]]  # 分析元数据统计信息
 
 
@@ -108,9 +105,9 @@ StyleAnalysisPipelineResult 是流水线的最终输出，不可变数据类
 @dataclass(frozen=True)
 class StyleAnalysisPipelineResult:
     analysis_meta: AnalysisMeta  # 分析元数据（字符数、切块数、模型信息等）
-    analysis_report: AnalysisReport  # 完整多维度分析报告
-    style_summary: StyleSummary  # 风格摘要（核心特征提炼）
-    prompt_pack: PromptPack  # 风格母 Prompt 包（可直接用于生成）
+    analysis_report_markdown: str  # 完整 markdown 分析报告
+    style_summary_markdown: str  # markdown 风格摘要
+    prompt_pack_markdown: str  # markdown 风格母 Prompt 包
 
 
 # 阶段切换回调函数类型定义：当流水线进入新阶段时会被调用，用于更新任务状态
@@ -126,7 +123,7 @@ StyleAnalysisPipeline 是整个风格分析系统的核心执行引擎
 采用 LangGraph 状态机 + MapReduce 架构，实现：
 1. 可并行的分块深度分析
 2. 可中断恢复的断点续跑（通过 Checkpointer）
-3. 结构化输出保证（通过 StructuredLLMClient）
+3. Markdown 优先输出保证（通过 MarkdownLLMClient）
 4. 阶段进度回调（用于实时展示分析进度）
 
 完整执行流程：
@@ -142,8 +139,7 @@ class StyleAnalysisPipeline:
         model_name: str,  # 使用的模型名称
         style_name: str,  # 风格名称
         source_filename: str,  # 原始文件名
-        llm_client: StructuredLLMClient
-        | None = None,  # 可选注入的 LLM 客户端（便于测试）
+        llm_client: MarkdownLLMClient | None = None,  # 可选注入的 LLM 客户端（便于测试）
         checkpointer: Any | None = None,  # 可选注入的 Checkpointer（用于持久化断点）
         stage_callback: StageCallback | None = None,  # 阶段切换回调
     ) -> None:
@@ -152,8 +148,8 @@ class StyleAnalysisPipeline:
         self.style_name = style_name
         self.source_filename = source_filename
 
-        # 初始化结构化 LLM 客户端，所有 LLM 调用都通过此客户端保证输出格式正确
-        self.llm_client = llm_client or StructuredLLMClient()
+        # 初始化 Markdown LLM 客户端，所有 LLM 调用都通过此客户端输出纯文本 Markdown
+        self.llm_client = llm_client or MarkdownLLMClient()
         self.chat_model = self.llm_client.build_model(
             provider=provider, model_name=model_name
         )
@@ -216,11 +212,9 @@ class StyleAnalysisPipeline:
         # 反序列化最终状态中的所有产物，返回给调用方
         return StyleAnalysisPipelineResult(
             analysis_meta=AnalysisMeta.model_validate(final_state["analysis_meta"]),
-            analysis_report=AnalysisReport.model_validate(
-                final_state["analysis_report"]
-            ),
-            style_summary=StyleSummary.model_validate(final_state["style_summary"]),
-            prompt_pack=PromptPack.model_validate(final_state["prompt_pack"]),
+            analysis_report_markdown=str(final_state["analysis_report_markdown"]),
+            style_summary_markdown=str(final_state["style_summary_markdown"]),
+            prompt_pack_markdown=str(final_state["prompt_pack_markdown"]),
         )
 
     """
@@ -321,10 +315,9 @@ class StyleAnalysisPipeline:
             chunk_count=state["chunk_count"],
         )
 
-        # 调用结构化 LLM 客户端，保证输出严格符合 ChunkAnalysis Schema
-        analysis = await self.llm_client.ainvoke_structured(
+        # 调用 Markdown LLM 客户端，保证输出 Markdown 格式
+        markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
-            schema=ChunkAnalysis,
             prompt=prompt,
         )
 
@@ -332,7 +325,11 @@ class StyleAnalysisPipeline:
         await self.storage_service.write_chunk_analysis_artifact(
             state["job_id"],
             state["chunk_index"],
-            analysis.model_dump(mode="json"),
+            ChunkAnalysis(
+                chunk_index=state["chunk_index"],
+                chunk_count=state["chunk_count"],
+                markdown=markdown,
+            ).model_dump(mode="json"),
         )
 
         # 不返回任何数据到共享状态，所有中间结果通过存储传递
@@ -364,7 +361,7 @@ class StyleAnalysisPipeline:
             if merged is None and len(chunk_analyses) == 1:
                 merged = MergedAnalysis(
                     classification=state["classification"],
-                    sections=chunk_analyses[0].sections,
+                    markdown=chunk_analyses[0].markdown,
                 )
                 continue
 
@@ -374,20 +371,23 @@ class StyleAnalysisPipeline:
                 merge_inputs.insert(0, merged.model_dump(mode="json"))
 
             # 调用 LLM 执行增量合并
-            merged = await self.llm_client.ainvoke_structured(
+            markdown = await self.llm_client.ainvoke_markdown(
                 model=self.chat_model,
-                schema=MergedAnalysis,
                 prompt=build_merge_prompt(
                     chunk_analyses=merge_inputs,
                     classification=state["classification"],
                 ),
+            )
+            merged = MergedAnalysis(
+                classification=state["classification"],
+                markdown=markdown,
             )
 
         if merged is None:
             raise RuntimeError("聚合阶段没有读到任何 chunk 分析结果")
 
         # 将合并结果写入共享状态，供后续阶段使用
-        return {"merged_analysis": merged.model_dump(mode="json")}
+        return {"merged_analysis_markdown": merged.markdown}
 
     """
     报告生成节点：基于合并后的分析结果，生成完整的多维度分析报告
@@ -396,16 +396,15 @@ class StyleAnalysisPipeline:
     async def _build_report(self, state: StyleAnalysisState) -> dict[str, Any]:
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_REPORTING)
 
-        report = await self.llm_client.ainvoke_structured(
+        report_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
-            schema=AnalysisReport,
             prompt=build_report_prompt(
-                merged_analysis=state["merged_analysis"],
+                merged_analysis_markdown=state["merged_analysis_markdown"],
                 classification=state["classification"],
             ),
         )
 
-        return {"analysis_report": report.model_dump(mode="json")}
+        return {"analysis_report_markdown": report_markdown}
 
     """
     风格摘要节点：从完整报告中提炼核心风格特征，生成精简的风格摘要
@@ -414,16 +413,15 @@ class StyleAnalysisPipeline:
     async def _build_summary(self, state: StyleAnalysisState) -> dict[str, Any]:
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING)
 
-        summary = await self.llm_client.ainvoke_structured(
+        summary_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
-            schema=StyleSummary,
             prompt=build_style_summary_prompt(
-                report=state["analysis_report"],
+                report_markdown=state["analysis_report_markdown"],
                 style_name=state["style_name"],
             ),
         )
 
-        return {"style_summary": summary.model_dump(mode="json")}
+        return {"style_summary_markdown": summary_markdown}
 
     """
     Prompt 包生成节点：基于分析报告和风格摘要，生成可直接调用的完整 Prompt 包
@@ -433,16 +431,15 @@ class StyleAnalysisPipeline:
     async def _build_prompt_pack(self, state: StyleAnalysisState) -> dict[str, Any]:
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK)
 
-        prompt_pack = await self.llm_client.ainvoke_structured(
+        prompt_pack_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
-            schema=PromptPack,
             prompt=build_prompt_pack_prompt(
-                report=state["analysis_report"],
-                style_summary=state["style_summary"],
+                report_markdown=state["analysis_report_markdown"],
+                style_summary_markdown=state["style_summary_markdown"],
             ),
         )
 
-        return {"prompt_pack": prompt_pack.model_dump(mode="json")}
+        return {"prompt_pack_markdown": prompt_pack_markdown}
 
     """
     结果持久化节点：组装分析元数据，准备最终输出

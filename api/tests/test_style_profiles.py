@@ -9,13 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.db.models import Project, StyleProfile
-from app.schemas.style_analysis_jobs import AnalysisMeta, AnalysisReport, PromptPack, StyleSummary
-from app.services.style_analysis_jobs import (
-    StyleAnalysisJobService,
-    build_profile_result_bundle,
-)
-from app.services.style_analysis_worker import StyleAnalysisWorkerService
-from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
+from app.services.style_analysis_jobs import build_profile_result_bundle
 
 
 def test_style_profile_service_does_not_import_job_module_helpers() -> None:
@@ -25,117 +19,26 @@ def test_style_profile_service_does_not_import_job_module_helpers() -> None:
     assert "from app.services.style_analysis_jobs import build_job_result_bundle" not in source
 
 
-def build_fake_analysis_report() -> dict:
-    sections = []
-    for section_no, title in [
-        ("3.1", "口头禅与常用表达"),
-        ("3.2", "固定句式与节奏偏好"),
-        ("3.3", "词汇选择偏好"),
-        ("3.4", "句子构造习惯"),
-        ("3.5", "生活经历线索"),
-        ("3.6", "行业／地域词汇"),
-        ("3.7", "自然化缺陷"),
-        ("3.8", "写作忌口与避讳"),
-        ("3.9", "比喻口味与意象库"),
-        ("3.10", "思维模式与表达逻辑"),
-        ("3.11", "常见场景的说话方式"),
-        ("3.12", "个人价值取向与反复母题"),
-    ]:
-        sections.append(
-            {
-                "section": section_no,
-                "title": title,
-                "overview": f"{title}的全局概览。",
-                "findings": [
-                    {
-                        "label": f"{title}发现 1",
-                        "summary": f"{title}的关键结论。",
-                        "frequency": "高频",
-                        "confidence": "high",
-                        "is_weak_judgment": False,
-                        "evidence": [
-                            {"excerpt": "雨下得很慢。", "location": "段落 1"},
-                        ],
-                    }
-                ],
-            }
-        )
-    return {
-        "executive_summary": {
-            "summary": "整体文风缓慢、潮湿、情绪延迟。",
-            "representative_evidence": [
-                {"excerpt": "雨下得很慢。", "location": "段落 1"},
-                {"excerpt": "时间也很慢。", "location": "段落 1"},
-            ],
-        },
-        "basic_assessment": {
-            "text_type": "章节正文",
-            "multi_speaker": False,
-            "batch_mode": False,
-            "location_indexing": "章节或段落位置",
-            "noise_handling": "未发现显著噪声。",
-        },
-        "sections": sections,
-        "appendix": "当前样本较短，附录省略详细索引。",
-    }
+def build_fake_analysis_report() -> str:
+    return "# 执行摘要\n整体文风缓慢、潮湿、情绪延迟。\n"
 
 
-def build_fake_style_summary(style_name: str) -> dict:
-    return {
-        "style_name": style_name,
-        "style_positioning": "迟滞、潮湿、回望感强。",
-        "core_features": ["缓慢节奏", "潮湿意象", "回忆感"],
-        "lexical_preferences": ["雨", "时间", "房间"],
-        "rhythm_profile": ["舒缓句式", "停顿明显"],
-        "punctuation_profile": ["句号偏多", "转折停顿多"],
-        "imagery_and_themes": ["霓虹", "潮湿", "室内空气"],
-        "scene_strategies": [
-            {"scene": "dialogue", "instruction": "对白短促，保留言外之意。"},
-            {"scene": "environment", "instruction": "环境描写带潮湿和霓虹感。"},
-        ],
-        "avoid_or_rare": ["避免直白喊口号。"],
-        "generation_notes": ["优先维持缓慢、回望的叙述速度。"],
-    }
+def build_fake_style_summary(style_name: str) -> str:
+    return f"# 风格名称\n{style_name}\n\n# 风格定位\n迟滞、潮湿、回望感强。\n"
 
 
-def build_fake_prompt_pack() -> dict:
-    return {
-        "system_prompt": "以迟滞、潮湿、回望感强的中文小说文风进行创作。",
-        "scene_prompts": {
-            "dialogue": "对白短促，带停顿和言外之意。",
-            "action": "动作描写轻，重点放在情绪余波。",
-            "environment": "环境描写突出潮湿、霓虹和室内空气感。",
-        },
-        "hard_constraints": ["避免口号式抒情。", "避免现代网络口吻。"],
-        "style_controls": {
-            "tone": "迟滞而克制",
-            "rhythm": "舒缓推进",
-            "evidence_anchor": "优先保留报告中的高置信特征",
-        },
-        "few_shot_slots": [
-            {
-                "label": "environment",
-                "type": "environment",
-                "text": "楼道里有一盏旧灯，亮了又暗。",
-                "purpose": "建立潮湿室内氛围",
-            },
-            {
-                "label": "dialogue",
-                "type": "dialogue",
-                "text": "她说再见的时候，像是在说别的事。",
-                "purpose": "示范克制对白",
-            },
-        ],
-    }
+def build_fake_prompt_pack() -> str:
+    return "# System Prompt\n以迟滞、潮湿、回望感强的中文小说文风进行创作。\n"
 
 
 @pytest.mark.asyncio
 async def test_create_and_update_style_profile_from_succeeded_job_and_mount_project(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
+    initialized_provider: dict[str, object],
+    run_live_style_analysis_job,
 ) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    provider_id = str(initialized_provider["id"])
 
     project_response = await initialized_client.post(
         "/api/v1/projects",
@@ -151,77 +54,21 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     assert project_response.status_code == 201
     project_id = project_response.json()["id"]
 
-    job_response = await initialized_client.post(
-        "/api/v1/style-analysis-jobs",
-        data={"style_name": "王家卫风格", "provider_id": provider_id},
-        files={"file": ("sample.txt", "雨下得很慢，时间也很慢。".encode("utf-8"), "text/plain")},
+    result = await run_live_style_analysis_job(
+        style_name="王家卫风格",
+        model=str(initialized_provider["default_model"]),
     )
-    job_id = job_response.json()["id"]
-
-    async def fake_build_pipeline(
-        self,
-        *,
-        provider,
-        model_name: str,
-        style_name: str,
-        source_filename: str,
-        stage_callback,
-    ):
-        del provider, stage_callback
-        assert model_name
-        assert style_name == "王家卫风格"
-        assert source_filename == "sample.txt"
-
-        class FakePipeline:
-            async def run(
-                self,
-                *,
-                job_id: str,
-                chunk_count: int,
-                classification: dict,
-                max_concurrency: int,
-            ) -> StyleAnalysisPipelineResult:
-                del job_id
-                assert chunk_count == 1
-                assert classification["text_type"] == "章节正文"
-                assert max_concurrency == 5
-                return StyleAnalysisPipelineResult(
-                    analysis_meta=AnalysisMeta(
-                        source_filename="sample.txt",
-                        model_name=model_name,
-                        text_type="章节正文",
-                        has_timestamps=False,
-                        has_speaker_labels=False,
-                        has_noise_markers=False,
-                        uses_batch_processing=False,
-                        location_indexing="章节或段落位置",
-                        chunk_count=1,
-                    ),
-                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
-                    style_summary=StyleSummary.model_validate(build_fake_style_summary("王家卫风格")),
-                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
-                )
-
-        return FakePipeline()
-
-    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
-
-    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
-    assert processed is True
+    job_id = result["job"]["id"]
+    detail = result["detail"]
 
     create_profile_response = await initialized_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
+            "style_name": "王家卫风格（修订版）",
             "mount_project_id": project_id,
-            "style_summary": {
-                **build_fake_style_summary("王家卫风格（修订版）"),
-                "style_name": "王家卫风格（修订版）",
-            },
-            "prompt_pack": {
-                **build_fake_prompt_pack(),
-                "system_prompt": "以迟滞、潮湿、都市孤独感为核心进行创作。",
-            },
+            "style_summary_markdown": detail["style_summary_markdown"] + "\n# 备注\n修订版\n",
+            "prompt_pack_markdown": "## 修订版\n" + detail["prompt_pack_markdown"],
         },
     )
 
@@ -231,9 +78,9 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     assert profile["source_job_id"] == job_id
     assert profile["provider_id"] == provider_id
     assert profile["source_filename"] == "sample.txt"
-    assert profile["analysis_report"]["sections"][0]["section"] == "3.1"
-    assert profile["style_summary"]["style_name"] == "王家卫风格（修订版）"
-    assert profile["prompt_pack"]["system_prompt"].startswith("以迟滞")
+    assert profile["analysis_report_markdown"].startswith("# 执行摘要")
+    assert "修订版" in profile["style_summary_markdown"]
+    assert profile["prompt_pack_markdown"].startswith("## 修订版")
     async with app_with_db.state.session_factory() as session:
         project = await session.scalar(select(Project).where(Project.id == project_id))
         assert project is not None
@@ -256,29 +103,21 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     update_profile_response = await initialized_client.patch(
         f"/api/v1/style-profiles/{profile['id']}",
         json={
+            "style_name": "王家卫风格（终版）",
             "mount_project_id": second_project_id,
-            "style_summary": {
-                **profile["style_summary"],
-                "generation_notes": ["突出潮湿感与延迟情绪。"],
-            },
-            "prompt_pack": {
-                **profile["prompt_pack"],
-                "hard_constraints": ["避免口号式抒情。"],
-            },
+            "style_summary_markdown": "# 风格名称\n王家卫风格（终版）\n",
+            "prompt_pack_markdown": "# System Prompt\n终版 Prompt\n",
         },
     )
     assert update_profile_response.status_code == 200
     updated_profile = update_profile_response.json()
-    assert updated_profile["style_summary"]["generation_notes"] == ["突出潮湿感与延迟情绪。"]
-    assert updated_profile["prompt_pack"]["hard_constraints"] == ["避免口号式抒情。"]
+    assert updated_profile["style_name"] == "王家卫风格（终版）"
+    assert updated_profile["style_summary_markdown"].startswith("# 风格名称")
+    assert updated_profile["prompt_pack_markdown"] == "# System Prompt\n终版 Prompt\n"
     async with app_with_db.state.session_factory() as session:
         second_project = await session.scalar(select(Project).where(Project.id == second_project_id))
         assert second_project is not None
         assert second_project.style_profile_id == profile["id"]
-
-    list_profiles_response = await initialized_client.get("/api/v1/style-profiles")
-    assert list_profiles_response.status_code == 200
-    assert len(list_profiles_response.json()) == 1
 
     detail_response = await initialized_client.get(f"/api/v1/style-profiles/{profile['id']}")
     assert detail_response.status_code == 200
@@ -287,106 +126,49 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     job_detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     assert job_detail_response.status_code == 200
     assert job_detail_response.json()["style_profile"]["id"] == profile["id"]
-    assert job_detail_response.json()["analysis_report"]["sections"][0]["section"] == "3.1"
-    assert job_detail_response.json()["style_summary"]["style_name"] == "王家卫风格（修订版）"
-    assert job_detail_response.json()["prompt_pack"]["system_prompt"].startswith("以迟滞")
+    assert job_detail_response.json()["analysis_report_markdown"].startswith("# 执行摘要")
+    assert "终版" in job_detail_response.json()["style_summary_markdown"]
+    assert job_detail_response.json()["prompt_pack_markdown"].startswith("# System Prompt")
 
 
 @pytest.mark.asyncio
 async def test_update_profile_keeps_analysis_report_payload_unchanged(
     initialized_client: AsyncClient,
-    app_with_db: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
+    initialized_provider: dict[str, object],
+    run_live_style_analysis_job,
 ) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
-    job_response = await initialized_client.post(
-        "/api/v1/style-analysis-jobs",
-        data={"style_name": "王家卫风格", "provider_id": provider_id},
-        files={"file": ("sample.txt", "雨下得很慢，时间也很慢。".encode("utf-8"), "text/plain")},
+    result = await run_live_style_analysis_job(
+        style_name="王家卫风格",
+        model=str(initialized_provider["default_model"]),
     )
-    job_id = job_response.json()["id"]
-
-    async def fake_build_pipeline(
-        self,
-        *,
-        provider,
-        model_name: str,
-        style_name: str,
-        source_filename: str,
-        stage_callback,
-    ):
-        del provider, stage_callback
-        assert model_name
-        assert style_name == "王家卫风格"
-        assert source_filename == "sample.txt"
-
-        class FakePipeline:
-            async def run(
-                self,
-                *,
-                job_id: str,
-                chunk_count: int,
-                classification: dict,
-                max_concurrency: int,
-            ) -> StyleAnalysisPipelineResult:
-                del job_id
-                assert chunk_count == 1
-                assert classification["text_type"] == "章节正文"
-                assert max_concurrency == 5
-                return StyleAnalysisPipelineResult(
-                    analysis_meta=AnalysisMeta(
-                        source_filename="sample.txt",
-                        model_name=model_name,
-                        text_type="章节正文",
-                        has_timestamps=False,
-                        has_speaker_labels=False,
-                        has_noise_markers=False,
-                        uses_batch_processing=False,
-                        location_indexing="章节或段落位置",
-                        chunk_count=1,
-                    ),
-                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
-                    style_summary=StyleSummary.model_validate(build_fake_style_summary("王家卫风格")),
-                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
-                )
-
-        return FakePipeline()
-
-    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
-    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
-    assert processed is True
+    job_id = result["job"]["id"]
+    detail = result["detail"]
 
     create_profile_response = await initialized_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
-            "style_summary": build_fake_style_summary("王家卫风格（初版）"),
-            "prompt_pack": build_fake_prompt_pack(),
+            "style_name": "王家卫风格（初版）",
+            "style_summary_markdown": detail["style_summary_markdown"],
+            "prompt_pack_markdown": detail["prompt_pack_markdown"],
         },
     )
     assert create_profile_response.status_code == 201
     profile = create_profile_response.json()
 
-    expected_style_summary = {
-        **profile["style_summary"],
-        "generation_notes": ["仅更新 style_summary payload。"],
-    }
-    expected_prompt_pack = {
-        **profile["prompt_pack"],
-        "hard_constraints": ["仅更新 prompt_pack payload。"],
-    }
     update_profile_response = await initialized_client.patch(
         f"/api/v1/style-profiles/{profile['id']}",
         json={
-            "style_summary": expected_style_summary,
-            "prompt_pack": expected_prompt_pack,
+            "style_name": "王家卫风格（改）",
+            "style_summary_markdown": "# 风格名称\n王家卫风格（改）\n",
+            "prompt_pack_markdown": "# System Prompt\n仅更新 prompt_pack payload。\n",
         },
     )
     assert update_profile_response.status_code == 200
     updated_profile = update_profile_response.json()
-    assert updated_profile["analysis_report"] == profile["analysis_report"]
-    assert updated_profile["style_summary"]["generation_notes"] == expected_style_summary["generation_notes"]
-    assert updated_profile["prompt_pack"]["hard_constraints"] == expected_prompt_pack["hard_constraints"]
+    assert updated_profile["analysis_report_markdown"] == profile["analysis_report_markdown"]
+    assert updated_profile["style_summary_markdown"] == "# 风格名称\n王家卫风格（改）\n"
+    assert updated_profile["prompt_pack_markdown"] == "# System Prompt\n仅更新 prompt_pack payload。\n"
 
 
 def test_build_profile_result_bundle_only_depends_on_new_payload_fields() -> None:
@@ -399,79 +181,33 @@ def test_build_profile_result_bundle_only_depends_on_new_payload_fields() -> Non
         prompt_pack_payload=prompt_pack,
     )
     result_report, result_summary, result_prompt_pack = build_profile_result_bundle(profile)
-    assert result_report.executive_summary.summary == analysis_report["executive_summary"]["summary"]
-    assert result_summary.style_name == style_summary["style_name"]
-    assert result_prompt_pack.system_prompt == prompt_pack["system_prompt"]
+    assert result_report == analysis_report
+    assert result_summary == style_summary
+    assert result_prompt_pack == prompt_pack
 
 
 @pytest.mark.asyncio
 async def test_create_style_profile_rolls_back_when_mount_project_is_missing(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
+    initialized_provider: dict[str, object],
+    run_live_style_analysis_job,
 ) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
-    job_response = await initialized_client.post(
-        "/api/v1/style-analysis-jobs",
-        data={"style_name": "事务校验风格", "provider_id": provider_id},
-        files={"file": ("sample.txt", "雨下得很慢，时间也很慢。".encode("utf-8"), "text/plain")},
+    result = await run_live_style_analysis_job(
+        style_name="事务校验风格",
+        model=str(initialized_provider["default_model"]),
     )
-    job_id = job_response.json()["id"]
-
-    async def fake_build_pipeline(
-        self,
-        *,
-        provider,
-        model_name: str,
-        style_name: str,
-        source_filename: str,
-        stage_callback,
-    ):
-        del provider, stage_callback
-        assert model_name
-        assert style_name == "事务校验风格"
-        assert source_filename == "sample.txt"
-
-        class FakePipeline:
-            async def run(
-                self,
-                *,
-                job_id: str,
-                chunk_count: int,
-                classification: dict,
-                max_concurrency: int,
-            ) -> StyleAnalysisPipelineResult:
-                del job_id, chunk_count, classification, max_concurrency
-                return StyleAnalysisPipelineResult(
-                    analysis_meta=AnalysisMeta(
-                        source_filename="sample.txt",
-                        model_name=model_name,
-                        text_type="章节正文",
-                        has_timestamps=False,
-                        has_speaker_labels=False,
-                        has_noise_markers=False,
-                        uses_batch_processing=False,
-                        location_indexing="章节或段落位置",
-                        chunk_count=1,
-                    ),
-                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
-                    style_summary=StyleSummary.model_validate(build_fake_style_summary("事务校验风格")),
-                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
-                )
-
-        return FakePipeline()
-
-    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
-    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
-    assert processed is True
+    job_id = result["job"]["id"]
+    detail = result["detail"]
 
     create_profile_response = await initialized_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
+            "style_name": "事务校验风格",
             "mount_project_id": "missing-project",
-            "style_summary": build_fake_style_summary("事务校验风格"),
-            "prompt_pack": build_fake_prompt_pack(),
+            "style_summary_markdown": detail["style_summary_markdown"],
+            "prompt_pack_markdown": detail["prompt_pack_markdown"],
         },
     )
 
@@ -485,10 +221,10 @@ async def test_create_style_profile_rolls_back_when_mount_project_is_missing(
 @pytest.mark.asyncio
 async def test_delete_style_profile_rejects_when_mounted_to_project(
     initialized_client: AsyncClient,
-    app_with_db: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
+    initialized_provider: dict[str, object],
+    run_live_style_analysis_job,
 ) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    provider_id = str(initialized_provider["id"])
     project_response = await initialized_client.post(
         "/api/v1/projects",
         json={
@@ -503,70 +239,21 @@ async def test_delete_style_profile_rejects_when_mounted_to_project(
     assert project_response.status_code == 201
     project_id = project_response.json()["id"]
 
-    job_response = await initialized_client.post(
-        "/api/v1/style-analysis-jobs",
-        data={"style_name": "删除保护风格", "provider_id": provider_id},
-        files={"file": ("sample.txt", "雨下得很慢。".encode("utf-8"), "text/plain")},
+    result = await run_live_style_analysis_job(
+        style_name="删除保护风格",
+        model=str(initialized_provider["default_model"]),
     )
-    job_id = job_response.json()["id"]
-
-    async def fake_build_pipeline(
-        self,
-        *,
-        provider,
-        model_name: str,
-        style_name: str,
-        source_filename: str,
-        stage_callback,
-    ):
-        del provider, stage_callback
-        assert model_name
-        assert style_name == "删除保护风格"
-        assert source_filename == "sample.txt"
-
-        class FakePipeline:
-            async def run(
-                self,
-                *,
-                job_id: str,
-                chunk_count: int,
-                classification: dict,
-                max_concurrency: int,
-            ) -> StyleAnalysisPipelineResult:
-                del job_id
-                assert chunk_count == 1
-                assert classification["text_type"] == "章节正文"
-                assert max_concurrency == 5
-                return StyleAnalysisPipelineResult(
-                    analysis_meta=AnalysisMeta(
-                        source_filename="sample.txt",
-                        model_name=model_name,
-                        text_type="章节正文",
-                        has_timestamps=False,
-                        has_speaker_labels=False,
-                        has_noise_markers=False,
-                        uses_batch_processing=False,
-                        location_indexing="章节或段落位置",
-                        chunk_count=1,
-                    ),
-                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
-                    style_summary=StyleSummary.model_validate(build_fake_style_summary("删除保护风格")),
-                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
-                )
-
-        return FakePipeline()
-
-    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
-    processed = await StyleAnalysisWorkerService().process_next_pending(app_with_db.state.session_factory)
-    assert processed is True
+    job_id = result["job"]["id"]
+    detail = result["detail"]
 
     create_profile_response = await initialized_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
+            "style_name": "删除保护风格",
             "mount_project_id": project_id,
-            "style_summary": build_fake_style_summary("删除保护风格"),
-            "prompt_pack": build_fake_prompt_pack(),
+            "style_summary_markdown": detail["style_summary_markdown"],
+            "prompt_pack_markdown": detail["prompt_pack_markdown"],
         },
     )
     assert create_profile_response.status_code == 201

@@ -5,13 +5,13 @@ from fastapi import APIRouter, File, Form, Query, UploadFile, status
 from app.api.deps import CurrentUserDep, DbSessionDep, StyleAnalysisJobServiceDep
 from app.core.domain_errors import UnprocessableEntityError
 from app.schemas.style_analysis_jobs import (
+    AnalysisReportMarkdown,
     AnalysisMeta,
-    AnalysisReport,
-    PromptPack,
+    PromptPackMarkdown,
     StyleAnalysisJobListItemResponse,
     StyleAnalysisJobResponse,
     StyleAnalysisJobStatusResponse,
-    StyleSummary,
+    StyleSummaryMarkdown,
 )
 router = APIRouter(
     prefix="/style-analysis-jobs",
@@ -99,13 +99,13 @@ async def get_style_analysis_job_analysis_meta(
     )
 
 
-@router.get("/{job_id}/analysis-report", response_model=AnalysisReport)
+@router.get("/{job_id}/analysis-report", response_model=AnalysisReportMarkdown)
 async def get_style_analysis_job_analysis_report(
     job_id: str,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
-) -> AnalysisReport:
+) -> str:
     return await job_service.get_analysis_report_or_409(
         db_session,
         job_id,
@@ -113,13 +113,13 @@ async def get_style_analysis_job_analysis_report(
     )
 
 
-@router.get("/{job_id}/style-summary", response_model=StyleSummary)
+@router.get("/{job_id}/style-summary", response_model=StyleSummaryMarkdown)
 async def get_style_analysis_job_style_summary(
     job_id: str,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
-) -> StyleSummary:
+) -> str:
     return await job_service.get_style_summary_or_409(
         db_session,
         job_id,
@@ -127,13 +127,13 @@ async def get_style_analysis_job_style_summary(
     )
 
 
-@router.get("/{job_id}/prompt-pack", response_model=PromptPack)
+@router.get("/{job_id}/prompt-pack", response_model=PromptPackMarkdown)
 async def get_style_analysis_job_prompt_pack(
     job_id: str,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
-) -> PromptPack:
+) -> str:
     return await job_service.get_prompt_pack_or_409(
         db_session,
         job_id,

@@ -8,99 +8,28 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.core.config import get_settings
-from app.schemas.style_analysis_jobs import (
-    SECTION_TITLES,
-    AnalysisReport,
-    ChunkAnalysis,
-    MergedAnalysis,
-    PromptPack,
-    StyleSummary,
-)
+from app.schemas.style_analysis_jobs import AnalysisMeta
 from app.services.style_analysis_pipeline import StyleAnalysisPipeline
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 
-def build_section(section: str, title: str) -> dict:
-    return {
-        "section": section,
-        "title": title,
-        "overview": f"{title}的概览。",
-        "findings": [
-            {
-                "label": f"{title}发现",
-                "summary": f"{title}的关键结论。",
-                "frequency": "当前样本中出现 1 次",
-                "confidence": "medium",
-                "is_weak_judgment": False,
-                "evidence": [{"excerpt": "夜色很冷。", "location": "段落 1"}],
-            }
-        ],
-    }
+def build_report_markdown() -> str:
+    return (
+        "# 执行摘要\n整体文风冷峻、短句密集。\n\n"
+        "# 基础判断\n- 文本类型：章节正文\n\n"
+        "# 风格维度\n## 3.1 口头禅与常用表达\n- 夜色很冷。\n"
+    )
 
 
-def build_sections() -> list[dict]:
-    return [build_section(section, title) for section, title in SECTION_TITLES]
+def build_style_summary_markdown(style_name: str) -> str:
+    return f"# 风格名称\n{style_name}\n\n# 风格定位\n冷峻、克制、短句驱动。\n"
 
 
-def build_report_payload() -> dict:
-    return {
-        "executive_summary": {
-            "summary": "整体文风冷峻、短句密集。",
-            "representative_evidence": [{"excerpt": "夜色很冷。", "location": "段落 1"}],
-        },
-        "basic_assessment": {
-            "text_type": "章节正文",
-            "multi_speaker": False,
-            "batch_mode": True,
-            "location_indexing": "章节或段落位置",
-            "noise_handling": "未发现显著噪声。",
-        },
-        "sections": build_sections(),
-        "appendix": None,
-    }
+def build_prompt_pack_markdown() -> str:
+    return "# System Prompt\n以冷峻、克制的中文小说文风进行创作。\n"
 
 
-def build_style_summary_payload(style_name: str) -> dict:
-    return {
-        "style_name": style_name,
-        "style_positioning": "冷峻、克制、短句驱动。",
-        "core_features": ["短句推进", "留白明显"],
-        "lexical_preferences": ["冷", "忽然"],
-        "rhythm_profile": ["短句为主"],
-        "punctuation_profile": ["句号收束多"],
-        "imagery_and_themes": ["夜色"],
-        "scene_strategies": [{"scene": "dialogue", "instruction": "对白尽量短。"}],
-        "avoid_or_rare": ["避免长篇抒情。"],
-        "generation_notes": ["保留冷感词和短句节奏。"],
-    }
-
-
-def build_prompt_pack_payload() -> dict:
-    return {
-        "system_prompt": "以冷峻、克制的中文小说文风进行创作。",
-        "scene_prompts": {
-            "dialogue": "对白短促。",
-            "action": "动作描写利落。",
-            "environment": "环境描写服务情绪。",
-        },
-        "hard_constraints": ["避免现代网络口吻。"],
-        "style_controls": {
-            "tone": "冷峻克制",
-            "rhythm": "短句驱动",
-            "evidence_anchor": "优先使用高置信证据",
-        },
-        "few_shot_slots": [
-            {
-                "label": "environment",
-                "type": "environment",
-                "text": "夜色很冷。",
-                "purpose": "建立冷感氛围",
-            }
-        ],
-    }
-
-
-class FakeStructuredLLMClient:
+class PipelineLLMStub:
     def __init__(self, *, fail_report_once: bool = False) -> None:
         self.active_chunks = 0
         self.max_active_chunks = 0
@@ -111,48 +40,35 @@ class FakeStructuredLLMClient:
     def build_model(self, *, provider: object, model_name: str) -> object:
         return SimpleNamespace(provider=provider, model_name=model_name)
 
-    async def ainvoke_structured(
+    async def ainvoke_markdown(
         self,
         *,
         model: object,
-        schema: type,
         prompt: str,
-    ) -> object:
+    ) -> str:
         del model
-        if schema is ChunkAnalysis:
+        if "当前 chunk：" in prompt:
             match = re.search(r"当前 chunk：(\d+)/(\d+)", prompt)
             assert match is not None
-            chunk_index = int(match.group(1)) - 1
-            chunk_count = int(match.group(2))
             self.chunk_calls += 1
             self.active_chunks += 1
             self.max_active_chunks = max(self.max_active_chunks, self.active_chunks)
             await asyncio.sleep(0.01)
             self.active_chunks -= 1
-            return ChunkAnalysis.model_validate(
-                {
-                    "chunk_index": chunk_index,
-                    "chunk_count": chunk_count,
-                    "sections": build_sections(),
-                }
-            )
-        if schema is MergedAnalysis:
-            return MergedAnalysis.model_validate(
-                {"classification": {"text_type": "章节正文"}, "sections": build_sections()}
-            )
-        if schema is AnalysisReport:
+            return build_report_markdown()
+        if "聚合结果" in prompt:
             self.report_calls += 1
             if self.fail_report_once and self.report_calls == 1:
                 raise RuntimeError("report transient failure")
-            return AnalysisReport.model_validate(build_report_payload())
-        if schema is StyleSummary:
-            return StyleSummary.model_validate(build_style_summary_payload("古龙风格实验"))
-        if schema is PromptPack:
-            return PromptPack.model_validate(build_prompt_pack_payload())
-        raise AssertionError(f"unexpected schema: {schema}")
+            return build_report_markdown()
+        if "风格摘要" in prompt:
+            return build_prompt_pack_markdown()
+        if "风格名称" in prompt and "分析报告" in prompt:
+            return build_style_summary_markdown("古龙风格实验")
+        return build_report_markdown()
 
 
-def build_pipeline(client: FakeStructuredLLMClient, checkpointer: InMemorySaver) -> StyleAnalysisPipeline:
+def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> StyleAnalysisPipeline:
     return StyleAnalysisPipeline(
         provider=SimpleNamespace(base_url="https://api.example.test/v1", api_key_encrypted="encrypted"),
         model_name="gpt-4.1-mini",
@@ -164,14 +80,14 @@ def build_pipeline(client: FakeStructuredLLMClient, checkpointer: InMemorySaver)
 
 
 @pytest.mark.asyncio
-async def test_pipeline_analyzes_chunks_with_configured_max_concurrency(
+async def test_pipeline_graph_limits_chunk_concurrency_with_stubbed_llm(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
     get_settings.cache_clear()
 
-    client = FakeStructuredLLMClient()
+    client = PipelineLLMStub()
     pipeline = build_pipeline(client, InMemorySaver())
     storage_service = StyleAnalysisStorageService()
     job_id = "job-concurrency"
@@ -195,13 +111,23 @@ async def test_pipeline_analyzes_chunks_with_configured_max_concurrency(
 
     assert client.chunk_calls == 10
     assert client.max_active_chunks <= 3
-    assert result.analysis_meta.chunk_count == 10
-    assert result.analysis_report.sections[0].section == "3.1"
+    assert result.analysis_meta == AnalysisMeta(
+        source_filename="sample.txt",
+        model_name="gpt-4.1-mini",
+        text_type="章节正文",
+        has_timestamps=False,
+        has_speaker_labels=False,
+        has_noise_markers=False,
+        uses_batch_processing=True,
+        location_indexing="章节或段落位置",
+        chunk_count=10,
+    )
+    assert result.analysis_report_markdown.startswith("# 执行摘要")
     get_settings.cache_clear()
 
 
 @pytest.mark.asyncio
-async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks(
+async def test_pipeline_graph_resumes_failed_report_without_reanalyzing_chunks(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -209,7 +135,7 @@ async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks(
     get_settings.cache_clear()
 
     checkpointer = InMemorySaver()
-    client = FakeStructuredLLMClient(fail_report_once=True)
+    client = PipelineLLMStub(fail_report_once=True)
     pipeline = build_pipeline(client, checkpointer)
     storage_service = StyleAnalysisStorageService()
     job_id = "job-resume"
@@ -243,5 +169,5 @@ async def test_pipeline_resumes_failed_report_stage_without_reanalyzing_chunks(
 
     assert client.chunk_calls == 3
     assert client.report_calls == 2
-    assert result.prompt_pack.system_prompt.startswith("以冷峻")
+    assert result.prompt_pack_markdown.startswith("# System Prompt")
     get_settings.cache_clear()

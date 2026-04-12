@@ -17,12 +17,8 @@ from app.db.models import StyleAnalysisJob, StyleProfile
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
 from app.main import create_app
 from app.schemas.style_analysis_jobs import (
-    SECTION_TITLES,
     AnalysisMeta,
-    AnalysisReport,
-    PromptPack,
     StyleAnalysisJobResponse,
-    StyleSummary,
 )
 from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
 from app.services.style_analysis_worker import (
@@ -34,107 +30,37 @@ from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 
 def build_fake_analysis_report() -> dict:
-    sections = []
-    for section_no, title in [
-        ("3.1", "口头禅与常用表达"),
-        ("3.2", "固定句式与节奏偏好"),
-        ("3.3", "词汇选择偏好"),
-        ("3.4", "句子构造习惯"),
-        ("3.5", "生活经历线索"),
-        ("3.6", "行业／地域词汇"),
-        ("3.7", "自然化缺陷"),
-        ("3.8", "写作忌口与避讳"),
-        ("3.9", "比喻口味与意象库"),
-        ("3.10", "思维模式与表达逻辑"),
-        ("3.11", "常见场景的说话方式"),
-        ("3.12", "个人价值取向与反复母题"),
-    ]:
-        sections.append(
-            {
-                "section": section_no,
-                "title": title,
-                "overview": f"{title}的全局概览。",
-                "findings": [
-                    {
-                        "label": f"{title}发现 1",
-                        "summary": f"{title}的关键结论。",
-                        "frequency": "高频",
-                        "confidence": "high",
-                        "is_weak_judgment": False,
-                        "evidence": [
-                            {"excerpt": "夜色很冷。", "location": "段落 1"},
-                        ],
-                    }
-                ],
-            }
-        )
-    return {
-        "executive_summary": {
-            "summary": "整体文风冷峻、短句密集、留白明显。",
-            "representative_evidence": [
-                {"excerpt": "夜色很冷。", "location": "段落 1"},
-                {"excerpt": "他忽然笑了。", "location": "段落 2"},
-            ],
-        },
-        "basic_assessment": {
-            "text_type": "章节正文",
-            "multi_speaker": False,
-            "batch_mode": False,
-            "location_indexing": "章节或段落位置",
-            "noise_handling": "未发现显著噪声。",
-        },
-        "sections": sections,
-        "appendix": "当前样本较短，附录省略详细索引。",
-    }
+    return (
+        "# 执行摘要\n整体文风冷峻、短句密集、留白明显。\n\n"
+        "# 基础判断\n"
+        "- 文本类型：章节正文\n"
+        "- 是否多说话人：否\n"
+        "- 是否分块处理：否\n"
+        "- 证据定位方式：章节或段落位置\n"
+        "- 噪声处理：未发现显著噪声。\n\n"
+        "# 风格维度\n"
+        "## 3.1 口头禅与常用表达\n- 夜色很冷。\n"
+        "## 3.2 固定句式与节奏偏好\n- 他忽然笑了。\n"
+        "## 3.3 词汇选择偏好\n- 偏爱冷感短词。\n"
+        "## 3.4 句子构造习惯\n- 短句推进。\n"
+        "## 3.5 生活经历线索\n- 当前样本中证据有限。\n"
+        "## 3.6 行业／地域词汇\n- 当前样本中证据有限。\n"
+        "## 3.7 自然化缺陷\n- 略有省略与停顿。\n"
+        "## 3.8 写作忌口与避讳\n- 避免抒情堆砌。\n"
+        "## 3.9 比喻口味与意象库\n- 夜色、薄刀等冷感意象。\n"
+        "## 3.10 思维模式与表达逻辑\n- 先景后情。\n"
+        "## 3.11 常见场景的说话方式\n- 对白节制。\n"
+        "## 3.12 个人价值取向与反复母题\n- 孤独、试探与克制。\n\n"
+        "# 附录\n无\n"
+    )
 
 
 def build_fake_style_summary(style_name: str) -> dict:
-    return {
-        "style_name": style_name,
-        "style_positioning": "冷峻、克制、短句驱动。",
-        "core_features": ["短句推进", "留白明显", "冷感意象密集"],
-        "lexical_preferences": ["冷", "笑", "忽然"],
-        "rhythm_profile": ["短句为主", "停顿明显"],
-        "punctuation_profile": ["句号收束多", "省略号稀少"],
-        "imagery_and_themes": ["夜色", "孤独", "试探"],
-        "scene_strategies": [
-            {"scene": "dialogue", "instruction": "对白尽量短，带试探与克制。"},
-            {"scene": "action", "instruction": "动作描写利落，不铺陈多余细节。"},
-        ],
-        "avoid_or_rare": ["避免长篇抒情和华丽排比。"],
-        "generation_notes": ["优先保留冷感词和短句节奏。"],
-    }
+    return f"# 风格名称\n{style_name}\n\n# 风格定位\n冷峻、克制、短句驱动。\n"
 
 
 def build_fake_prompt_pack() -> dict:
-    return {
-        "system_prompt": "以冷峻、克制、留白明显的中文小说文风进行创作。",
-        "scene_prompts": {
-            "dialogue": "对白短促，保留言外之意。",
-            "action": "动作描写要干净利落。",
-            "environment": "环境描写服务情绪，不堆砌形容词。",
-        },
-        "hard_constraints": ["避免现代网络口吻。", "避免抒情堆砌。"],
-        "style_controls": {
-            "tone": "冷峻克制",
-            "rhythm": "短句驱动",
-            "evidence_anchor": "优先使用报告中的高置信特征",
-        },
-        "few_shot_slots": [
-            {
-                "label": "environment",
-                "type": "environment",
-                "text": "夜色像一把薄刀，贴着窗纸划过去。",
-                "purpose": "建立冷感氛围",
-            },
-            {
-                "label": "dialogue",
-                "type": "dialogue",
-                "text": "他笑了笑，说这不算什么。",
-                "purpose": "示范节制对白",
-            },
-        ],
-    }
+    return "# System Prompt\n以冷峻、克制、留白明显的中文小说文风进行创作。\n"
 
 
 def build_style_analysis_job_response_payload() -> dict:
@@ -170,9 +96,9 @@ def build_style_analysis_job_response_payload() -> dict:
         },
         "style_profile_id": None,
         "analysis_meta": None,
-        "analysis_report": None,
-        "style_summary": None,
-        "prompt_pack": None,
+        "analysis_report_markdown": None,
+        "style_summary_markdown": None,
+        "prompt_pack_markdown": None,
     }
 
 
@@ -277,9 +203,9 @@ async def test_create_style_analysis_job_persists_txt_and_exposes_job_endpoints(
     assert created["stage"] is None
     assert created["error_message"] is None
     assert "analysis_meta" not in created
-    assert "analysis_report" not in created
-    assert "style_summary" not in created
-    assert "prompt_pack" not in created
+    assert "analysis_report_markdown" not in created
+    assert "style_summary_markdown" not in created
+    assert "prompt_pack_markdown" not in created
     assert created["provider"]["id"] == provider_id
     assert created["sample_file"]["original_filename"] == "sample.txt"
     assert created["sample_file"]["byte_size"] > 0
@@ -338,11 +264,11 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert detail["sample_file"]["character_count"] > 0
     assert detail["analysis_meta"]["model_name"] == initialized_provider["default_model"]
     assert detail["analysis_meta"]["text_type"] == "章节正文"
-    assert [section["section"] for section in detail["analysis_report"]["sections"]] == [
-        section for section, _title in SECTION_TITLES
-    ]
-    assert detail["style_summary"]["style_name"] == "古龙风格实验"
-    assert detail["prompt_pack"]["system_prompt"]
+    assert detail["analysis_report_markdown"].startswith("# 执行摘要")
+    assert "## 3.1 口头禅与常用表达" in detail["analysis_report_markdown"]
+    assert detail["style_summary_markdown"].startswith("# 风格名称")
+    assert "古龙风格实验" in detail["style_summary_markdown"]
+    assert detail["prompt_pack_markdown"].startswith("# System Prompt")
     assert detail["style_profile"] is None
 
     meta_response = await initialized_client.get(
@@ -356,21 +282,19 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
         f"/api/v1/style-analysis-jobs/{job_id}/analysis-report"
     )
     assert report_response.status_code == 200
-    assert len(report_response.json()["sections"]) == 12
-    assert report_response.json()["sections"][0]["section"] == "3.1"
-    assert report_response.json()["sections"][-1]["section"] == "3.12"
+    assert report_response.json().startswith("# 执行摘要")
 
     summary_response = await initialized_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/style-summary"
     )
     assert summary_response.status_code == 200
-    assert summary_response.json()["style_name"] == "古龙风格实验"
+    assert summary_response.json().startswith("# 风格名称")
 
     prompt_pack_response = await initialized_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/prompt-pack"
     )
     assert prompt_pack_response.status_code == 200
-    assert prompt_pack_response.json()["system_prompt"]
+    assert prompt_pack_response.json().startswith("# System Prompt")
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
     assert artifact_dir.exists() is False
 
@@ -746,7 +670,7 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
     )
     job_id = create_response.json()["id"]
 
-    class FakeStructuredLLMClient:
+    class FakeMarkdownLLMClient:
         def __init__(self) -> None:
             self.chunk_calls = 0
             self.report_calls = 0
@@ -754,34 +678,23 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
         def build_model(self, *, provider, model_name: str):
             return SimpleNamespace(provider=provider, model_name=model_name)
 
-        async def ainvoke_structured(self, *, model, schema, prompt: str):
+        async def ainvoke_markdown(self, *, model, prompt: str):
             del model
-            if schema is AnalysisReport:
+            if "聚合结果" in prompt:
                 self.report_calls += 1
                 if self.report_calls == 1:
                     raise RuntimeError("report transient failure")
-                return AnalysisReport.model_validate(build_fake_analysis_report())
-            if schema is StyleSummary:
-                return StyleSummary.model_validate(build_fake_style_summary("可续跑任务"))
-            if schema is PromptPack:
-                return PromptPack.model_validate(build_fake_prompt_pack())
-            if schema.__name__ == "MergedAnalysis":
-                return schema.model_validate(
-                    {"classification": {"text_type": "章节正文"}, "sections": build_fake_analysis_report()["sections"]}
-                )
-            if schema.__name__ == "ChunkAnalysis":
+                return build_fake_analysis_report()
+            if "风格名称" in prompt and "分析报告" in prompt:
+                return build_fake_style_summary("可续跑任务")
+            if "当前风格摘要" in prompt:
+                return build_fake_prompt_pack()
+            if "当前 chunk：" in prompt:
                 self.chunk_calls += 1
-                chunk_index = self.chunk_calls - 1
-                return schema.model_validate(
-                    {
-                        "chunk_index": chunk_index,
-                            "chunk_count": 1,
-                            "sections": build_fake_analysis_report()["sections"],
-                        }
-                    )
-            raise AssertionError(f"unexpected schema: {schema}")
+                return build_fake_analysis_report()
+            return build_fake_analysis_report()
 
-    client = FakeStructuredLLMClient()
+    client = FakeMarkdownLLMClient()
     checkpointer = InMemorySaver()
 
     async def fake_build_pipeline(
@@ -897,9 +810,9 @@ async def test_run_claimed_job_emits_periodic_heartbeat_during_long_stage(
                         location_indexing="章节或段落位置",
                         chunk_count=1,
                     ),
-                    analysis_report=AnalysisReport.model_validate(build_fake_analysis_report()),
-                    style_summary=StyleSummary.model_validate(build_fake_style_summary("心跳任务")),
-                    prompt_pack=PromptPack.model_validate(build_fake_prompt_pack()),
+                    analysis_report_markdown=build_fake_analysis_report(),
+                    style_summary_markdown=build_fake_style_summary("心跳任务"),
+                    prompt_pack_markdown=build_fake_prompt_pack(),
                 )
 
         return FakePipeline()
@@ -1022,9 +935,9 @@ def test_build_job_detail_response_uses_mapper_bundle(monkeypatch: pytest.Monkey
     from app.services.style_analysis_jobs import build_job_detail_response
 
     now = datetime.now(UTC)
-    parsed_report = AnalysisReport.model_validate(build_fake_analysis_report())
-    parsed_summary = StyleSummary.model_validate(build_fake_style_summary("映射入口"))
-    parsed_prompt_pack = PromptPack.model_validate(build_fake_prompt_pack())
+    parsed_report = build_fake_analysis_report()
+    parsed_summary = build_fake_style_summary("映射入口")
+    parsed_prompt_pack = build_fake_prompt_pack()
 
     def fake_build_job_result_bundle(job):
         del job
@@ -1067,16 +980,16 @@ def test_build_job_detail_response_uses_mapper_bundle(monkeypatch: pytest.Monkey
         style_profile=None,
         style_profile_id=None,
         analysis_meta_payload=None,
-        analysis_report_payload={"invalid": "payload"},
-        style_summary_payload={"invalid": "payload"},
-        prompt_pack_payload={"invalid": "payload"},
+        analysis_report_payload="invalid",
+        style_summary_payload="invalid",
+        prompt_pack_payload="invalid",
     )
 
     response = build_job_detail_response(job)
 
-    assert response.analysis_report == parsed_report
-    assert response.style_summary == parsed_summary
-    assert response.prompt_pack == parsed_prompt_pack
+    assert response.analysis_report_markdown == parsed_report
+    assert response.style_summary_markdown == parsed_summary
+    assert response.prompt_pack_markdown == parsed_prompt_pack
 
 
 @pytest.mark.asyncio

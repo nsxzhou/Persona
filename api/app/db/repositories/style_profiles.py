@@ -152,9 +152,9 @@ class StyleProfileRepository:
         model_name: str,
         source_filename: str,
         style_name: str,
-        analysis_report_payload: dict,
-        style_summary_payload: dict,
-        prompt_pack_payload: dict,
+        analysis_report_payload: str,
+        style_summary_payload: str,
+        prompt_pack_payload: str,
         user_id: str,
     ) -> StyleProfile:
         # 创建新的风格配置

@@ -2,22 +2,22 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
-
-from app.schemas.style_analysis_jobs import AnalysisReport, PromptPack, StyleSummary
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StyleProfileCreate(BaseModel):
     job_id: str
+    style_name: str = Field(min_length=1, max_length=120)
     mount_project_id: str | None = None
-    style_summary: StyleSummary
-    prompt_pack: PromptPack
+    style_summary_markdown: str = Field(min_length=1)
+    prompt_pack_markdown: str = Field(min_length=1)
 
 
 class StyleProfileUpdate(BaseModel):
+    style_name: str = Field(min_length=1, max_length=120)
     mount_project_id: str | None = None
-    style_summary: StyleSummary
-    prompt_pack: PromptPack
+    style_summary_markdown: str = Field(min_length=1)
+    prompt_pack_markdown: str = Field(min_length=1)
 
 
 class StyleProfileResponse(BaseModel):
@@ -29,9 +29,9 @@ class StyleProfileResponse(BaseModel):
     model_name: str
     source_filename: str
     style_name: str
-    analysis_report: AnalysisReport
-    style_summary: StyleSummary
-    prompt_pack: PromptPack
+    analysis_report_markdown: str
+    style_summary_markdown: str
+    prompt_pack_markdown: str
     created_at: datetime
     updated_at: datetime
 

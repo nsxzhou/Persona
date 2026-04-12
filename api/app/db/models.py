@@ -306,11 +306,11 @@ class StyleAnalysisJob(TimestampMixin, Base):
     # 分析元数据：统计信息、进度百分比等
     analysis_meta_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 完整分析报告原始结果
-    analysis_report_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    analysis_report_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 提炼后的风格摘要数据
-    style_summary_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    style_summary_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 生成的提示词包，可直接用于写作
-    prompt_pack_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    prompt_pack_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 分布式锁持有者标识，用于多worker环境下的任务调度
     locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 任务被锁定的时间
@@ -384,11 +384,11 @@ class StyleProfile(TimestampMixin, Base):
     # 用户定义的文风名称
     style_name: Mapped[str] = mapped_column(String(120), nullable=False)
     # 完整的分析报告数据
-    analysis_report_payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    analysis_report_payload: Mapped[str] = mapped_column(Text, nullable=False)
     # 提炼后的风格摘要，包含核心特征
-    style_summary_payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    style_summary_payload: Mapped[str] = mapped_column(Text, nullable=False)
     # 可直接用于写作的提示词包，包含系统提示、示例等
-    prompt_pack_payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    prompt_pack_payload: Mapped[str] = mapped_column(Text, nullable=False)
 
     # 反向关联：一个风格配置来自一个分析任务
     source_job: Mapped["StyleAnalysisJob"] = relationship(

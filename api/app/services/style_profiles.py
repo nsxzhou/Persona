@@ -6,7 +6,6 @@ from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import StyleProfile
 from app.db.repositories.projects import ProjectRepository
 from app.db.repositories.style_profiles import StyleProfileRepository
-from app.schemas.style_analysis_jobs import PromptPack, StyleSummary
 from app.schemas.style_profiles import StyleProfileCreate, StyleProfileUpdate
 from app.services.style_lab_mappers import build_job_result_bundle
 
@@ -89,19 +88,16 @@ class StyleProfileService:
             raise ConflictError("仅已成功完成的分析任务可以保存为风格档案")
         resolved_user_id = user_id or job.user_id
 
-        style_summary = StyleSummary.model_validate(payload.style_summary)
-        prompt_pack = PromptPack.model_validate(payload.prompt_pack)
-
         profile = await self.repository.create(
             session,
             source_job_id=job.id,
             provider_id=job.provider_id,
             model_name=job.model_name,
             source_filename=job.sample_file.original_filename,
-            style_name=style_summary.style_name,
-            analysis_report_payload=analysis_report.model_dump(mode="json"),
-            style_summary_payload=style_summary.model_dump(mode="json"),
-            prompt_pack_payload=prompt_pack.model_dump(mode="json"),
+            style_name=payload.style_name,
+            analysis_report_payload=analysis_report,
+            style_summary_payload=payload.style_summary_markdown,
+            prompt_pack_payload=payload.prompt_pack_markdown,
             user_id=resolved_user_id,
         )
         await self._mount_project(
@@ -121,12 +117,9 @@ class StyleProfileService:
         user_id: str | None = None,
     ) -> StyleProfile:
         profile = await self.get_or_404(session, profile_id, user_id=user_id)
-        style_summary = StyleSummary.model_validate(payload.style_summary)
-        prompt_pack = PromptPack.model_validate(payload.prompt_pack)
-
-        profile.style_name = style_summary.style_name
-        profile.style_summary_payload = style_summary.model_dump(mode="json")
-        profile.prompt_pack_payload = prompt_pack.model_dump(mode="json")
+        profile.style_name = payload.style_name
+        profile.style_summary_payload = payload.style_summary_markdown
+        profile.prompt_pack_payload = payload.prompt_pack_markdown
         await self.repository.flush(session)
         await self._mount_project(
             session,

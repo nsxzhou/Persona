@@ -4,62 +4,28 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.schemas.style_analysis_jobs import (
-    SECTION_TITLES,
-    AnalysisReport,
+    AnalysisMeta,
     ChunkAnalysis,
     MergedAnalysis,
+    STYLE_ANALYSIS_REPORT_SECTIONS,
 )
-from app.services.style_analysis_llm import StructuredLLMClient
+from app.services.style_analysis_llm import MarkdownLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import read_chunks_and_classification
 from app.services.style_analysis_pipeline import StyleAnalysisPipeline
 
 
-def build_section(section: str, title: str) -> dict:
-    return {
-        "section": section,
-        "title": title,
-        "overview": f"{title}的概览。",
-        "findings": [
-            {
-                "label": f"{title}发现",
-                "summary": f"{title}的关键结论。",
-                "frequency": "当前样本中出现 1 次",
-                "confidence": "medium",
-                "is_weak_judgment": False,
-                "evidence": [{"excerpt": "夜色很冷。", "location": "段落 1"}],
-            }
-        ],
-    }
+def build_chunk_markdown(label: str) -> str:
+    return f"# 执行摘要\n{label}\n\n## 3.1 口头禅与常用表达\n- 夜色很冷。\n"
 
 
-def build_report_payload(*, sections: list[dict] | None = None) -> dict:
-    return {
-        "executive_summary": {
-            "summary": "整体文风冷峻、短句密集。",
-            "representative_evidence": [{"excerpt": "夜色很冷。", "location": "段落 1"}],
-        },
-        "basic_assessment": {
-            "text_type": "章节正文",
-            "multi_speaker": False,
-            "batch_mode": False,
-            "location_indexing": "章节或段落位置",
-            "noise_handling": "未发现显著噪声。",
-        },
-        "sections": sections
-        if sections is not None
-        else [build_section(section, title) for section, title in SECTION_TITLES],
-        "appendix": None,
-    }
-
-
-def test_section_titles_cover_expected_dossier_sections_in_order() -> None:
-    assert SECTION_TITLES == [
+def test_style_analysis_report_sections_cover_expected_titles_in_order() -> None:
+    assert STYLE_ANALYSIS_REPORT_SECTIONS == [
         ("3.1", "口头禅与常用表达"),
         ("3.2", "固定句式与节奏偏好"),
         ("3.3", "词汇选择偏好"),
@@ -75,40 +41,35 @@ def test_section_titles_cover_expected_dossier_sections_in_order() -> None:
     ]
 
 
-@pytest.mark.parametrize(
-    "sections",
-    [
-        [build_section(section, title) for section, title in SECTION_TITLES[:-1]],
-        [build_section("3.2", "固定句式与节奏偏好")]
-        + [build_section("3.1", "口头禅与常用表达")]
-        + [build_section(section, title) for section, title in SECTION_TITLES[2:]],
-        [build_section(section, title) for section, title in SECTION_TITLES[:-1]]
-        + [build_section("3.11", "常见场景的说话方式")],
-    ],
-)
-def test_analysis_report_rejects_missing_reordered_or_duplicate_sections(
-    sections: list[dict],
-) -> None:
-    with pytest.raises(ValidationError, match="sections must cover 3.1 through 3.12"):
-        AnalysisReport.model_validate(build_report_payload(sections=sections))
-
-
-def test_chunk_and_merged_analysis_share_section_validation() -> None:
-    valid_sections = [build_section(section, title) for section, title in SECTION_TITLES]
+def test_chunk_and_merged_analysis_accept_markdown_payloads() -> None:
     chunk = ChunkAnalysis.model_validate(
-        {"chunk_index": 0, "chunk_count": 1, "sections": valid_sections}
+        {"chunk_index": 0, "chunk_count": 1, "markdown": build_chunk_markdown("chunk")}
     )
     merged = MergedAnalysis.model_validate(
-        {"classification": {"text_type": "章节正文"}, "sections": valid_sections}
+        {"classification": {"text_type": "章节正文"}, "markdown": build_chunk_markdown("merged")}
     )
 
-    assert chunk.sections[0].section == "3.1"
-    assert merged.sections[-1].section == "3.12"
+    assert chunk.markdown.startswith("# 执行摘要")
+    assert "## 3.1 口头禅与常用表达" in merged.markdown
 
-    with pytest.raises(ValidationError, match="sections must cover 3.1 through 3.12"):
-        ChunkAnalysis.model_validate(
-            {"chunk_index": 0, "chunk_count": 1, "sections": valid_sections[:-1]}
-        )
+
+def test_analysis_meta_requires_expected_fields() -> None:
+    meta = AnalysisMeta.model_validate(
+        {
+            "source_filename": "sample.txt",
+            "model_name": "gpt-5.4",
+            "text_type": "章节正文",
+            "has_timestamps": False,
+            "has_speaker_labels": False,
+            "has_noise_markers": False,
+            "uses_batch_processing": True,
+            "location_indexing": "章节或段落位置",
+            "chunk_count": 3,
+        }
+    )
+    assert meta.chunk_count == 3
+    with pytest.raises(ValidationError):
+        AnalysisMeta.model_validate({"source_filename": "sample.txt"})
 
 
 def test_settings_reject_invalid_worker_interval_and_chunk_concurrency(
@@ -129,54 +90,36 @@ def test_settings_reject_invalid_worker_interval_and_chunk_concurrency(
 
 
 @pytest.mark.asyncio
-async def test_structured_llm_client_wraps_model_with_strict_json_schema(
+async def test_structured_llm_client_extracts_markdown_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
     get_settings.cache_clear()
 
-    class FakeStructuredRunnable:
-        async def ainvoke(self, messages: list[HumanMessage]) -> AnalysisReport:
+    class FakeModel:
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
             assert len(messages) == 1
             assert messages[0].content == "生成报告"
-            return AnalysisReport.model_validate(build_report_payload())
-
-    class FakeModel:
-        def __init__(self) -> None:
-            self.structured_calls: list[tuple[type, dict]] = []
-
-        def with_structured_output(self, schema: type, **kwargs: object) -> FakeStructuredRunnable:
-            self.structured_calls.append((schema, kwargs))
-            return FakeStructuredRunnable()
-
-    fake_model = FakeModel()
-    factory_calls: list[dict] = []
-
-    def fake_model_factory(**kwargs: object) -> FakeModel:
-        factory_calls.append(kwargs)
-        return fake_model
+            return AIMessage(content="# 标题\n正文")
 
     provider = SimpleNamespace(
         base_url="https://api.example.test/v1",
         api_key_encrypted="encrypted-key",
     )
-    client = StructuredLLMClient(
+    factory_calls: list[dict] = []
+
+    def fake_model_factory(**kwargs: object) -> FakeModel:
+        factory_calls.append(kwargs)
+        return FakeModel()
+
+    client = MarkdownLLMClient(
         model_factory=fake_model_factory,
         secret_decrypter=lambda value: f"decrypted:{value}",
     )
-
     model = client.build_model(provider=provider, model_name="gpt-4.1-mini")
-    result = await client.ainvoke_structured(
-        model=model,
-        schema=AnalysisReport,
-        prompt="生成报告",
-    )
+    result = await client.ainvoke_markdown(model=model, prompt="生成报告")
 
-    assert isinstance(result, AnalysisReport)
-    assert result.model_dump(mode="json")["sections"][0]["section"] == "3.1"
-    assert fake_model.structured_calls == [
-        (AnalysisReport, {"method": "json_schema", "strict": True})
-    ]
+    assert result == "# 标题\n正文"
     assert factory_calls == [
         {
             "model": "gpt-4.1-mini",
@@ -184,7 +127,7 @@ async def test_structured_llm_client_wraps_model_with_strict_json_schema(
             "base_url": "https://api.example.test/v1",
             "api_key": "decrypted:encrypted-key",
             "temperature": 0.0,
-            "timeout": 15.0,
+            "timeout": 60.0,
             "max_retries": 2,
         }
     ]
@@ -210,7 +153,11 @@ async def test_storage_service_batches_chunk_analysis_artifacts_and_cleans_job_a
         await storage_service.write_chunk_analysis_artifact(
             job_id,
             index,
-            {"chunk_index": index, "sections": [build_section(section, title) for section, title in SECTION_TITLES]},
+            {
+                "chunk_index": index,
+                "chunk_count": 3,
+                "markdown": build_chunk_markdown(f"chunk-{index}"),
+            },
         )
 
     batches = [
@@ -260,8 +207,6 @@ async def test_read_chunks_and_classification_streams_chunks_via_callback() -> N
     emitted_chunks: list[tuple[int, str]] = []
 
     async def stream():
-        # First chunk content with chapter headers to force chunking
-        # Each chunk needs to be > 50 characters to be emitted, or at the end
         content = (
             "第一章 开始\n"
             + "这是一段测试文字，用于凑够字数以便触发发射。" * 5 + "\n"
@@ -275,7 +220,7 @@ async def test_read_chunks_and_classification_streams_chunks_via_callback() -> N
     async def on_chunk(index: int, chunk_text: str) -> None:
         emitted_chunks.append((index, chunk_text))
 
-    chunk_count, character_count, classification = await read_chunks_and_classification(
+    chunk_count, _character_count, classification = await read_chunks_and_classification(
         stream(),
         on_chunk=on_chunk,
     )
@@ -289,14 +234,13 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
     class FakeStorageService:
         async def read_chunk_analysis_batches(self, job_id: str, *, batch_size: int):
             del job_id, batch_size
-            sections = [build_section(section, title) for section, title in SECTION_TITLES]
             yield [
-                {"chunk_index": 0, "chunk_count": 10, "sections": sections},
-                {"chunk_index": 1, "chunk_count": 10, "sections": sections},
+                {"chunk_index": 0, "chunk_count": 10, "markdown": build_chunk_markdown("0")},
+                {"chunk_index": 1, "chunk_count": 10, "markdown": build_chunk_markdown("1")},
             ]
             yield [
-                {"chunk_index": 2, "chunk_count": 10, "sections": sections},
-                {"chunk_index": 3, "chunk_count": 10, "sections": sections},
+                {"chunk_index": 2, "chunk_count": 10, "markdown": build_chunk_markdown("2")},
+                {"chunk_index": 3, "chunk_count": 10, "markdown": build_chunk_markdown("3")},
             ]
 
     class FakeMergeClient:
@@ -306,16 +250,10 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
         def build_model(self, *, provider: object, model_name: str) -> object:
             return SimpleNamespace(provider=provider, model_name=model_name)
 
-        async def ainvoke_structured(self, *, model: object, schema: type, prompt: str):
+        async def ainvoke_markdown(self, *, model: object, prompt: str) -> str:
             del model, prompt
-            assert schema is MergedAnalysis
             self.merge_calls += 1
-            return MergedAnalysis.model_validate(
-                {
-                    "classification": {"text_type": "章节正文"},
-                    "sections": [build_section(section, title) for section, title in SECTION_TITLES],
-                }
-            )
+            return build_chunk_markdown(f"merge-{self.merge_calls}")
 
     client = FakeMergeClient()
     pipeline = StyleAnalysisPipeline(
@@ -347,4 +285,4 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
     )
 
     assert client.merge_calls == 2
-    assert merged["merged_analysis"]["sections"][0]["section"] == "3.1"
+    assert merged["merged_analysis_markdown"].startswith("# 执行摘要")
