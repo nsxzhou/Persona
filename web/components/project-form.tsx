@@ -35,49 +35,6 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function useProjectFormPageData(projectId?: string) {
-  const projectQuery = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => api.getProject(projectId as string),
-    enabled: Boolean(projectId),
-  });
-  const providersQuery = useQuery({
-    queryKey: ["provider-configs"],
-    queryFn: api.getProviderConfigs,
-  });
-  const styleProfilesQuery = useQuery({
-    queryKey: ["style-profiles"],
-    queryFn: () => api.getStyleProfiles(),
-  });
-
-  const needsProject = Boolean(projectId);
-  const isLoading =
-    providersQuery.isLoading ||
-    styleProfilesQuery.isLoading ||
-    (needsProject && projectQuery.isLoading);
-  const hasError =
-    providersQuery.isError ||
-    styleProfilesQuery.isError ||
-    (needsProject && projectQuery.isError) ||
-    !providersQuery.data ||
-    !styleProfilesQuery.data ||
-    (needsProject && !projectQuery.data);
-  const errorMessage =
-    (providersQuery.error instanceof Error && providersQuery.error.message) ||
-    (styleProfilesQuery.error instanceof Error && styleProfilesQuery.error.message) ||
-    (projectQuery.error instanceof Error && projectQuery.error.message) ||
-    "请重试";
-
-  return {
-    isLoading,
-    hasError,
-    errorMessage,
-    providers: providersQuery.data ?? [],
-    styleProfiles: styleProfilesQuery.data ?? [],
-    project: projectQuery.data,
-    refetchProject: projectQuery.refetch,
-  };
-}
 
 export function ProjectForm({
   providers,
@@ -248,28 +205,35 @@ export function ProjectForm({
 
 type ProjectPageMode = "new" | "detail";
 
+import { createProjectAction, updateProjectAction } from "@/app/(workspace)/projects/actions";
+
 export function ProjectPageClient({
   mode,
   projectId,
+  initialProject,
+  initialProviders,
+  initialStyleProfiles,
 }: {
   mode: ProjectPageMode;
   projectId?: string;
+  initialProject?: Project;
+  initialProviders: ProviderConfig[];
+  initialStyleProfiles: StyleProfileListItem[];
 }) {
   const router = useRouter();
-  const formData = useProjectFormPageData(projectId);
   const isDetailMode = mode === "detail";
+  
   const mutation = useMutation({
     mutationFn: (payload: ProjectPayload | Partial<ProjectPayload>) => {
-      if (isDetailMode) {
-        return api.updateProject(projectId as string, payload as Partial<ProjectPayload>);
+      if (isDetailMode && projectId) {
+        return updateProjectAction(projectId, payload as Partial<ProjectPayload>);
       }
-      return api.createProject(payload as ProjectPayload);
+      return createProjectAction(payload as ProjectPayload);
     },
     onError: (error) => toast.error(error.message),
     onSuccess: async (project) => {
       if (isDetailMode) {
         toast.success("项目配置已保存");
-        await formData.refetchProject();
         return;
       }
       toast.success("项目创建成功");
@@ -277,21 +241,8 @@ export function ProjectPageClient({
     },
   });
 
-  if (formData.isLoading) {
-    return <PageLoading />;
-  }
-
-  if (formData.hasError || (isDetailMode && !formData.project)) {
-    return (
-      <PageError
-        title={isDetailMode ? "项目详情加载失败" : "无法加载项目配置数据"}
-        message={formData.errorMessage}
-      />
-    );
-  }
-
-  const breadcrumbName = isDetailMode ? formData.project?.name : "新建项目";
-  const pageTitle = isDetailMode ? formData.project?.name : "新建项目";
+  const breadcrumbName = isDetailMode ? initialProject?.name : "新建项目";
+  const pageTitle = isDetailMode ? initialProject?.name : "新建项目";
   const pageDescription = isDetailMode
     ? "更新项目基本信息、默认模型与未来的 Style Profile 挂载入口。"
     : "先定义项目本身，再在下一阶段接入 Style Profile 和编辑器。";
@@ -316,9 +267,9 @@ export function ProjectPageClient({
       </div>
 
       <ProjectForm
-        project={formData.project}
-        providers={formData.providers}
-        styleProfiles={formData.styleProfiles}
+        project={initialProject}
+        providers={initialProviders}
+        styleProfiles={initialStyleProfiles}
         submitting={mutation.isPending}
         onSubmit={async (values) => {
           await mutation.mutateAsync(values as ProjectPayload | Partial<ProjectPayload>);

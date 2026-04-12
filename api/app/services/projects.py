@@ -29,11 +29,15 @@ class ProjectService:
         *,
         user_id: str | None = None,
         include_archived: bool,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[Project]:
         return await self.repository.list(
             session,
             user_id=user_id,
             include_archived=include_archived,
+            offset=offset,
+            limit=limit,
         )
 
     async def get_or_404(

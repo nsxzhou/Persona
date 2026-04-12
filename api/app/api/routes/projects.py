@@ -16,11 +16,15 @@ async def list_projects(
     db_session: DbSessionDep,
     project_service: ProjectServiceDep,
     include_archived: bool = Query(default=False),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1),
 ) -> list[ProjectResponse]:
     projects = await project_service.list(
         db_session,
         user_id=current_user.id,
         include_archived=include_archived,
+        offset=offset,
+        limit=limit,
     )
     return [ProjectResponse.model_validate(project) for project in projects]
 

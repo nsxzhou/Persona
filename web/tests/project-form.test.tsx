@@ -20,6 +20,8 @@ test("project form lets user select a style profile and submit it", async () => 
           last_test_status: null,
           last_test_error: null,
           last_tested_at: null,
+          created_at: "2026-04-09T00:00:00Z",
+          updated_at: "2026-04-09T00:00:00Z",
         },
       ]}
       styleProfiles={[

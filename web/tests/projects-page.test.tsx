@@ -8,16 +8,22 @@ test("projects page renders active projects and archive toggle", () => {
   render(
     <ProjectsPageView
       includeArchived={false}
-      onIncludeArchivedChange={() => {}}
+      onIncludeArchivedChange={vi.fn()}
+      page={1}
+      hasNextPage={false}
+      onPageChange={vi.fn()}
       projects={[
         {
           id: "project-1",
           name: "Immortal River Chronicle",
           description: "东方玄幻长篇项目",
           status: "active",
+          default_provider_id: "provider-1",
           default_model: "gpt-4.1-mini",
           style_profile_id: null,
           archived_at: null,
+          created_at: "2026-04-09T00:00:00Z",
+          updated_at: "2026-04-09T00:00:00Z",
           provider: {
             id: "provider-1",
             label: "Primary Gateway",

@@ -12,15 +12,32 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { api } from "@/lib/api";
 import type { Project } from "@/lib/types";
 
+const PAGE_SIZE = 10;
+
 export function ProjectsPageClient() {
   const [includeArchived, setIncludeArchived] = useState(false);
+  const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
+  
   const projectsQuery = useQuery({
-    queryKey: ["projects", includeArchived],
-    queryFn: () => api.getProjects(includeArchived),
+    queryKey: ["projects", includeArchived, page],
+    queryFn: () => api.getProjects({ 
+      includeArchived, 
+      offset: (page - 1) * PAGE_SIZE, 
+      limit: PAGE_SIZE 
+    }),
   });
 
   const archiveMutation = useMutation({
@@ -58,8 +75,14 @@ export function ProjectsPageClient() {
     <ProjectsPageView
       includeArchived={includeArchived}
       projects={projectsQuery.data}
+      page={page}
+      hasNextPage={projectsQuery.data.length === PAGE_SIZE}
+      onPageChange={setPage}
       onArchive={(projectId) => archiveMutation.mutate(projectId)}
-      onIncludeArchivedChange={setIncludeArchived}
+      onIncludeArchivedChange={(checked) => {
+        setIncludeArchived(checked);
+        setPage(1); // Reset page on filter change
+      }}
       onRestore={(projectId) => restoreMutation.mutate(projectId)}
     />
   );
@@ -68,12 +91,18 @@ export function ProjectsPageClient() {
 export function ProjectsPageView({
   projects,
   includeArchived,
+  page,
+  hasNextPage,
+  onPageChange,
   onIncludeArchivedChange,
   onArchive,
   onRestore,
 }: {
   projects: Project[];
   includeArchived: boolean;
+  page: number;
+  hasNextPage: boolean;
+  onPageChange: (page: number) => void;
   onIncludeArchivedChange: (checked: boolean) => void;
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
@@ -157,6 +186,45 @@ export function ProjectsPageView({
           </div>
         ))}
       </div>
+
+      {/* Pagination (Standard) */}
+      {projects.length > 0 || page > 1 ? (
+        <Pagination className="mt-8 justify-end">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (page > 1) onPageChange(page - 1);
+                }}
+                className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            
+            <PaginationItem>
+              <PaginationLink 
+                href="#" 
+                onClick={(e) => e.preventDefault()}
+                isActive
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+            
+            <PaginationItem>
+              <PaginationNext 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (hasNextPage) onPageChange(page + 1);
+                }}
+                className={!hasNextPage ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      ) : null}
     </section>
   );
 }

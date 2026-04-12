@@ -14,11 +14,15 @@ class ProjectRepository:
         *,
         user_id: str | None = None,
         include_archived: bool,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[Project]:
         query = (
             select(Project)
             .options(joinedload(Project.provider))
             .order_by(Project.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
         if user_id is not None:
             query = query.where(Project.user_id == user_id)

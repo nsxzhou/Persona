@@ -91,8 +91,11 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
 
 
 @pytest.mark.asyncio
-async def test_project_crud_archive_restore_and_filtering(initialized_client: AsyncClient) -> None:
-    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+async def test_project_crud_archive_restore_and_filtering(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    provider_id = str(initialized_provider["id"])
 
     create_response = await initialized_client.post(
         "/api/v1/projects",
@@ -107,7 +110,7 @@ async def test_project_crud_archive_restore_and_filtering(initialized_client: As
     )
     assert create_response.status_code == 201
     created = create_response.json()
-    assert created["default_model"] == "gpt-4.1-mini"
+    assert created["default_model"] == initialized_provider["default_model"]
     assert created["provider"]["id"] == provider_id
 
     list_response = await initialized_client.get("/api/v1/projects")
