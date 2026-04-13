@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -47,7 +48,7 @@ def live_style_analysis_sample_text() -> str:
     return "测试片段缺失，请确保 tests/sample_novel.txt 存在。"
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def app_with_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FastAPI]:
     db_path = tmp_path / "persona-test.db"
     storage_dir = tmp_path / "storage"
@@ -75,7 +76,7 @@ async def app_with_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncI
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(app_with_db: FastAPI) -> AsyncIterator[AsyncClient]:
     async with AsyncClient(
         transport=ASGITransport(app=app_with_db),
@@ -85,7 +86,7 @@ async def client(app_with_db: FastAPI) -> AsyncIterator[AsyncClient]:
 
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def initialized_client(
     client: AsyncClient,
     live_provider_payload: dict[str, Any],
@@ -102,7 +103,7 @@ async def initialized_client(
     return client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def initialized_provider(initialized_client: AsyncClient) -> dict[str, Any]:
     response = await initialized_client.get("/api/v1/provider-configs")
     assert response.status_code == 200

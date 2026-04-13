@@ -9,6 +9,7 @@ from app.schemas.style_analysis_jobs import (
     AnalysisReportMarkdown,
     AnalysisMeta,
     PromptPackMarkdown,
+    StyleAnalysisJobLogsResponse,
     StyleAnalysisJobListItemResponse,
     StyleAnalysisJobResponse,
     StyleAnalysisJobStatusResponse,
@@ -112,20 +113,19 @@ async def create_style_analysis_job(
     )
     return StyleAnalysisJobListItemResponse.model_validate(job)
 
-
-from fastapi.responses import PlainTextResponse
-
-@router.get("/{job_id}/logs", response_class=PlainTextResponse)
+@router.get("/{job_id}/logs", response_model=StyleAnalysisJobLogsResponse)
 async def get_style_analysis_job_logs(
     job_id: str,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
-) -> str:
+    offset: int = Query(default=0, ge=0),
+) -> StyleAnalysisJobLogsResponse:
     return await job_service.get_job_logs_or_404(
         db_session,
         job_id,
         user_id=current_user.id,
+        offset=offset,
     )
 
 @router.get("/{job_id}/analysis-meta", response_model=AnalysisMeta)

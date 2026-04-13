@@ -6,7 +6,7 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError
-from app.db.models import StyleAnalysisJob, StyleProfile
+from app.db.models import StyleAnalysisJob
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
 from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
@@ -16,15 +16,15 @@ from app.schemas.style_analysis_jobs import (
     STYLE_ANALYSIS_JOB_STATUS_PAUSED,
     STYLE_ANALYSIS_JOB_STATUS_RUNNING,
     STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
-    StyleAnalysisJobResponse,
+    StyleAnalysisJobLogsResponse,
     StyleAnalysisJobStatusResponse,
-    StyleProfileEmbeddedResponse,
 )
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 from app.services.style_analysis_job_file_lifecycle import (
     StyleAnalysisJobFileLifecycleService,
 )
+from app.services.style_analysis_job_cleanup import StyleAnalysisJobCleanupService
 
 STYLE_ANALYSIS_USER_ERROR_MESSAGE = "分析任务失败，请稍后重试。"
 
@@ -36,8 +36,6 @@ def sanitize_style_analysis_error_message(error_message: str | None) -> str:
     if not normalized_message:
         return STYLE_ANALYSIS_USER_ERROR_MESSAGE
     return normalized_message
-
-
 class StyleAnalysisJobService:
     def __init__(
         self,
@@ -136,18 +134,26 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         user_id: str | None = None,
-    ) -> str:
-        # 验证任务是否存在及权限
+        offset: int = 0,
+    ) -> StyleAnalysisJobLogsResponse:
         await self.get_or_404(
             session,
             job_id,
             user_id=user_id,
             include_payloads=False,
         )
-        # 读取日志内容
         from app.services.style_analysis_storage import StyleAnalysisStorageService
+
         storage_service = StyleAnalysisStorageService()
-        return await storage_service.read_job_logs(job_id)
+        content, next_offset, truncated = await storage_service.read_job_logs_incremental(
+            job_id,
+            offset=offset,
+        )
+        return StyleAnalysisJobLogsResponse(
+            content=content,
+            next_offset=next_offset,
+            truncated=truncated,
+        )
 
     async def resume(
         self,
@@ -507,31 +513,3 @@ class StyleAnalysisJobService:
 
         cleanup_service = StyleAnalysisJobCleanupService(self.repository)
         await cleanup_service.delete_job_and_artifacts(session, job, job_id)
-
-
-
-class StyleAnalysisJobCleanupService:
-    def __init__(self, repository=None):
-        from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
-        from app.services.style_analysis_job_file_lifecycle import StyleAnalysisJobFileLifecycleService
-        self.repository = repository or StyleAnalysisJobRepository()
-        self.file_lifecycle = StyleAnalysisJobFileLifecycleService()
-
-    async def delete_job_and_artifacts(
-        self, session, job, job_id: str
-    ) -> None:
-        sample_storage_path = job.sample_file.storage_path
-        await self.repository.delete_job_graph(session, job)
-        await self.file_lifecycle.cleanup_after_job_delete(
-            sample_storage_path=sample_storage_path,
-            job_id=job_id,
-        )
-
-        try:
-            from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
-            checkpointer_factory = StyleAnalysisCheckpointerFactory()
-            await checkpointer_factory.delete_thread(job_id)
-            await checkpointer_factory.aclose()
-        except Exception:
-            pass
-

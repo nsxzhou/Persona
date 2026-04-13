@@ -1,5 +1,8 @@
 import type {
+  AnalysisMeta,
+  AnalysisReportMarkdown,
   LoginPayload,
+  PromptPackMarkdown,
   Project,
   ProjectPayload,
   ProviderConfig,
@@ -7,9 +10,11 @@ import type {
   SetupPayload,
   StyleAnalysisJob,
   StyleAnalysisJobListItem,
+  StyleAnalysisJobLogs,
   StyleProfile,
   StyleProfileCreatePayload,
   StyleProfileListItem,
+  StyleSummaryMarkdown,
   StyleProfileUpdatePayload,
   User,
 } from "@/lib/types";
@@ -104,8 +109,16 @@ export const api = {
     request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/status`),
   getStyleAnalysisJob: (id: string) =>
     request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
-  getStyleAnalysisJobLogs: (id: string) =>
-    request<string>(`/api/v1/style-analysis-jobs/${id}/logs`),
+  getStyleAnalysisJobLogs: (id: string, offset = 0) =>
+    request<StyleAnalysisJobLogs>(`/api/v1/style-analysis-jobs/${id}/logs?offset=${offset}`),
+  getStyleAnalysisJobAnalysisMeta: (id: string) =>
+    request<AnalysisMeta>(`/api/v1/style-analysis-jobs/${id}/analysis-meta`),
+  getStyleAnalysisJobAnalysisReport: (id: string) =>
+    request<AnalysisReportMarkdown>(`/api/v1/style-analysis-jobs/${id}/analysis-report`),
+  getStyleAnalysisJobStyleSummary: (id: string) =>
+    request<StyleSummaryMarkdown>(`/api/v1/style-analysis-jobs/${id}/style-summary`),
+  getStyleAnalysisJobPromptPack: (id: string) =>
+    request<PromptPackMarkdown>(`/api/v1/style-analysis-jobs/${id}/prompt-pack`),
   resumeStyleAnalysisJob: (id: string) =>
     request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/resume`, {
       method: "POST",

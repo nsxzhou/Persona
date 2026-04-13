@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { STYLE_ANALYSIS_JOB_STATUS, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
+import { type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
 import type { FormValues } from "@/lib/validations/style-lab";
 
 export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSummaryStep({
@@ -42,7 +42,7 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
           {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
-          {job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED ? (
+          {job.status === "succeeded" ? (
             <>
               <div className="grid gap-2">
                 <Label htmlFor="style-name">风格名称</Label>

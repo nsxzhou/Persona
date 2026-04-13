@@ -69,13 +69,6 @@ def build_style_profile_embedded_response(
 
 def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse:
     style_profile = build_style_profile_embedded_response(job.style_profile)
-    analysis_meta, analysis_report_markdown, style_summary_markdown, prompt_pack_markdown = (
-        build_job_result_bundle(job)
-    )
-    if style_profile is not None:
-        analysis_report_markdown = style_profile.analysis_report_markdown
-        style_summary_markdown = style_profile.style_summary_markdown
-        prompt_pack_markdown = style_profile.prompt_pack_markdown
     return StyleAnalysisJobResponse(
         id=job.id,
         style_name=job.style_name,
@@ -92,9 +85,5 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
         provider=job.provider,
         sample_file=job.sample_file,
         style_profile_id=job.style_profile_id,
-        analysis_meta=analysis_meta,
-        analysis_report_markdown=analysis_report_markdown,
-        style_summary_markdown=style_summary_markdown,
-        prompt_pack_markdown=prompt_pack_markdown,
         style_profile=style_profile,
     )

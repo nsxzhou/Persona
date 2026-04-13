@@ -2,7 +2,14 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-import type { User, Project, ProviderConfig, StyleProfileListItem, ProjectPayload } from "@/lib/types";
+import type {
+  User,
+  Project,
+  ProviderConfig,
+  StyleProfile,
+  StyleProfileListItem,
+  ProjectPayload,
+} from "@/lib/types";
 import { createJsonRequester } from "@/lib/api/transport";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -59,6 +66,11 @@ export async function getServerProviderConfigs(): Promise<ProviderConfig[]> {
 export async function getServerStyleProfiles(limit = 100): Promise<StyleProfileListItem[]> {
   const req = await getServerRequester();
   return req<StyleProfileListItem[]>(`/api/v1/style-profiles?limit=${limit}`);
+}
+
+export async function getServerStyleProfile(id: string): Promise<StyleProfile> {
+  const req = await getServerRequester();
+  return req<StyleProfile>(`/api/v1/style-profiles/${id}`);
 }
 
 export async function createServerProject(payload: ProjectPayload): Promise<Project> {

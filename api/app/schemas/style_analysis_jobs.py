@@ -45,6 +45,15 @@ class PromptPackMarkdown(RootModel[str]):
     )
 
 
+class StyleAnalysisJobLogsResponse(BaseModel):
+    content: str = Field(description="Incremental log content from the requested offset.")
+    next_offset: int = Field(ge=0, description="Next byte offset the client should request.")
+    truncated: bool = Field(
+        default=False,
+        description="Whether the requested offset was reset because it exceeded the log length.",
+    )
+
+
 class ChunkAnalysis(BaseModel):
     chunk_index: int = Field(ge=0, description="Zero-based chunk index.")
     chunk_count: int = Field(ge=1, description="Total number of chunks in this analysis job.")
@@ -131,9 +140,6 @@ class StyleProfileEmbeddedResponse(BaseModel):
     model_name: str
     source_filename: str
     style_name: str
-    analysis_report_markdown: str
-    style_summary_markdown: str
-    prompt_pack_markdown: str
     created_at: datetime
     updated_at: datetime
 
@@ -159,10 +165,6 @@ class StyleAnalysisJobBaseResponse(BaseModel):
 
 
 class StyleAnalysisJobResponse(StyleAnalysisJobBaseResponse):
-    analysis_meta: AnalysisMeta | None = None
-    analysis_report_markdown: str | None = None
-    style_summary_markdown: str | None = None
-    prompt_pack_markdown: str | None = None
     style_profile: StyleProfileEmbeddedResponse | None = None
 
 

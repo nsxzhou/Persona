@@ -254,3 +254,24 @@ class StyleAnalysisStorageService:
             return ""
         async with aiofiles.open(path, "r", encoding="utf-8") as handle:
             return await handle.read()
+
+    async def read_job_logs_incremental(
+        self,
+        job_id: str,
+        *,
+        offset: int,
+    ) -> tuple[str, int, bool]:
+        path = self._log_artifact_path(job_id)
+        if not path.exists():
+            return "", 0, False
+
+        safe_offset = max(offset, 0)
+        file_size = path.stat().st_size
+        truncated = safe_offset > file_size
+        effective_offset = 0 if truncated else safe_offset
+
+        async with aiofiles.open(path, "rb") as handle:
+            await handle.seek(effective_offset)
+            content = (await handle.read()).decode("utf-8")
+
+        return content, file_size, truncated

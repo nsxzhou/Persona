@@ -8,8 +8,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { formSchema, makeEmptyFormValues, type FormValues } from "@/lib/validations/style-lab";
 import {
-  STYLE_ANALYSIS_JOB_PROCESSING_STATUSES,
-  STYLE_ANALYSIS_JOB_STATUS,
+  type StyleAnalysisJobLogs,
   type StyleAnalysisJob,
   type StyleProfile,
 } from "@/lib/types";
@@ -23,26 +22,30 @@ type DetailResource<T> = {
   error: Error | null;
 };
 
+type DetailQueryLike = {
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+};
+
 type StyleAnalysisJobStatusSnapshot = Pick<
   StyleAnalysisJob,
   "id" | "status" | "stage" | "error_message" | "updated_at"
 >;
 
 export function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
-  return Boolean(
-    status && STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some((value) => value === status),
-  );
+  return status === "pending" || status === "running";
 }
 
 function makeDetailResource<T>(
   data: T | null | undefined,
-  jobQuery: ReturnType<typeof useStyleLabJobDetailQuery>,
+  query: DetailQueryLike,
 ): DetailResource<T> {
   return {
     data: data ?? null,
-    isLoading: jobQuery.isLoading,
-    isError: jobQuery.isError,
-    error: jobQuery.error instanceof Error ? jobQuery.error : null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 
@@ -76,11 +79,32 @@ function useStyleLabJobDetailQuery(jobId: string) {
 }
 
 export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
-  return useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "logs"],
-    queryFn: () => api.getStyleAnalysisJobLogs(jobId),
+  const [offset, setOffset] = React.useState(0);
+  const [logs, setLogs] = React.useState("");
+
+  React.useEffect(() => {
+    setOffset(0);
+    setLogs("");
+  }, [jobId]);
+
+  const query = useQuery<StyleAnalysisJobLogs>({
+    queryKey: ["style-analysis-jobs", jobId, "logs", offset],
+    queryFn: () => api.getStyleAnalysisJobLogs(jobId, offset),
     refetchInterval: isProcessing ? 1000 : false,
+    placeholderData: (previous) => previous,
   });
+
+  React.useEffect(() => {
+    const payload = query.data as StyleAnalysisJobLogs | undefined;
+    if (!payload) return;
+    setLogs((prev) => (payload.truncated ? payload.content : prev + payload.content));
+    setOffset((prev) => (prev === payload.next_offset ? prev : payload.next_offset));
+  }, [query.data]);
+
+  return {
+    ...query,
+    logs,
+  };
 }
 
 function useStyleLabJobDetail(jobId: string) {
@@ -89,8 +113,8 @@ function useStyleLabJobDetail(jobId: string) {
 
   React.useEffect(() => {
     if (
-      statusQuery.data?.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED &&
-      jobQuery.data?.status !== STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED &&
+      statusQuery.data?.status === "succeeded" &&
+      jobQuery.data?.status !== "succeeded" &&
       !jobQuery.isFetching
     ) {
       void jobQuery.refetch();
@@ -98,15 +122,71 @@ function useStyleLabJobDetail(jobId: string) {
   }, [jobQuery.data?.status, jobQuery.isFetching, jobQuery.refetch, statusQuery.data?.status]);
 
   const job = mergeStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
-  const existingProfile = job?.style_profile ?? null;
+  const legacyJob = job as
+    | (StyleAnalysisJob & {
+        style_profile?: StyleProfile | null;
+        analysis_report_markdown?: string | null;
+        style_summary_markdown?: string | null;
+        prompt_pack_markdown?: string | null;
+      })
+    | null;
+  const embeddedProfile = legacyJob?.style_profile ?? null;
+  const existingProfileQuery = useQuery({
+    queryKey: ["style-profiles", job?.style_profile_id],
+    queryFn: () => api.getStyleProfile(String(job?.style_profile_id)),
+    enabled: Boolean(job?.style_profile_id && !embeddedProfile),
+  });
+  const existingProfile = embeddedProfile ?? existingProfileQuery.data ?? null;
+  const reportQuery = useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "analysis-report"],
+    queryFn: () => api.getStyleAnalysisJobAnalysisReport(jobId),
+    enabled: Boolean(
+      job &&
+        job.status === "succeeded" &&
+        !existingProfile &&
+        !("analysis_report_markdown" in job && job.analysis_report_markdown),
+    ),
+  });
+  const summaryQuery = useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "style-summary"],
+    queryFn: () => api.getStyleAnalysisJobStyleSummary(jobId),
+    enabled: Boolean(
+      job &&
+        job.status === "succeeded" &&
+        !existingProfile &&
+        !("style_summary_markdown" in job && job.style_summary_markdown),
+    ),
+  });
+  const promptPackQuery = useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "prompt-pack"],
+    queryFn: () => api.getStyleAnalysisJobPromptPack(jobId),
+    enabled: Boolean(
+      job &&
+        job.status === "succeeded" &&
+        !existingProfile &&
+        !("prompt_pack_markdown" in job && job.prompt_pack_markdown),
+    ),
+  });
 
-  const report = existingProfile?.analysis_report_markdown ?? job?.analysis_report_markdown ?? null;
-  const summary = existingProfile?.style_summary_markdown ?? job?.style_summary_markdown ?? null;
-  const promptPack = existingProfile?.prompt_pack_markdown ?? job?.prompt_pack_markdown ?? null;
+  const report =
+    existingProfile?.analysis_report_markdown ??
+    legacyJob?.analysis_report_markdown ??
+    reportQuery.data ??
+    null;
+  const summary =
+    existingProfile?.style_summary_markdown ??
+    legacyJob?.style_summary_markdown ??
+    summaryQuery.data ??
+    null;
+  const promptPack =
+    existingProfile?.prompt_pack_markdown ??
+    legacyJob?.prompt_pack_markdown ??
+    promptPackQuery.data ??
+    null;
 
   let errorState: { title: string; message: string } | null = null;
-  if (jobQuery.isError || (statusQuery.isError && !jobQuery.data)) {
-    const queryError = jobQuery.error ?? statusQuery.error;
+  if (jobQuery.isError || (statusQuery.isError && !jobQuery.data) || existingProfileQuery.isError) {
+    const queryError = existingProfileQuery.error ?? jobQuery.error ?? statusQuery.error;
     errorState = {
       title: "加载任务失败",
       message: queryError instanceof Error ? queryError.message : "请重试",
@@ -118,9 +198,30 @@ function useStyleLabJobDetail(jobId: string) {
   return {
     job,
     existingProfile,
-    reportResource: makeDetailResource<string>(report, jobQuery),
-    summaryResource: makeDetailResource<string>(summary, jobQuery),
-    promptPackResource: makeDetailResource<string>(promptPack, jobQuery),
+    reportResource: makeDetailResource<string>(report, {
+      isLoading: report == null && !existingProfile ? reportQuery.isLoading : false,
+      isError: report == null && !existingProfile ? reportQuery.isError : false,
+      error:
+        report == null && !existingProfile && reportQuery.error instanceof Error
+          ? reportQuery.error
+          : null,
+    }),
+    summaryResource: makeDetailResource<string>(summary, {
+      isLoading: summary == null && !existingProfile ? summaryQuery.isLoading : false,
+      isError: summary == null && !existingProfile ? summaryQuery.isError : false,
+      error:
+        summary == null && !existingProfile && summaryQuery.error instanceof Error
+          ? summaryQuery.error
+          : null,
+    }),
+    promptPackResource: makeDetailResource<string>(promptPack, {
+      isLoading: promptPack == null && !existingProfile ? promptPackQuery.isLoading : false,
+      isError: promptPack == null && !existingProfile ? promptPackQuery.isError : false,
+      error:
+        promptPack == null && !existingProfile && promptPackQuery.error instanceof Error
+          ? promptPackQuery.error
+          : null,
+    }),
     isLoading: jobQuery.isLoading && !jobQuery.data,
     errorState,
   };
@@ -181,7 +282,7 @@ function useStyleLabWizardState({
       return;
     }
 
-    if (job?.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED && summaryMarkdown && promptPackMarkdown) {
+    if (job?.status === "succeeded" && summaryMarkdown && promptPackMarkdown) {
       form.reset({
         styleName: job.style_name,
         styleSummaryMarkdown: summaryMarkdown,

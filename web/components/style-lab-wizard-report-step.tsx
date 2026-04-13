@@ -2,11 +2,7 @@
 
 import * as React from "react";
 
-import {
-  STYLE_ANALYSIS_JOB_STATUS,
-  type StyleAnalysisJob,
-  type StyleProfile,
-} from "@/lib/types";
+import { type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
 
 import {
   isProcessingStatus,
@@ -42,8 +38,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
   onNext: () => void;
 }) {
   const isProcessing = isProcessingStatus(job.status);
-  const { data: logsData } = useStyleLabJobLogsQuery(job.id, isProcessing);
-  const logs = logsData || "";
+  const { logs } = useStyleLabJobLogsQuery(job.id, isProcessing);
   const failedMessage = job.error_message?.trim() || "分析任务失败，请稍后重试。";
 
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
@@ -87,7 +82,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
             </ScrollArea>
           </CardContent>
         </Card>
-      ) : job.status === STYLE_ANALYSIS_JOB_STATUS.PAUSED ? (
+      ) : job.status === "paused" ? (
         <Card className="border-muted-foreground/30 bg-muted/10">
           <CardContent className="pt-6 text-center">
             <p>任务已暂停{job.stage ? `（停在阶段: ${job.stage}）` : ""}</p>
@@ -98,7 +93,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
             </div>
           </CardContent>
         </Card>
-      ) : job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED ? (
+      ) : job.status === "failed" ? (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="pt-6 text-center text-destructive">
             <p>分析失败: {failedMessage}</p>

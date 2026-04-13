@@ -30,17 +30,14 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { api } from "@/lib/api";
-import {
-  STYLE_ANALYSIS_JOB_STATUS,
-  type StyleAnalysisJobListItem,
-} from "@/lib/types";
+import { type StyleAnalysisJobListItem } from "@/lib/types";
 import { StyleLabNewTaskDialog } from "@/components/style-lab-new-task-dialog";
 
 const PAGE_SIZE = 12; // 卡片布局适合 3x4 或者 4x3 的数量
 
 function getStyleAnalysisJobBadgeVariant(job: StyleAnalysisJobListItem) {
-  if (job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED) return "destructive";
-  if (job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED) return "default";
+  if (job.status === "failed") return "destructive";
+  if (job.status === "succeeded") return "default";
   return "secondary";
 }
 

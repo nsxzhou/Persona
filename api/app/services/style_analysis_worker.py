@@ -153,19 +153,14 @@ class StyleAnalysisWorkerService:
             # 读取 job + 样本文本，并把文本切块落盘，得到 pipeline 运行所需上下文
             context = await self._load_run_context(session_factory, job_id)
             # 基于 provider/model/style/source 构造 pipeline（含 checkpointer 与阶段回调）
-            pipeline_kwargs = {
-                "provider": context.provider,
-                "model_name": context.model_name,
-                "style_name": context.style_name,
-                "source_filename": context.source_filename,
-                "stage_callback": stage_callback,
-            }
-            import inspect
-
-            if "should_pause" in inspect.signature(self._build_pipeline).parameters:
-                pipeline_kwargs["should_pause"] = pause_event.is_set
-
-            pipeline = await self._build_pipeline(**pipeline_kwargs)
+            pipeline = await self._build_pipeline(
+                provider=context.provider,
+                model_name=context.model_name,
+                style_name=context.style_name,
+                source_filename=context.source_filename,
+                stage_callback=stage_callback,
+                should_pause=pause_event.is_set,
+            )
             # 任务并发度：用于控制 chunk 分析阶段的并发上限（避免过高并发打爆模型/网络）
             max_concurrency = max(
                 1,

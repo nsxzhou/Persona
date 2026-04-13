@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { STYLE_ANALYSIS_JOB_STATUS, type Project, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
+import { type Project, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
 import type { FormValues } from "@/lib/validations/style-lab";
 
 const NONE_VALUE = "__none__";
@@ -52,7 +52,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
           {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
-          {job.status === STYLE_ANALYSIS_JOB_STATUS.SUCCEEDED ? (
+          {job.status === "succeeded" ? (
             <>
               <div className="grid gap-2">
                 <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>

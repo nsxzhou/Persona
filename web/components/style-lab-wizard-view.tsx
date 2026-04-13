@@ -13,7 +13,6 @@ import { StyleLabWizardPromptPackStep } from "@/components/style-lab-wizard-prom
 import { StyleLabWizardReportStep } from "@/components/style-lab-wizard-report-step";
 import { StyleLabWizardSummaryStep } from "@/components/style-lab-wizard-summary-step";
 import { useStyleLabWizardLogic, isProcessingStatus } from "@/hooks/use-style-lab-wizard-logic";
-import { STYLE_ANALYSIS_JOB_STATUS } from "@/lib/types";
 
 export function StyleLabWizardView({ jobId }: { jobId: string }) {
   const {
@@ -64,7 +63,7 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{job.style_name}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant={job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED ? "destructive" : "secondary"}>{job.status}</Badge>
+            <Badge variant={job.status === "failed" ? "destructive" : "secondary"}>{job.status}</Badge>
             <span className="text-sm text-muted-foreground">模型: {job.model_name}</span>
           </div>
         </div>

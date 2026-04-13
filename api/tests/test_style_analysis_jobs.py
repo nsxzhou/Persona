@@ -583,6 +583,67 @@ async def test_delete_style_analysis_job_removes_storage_and_unblocks_provider_d
     assert delete_provider_response.status_code == 204
 
 
+@pytest.mark.asyncio
+async def test_get_style_analysis_job_logs_returns_incremental_chunks(
+    client: AsyncClient,
+) -> None:
+    setup_response = await client.post(
+        "/api/v1/setup",
+        json={
+            "username": "persona-admin",
+            "password": "super-secret-password",
+            "provider": {
+                "label": "Test Provider",
+                "base_url": "https://api.openai.com/v1",
+                "api_key": "test-api-key-1234",
+                "default_model": "gpt-4.1-mini",
+                "is_enabled": True,
+            },
+        },
+    )
+    assert setup_response.status_code == 201
+    provider_id = setup_response.json()["provider"]["id"]
+
+    create_response = await client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "日志任务", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    assert create_response.status_code == 201
+    job_id = create_response.json()["id"]
+
+    storage_service = StyleAnalysisStorageService()
+    await storage_service.append_job_log(job_id, "第一行日志")
+    await storage_service.append_job_log(job_id, "第二行日志")
+
+    first_response = await client.get(f"/api/v1/style-analysis-jobs/{job_id}/logs?offset=0")
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert "第一行日志" in first_payload["content"]
+    assert "第二行日志" in first_payload["content"]
+    assert first_payload["next_offset"] > 0
+    assert first_payload["truncated"] is False
+
+    second_response = await client.get(
+        f"/api/v1/style-analysis-jobs/{job_id}/logs?offset={first_payload['next_offset']}"
+    )
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload == {
+        "content": "",
+        "next_offset": first_payload["next_offset"],
+        "truncated": False,
+    }
+
+    oversized_response = await client.get(
+        f"/api/v1/style-analysis-jobs/{job_id}/logs?offset=999999"
+    )
+    assert oversized_response.status_code == 200
+    oversized_payload = oversized_response.json()
+    assert "第一行日志" in oversized_payload["content"]
+    assert oversized_payload["truncated"] is True
+
+
 def test_build_job_result_bundle_does_not_fallback_to_legacy_draft_payload() -> None:
     job = SimpleNamespace(
         analysis_meta_payload=None,

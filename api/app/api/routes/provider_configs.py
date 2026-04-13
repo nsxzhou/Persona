@@ -21,26 +21,24 @@ router = APIRouter(
 
 @router.get("", response_model=list[ProviderConfigResponse])
 async def list_provider_configs(
-    _current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
     db_session: DbSessionDep,
     provider_service: ProviderConfigServiceDep,
 ) -> list[ProviderConfigResponse]:
-    user_id = getattr(_current_user, "id", None)
-    providers = await provider_service.list(db_session, user_id=user_id)
+    providers = await provider_service.list(db_session, user_id=current_user.id)
     return [ProviderConfigResponse.model_validate(provider) for provider in providers]
 
 @router.post("", response_model=ProviderConfigResponse, status_code=201)
 async def create_provider_config(
     payload: ProviderConfigCreate,
-    _current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
     db_session: DbSessionDep,
     provider_service: ProviderConfigServiceDep,
 ) -> ProviderConfigResponse:
-    user_id = getattr(_current_user, "id", None)
     provider = await provider_service.create(
         db_session,
         payload,
-        user_id=user_id,
+        user_id=current_user.id,
     )
     return ProviderConfigResponse.model_validate(provider)
 
@@ -48,44 +46,41 @@ async def create_provider_config(
 async def update_provider_config(
     provider_id: str,
     payload: ProviderConfigUpdate,
-    _current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
     db_session: DbSessionDep,
     provider_service: ProviderConfigServiceDep,
 ) -> ProviderConfigResponse:
-    user_id = getattr(_current_user, "id", None)
     provider = await provider_service.update(
         db_session,
         provider_id,
         payload,
-        user_id=user_id,
+        user_id=current_user.id,
     )
     return ProviderConfigResponse.model_validate(provider)
 
 @router.post("/{provider_id}/test", response_model=ConnectionTestResponse)
 async def test_provider_config(
     provider_id: str,
-    _current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
     db_session: DbSessionDep,
     provider_service: ProviderConfigServiceDep,
 ) -> ConnectionTestResponse:
-    user_id = getattr(_current_user, "id", None)
     result = await provider_service.test_connection_and_update(
         db_session,
         provider_id,
-        user_id=user_id,
+        user_id=current_user.id,
     )
     return ConnectionTestResponse(**result)
 
 @router.delete("/{provider_id}", status_code=204)
 async def delete_provider_config(
     provider_id: str,
-    _current_user: CurrentUserDep,
+    current_user: CurrentUserDep,
     db_session: DbSessionDep,
     provider_service: ProviderConfigServiceDep,
 ) -> None:
-    user_id = getattr(_current_user, "id", None)
     await provider_service.delete(
         db_session,
         provider_id,
-        user_id=user_id,
+        user_id=current_user.id,
     )

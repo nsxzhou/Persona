@@ -760,6 +760,25 @@ export interface components {
             /** Pause Requested At */
             pause_requested_at?: string | null;
         };
+        /** StyleAnalysisJobLogsResponse */
+        StyleAnalysisJobLogsResponse: {
+            /**
+             * Content
+             * @description Incremental log content from the requested offset.
+             */
+            content: string;
+            /**
+             * Next Offset
+             * @description Next byte offset the client should request.
+             */
+            next_offset: number;
+            /**
+             * Truncated
+             * @description Whether the requested offset was reset because it exceeded the log length.
+             * @default false
+             */
+            truncated: boolean;
+        };
         /** StyleAnalysisJobResponse */
         StyleAnalysisJobResponse: {
             /** Id */
@@ -799,13 +818,6 @@ export interface components {
             style_profile_id?: string | null;
             /** Pause Requested At */
             pause_requested_at?: string | null;
-            analysis_meta?: components["schemas"]["AnalysisMeta"] | null;
-            /** Analysis Report Markdown */
-            analysis_report_markdown?: string | null;
-            /** Style Summary Markdown */
-            style_summary_markdown?: string | null;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown?: string | null;
             style_profile?: components["schemas"]["StyleProfileEmbeddedResponse"] | null;
         };
         /** StyleAnalysisJobStatusResponse */
@@ -856,12 +868,6 @@ export interface components {
             source_filename: string;
             /** Style Name */
             style_name: string;
-            /** Analysis Report Markdown */
-            analysis_report_markdown: string;
-            /** Style Summary Markdown */
-            style_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
             /**
              * Created At
              * Format: date-time
@@ -1728,7 +1734,9 @@ export interface operations {
     };
     get_style_analysis_job_logs_api_v1_style_analysis_jobs__job_id__logs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                offset?: number;
+            };
             header?: never;
             path: {
                 job_id: string;
@@ -1743,7 +1751,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/plain": string;
+                    "application/json": components["schemas"]["StyleAnalysisJobLogsResponse"];
                 };
             };
             /** @description Validation Error */
