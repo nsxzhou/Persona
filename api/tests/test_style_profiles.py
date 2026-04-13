@@ -9,7 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.db.models import Project, StyleProfile
-from app.services.style_analysis_jobs import build_profile_result_bundle
+from app.api.assemblers import build_profile_result_bundle
 
 
 def test_style_profile_service_does_not_import_job_module_helpers() -> None:

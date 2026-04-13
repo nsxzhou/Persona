@@ -13,6 +13,7 @@ from app.schemas.style_analysis_jobs import (
     STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
     STYLE_ANALYSIS_JOB_STATUS_FAILED,
     STYLE_ANALYSIS_JOB_STATUS_PENDING,
+    STYLE_ANALYSIS_JOB_STATUS_PAUSED,
     STYLE_ANALYSIS_JOB_STATUS_RUNNING,
     STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
     StyleAnalysisJobResponse,
@@ -20,11 +21,6 @@ from app.schemas.style_analysis_jobs import (
     StyleProfileEmbeddedResponse,
 )
 from app.services.provider_configs import ProviderConfigService
-from app.services.style_lab_mappers import (
-    build_job_result_bundle,
-    build_profile_result_bundle,
-    build_style_profile_response_payload,
-)
 from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
 from app.services.style_analysis_job_file_lifecycle import (
     StyleAnalysisJobFileLifecycleService,
@@ -40,46 +36,6 @@ def sanitize_style_analysis_error_message(error_message: str | None) -> str:
     if not normalized_message:
         return STYLE_ANALYSIS_USER_ERROR_MESSAGE
     return normalized_message
-
-
-def build_style_profile_embedded_response(
-    profile: StyleProfile | None,
-) -> StyleProfileEmbeddedResponse | None:
-    if profile is None:
-        return None
-    return StyleProfileEmbeddedResponse(**build_style_profile_response_payload(profile))
-
-
-def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse:
-    style_profile = build_style_profile_embedded_response(job.style_profile)
-    analysis_meta, analysis_report_markdown, style_summary_markdown, prompt_pack_markdown = (
-        build_job_result_bundle(job)
-    )
-    if style_profile is not None:
-        analysis_report_markdown = style_profile.analysis_report_markdown
-        style_summary_markdown = style_profile.style_summary_markdown
-        prompt_pack_markdown = style_profile.prompt_pack_markdown
-    return StyleAnalysisJobResponse(
-        id=job.id,
-        style_name=job.style_name,
-        provider_id=job.provider_id,
-        model_name=job.model_name,
-        status=job.status,
-        stage=job.stage,
-        error_message=job.error_message,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        created_at=job.created_at,
-        updated_at=job.updated_at,
-        provider=job.provider,
-        sample_file=job.sample_file,
-        style_profile_id=job.style_profile_id,
-        analysis_meta=analysis_meta,
-        analysis_report_markdown=analysis_report_markdown,
-        style_summary_markdown=style_summary_markdown,
-        prompt_pack_markdown=prompt_pack_markdown,
-        style_profile=style_profile,
-    )
 
 
 class StyleAnalysisJobService:
@@ -132,7 +88,7 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         user_id: str | None = None,
-    ) -> StyleAnalysisJobResponse:
+    ) -> StyleAnalysisJob:
         if user_id is None:
             job = await self.repository.get_by_id(
                 session,
@@ -150,7 +106,7 @@ class StyleAnalysisJobService:
             )
         if job is None:
             raise NotFoundError("分析任务不存在")
-        return build_job_detail_response(job)
+        return job
 
     async def get_status_or_404(
         self,
@@ -171,7 +127,112 @@ class StyleAnalysisJobService:
             stage=job.stage,
             error_message=job.error_message,
             updated_at=job.updated_at,
+            pause_requested_at=job.pause_requested_at,
         )
+
+    async def get_job_logs_or_404(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> str:
+        # 验证任务是否存在及权限
+        await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        # 读取日志内容
+        from app.services.style_analysis_storage import StyleAnalysisStorageService
+        storage_service = StyleAnalysisStorageService()
+        return await storage_service.read_job_logs(job_id)
+
+    async def resume(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> StyleAnalysisJobStatusResponse:
+        job = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_RUNNING and job.locked_by:
+            raise ConflictError("分析任务正在运行，无法恢复")
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED:
+            raise ConflictError("分析任务已成功完成，无需恢复")
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_PAUSED:
+            job.status = STYLE_ANALYSIS_JOB_STATUS_PENDING
+            job.stage = None
+            job.error_message = None
+            job.started_at = None
+            job.completed_at = None
+            job.locked_by = None
+            job.locked_at = None
+            job.last_heartbeat_at = None
+            job.pause_requested_at = None
+            job.paused_at = None
+            await session.flush()
+            return await self.get_status_or_404(session, job_id, user_id=user_id)
+        job.status = STYLE_ANALYSIS_JOB_STATUS_PENDING
+        job.stage = None
+        job.error_message = None
+        job.started_at = None
+        job.completed_at = None
+        job.locked_by = None
+        job.locked_at = None
+        job.last_heartbeat_at = None
+        job.pause_requested_at = None
+        job.paused_at = None
+        job.attempt_count = 0
+        await session.flush()
+        return await self.get_status_or_404(session, job_id, user_id=user_id)
+
+    async def pause(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> StyleAnalysisJobStatusResponse:
+        job = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED:
+            raise ConflictError("分析任务已成功完成，无法暂停")
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_FAILED:
+            raise ConflictError("分析任务已失败，无法暂停")
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_PAUSED:
+            return await self.get_status_or_404(session, job_id, user_id=user_id)
+        if job.status == STYLE_ANALYSIS_JOB_STATUS_PENDING:
+            job.status = STYLE_ANALYSIS_JOB_STATUS_PAUSED
+            job.stage = None
+            job.error_message = None
+            job.started_at = None
+            job.completed_at = None
+            job.locked_by = None
+            job.locked_at = None
+            job.last_heartbeat_at = None
+            job.pause_requested_at = None
+            job.paused_at = datetime.now(UTC)
+            await session.flush()
+            return await self.get_status_or_404(session, job_id, user_id=user_id)
+        await self.repository.request_pause(
+            session,
+            job_id,
+            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
+            now=datetime.now(UTC),
+        )
+        await session.flush()
+        return await self.get_status_or_404(session, job_id, user_id=user_id)
 
     async def _get_payload_or_409(
         self,
@@ -290,13 +351,28 @@ class StyleAnalysisJobService:
         job_id: str,
         *,
         stage: str | None,
-    ) -> None:
-        await self.repository.heartbeat(
+    ) -> datetime | None:
+        return await self.repository.heartbeat(
             session,
             job_id,
             running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
             stage=stage,
             now=datetime.now(UTC),
+        )
+
+    async def mark_job_paused(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        stage: str | None,
+    ) -> None:
+        await self.repository.mark_paused(
+            session,
+            job_id,
+            paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
+            now=datetime.now(UTC),
+            stage=stage,
         )
 
     async def mark_job_succeeded(
@@ -357,6 +433,7 @@ class StyleAnalysisJobService:
             cutoff=datetime.now(UTC) - timedelta(seconds=stale_after_seconds),
             max_attempts=max_attempts,
             running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
+            paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
             failed_status=STYLE_ANALYSIS_JOB_STATUS_FAILED,
             pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
             now=datetime.now(UTC),
@@ -428,9 +505,33 @@ class StyleAnalysisJobService:
         if job.style_profile is not None and job.style_profile.projects:
             raise ConflictError("该分析任务的风格档案正被项目引用，无法删除")
 
+        cleanup_service = StyleAnalysisJobCleanupService(self.repository)
+        await cleanup_service.delete_job_and_artifacts(session, job, job_id)
+
+
+
+class StyleAnalysisJobCleanupService:
+    def __init__(self, repository=None):
+        from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
+        from app.services.style_analysis_job_file_lifecycle import StyleAnalysisJobFileLifecycleService
+        self.repository = repository or StyleAnalysisJobRepository()
+        self.file_lifecycle = StyleAnalysisJobFileLifecycleService()
+
+    async def delete_job_and_artifacts(
+        self, session, job, job_id: str
+    ) -> None:
         sample_storage_path = job.sample_file.storage_path
         await self.repository.delete_job_graph(session, job)
         await self.file_lifecycle.cleanup_after_job_delete(
             sample_storage_path=sample_storage_path,
             job_id=job_id,
         )
+
+        try:
+            from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
+            checkpointer_factory = StyleAnalysisCheckpointerFactory()
+            await checkpointer_factory.delete_thread(job_id)
+            await checkpointer_factory.aclose()
+        except Exception:
+            pass
+

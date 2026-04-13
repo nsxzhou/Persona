@@ -2,8 +2,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-import type { User, Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
-import { parseApiErrorDetail } from "@/lib/request-error";
+import type { User, Project, ProviderConfig, StyleProfileListItem, ProjectPayload } from "@/lib/types";
+import { createJsonRequester } from "@/lib/api/transport";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -11,94 +11,68 @@ type SetupStatus = {
   initialized: boolean;
 };
 
-async function requestFromServer(path: string, init?: RequestInit): Promise<Response> {
+async function getServerRequester() {
   const cookieStore = await cookies();
-  const headers = new Headers(init?.headers);
   const cookieHeader = cookieStore.toString();
-  if (cookieHeader) {
-    headers.set("cookie", cookieHeader);
-  }
-
-  return fetch(`${API_BASE_URL}${path}`, {
-    cache: "no-store",
-    credentials: "include",
-    ...init,
-    headers,
+  return createJsonRequester({
+    baseUrl: API_BASE_URL,
+    defaultInit: {
+      cache: "no-store",
+      credentials: "include",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    },
   });
-}
-
-async function readError(response: Response): Promise<string> {
-  const text = await response.text();
-  return parseApiErrorDetail(text, response.statusText || "请求失败");
 }
 
 export async function getServerSetupStatus(): Promise<SetupStatus> {
-  const response = await requestFromServer("/api/v1/setup/status");
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<SetupStatus>;
+  const req = await getServerRequester();
+  return req<SetupStatus>("/api/v1/setup/status");
 }
 
 export async function getServerCurrentUser(): Promise<User | null> {
-  const response = await requestFromServer("/api/v1/me");
-  if (response.status === 401) {
-    return null;
+  const req = await getServerRequester();
+  try {
+    return await req<User>("/api/v1/me");
+  } catch (error: any) {
+    if (
+      error.message.includes("401") ||
+      error.message.includes("未登录") ||
+      error.message.includes("登录状态已失效") ||
+      error.message.includes("Unauthorized")
+    ) {
+      return null;
+    }
+    throw error;
   }
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<User>;
 }
 
 export async function getServerProject(id: string): Promise<Project> {
-  const response = await requestFromServer(`/api/v1/projects/${id}`);
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<Project>;
+  const req = await getServerRequester();
+  return req<Project>(`/api/v1/projects/${id}`);
 }
 
 export async function getServerProviderConfigs(): Promise<ProviderConfig[]> {
-  const response = await requestFromServer("/api/v1/provider-configs");
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<ProviderConfig[]>;
+  const req = await getServerRequester();
+  return req<ProviderConfig[]>("/api/v1/provider-configs");
 }
 
 export async function getServerStyleProfiles(limit = 100): Promise<StyleProfileListItem[]> {
-  const response = await requestFromServer(`/api/v1/style-profiles?limit=${limit}`);
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<StyleProfileListItem[]>;
+  const req = await getServerRequester();
+  return req<StyleProfileListItem[]>(`/api/v1/style-profiles?limit=${limit}`);
 }
 
-export async function createServerProject(payload: any): Promise<Project> {
-  const response = await requestFromServer("/api/v1/projects", {
+export async function createServerProject(payload: ProjectPayload): Promise<Project> {
+  const req = await getServerRequester();
+  return req<Project>("/api/v1/projects", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<Project>;
 }
 
-export async function updateServerProject(id: string, payload: any): Promise<Project> {
-  const response = await requestFromServer(`/api/v1/projects/${id}`, {
+export async function updateServerProject(id: string, payload: Partial<ProjectPayload>): Promise<Project> {
+  const req = await getServerRequester();
+  return req<Project>(`/api/v1/projects/${id}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<Project>;
 }

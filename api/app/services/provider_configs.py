@@ -148,8 +148,10 @@ class ProviderConfigService:
             status_value="error",
             error_message=error_summary,
         )
-        await session.commit()
-        raise BadRequestError(f"{PROVIDER_CONNECTION_TEST_ERROR_MESSAGE}（原因：{error_summary}）")
+        return {
+            "status": "error",
+            "message": f"{PROVIDER_CONNECTION_TEST_ERROR_MESSAGE}（原因：{error_summary}）"
+        }
 
     async def delete(
         self, session: AsyncSession, provider_id: str, *, user_id: str | None = None

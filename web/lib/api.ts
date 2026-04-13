@@ -104,6 +104,16 @@ export const api = {
     request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/status`),
   getStyleAnalysisJob: (id: string) =>
     request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
+  getStyleAnalysisJobLogs: (id: string) =>
+    request<string>(`/api/v1/style-analysis-jobs/${id}/logs`),
+  resumeStyleAnalysisJob: (id: string) =>
+    request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/resume`, {
+      method: "POST",
+    }),
+  pauseStyleAnalysisJob: (id: string) =>
+    request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/pause`, {
+      method: "POST",
+    }),
   deleteStyleAnalysisJob: (id: string) =>
     request<void>(`/api/v1/style-analysis-jobs/${id}`, {
       method: "DELETE",

@@ -391,6 +391,28 @@
               "default": false,
               "title": "Include Archived"
             }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
@@ -834,6 +856,132 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StyleAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/resume": {
+      "post": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Resume Style Analysis Job",
+        "operationId": "resume_style_analysis_job_api_v1_style_analysis_jobs__job_id__resume_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/pause": {
+      "post": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Pause Style Analysis Job",
+        "operationId": "pause_style_analysis_job_api_v1_style_analysis_jobs__job_id__pause_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/style-analysis-jobs/{job_id}/logs": {
+      "get": {
+        "tags": [
+          "style-analysis-jobs"
+        ],
+        "summary": "Get Style Analysis Job Logs",
+        "operationId": "get_style_analysis_job_logs_api_v1_style_analysis_jobs__job_id__logs_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -1942,6 +2090,7 @@
             "enum": [
               "pending",
               "running",
+              "paused",
               "succeeded",
               "failed"
             ],
@@ -2027,6 +2176,18 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
           }
         },
         "type": "object",
@@ -2070,6 +2231,7 @@
             "enum": [
               "pending",
               "running",
+              "paused",
               "succeeded",
               "failed"
             ],
@@ -2155,6 +2317,18 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
           },
           "analysis_meta": {
             "anyOf": [
@@ -2239,6 +2413,7 @@
             "enum": [
               "pending",
               "running",
+              "paused",
               "succeeded",
               "failed"
             ],
@@ -2278,6 +2453,18 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
           }
         },
         "type": "object",

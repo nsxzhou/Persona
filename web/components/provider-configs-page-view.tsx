@@ -64,7 +64,11 @@ export function ProviderConfigsPageClient() {
     const toastId = toast.loading("正在测试连接…");
     try {
       const res = await testMutation.mutateAsync(id);
-      toast.success(res.message || "测试完成", { id: toastId });
+      if (res.status === "error") {
+        toast.error(res.message || "连接失败", { id: toastId });
+      } else {
+        toast.success(res.message || "测试完成", { id: toastId });
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "未知错误",

@@ -16,6 +16,7 @@ export type StyleSampleFile = OpenApiSchema<"StyleSampleFileResponse">;
 export const STYLE_ANALYSIS_JOB_STATUS = {
   PENDING: "pending",
   RUNNING: "running",
+  PAUSED: "paused",
   SUCCEEDED: "succeeded",
   FAILED: "failed",
 } as const;

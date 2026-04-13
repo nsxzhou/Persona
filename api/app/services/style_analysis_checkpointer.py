@@ -63,3 +63,18 @@ class StyleAnalysisCheckpointerFactory:
         saver = await self._context_manager.__aenter__()
         await saver.setup()
         return saver
+
+    async def delete_thread(self, job_id: str) -> None:
+        """
+        Delete checkpointer thread for a specific job.
+        Logs warning on failure instead of silently swallowing errors.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            checkpointer = await self.get()
+            if hasattr(checkpointer, "adelete_thread"):
+                # Pass thread_id which maps to job_id
+                await checkpointer.adelete_thread(job_id)
+        except Exception as e:
+            logger.warning("Failed to delete checkpointer thread for job_id=%s: %s", job_id, e)

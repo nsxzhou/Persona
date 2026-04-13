@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import codecs
 import hashlib
 import json
 import shutil
@@ -12,6 +13,7 @@ from fastapi import UploadFile
 
 from app.core.config import get_settings
 from app.core.domain_errors import UnprocessableEntityError
+from app.services.style_analysis_text import detect_encoding
 
 
 class StyleAnalysisStorageService:
@@ -24,11 +26,20 @@ class StyleAnalysisStorageService:
     def _job_artifact_dir(self, job_id: str) -> Path:
         return self._storage_root() / "style-analysis-artifacts" / job_id
 
+    def _log_artifact_path(self, job_id: str) -> Path:
+        return self._job_artifact_dir(job_id) / "execution.log"
+
     def _chunk_artifact_path(self, job_id: str, chunk_index: int) -> Path:
         return self._job_artifact_dir(job_id) / "chunks" / f"{chunk_index:06d}.txt"
 
     def _chunk_analysis_artifact_path(self, job_id: str, chunk_index: int) -> Path:
         return self._job_artifact_dir(job_id) / "chunk-analyses" / f"{chunk_index:06d}.json"
+
+    def _stage_artifact_path(self, job_id: str, name: str) -> Path:
+        return self._job_artifact_dir(job_id) / f"{name}.md"
+
+    def _json_artifact_path(self, job_id: str, name: str) -> Path:
+        return self._job_artifact_dir(job_id) / f"{name}.json"
 
     async def stream_file(self, sample_file_id: str) -> AsyncIterator[bytes]:
         storage_path = self._build_storage_path(sample_file_id)
@@ -48,28 +59,78 @@ class StyleAnalysisStorageService:
         settings = get_settings()
         max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
         hasher = hashlib.sha256()
-        total_bytes = 0
+        total_bytes_in = 0
+        total_bytes_out = 0
 
         try:
             async with aiofiles.open(storage_path, "wb") as handle:
+                first_chunk = await upload_file.read(1024 * 1024)
+                if first_chunk:
+                    total_bytes_in += len(first_chunk)
+                if max_bytes and total_bytes_in > max_bytes:
+                    raise UnprocessableEntityError("上传的 TXT 文件过大")
+
+                if not first_chunk:
+                    raise UnprocessableEntityError("上传的 TXT 文件为空")
+
+                encoding_candidates = (
+                    "utf-8-sig",
+                    "utf-8",
+                    "gb18030",
+                    "utf-16",
+                    "utf-16-le",
+                    "utf-16-be",
+                )
+                if first_chunk.startswith(b"\xef\xbb\xbf"):
+                    encoding = "utf-8-sig"
+                elif first_chunk.startswith((b"\xff\xfe", b"\xfe\xff")):
+                    encoding = "utf-16"
+                else:
+                    encoding = detect_encoding(first_chunk, encoding_candidates)
+
+                decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
+
+                text_chunk = decoder.decode(first_chunk)
+                output_bytes = text_chunk.encode("utf-8")
+                hasher.update(output_bytes)
+                total_bytes_out += len(output_bytes)
+                await handle.write(output_bytes)
+
                 while True:
                     chunk = await upload_file.read(1024 * 1024)
                     if not chunk:
                         break
-                    total_bytes += len(chunk)
-                    if max_bytes and total_bytes > max_bytes:
+                    total_bytes_in += len(chunk)
+                    if max_bytes and total_bytes_in > max_bytes:
                         raise UnprocessableEntityError("上传的 TXT 文件过大")
-                    hasher.update(chunk)
-                    await handle.write(chunk)
+
+                    text_chunk = decoder.decode(chunk)
+                    if not text_chunk:
+                        continue
+                    output_bytes = text_chunk.encode("utf-8")
+                    hasher.update(output_bytes)
+                    total_bytes_out += len(output_bytes)
+                    await handle.write(output_bytes)
+
+                final_text = decoder.decode(b"", final=True)
+                if final_text:
+                    output_bytes = final_text.encode("utf-8")
+                    hasher.update(output_bytes)
+                    total_bytes_out += len(output_bytes)
+                    await handle.write(output_bytes)
+        except UnicodeDecodeError as exc:
+            storage_path.unlink(missing_ok=True)
+            raise UnprocessableEntityError(
+                "无法识别 TXT 文件编码，请使用 UTF-8 或 GB18030 保存后重试"
+            ) from exc
         except Exception:
             storage_path.unlink(missing_ok=True)
             raise
-
-        if total_bytes == 0:
+        if total_bytes_out == 0:
             storage_path.unlink(missing_ok=True)
             raise UnprocessableEntityError("上传的 TXT 文件为空")
 
-        return str(storage_path), total_bytes, hasher.hexdigest()
+        return str(storage_path), total_bytes_out, hasher.hexdigest()
 
     async def write_chunk_artifact(
         self,
@@ -102,6 +163,9 @@ class StyleAnalysisStorageService:
         async with aiofiles.open(path, "w", encoding="utf-8") as handle:
             await handle.write(json.dumps(payload, ensure_ascii=False))
 
+    def chunk_analysis_artifact_exists(self, job_id: str, chunk_index: int) -> bool:
+        return self._chunk_analysis_artifact_path(job_id, chunk_index).exists()
+
     async def read_chunk_analysis_batches(
         self,
         job_id: str,
@@ -123,6 +187,49 @@ class StyleAnalysisStorageService:
         if batch:
             yield batch
 
+    async def write_stage_markdown_artifact(
+        self,
+        job_id: str,
+        *,
+        name: str,
+        markdown: str,
+    ) -> None:
+        path = self._stage_artifact_path(job_id, name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        async with aiofiles.open(path, "w", encoding="utf-8") as handle:
+            await handle.write(markdown)
+
+    def stage_markdown_artifact_exists(self, job_id: str, *, name: str) -> bool:
+        return self._stage_artifact_path(job_id, name).exists()
+
+    async def read_stage_markdown_artifact(self, job_id: str, *, name: str) -> str:
+        path = self._stage_artifact_path(job_id, name)
+        async with aiofiles.open(path, "r", encoding="utf-8") as handle:
+            return await handle.read()
+
+    async def write_json_artifact(self, job_id: str, *, name: str, payload: dict) -> None:
+        path = self._json_artifact_path(job_id, name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        async with aiofiles.open(path, "w", encoding="utf-8") as handle:
+            await handle.write(json.dumps(payload, ensure_ascii=False))
+
+    def json_artifact_exists(self, job_id: str, *, name: str) -> bool:
+        return self._json_artifact_path(job_id, name).exists()
+
+    async def read_json_artifact(self, job_id: str, *, name: str) -> dict:
+        path = self._json_artifact_path(job_id, name)
+        async with aiofiles.open(path, "r", encoding="utf-8") as handle:
+            return json.loads(await handle.read())
+
+    def chunk_artifacts_exist(self, job_id: str) -> bool:
+        return (self._job_artifact_dir(job_id) / "chunks").exists()
+
+    def count_chunk_artifacts(self, job_id: str) -> int:
+        chunk_dir = self._job_artifact_dir(job_id) / "chunks"
+        if not chunk_dir.exists():
+            return 0
+        return len(list(chunk_dir.glob("*.txt")))
+
     async def cleanup_job_artifacts(self, job_id: str) -> None:
         artifact_dir = self._job_artifact_dir(job_id)
         if artifact_dir.exists():
@@ -130,3 +237,20 @@ class StyleAnalysisStorageService:
 
     async def job_artifacts_exist(self, job_id: str) -> bool:
         return self._job_artifact_dir(job_id).exists()
+
+    async def append_job_log(self, job_id: str, message: str) -> None:
+        from datetime import datetime, UTC
+        path = self._log_artifact_path(job_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(UTC).isoformat(timespec="milliseconds")
+        log_line = f"[{timestamp}] {message}\n"
+        # 使用 aiofiles 追加写入
+        async with aiofiles.open(path, "a", encoding="utf-8") as handle:
+            await handle.write(log_line)
+
+    async def read_job_logs(self, job_id: str) -> str:
+        path = self._log_artifact_path(job_id)
+        if not path.exists():
+            return ""
+        async with aiofiles.open(path, "r", encoding="utf-8") as handle:
+            return await handle.read()

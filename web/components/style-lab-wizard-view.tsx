@@ -1,17 +1,18 @@
 "use client";
 
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Info } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StyleLabWizardPromptPackStep } from "@/components/style-lab-wizard-prompt-pack-step";
 import { StyleLabWizardReportStep } from "@/components/style-lab-wizard-report-step";
 import { StyleLabWizardSummaryStep } from "@/components/style-lab-wizard-summary-step";
-import { useStyleLabWizardLogic } from "@/hooks/use-style-lab-wizard-logic";
+import { useStyleLabWizardLogic, isProcessingStatus } from "@/hooks/use-style-lab-wizard-logic";
 import { STYLE_ANALYSIS_JOB_STATUS } from "@/lib/types";
 
 export function StyleLabWizardView({ jobId }: { jobId: string }) {
@@ -28,8 +29,12 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
     summaryResource,
     promptPackResource,
     saveProfileMutation,
+    resumeJobMutation,
+    pauseJobMutation,
     handleStep2Next,
     handleSave,
+    handleResume,
+    handlePause,
     isLoading,
     errorState,
   } = useStyleLabWizardLogic(jobId);
@@ -42,6 +47,16 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
+      {isProcessingStatus(job.status) && (
+        <Alert className="bg-primary/5 border-primary/20">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-primary font-medium">任务已在后台安全运行</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            您可以随时离开此页面。分析完成后，任务记录将保存在您的工作台中。
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/style-lab"><ArrowLeft className="h-4 w-4" /></Link>
@@ -86,6 +101,10 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
           isLoading={reportResource.isLoading}
           isError={reportResource.isError}
           errorMessage={reportResource.error?.message}
+          onResume={handleResume}
+          resuming={resumeJobMutation.isPending}
+          onPause={handlePause}
+          pausing={pauseJobMutation.isPending}
           onNext={() => setStep(2)}
         />
       ) : null}

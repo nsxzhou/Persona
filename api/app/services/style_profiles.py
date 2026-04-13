@@ -7,7 +7,7 @@ from app.db.models import StyleProfile
 from app.db.repositories.projects import ProjectRepository
 from app.db.repositories.style_profiles import StyleProfileRepository
 from app.schemas.style_profiles import StyleProfileCreate, StyleProfileUpdate
-from app.services.style_lab_mappers import build_job_result_bundle
+from app.api.assemblers import build_job_result_bundle
 
 
 class StyleProfileService:

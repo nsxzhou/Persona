@@ -20,7 +20,8 @@ from app.schemas.style_analysis_jobs import (
     AnalysisMeta,
     StyleAnalysisJobResponse,
 )
-from app.services.style_analysis_jobs import StyleAnalysisJobService, build_job_result_bundle
+from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.api.assemblers import build_job_result_bundle
 from app.services.style_analysis_worker import (
     StyleAnalysisRunContext,
     StyleAnalysisWorkerService,
@@ -221,6 +222,35 @@ async def test_create_style_analysis_job_persists_txt_and_exposes_job_endpoints(
 
 
 @pytest.mark.asyncio
+async def test_create_style_analysis_job_normalizes_uploaded_text_to_utf8_on_disk(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+) -> None:
+    import hashlib
+
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    content = "金庸武侠：风雪夜归人"
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "编码测试", "provider_id": provider_id},
+        files={"file": ("sample.txt", content.encode("gb18030"), "text/plain")},
+    )
+    assert create_response.status_code == 201
+    job_id = create_response.json()["id"]
+
+    async with app_with_db.state.session_factory() as session:
+        job = await session.scalar(select(StyleAnalysisJob).where(StyleAnalysisJob.id == job_id))
+        assert job is not None
+        await session.refresh(job, attribute_names=["sample_file"])
+        storage_path = str(job.sample_file.storage_path)
+        checksum = str(job.sample_file.checksum_sha256)
+
+    data = Path(storage_path).read_bytes()
+    assert data.decode("utf-8") == content
+    assert hashlib.sha256(data).hexdigest() == checksum
+
+
+@pytest.mark.asyncio
 async def test_create_style_analysis_job_rejects_non_txt_and_empty_file(
     initialized_client: AsyncClient,
 ) -> None:
@@ -275,8 +305,9 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
         f"/api/v1/style-analysis-jobs/{job_id}/analysis-meta"
     )
     assert meta_response.status_code == 200
-    assert meta_response.json()["text_type"] == "章节正文"
-    assert meta_response.json()["uses_batch_processing"] is False
+    meta_payload = meta_response.json()
+    assert meta_payload["text_type"] == "章节正文"
+    assert meta_payload["uses_batch_processing"] == (meta_payload["chunk_count"] > 1)
 
     report_response = await initialized_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/analysis-report"
@@ -598,6 +629,84 @@ def test_style_analysis_job_response_rejects_legacy_stage() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pause_pending_job_transitions_to_paused(
+    initialized_client: AsyncClient,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "暂停任务", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    pause_response = await initialized_client.post(f"/api/v1/style-analysis-jobs/{job_id}/pause")
+    assert pause_response.status_code == 200
+    assert pause_response.json()["status"] == "paused"
+
+
+@pytest.mark.asyncio
+async def test_pause_running_job_sets_pause_requested_at(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "运行中暂停", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    async with app_with_db.state.session_factory() as session:
+        job = await StyleAnalysisJobService().get_or_404(session, job_id)
+        job.status = "running"
+        job.locked_by = "worker-a"
+        job.locked_at = datetime.now(UTC)
+        job.last_heartbeat_at = datetime.now(UTC)
+        job.attempt_count = 1
+        await session.commit()
+
+    pause_response = await initialized_client.post(f"/api/v1/style-analysis-jobs/{job_id}/pause")
+    assert pause_response.status_code == 200
+
+    async with app_with_db.state.session_factory() as session:
+        job = await session.scalar(select(StyleAnalysisJob).where(StyleAnalysisJob.id == job_id))
+        assert job is not None
+        assert job.pause_requested_at is not None
+
+
+@pytest.mark.asyncio
+async def test_resume_paused_job_keeps_attempt_count(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "继续任务", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    async with app_with_db.state.session_factory() as session:
+        job = await StyleAnalysisJobService().get_or_404(session, job_id)
+        job.status = "paused"
+        job.paused_at = datetime.now(UTC)
+        job.attempt_count = 2
+        await session.commit()
+
+    resume_response = await initialized_client.post(f"/api/v1/style-analysis-jobs/{job_id}/resume")
+    assert resume_response.status_code == 200
+    assert resume_response.json()["status"] == "pending"
+
+    async with app_with_db.state.session_factory() as session:
+        job = await session.scalar(select(StyleAnalysisJob).where(StyleAnalysisJob.id == job_id))
+        assert job is not None
+        assert job.attempt_count == 2
+
+
+@pytest.mark.asyncio
 async def test_process_next_pending_job_cleans_chunk_artifacts_after_pipeline_failure(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,
@@ -650,7 +759,7 @@ async def test_process_next_pending_job_cleans_chunk_artifacts_after_pipeline_fa
     assert detail["status"] == "failed"
     assert detail["error_message"] == "报告生成失败"
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
-    assert artifact_dir.exists() is False
+    assert artifact_dir.exists() is True
     get_settings.cache_clear()
 
 
@@ -742,6 +851,102 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
     assert client.chunk_calls == 1
     assert client.report_calls == 2
     assert artifact_dir.exists() is False
+
+
+@pytest.mark.asyncio
+async def test_resume_endpoint_allows_continuing_from_failed_job_without_reinvoking_completed_chunks(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    monkeypatch.setenv("PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS", "1")
+    get_settings.cache_clear()
+
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "恢复任务", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。\n\n第二段。\n\n第三段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    class FakeMarkdownLLMClient:
+        def __init__(self) -> None:
+            self.chunk_calls = 0
+            self.report_calls = 0
+
+        def build_model(self, *, provider, model_name: str):
+            return SimpleNamespace(provider=provider, model_name=model_name)
+
+        async def ainvoke_markdown(self, *, model, prompt: str):
+            del model
+            if "聚合结果" in prompt:
+                self.report_calls += 1
+                if self.report_calls == 1:
+                    raise RuntimeError("report transient failure")
+                return build_fake_analysis_report()
+            if "风格名称" in prompt and "分析报告" in prompt:
+                return build_fake_style_summary("恢复任务")
+            if "当前风格摘要" in prompt:
+                return build_fake_prompt_pack()
+            if "当前 chunk：" in prompt:
+                self.chunk_calls += 1
+                return build_fake_analysis_report()
+            return build_fake_analysis_report()
+
+    client = FakeMarkdownLLMClient()
+    checkpointer = InMemorySaver()
+
+    async def fake_build_pipeline(
+        self,
+        *,
+        provider,
+        model_name: str,
+        style_name: str,
+        source_filename: str,
+        stage_callback,
+    ):
+        return StyleAnalysisPipeline(
+            provider=provider,
+            model_name=model_name,
+            style_name=style_name,
+            source_filename=source_filename,
+            llm_client=client,
+            checkpointer=checkpointer,
+            stage_callback=stage_callback,
+        )
+
+    monkeypatch.setattr(StyleAnalysisWorkerService, "_build_pipeline", fake_build_pipeline)
+
+    service = StyleAnalysisWorkerService()
+    processed = await service.process_next_pending(app_with_db.state.session_factory)
+    assert processed is True
+
+    detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
+    detail = detail_response.json()
+    assert detail["status"] == "failed"
+    assert detail["error_message"] == "report transient failure"
+    artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
+    assert artifact_dir.exists() is True
+    assert client.chunk_calls == 1
+
+    resume_response = await initialized_client.post(f"/api/v1/style-analysis-jobs/{job_id}/resume")
+    assert resume_response.status_code == 200
+    assert resume_response.json()["status"] == "pending"
+
+    processed = await service.process_next_pending(app_with_db.state.session_factory)
+    assert processed is True
+
+    detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
+    detail = detail_response.json()
+    assert detail["status"] == "succeeded"
+    assert detail["error_message"] is None
+    assert client.chunk_calls == 1
+    assert client.report_calls == 2
+
+    get_settings.cache_clear()
 
 
 @pytest.mark.asyncio
@@ -932,7 +1137,7 @@ async def test_worker_entrypoint_delegates_polling_to_service_run_worker(
 
 
 def test_build_job_detail_response_uses_mapper_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.services.style_analysis_jobs import build_job_detail_response
+    from app.api.assemblers import build_job_detail_response
 
     now = datetime.now(UTC)
     parsed_report = build_fake_analysis_report()
@@ -944,7 +1149,7 @@ def test_build_job_detail_response_uses_mapper_bundle(monkeypatch: pytest.Monkey
         return None, parsed_report, parsed_summary, parsed_prompt_pack
 
     monkeypatch.setattr(
-        "app.services.style_analysis_jobs.build_job_result_bundle",
+        "app.api.assemblers.build_job_result_bundle",
         fake_build_job_result_bundle,
     )
 

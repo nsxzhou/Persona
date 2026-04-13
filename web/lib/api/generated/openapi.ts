@@ -311,6 +311,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/style-analysis-jobs/{job_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Style Analysis Job */
+        post: operations["resume_style_analysis_job_api_v1_style_analysis_jobs__job_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/style-analysis-jobs/{job_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause Style Analysis Job */
+        post: operations["pause_style_analysis_job_api_v1_style_analysis_jobs__job_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/style-analysis-jobs/{job_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Style Analysis Job Logs */
+        get: operations["get_style_analysis_job_logs_api_v1_style_analysis_jobs__job_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/style-analysis-jobs/{job_id}/analysis-meta": {
         parameters: {
             query?: never;
@@ -683,7 +734,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "running" | "succeeded" | "failed";
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
             stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
             /** Error Message */
@@ -706,6 +757,8 @@ export interface components {
             sample_file: components["schemas"]["StyleSampleFileResponse"];
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
         };
         /** StyleAnalysisJobResponse */
         StyleAnalysisJobResponse: {
@@ -721,7 +774,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "running" | "succeeded" | "failed";
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
             stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
             /** Error Message */
@@ -744,6 +797,8 @@ export interface components {
             sample_file: components["schemas"]["StyleSampleFileResponse"];
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
             analysis_meta?: components["schemas"]["AnalysisMeta"] | null;
             /** Analysis Report Markdown */
             analysis_report_markdown?: string | null;
@@ -761,7 +816,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "running" | "succeeded" | "failed";
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
             stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
             /** Error Message */
@@ -771,6 +826,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
         };
         /** StyleProfileCreate */
         StyleProfileCreate: {
@@ -1261,6 +1318,8 @@ export interface operations {
         parameters: {
             query?: {
                 include_archived?: boolean;
+                offset?: number;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -1592,6 +1651,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StyleAnalysisJobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_style_analysis_job_api_v1_style_analysis_jobs__job_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleAnalysisJobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_style_analysis_job_api_v1_style_analysis_jobs__job_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleAnalysisJobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_style_analysis_job_logs_api_v1_style_analysis_jobs__job_id__logs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             /** @description Validation Error */

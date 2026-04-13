@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile, status
 
 from app.api.deps import CurrentUserDep, DbSessionDep, StyleAnalysisJobServiceDep
 from app.core.domain_errors import UnprocessableEntityError
+from app.api.assemblers import build_job_detail_response
 from app.schemas.style_analysis_jobs import (
     AnalysisReportMarkdown,
     AnalysisMeta,
@@ -41,11 +42,12 @@ async def get_style_analysis_job(
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> StyleAnalysisJobResponse:
-    return await job_service.get_detail_or_404(
+    job = await job_service.get_detail_or_404(
         db_session,
         job_id,
         user_id=current_user.id,
     )
+    return build_job_detail_response(job)
 
 
 @router.get("/{job_id}/status", response_model=StyleAnalysisJobStatusResponse)
@@ -56,6 +58,32 @@ async def get_style_analysis_job_status(
     job_service: StyleAnalysisJobServiceDep,
 ) -> StyleAnalysisJobStatusResponse:
     return await job_service.get_status_or_404(
+        db_session,
+        job_id,
+        user_id=current_user.id,
+    )
+
+@router.post("/{job_id}/resume", response_model=StyleAnalysisJobStatusResponse)
+async def resume_style_analysis_job(
+    job_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    job_service: StyleAnalysisJobServiceDep,
+) -> StyleAnalysisJobStatusResponse:
+    return await job_service.resume(
+        db_session,
+        job_id,
+        user_id=current_user.id,
+    )
+
+@router.post("/{job_id}/pause", response_model=StyleAnalysisJobStatusResponse)
+async def pause_style_analysis_job(
+    job_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    job_service: StyleAnalysisJobServiceDep,
+) -> StyleAnalysisJobStatusResponse:
+    return await job_service.pause(
         db_session,
         job_id,
         user_id=current_user.id,
@@ -84,6 +112,21 @@ async def create_style_analysis_job(
     )
     return StyleAnalysisJobListItemResponse.model_validate(job)
 
+
+from fastapi.responses import PlainTextResponse
+
+@router.get("/{job_id}/logs", response_class=PlainTextResponse)
+async def get_style_analysis_job_logs(
+    job_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    job_service: StyleAnalysisJobServiceDep,
+) -> str:
+    return await job_service.get_job_logs_or_404(
+        db_session,
+        job_id,
+        user_id=current_user.id,
+    )
 
 @router.get("/{job_id}/analysis-meta", response_model=AnalysisMeta)
 async def get_style_analysis_job_analysis_meta(

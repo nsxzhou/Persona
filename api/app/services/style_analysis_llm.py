@@ -14,6 +14,15 @@ from app.db.models import ProviderConfig
 def _extract_text_content(content: Any) -> str:
     if isinstance(content, str):
         return content.strip()
+    if isinstance(content, dict):
+        for key in ("text", "output_text", "value", "content"):
+            value = content.get(key)
+            if isinstance(value, str):
+                return value.strip()
+            if isinstance(value, dict):
+                nested = value.get("value") or value.get("text") or value.get("content")
+                if isinstance(nested, str):
+                    return nested.strip()
     if isinstance(content, list):
         parts: list[str] = []
         for item in content:
@@ -21,17 +30,24 @@ def _extract_text_content(content: Any) -> str:
                 parts.append(item)
                 continue
             if isinstance(item, dict):
-                text = item.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-                    continue
-                if isinstance(text, dict):
-                    value = text.get("value")
-                    if isinstance(value, str):
-                        parts.append(value)
-                        continue
-                if item.get("type") == "text" and isinstance(item.get("content"), str):
-                    parts.append(item["content"])
+                candidates = [
+                    item.get("text"),
+                    item.get("output_text"),
+                    item.get("value"),
+                    item.get("content"),
+                ]
+                for candidate in candidates:
+                    if isinstance(candidate, str):
+                        parts.append(candidate)
+                        break
+                    if isinstance(candidate, dict):
+                        nested = candidate.get("value") or candidate.get("text") or candidate.get("content")
+                        if isinstance(nested, str):
+                            parts.append(nested)
+                            break
+                else:
+                    if item.get("type") == "text" and isinstance(item.get("content"), str):
+                        parts.append(item["content"])
         return "\n".join(part.strip() for part in parts if part and part.strip()).strip()
     return str(content).strip()
 
@@ -48,7 +64,7 @@ class MarkdownLLMClient:
 
     def build_model(self, *, provider: ProviderConfig, model_name: str) -> Any:
         settings = get_settings()
-        timeout_seconds = max(settings.llm_timeout_seconds, 60.0)
+        timeout_seconds = max(settings.llm_timeout_seconds, 600.0)
         return self._model_factory(
             model=model_name,
             model_provider="openai",

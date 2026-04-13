@@ -9,7 +9,7 @@ from app.schemas.style_profiles import (
     StyleProfileResponse,
     StyleProfileUpdate,
 )
-from app.services.style_lab_mappers import build_style_profile_response_payload
+from app.api.assemblers import build_style_profile_response_payload
 
 router = APIRouter(
     prefix="/style-profiles",

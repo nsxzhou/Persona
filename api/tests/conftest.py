@@ -119,6 +119,7 @@ def run_live_style_analysis_job(
     live_style_analysis_sample_text: str,
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     from app.services.style_analysis_worker import StyleAnalysisWorkerService
+    from app.core.config import get_settings
 
     async def _run(
         *,
@@ -145,15 +146,23 @@ def run_live_style_analysis_job(
         )
         assert create_response.status_code == 201
         job = create_response.json()
-        processed = await StyleAnalysisWorkerService().process_next_pending(
-            app_with_db.state.session_factory
-        )
-        assert processed is True
-        detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job['id']}")
-        assert detail_response.status_code == 200
+        service = StyleAnalysisWorkerService()
+        settings = get_settings()
+        attempts = max(1, int(settings.style_analysis_max_attempts))
+        detail = None
+        for _ in range(attempts):
+            processed = await service.process_next_pending(app_with_db.state.session_factory)
+            assert processed is True
+            detail_response = await initialized_client.get(
+                f"/api/v1/style-analysis-jobs/{job['id']}"
+            )
+            assert detail_response.status_code == 200
+            detail = detail_response.json()
+            if detail["status"] in ("succeeded", "failed"):
+                break
         return {
             "job": job,
-            "detail": detail_response.json(),
+            "detail": detail,
         }
 
     return _run

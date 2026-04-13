@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer, joinedload
 
@@ -161,13 +161,62 @@ class StyleAnalysisJobRepository:
         running_status: str,
         stage: str | None,
         now: datetime,
-    ) -> None:
-        await session.execute(
+    ) -> datetime | None:
+        result = await session.execute(
             update(StyleAnalysisJob)
             .where(
                 StyleAnalysisJob.id == job_id, StyleAnalysisJob.status == running_status
             )
             .values(stage=stage, last_heartbeat_at=now)
+            .returning(StyleAnalysisJob.pause_requested_at)
+        )
+        return result.scalar_one_or_none()
+
+    async def request_pause(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        running_status: str,
+        now: datetime,
+    ) -> bool:
+        result = await session.execute(
+            update(StyleAnalysisJob)
+            .where(
+                StyleAnalysisJob.id == job_id,
+                StyleAnalysisJob.status == running_status,
+                StyleAnalysisJob.pause_requested_at.is_(None),
+            )
+            .values(pause_requested_at=now)
+        )
+        return bool(result.rowcount)
+
+    async def mark_paused(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        paused_status: str,
+        now: datetime,
+        stage: str | None,
+    ) -> None:
+        await session.execute(
+            update(StyleAnalysisJob)
+            .where(StyleAnalysisJob.id == job_id)
+            .values(
+                status=paused_status,
+                paused_at=now,
+                pause_requested_at=None,
+                stage=stage,
+                error_message=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+                attempt_count=case(
+                    (StyleAnalysisJob.attempt_count > 0, StyleAnalysisJob.attempt_count - 1),
+                    else_=0,
+                ),
+            )
         )
 
     async def recover_stale_jobs(
@@ -177,6 +226,7 @@ class StyleAnalysisJobRepository:
         cutoff: datetime,
         max_attempts: int,
         running_status: str,
+        paused_status: str,
         failed_status: str,
         pending_status: str,
         now: datetime,
@@ -188,10 +238,31 @@ class StyleAnalysisJobRepository:
             )
             < cutoff
         )
+        pause_condition = stale_condition & (StyleAnalysisJob.pause_requested_at.is_not(None))
 
         await session.execute(
             update(StyleAnalysisJob)
-            .where(stale_condition, StyleAnalysisJob.attempt_count >= max_attempts)
+            .where(pause_condition)
+            .values(
+                status=paused_status,
+                paused_at=now,
+                pause_requested_at=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+                attempt_count=case(
+                    (StyleAnalysisJob.attempt_count > 0, StyleAnalysisJob.attempt_count - 1),
+                    else_=0,
+                ),
+            )
+        )
+        await session.execute(
+            update(StyleAnalysisJob)
+            .where(
+                stale_condition,
+                StyleAnalysisJob.pause_requested_at.is_(None),
+                StyleAnalysisJob.attempt_count >= max_attempts,
+            )
             .values(
                 status=failed_status,
                 error_message="分析任务重试次数已用尽，请重新提交",
@@ -204,7 +275,11 @@ class StyleAnalysisJobRepository:
         )
         await session.execute(
             update(StyleAnalysisJob)
-            .where(stale_condition, StyleAnalysisJob.attempt_count < max_attempts)
+            .where(
+                stale_condition,
+                StyleAnalysisJob.pause_requested_at.is_(None),
+                StyleAnalysisJob.attempt_count < max_attempts,
+            )
             .values(
                 status=pending_status,
                 stage=None,

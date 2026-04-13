@@ -17,8 +17,10 @@ export function AppProviders({ children }: PropsWithChildren) {
       }),
   );
 
+  const scriptProps = typeof window === "undefined" ? undefined : ({ type: "application/json" } as const);
+
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem scriptProps={scriptProps}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </ThemeProvider>
   );

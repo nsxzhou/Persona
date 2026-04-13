@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
@@ -52,7 +52,7 @@ class ChunkAnalysis(BaseModel):
 
 
 class MergedAnalysis(BaseModel):
-    classification: dict = Field(description="Input classification metadata used during the analysis.")
+    classification: dict[str, Any] = Field(description="Input classification metadata used during the analysis.")
     markdown: str = Field(min_length=1, description="Merged markdown analysis.")
 
 
@@ -83,6 +83,7 @@ class StyleSampleFileResponse(BaseModel):
 
 STYLE_ANALYSIS_JOB_STATUS_PENDING = "pending"
 STYLE_ANALYSIS_JOB_STATUS_RUNNING = "running"
+STYLE_ANALYSIS_JOB_STATUS_PAUSED = "paused"
 STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED = "succeeded"
 STYLE_ANALYSIS_JOB_STATUS_FAILED = "failed"
 
@@ -96,6 +97,7 @@ STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK = "composing_prompt_pack"
 STYLE_ANALYSIS_JOB_STATUSES = (
     STYLE_ANALYSIS_JOB_STATUS_PENDING,
     STYLE_ANALYSIS_JOB_STATUS_RUNNING,
+    STYLE_ANALYSIS_JOB_STATUS_PAUSED,
     STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
     STYLE_ANALYSIS_JOB_STATUS_FAILED,
 )
@@ -109,7 +111,7 @@ STYLE_ANALYSIS_JOB_STAGES = (
     STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK,
 )
 
-StyleAnalysisJobStatus: TypeAlias = Literal["pending", "running", "succeeded", "failed"]
+StyleAnalysisJobStatus: TypeAlias = Literal["pending", "running", "paused", "succeeded", "failed"]
 StyleAnalysisJobStage: TypeAlias = Literal[
     "preparing_input",
     "analyzing_chunks",
@@ -153,6 +155,7 @@ class StyleAnalysisJobBaseResponse(BaseModel):
     provider: ProviderSummary
     sample_file: StyleSampleFileResponse
     style_profile_id: str | None = None
+    pause_requested_at: datetime | None = None
 
 
 class StyleAnalysisJobResponse(StyleAnalysisJobBaseResponse):
@@ -171,6 +174,7 @@ class StyleAnalysisJobStatusResponse(BaseModel):
     stage: StyleAnalysisJobStage | None
     error_message: str | None
     updated_at: datetime
+    pause_requested_at: datetime | None = None
 
 
 class StyleAnalysisJobListItemResponse(StyleAnalysisJobBaseResponse):

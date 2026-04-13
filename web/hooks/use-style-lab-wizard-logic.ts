@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
@@ -28,7 +28,7 @@ type StyleAnalysisJobStatusSnapshot = Pick<
   "id" | "status" | "stage" | "error_message" | "updated_at"
 >;
 
-function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
+export function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
   return Boolean(
     status && STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some((value) => value === status),
   );
@@ -72,6 +72,14 @@ function useStyleLabJobDetailQuery(jobId: string) {
   return useQuery({
     queryKey: ["style-analysis-jobs", jobId],
     queryFn: () => api.getStyleAnalysisJob(jobId),
+  });
+}
+
+export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
+  return useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "logs"],
+    queryFn: () => api.getStyleAnalysisJobLogs(jobId),
+    refetchInterval: isProcessing ? 1000 : false,
   });
 }
 
@@ -236,6 +244,38 @@ function useSaveStyleProfileMutation({
   });
 }
 
+function useResumeStyleAnalysisJobMutation(jobId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api.resumeStyleAnalysisJob(jobId),
+    onSuccess: () => {
+      toast.success("任务已恢复");
+      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId, "status"] });
+      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "未知错误");
+    },
+  });
+}
+
+function usePauseStyleAnalysisJobMutation(jobId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api.pauseStyleAnalysisJob(jobId),
+    onSuccess: () => {
+      toast.success("已发送暂停请求");
+      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId, "status"] });
+      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "未知错误");
+    },
+  });
+}
+
 export function useStyleLabWizardLogic(jobId: string) {
   const detail = useStyleLabJobDetail(jobId);
   const wizardState = useStyleLabWizardState({
@@ -252,6 +292,8 @@ export function useStyleLabWizardLogic(jobId: string) {
     form: wizardState.form,
     mountProjectId: wizardState.mountProjectId,
   });
+  const resumeJobMutation = useResumeStyleAnalysisJobMutation(jobId);
+  const pauseJobMutation = usePauseStyleAnalysisJobMutation(jobId);
 
   return {
     ...wizardState,
@@ -262,7 +304,11 @@ export function useStyleLabWizardLogic(jobId: string) {
     promptPackResource: detail.promptPackResource,
     projects,
     saveProfileMutation,
+    resumeJobMutation,
+    pauseJobMutation,
     handleSave: () => void saveProfileMutation.mutateAsync(),
+    handleResume: () => void resumeJobMutation.mutateAsync(),
+    handlePause: () => void pauseJobMutation.mutateAsync(),
     isLoading: detail.isLoading,
     errorState: detail.errorState,
   };

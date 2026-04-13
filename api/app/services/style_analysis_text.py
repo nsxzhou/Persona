@@ -25,9 +25,13 @@ def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
     
     for encoding in candidates:
         try:
-            sample.decode(encoding, errors='strict')
+            sample.decode(encoding, errors="strict")
             return encoding
-        except UnicodeDecodeError:
+        except UnicodeDecodeError as exc:
+            if exc.reason == "unexpected end of data" and exc.end >= len(sample) - 4:
+                return encoding
+            continue
+        except UnicodeError:
             continue
             
     # 若严格解码由于截断或其他原因失败，回退到 chardet 进行嗅探
@@ -35,8 +39,17 @@ def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
         import chardet
         result = chardet.detect(sample)
         if result and result.get('encoding') and result.get('confidence', 0) > 0.5:
-            return result['encoding']
+            encoding = str(result["encoding"])
+            normalized = encoding.lower().replace("_", "-")
+            if normalized.startswith("utf-16") and not sample.startswith(
+                (b"\xff\xfe", b"\xfe\xff")
+            ):
+                if b"\x00" not in sample:
+                    raise ValueError("ignore utf-16 without BOM")
+            return encoding
     except ImportError:
+        pass
+    except ValueError:
         pass
         
     # 如果全都不行，fallback 到 utf-8
@@ -46,7 +59,14 @@ def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
 async def read_chunks_and_classification(
     stream: AsyncIterator[bytes],
     *,
-    encoding_candidates: tuple[str, ...] = ("utf-8-sig", "utf-8", "gb18030"),
+    encoding_candidates: tuple[str, ...] = (
+        "utf-8-sig",
+        "utf-8",
+        "gb18030",
+        "utf-16",
+        "utf-16-le",
+        "utf-16-be",
+    ),
     on_chunk: ChunkConsumer | None = None,
 ) -> tuple[int, int, InputClassification]:
     try:
@@ -141,7 +161,7 @@ async def read_chunks_and_classification(
         if stripped:
             total_char_count += len(stripped)
             
-        if is_chapter_header(line):
+        if is_chapter_header(line) or current_chunk_char_count > 15000:
             # Emit if we already have substantial content (e.g., > 50 characters)
             if current_chunk_char_count > 50:
                 await emit_chunk()

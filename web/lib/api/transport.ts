@@ -34,6 +34,11 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
       return undefined as T;
     }
 
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("text/plain")) {
+      return (await response.text()) as T;
+    }
+
     return response.json() as Promise<T>;
   };
 }

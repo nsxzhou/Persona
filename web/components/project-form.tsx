@@ -24,6 +24,8 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectPayload, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
+import { createProjectAction, updateProjectAction } from "@/app/(workspace)/projects/actions";
+
 const schema = z.object({
   name: z.string().min(1),
   description: z.string(),
@@ -71,7 +73,7 @@ export function ProjectForm({
       default_model: project?.default_model ?? "",
       style_profile_id: project?.style_profile_id ?? null,
     });
-  }, [form, project]);
+  }, [form, project, providers]);
 
   const selectedStatus = useWatch({ control: form.control, name: "status" });
   const selectedProviderId = useWatch({ control: form.control, name: "default_provider_id" });
@@ -204,8 +206,6 @@ export function ProjectForm({
 }
 
 type ProjectPageMode = "new" | "detail";
-
-import { createProjectAction, updateProjectAction } from "@/app/(workspace)/projects/actions";
 
 export function ProjectPageClient({
   mode,

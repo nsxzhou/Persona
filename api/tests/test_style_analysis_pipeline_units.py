@@ -127,7 +127,7 @@ async def test_structured_llm_client_extracts_markdown_text(
             "base_url": "https://api.example.test/v1",
             "api_key": "decrypted:encrypted-key",
             "temperature": 0.0,
-            "timeout": 60.0,
+            "timeout": 600.0,
             "max_retries": 2,
         }
     ]
@@ -232,6 +232,13 @@ async def test_read_chunks_and_classification_streams_chunks_via_callback() -> N
 @pytest.mark.asyncio
 async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
     class FakeStorageService:
+        def stage_markdown_artifact_exists(self, job_id: str, *, name: str) -> bool:
+            del job_id, name
+            return False
+
+        async def append_job_log(self, job_id: str, message: str) -> None:
+            pass
+
         async def read_chunk_analysis_batches(self, job_id: str, *, batch_size: int):
             del job_id, batch_size
             yield [
@@ -242,6 +249,11 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
                 {"chunk_index": 2, "chunk_count": 10, "markdown": build_chunk_markdown("2")},
                 {"chunk_index": 3, "chunk_count": 10, "markdown": build_chunk_markdown("3")},
             ]
+
+        async def write_stage_markdown_artifact(
+            self, job_id: str, *, name: str, markdown: str
+        ) -> None:
+            del job_id, name, markdown
 
     class FakeMergeClient:
         def __init__(self) -> None:

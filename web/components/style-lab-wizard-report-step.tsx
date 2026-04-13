@@ -3,14 +3,18 @@
 import * as React from "react";
 
 import {
-  STYLE_ANALYSIS_JOB_PROCESSING_STATUSES,
   STYLE_ANALYSIS_JOB_STATUS,
   type StyleAnalysisJob,
   type StyleProfile,
 } from "@/lib/types";
 
+import {
+  isProcessingStatus,
+  useStyleLabJobLogsQuery,
+} from "@/hooks/use-style-lab-wizard-logic";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReportStep({
   job,
@@ -19,6 +23,10 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
   isLoading,
   isError,
   errorMessage,
+  onResume,
+  resuming,
+  onPause,
+  pausing,
   onNext,
 }: {
   job: StyleAnalysisJob;
@@ -27,28 +35,78 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
+  onResume: () => void;
+  resuming: boolean;
+  onPause: () => void;
+  pausing: boolean;
   onNext: () => void;
 }) {
-  const isProcessing = STYLE_ANALYSIS_JOB_PROCESSING_STATUSES.some(
-    (status) => status === job.status,
-  );
+  const isProcessing = isProcessingStatus(job.status);
+  const { data: logsData } = useStyleLabJobLogsQuery(job.id, isProcessing);
+  const logs = logsData || "";
   const failedMessage = job.error_message?.trim() || "分析任务失败，请稍后重试。";
+
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLDivElement | null;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, [logs]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {isProcessing ? (
-        <Card className="border-dashed border-2 bg-muted/30">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4" />
-            <h3 className="font-medium text-lg">分析中...</h3>
-            <p className="text-muted-foreground mt-2">当前阶段: {job.stage || "初始化"}</p>
-            <p className="text-sm text-muted-foreground mt-1">这可能需要几分钟时间，请耐心等待。</p>
+        <Card className="border-dashed border-2 bg-muted/30 overflow-hidden flex flex-col h-[500px]">
+          <CardHeader className="border-b bg-muted/50 pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                正在分析中...
+              </CardTitle>
+              <Button variant="secondary" onClick={onPause} disabled={pausing || !!job.pause_requested_at}>
+                {pausing || job.pause_requested_at ? "暂停中..." : "暂停"}
+              </Button>
+            </div>
+            <CardDescription>当前阶段: {job.stage || "初始化"}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 p-0 overflow-hidden bg-[#1e1e1e] text-[#d4d4d4] font-mono text-sm">
+            <ScrollArea ref={scrollAreaRef} className="h-full w-full">
+              <div className="p-4 whitespace-pre-wrap leading-relaxed">
+                {logs ? (
+                  <>
+                    {logs}
+                    <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1 align-middle" />
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">正在等待系统日志...</span>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      ) : job.status === STYLE_ANALYSIS_JOB_STATUS.PAUSED ? (
+        <Card className="border-muted-foreground/30 bg-muted/10">
+          <CardContent className="pt-6 text-center">
+            <p>任务已暂停{job.stage ? `（停在阶段: ${job.stage}）` : ""}</p>
+            <div className="mt-4 flex justify-center">
+              <Button onClick={onResume} disabled={resuming}>
+                {resuming ? "继续中..." : "继续任务"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : job.status === STYLE_ANALYSIS_JOB_STATUS.FAILED ? (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="pt-6 text-center text-destructive">
             <p>分析失败: {failedMessage}</p>
+            <div className="mt-4 flex justify-center">
+              <Button onClick={onResume} disabled={resuming}>
+                {resuming ? "恢复中..." : "恢复任务"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

@@ -61,10 +61,15 @@ test("new project page is a server wrapper around the new-project client contain
     ),
     ProjectForm: () => null,
   }));
+  vi.doMock("@/lib/server-api", () => ({
+    getServerProviderConfigs: vi.fn().mockResolvedValue([]),
+    getServerStyleProfiles: vi.fn().mockResolvedValue([]),
+  }));
 
   const { default: NewProjectPage } = await import("@/app/(workspace)/projects/new/page");
 
-  render(<NewProjectPage />);
+  const node = await NewProjectPage();
+  render(node);
 
   expect(screen.getByText("project-page-client-new-none")).toBeInTheDocument();
 });
@@ -76,6 +81,14 @@ test("project detail page is a server wrapper around the detail client container
       <div>project-page-client-{mode}-{projectId ?? "none"}</div>
     ),
     ProjectForm: () => null,
+  }));
+  vi.doMock("@/lib/server-api", () => ({
+    getServerProject: vi.fn().mockResolvedValue({
+      id: "project-42",
+      name: "Mock Project",
+    }),
+    getServerProviderConfigs: vi.fn().mockResolvedValue([]),
+    getServerStyleProfiles: vi.fn().mockResolvedValue([]),
   }));
 
   const { default: ProjectDetailPage } = await import("@/app/(workspace)/projects/[id]/page");

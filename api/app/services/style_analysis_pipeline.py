@@ -49,6 +49,10 @@ from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
 
 
+class StyleAnalysisPauseRequested(Exception):
+    pass
+
+
 # -----------------------------------------------------------------------------
 # 状态定义层：LangGraph 工作流运行时的状态载体
 # -----------------------------------------------------------------------------
@@ -142,6 +146,7 @@ class StyleAnalysisPipeline:
         llm_client: MarkdownLLMClient | None = None,  # 可选注入的 LLM 客户端（便于测试）
         checkpointer: Any | None = None,  # 可选注入的 Checkpointer（用于持久化断点）
         stage_callback: StageCallback | None = None,  # 阶段切换回调
+        should_pause: Callable[[], bool] | None = None,
     ) -> None:
         self.provider = provider
         self.model_name = model_name
@@ -159,6 +164,7 @@ class StyleAnalysisPipeline:
 
         # 阶段回调：在流水线进入新阶段时触发，用于更新数据库中的任务阶段
         self.stage_callback = stage_callback
+        self.should_pause = should_pause
 
         # 存储服务：负责 chunk 文本和中间分析产物的读写
         self.storage_service = StyleAnalysisStorageService()
@@ -266,11 +272,16 @@ class StyleAnalysisPipeline:
     """
 
     async def _prepare_input(self, state: StyleAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
         if state["chunk_count"] < 1:
             raise RuntimeError("切片后没有可分析的有效文本")
 
         # 通知回调：进入分块分析阶段
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS)
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            f"[System] 开始分析任务，共分为 {state['chunk_count']} 个文本分块进行并发处理..."
+        )
         return {}
 
     """
@@ -279,6 +290,10 @@ class StyleAnalysisPipeline:
     """
 
     def _route_chunks(self, state: StyleAnalysisState) -> list[Send]:
+        self._raise_if_paused()
+        MAX_CHUNKS = 1000
+        if state["chunk_count"] > MAX_CHUNKS:
+            raise ValueError(f"切片数量超过上限 ({MAX_CHUNKS})，可能导致内存溢出或超负荷，请更换较小样本或增加切分阈值。")
         return [
             Send(
                 "analyze_chunk",
@@ -302,6 +317,15 @@ class StyleAnalysisPipeline:
     """
 
     async def _analyze_chunk(self, state: ChunkMapState) -> dict[str, Any]:
+        self._raise_if_paused()
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            f"[LLM] 正在并行处理 分块 {state['chunk_index'] + 1}/{state['chunk_count']} ..."
+        )
+        if self.storage_service.chunk_analysis_artifact_exists(
+            state["job_id"], state["chunk_index"]
+        ):
+            return {}
         # 从存储读取当前 chunk 的文本内容
         chunk = await self.storage_service.read_chunk_artifact(
             state["job_id"], state["chunk_index"]
@@ -315,7 +339,7 @@ class StyleAnalysisPipeline:
             chunk_count=state["chunk_count"],
         )
 
-        # 调用 Markdown LLM 客户端，保证输出 Markdown 格式
+        self._raise_if_paused()
         markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
             prompt=prompt,
@@ -332,6 +356,10 @@ class StyleAnalysisPipeline:
             ).model_dump(mode="json"),
         )
 
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            f"[LLM] 分块 {state['chunk_index'] + 1}/{state['chunk_count']} 分析完成"
+        )
         # 不返回任何数据到共享状态，所有中间结果通过存储传递
         return {}
 
@@ -342,15 +370,31 @@ class StyleAnalysisPipeline:
     """
 
     async def _merge_chunks(self, state: StyleAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_AGGREGATING)
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            f"[LangGraph] 正在执行 Reduce 聚合操作 (合并 {state['chunk_count']} 个分块的结果)..."
+        )
+
+        if self.storage_service.stage_markdown_artifact_exists(
+            state["job_id"], name="merged-analysis"
+        ):
+            markdown = await self.storage_service.read_stage_markdown_artifact(
+                state["job_id"], name="merged-analysis"
+            )
+            return {"merged_analysis_markdown": markdown}
 
         merged: MergedAnalysis | None = None
 
-        # 分批读取所有 chunk 的分析结果，每批最多 8 个
+        # 分批读取所有 chunk 的分析结果，每批最多 20 个
+        batch_index = 0
         async for batch in self.storage_service.read_chunk_analysis_batches(
             state["job_id"],
-            batch_size=8,
+            batch_size=20,
         ):
+            self._raise_if_paused()
+            batch_index += 1
             # 按 chunk 索引排序，保证合并顺序正确
             chunk_analyses = sorted(
                 (ChunkAnalysis.model_validate(item) for item in batch),
@@ -365,12 +409,19 @@ class StyleAnalysisPipeline:
                 )
                 continue
 
+            start_idx = chunk_analyses[0].chunk_index + 1
+            end_idx = chunk_analyses[-1].chunk_index + 1
+            await self.storage_service.append_job_log(
+                state["job_id"],
+                f"[LLM] 正在合并批次 {batch_index} (涵盖分块 {start_idx} 到 {end_idx})..."
+            )
+
             # 构建合并输入：当前批次的 chunk 分析 + 之前合并的结果
             merge_inputs = [item.model_dump(mode="json") for item in chunk_analyses]
             if merged is not None:
                 merge_inputs.insert(0, merged.model_dump(mode="json"))
 
-            # 调用 LLM 执行增量合并
+            self._raise_if_paused()
             markdown = await self.llm_client.ainvoke_markdown(
                 model=self.chat_model,
                 prompt=build_merge_prompt(
@@ -382,10 +433,18 @@ class StyleAnalysisPipeline:
                 classification=state["classification"],
                 markdown=markdown,
             )
+            
+            await self.storage_service.append_job_log(
+                state["job_id"],
+                f"[LLM] 批次 {batch_index} 合并完成"
+            )
 
         if merged is None:
             raise RuntimeError("聚合阶段没有读到任何 chunk 分析结果")
 
+        await self.storage_service.write_stage_markdown_artifact(
+            state["job_id"], name="merged-analysis", markdown=merged.markdown
+        )
         # 将合并结果写入共享状态，供后续阶段使用
         return {"merged_analysis_markdown": merged.markdown}
 
@@ -394,7 +453,20 @@ class StyleAnalysisPipeline:
     """
 
     async def _build_report(self, state: StyleAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_REPORTING)
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            "[System] 正在生成最终 Markdown 报告..."
+        )
+
+        if self.storage_service.stage_markdown_artifact_exists(
+            state["job_id"], name="analysis-report"
+        ):
+            markdown = await self.storage_service.read_stage_markdown_artifact(
+                state["job_id"], name="analysis-report"
+            )
+            return {"analysis_report_markdown": markdown}
 
         report_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
@@ -404,6 +476,9 @@ class StyleAnalysisPipeline:
             ),
         )
 
+        await self.storage_service.write_stage_markdown_artifact(
+            state["job_id"], name="analysis-report", markdown=report_markdown
+        )
         return {"analysis_report_markdown": report_markdown}
 
     """
@@ -411,7 +486,20 @@ class StyleAnalysisPipeline:
     """
 
     async def _build_summary(self, state: StyleAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING)
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            "[System] 正在提炼风格特征，生成摘要..."
+        )
+
+        if self.storage_service.stage_markdown_artifact_exists(
+            state["job_id"], name="style-summary"
+        ):
+            markdown = await self.storage_service.read_stage_markdown_artifact(
+                state["job_id"], name="style-summary"
+            )
+            return {"style_summary_markdown": markdown}
 
         summary_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
@@ -421,6 +509,20 @@ class StyleAnalysisPipeline:
             ),
         )
 
+        stripped = summary_markdown.lstrip()
+        if not stripped.startswith("# 风格名称"):
+            expected_title = f"# {state['style_name']}"
+            if stripped.startswith(expected_title):
+                remainder = stripped[len(expected_title) :].lstrip("\n")
+                summary_markdown = f"# 风格名称\n{state['style_name']}\n\n{remainder}".rstrip()
+            else:
+                summary_markdown = (
+                    f"# 风格名称\n{state['style_name']}\n\n{summary_markdown}".rstrip()
+                )
+
+        await self.storage_service.write_stage_markdown_artifact(
+            state["job_id"], name="style-summary", markdown=summary_markdown
+        )
         return {"style_summary_markdown": summary_markdown}
 
     """
@@ -429,7 +531,20 @@ class StyleAnalysisPipeline:
     """
 
     async def _build_prompt_pack(self, state: StyleAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK)
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            "[System] 正在构建最终的母 Prompt 包..."
+        )
+
+        if self.storage_service.stage_markdown_artifact_exists(
+            state["job_id"], name="prompt-pack"
+        ):
+            markdown = await self.storage_service.read_stage_markdown_artifact(
+                state["job_id"], name="prompt-pack"
+            )
+            return {"prompt_pack_markdown": markdown}
 
         prompt_pack_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
@@ -439,6 +554,9 @@ class StyleAnalysisPipeline:
             ),
         )
 
+        await self.storage_service.write_stage_markdown_artifact(
+            state["job_id"], name="prompt-pack", markdown=prompt_pack_markdown
+        )
         return {"prompt_pack_markdown": prompt_pack_markdown}
 
     """
@@ -447,6 +565,11 @@ class StyleAnalysisPipeline:
     """
 
     async def _persist_result(self, state: StyleAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            "[System] 分析任务全部完成！"
+        )
         analysis_meta = AnalysisMeta(
             source_filename=state["source_filename"],
             model_name=state["model_name"],
@@ -467,5 +590,10 @@ class StyleAnalysisPipeline:
     """
 
     async def _set_stage(self, stage: str | None) -> None:
+        self._raise_if_paused()
         if self.stage_callback is not None:
             await self.stage_callback(stage)
+
+    def _raise_if_paused(self) -> None:
+        if self.should_pause is not None and self.should_pause():
+            raise StyleAnalysisPauseRequested()

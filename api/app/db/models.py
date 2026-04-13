@@ -321,6 +321,10 @@ class StyleAnalysisJob(TimestampMixin, Base):
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    pause_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 尝试次数，用于失败重试机制
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # 任务实际开始处理的时间
