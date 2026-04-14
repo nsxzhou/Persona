@@ -103,9 +103,4 @@ html, body {
   .shadow-lg {
     box-shadow: 6px 6px 0px #000000 !important;
   }
-  
-  /* Sharp focus rings */
-  .ring-offset-background {
-    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring) !important;
-  }
 }
