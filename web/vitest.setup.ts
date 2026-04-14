@@ -1,5 +1,13 @@
-import "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom";
 import { vi } from "vitest";
+
+// Mock ResizeObserver
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = ResizeObserverMock;
 
 vi.mock("server-only", () => ({}));
 

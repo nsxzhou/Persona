@@ -49,12 +49,17 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
 
   const isCompletedAndSaved = job.status === "succeeded" && existingProfile;
 
-  if (isCompletedAndSaved && !isEditing) {
+  if (isCompletedAndSaved) {
     return (
       <StyleLabProfileView 
         job={job} 
         profile={existingProfile} 
-        onEdit={() => setIsEditing(true)} 
+        isEditing={isEditing}
+        onEditStart={() => setIsEditing(true)} 
+        onEditCancel={() => setIsEditing(false)}
+        onSave={handleSave}
+        saving={saveProfileMutation.isPending}
+        form={form}
       />
     );
   }

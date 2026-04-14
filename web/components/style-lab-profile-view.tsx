@@ -4,20 +4,56 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { type UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
+import { type FormValues } from "@/lib/validations/style-lab";
 
 export function StyleLabProfileView({
   job,
   profile,
-  onEdit,
+  isEditing,
+  onEditStart,
+  onEditCancel,
+  onSave,
+  saving,
+  form,
 }: {
   job: StyleAnalysisJob;
   profile: StyleProfile;
-  onEdit: () => void;
+  isEditing: boolean;
+  onEditStart: () => void;
+  onEditCancel: () => void;
+  onSave: () => void;
+  saving: boolean;
+  form: UseFormReturn<FormValues>;
 }) {
+  const [activeTab, setActiveTab] = React.useState("summary");
+  const styleNameField = form.register("styleName");
+  const styleSummaryField = form.register("styleSummaryMarkdown");
+  const promptPackField = form.register("promptPackMarkdown");
+
+  React.useEffect(() => {
+    if (isEditing) {
+      form.reset({
+        styleName: profile.style_name,
+        styleSummaryMarkdown: profile.style_summary_markdown,
+        promptPackMarkdown: profile.prompt_pack_markdown,
+      });
+    }
+  }, [isEditing, profile, form]);
+
+  const adjustHeight = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const target = e.target;
+    target.style.height = "auto";
+    target.style.height = `${Math.max(300, target.scrollHeight)}px`;
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 selection:bg-muted">
       {/* 导航栏 */}
@@ -31,13 +67,26 @@ export function StyleLabProfileView({
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-muted-foreground flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500"></div> 
-            已保存
-          </span>
-          <Button variant="ghost" size="sm" onClick={onEdit} className="text-muted-foreground hover:text-foreground">
-            编辑档案
-          </Button>
+          {isEditing ? (
+            <>
+              <Button variant="ghost" size="sm" onClick={onEditCancel} disabled={saving}>
+                取消
+              </Button>
+              <Button size="sm" onClick={onSave} disabled={saving}>
+                {saving ? "保存中..." : "保存修改"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="text-muted-foreground flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div> 
+                已保存
+              </span>
+              <Button variant="ghost" size="sm" onClick={onEditStart} className="text-muted-foreground hover:text-foreground">
+                编辑档案
+              </Button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -45,7 +94,11 @@ export function StyleLabProfileView({
         {/* 标题区 */}
         <header className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight tracking-wide font-[family:var(--font-prose)] text-foreground">
-            {profile.style_name}
+            {isEditing ? (
+              <span className="text-muted-foreground text-2xl">正在编辑风格档案...</span>
+            ) : (
+              profile.style_name
+            )}
           </h1>
           <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
             <Badge variant="secondary" className="font-mono">{job.model_name}</Badge>
@@ -56,7 +109,7 @@ export function StyleLabProfileView({
         </header>
 
         {/* 使用 Tabs 重构文章主体 */}
-        <Tabs defaultValue="summary" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-8">
             <TabsList className="bg-transparent border-b border-border rounded-none p-0 h-auto space-x-6">
               <TabsTrigger 
@@ -82,27 +135,67 @@ export function StyleLabProfileView({
 
           <div className="mt-8">
             <TabsContent value="summary" className="focus-visible:outline-none">
-              <div className="whitespace-pre-wrap leading-loose text-lg text-foreground/90 font-[family:var(--font-prose)] text-justify max-w-3xl mx-auto">
-                {profile.style_summary_markdown || "暂无摘要"}
-              </div>
+              {isEditing ? (
+                <div className="space-y-6 max-w-3xl mx-auto">
+                  <div className="grid gap-2">
+                    <Label htmlFor="style-name">风格名称</Label>
+                    <Input id="style-name" {...styleNameField} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="style-summary-markdown">风格摘要 Markdown</Label>
+                    <Textarea
+                      id="style-summary-markdown"
+                      aria-label="风格摘要 Markdown"
+                      className="min-h-[300px] font-mono text-sm leading-relaxed"
+                      {...styleSummaryField}
+                      onChange={(e) => {
+                        styleSummaryField.onChange(e);
+                        adjustHeight(e);
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap leading-loose text-lg text-foreground/90 font-[family:var(--font-prose)] text-justify max-w-3xl mx-auto">
+                  {profile.style_summary_markdown || "暂无摘要"}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="prompt" className="focus-visible:outline-none max-w-3xl mx-auto">
-              <div className="bg-muted/30 p-8 rounded-xl font-mono text-sm leading-relaxed text-foreground shadow-sm relative group border border-border/50">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="absolute top-4 right-4 h-8 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-background"
-                  onClick={() => {
-                    navigator.clipboard.writeText(profile.prompt_pack_markdown || "");
-                    toast.success("已复制提示词");
-                  }}
-                >
-                  <Copy className="w-3 h-3 mr-2" /> COPY
-                </Button>
-                <span className="text-muted-foreground block mb-6 select-none border-b border-border/50 pb-2">/* System Prompt */</span>
-                <div className="whitespace-pre-wrap">{profile.prompt_pack_markdown || "暂无提示词"}</div>
-              </div>
+              {isEditing ? (
+                <div className="space-y-6">
+                  <div className="grid gap-2">
+                    <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
+                    <Textarea
+                      id="prompt-pack-markdown"
+                      aria-label="Prompt Pack Markdown"
+                      className="min-h-[400px] font-mono text-sm leading-relaxed bg-muted/30"
+                      {...promptPackField}
+                      onChange={(e) => {
+                        promptPackField.onChange(e);
+                        adjustHeight(e);
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-muted/30 p-8 rounded-xl font-mono text-sm leading-relaxed text-foreground shadow-sm relative group border border-border/50">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="absolute top-4 right-4 h-8 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-background"
+                    onClick={() => {
+                      navigator.clipboard.writeText(profile.prompt_pack_markdown || "");
+                      toast.success("已复制提示词");
+                    }}
+                  >
+                    <Copy className="w-3 h-3 mr-2" /> COPY
+                  </Button>
+                  <span className="text-muted-foreground block mb-6 select-none border-b border-border/50 pb-2">/* System Prompt */</span>
+                  <div className="whitespace-pre-wrap">{profile.prompt_pack_markdown || "暂无提示词"}</div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="report" className="focus-visible:outline-none max-w-3xl mx-auto">

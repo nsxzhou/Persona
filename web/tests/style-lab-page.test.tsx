@@ -230,6 +230,20 @@ test("style lab wizard shows backend failure message on terminal failed status",
 });
 
 test("style lab wizard fetches mountable projects only when entering final step", async () => {
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:02:00Z",
+  });
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:02:00Z",
+  });
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({
       analysis_report_markdown: buildReport(),
@@ -253,6 +267,13 @@ test("style lab wizard fetches mountable projects only when entering final step"
 });
 
 test("style lab wizard renders markdown report and saves new profile with mount", async () => {
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:02:00Z",
+  });
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({
       analysis_report_markdown: buildReport(),
@@ -330,7 +351,27 @@ test("style lab wizard renders markdown report and saves new profile with mount"
   );
 });
 
-test("style lab wizard updates existing saved profile", async () => {
+test("style lab profile view allows editing prompt only without summary error", async () => {
+  apiMock.getStyleProfile.mockResolvedValue({
+    id: "profile-1",
+    source_job_id: "job-1",
+    provider_id: "provider-1",
+    model_name: "gpt-4.1-mini",
+    source_filename: "sample.txt",
+    style_name: "旧名字",
+    analysis_report_markdown: buildReport(),
+    style_summary_markdown: buildSummary("旧名字"),
+    prompt_pack_markdown: buildPromptPack(),
+    created_at: "2026-04-09T00:02:00Z",
+    updated_at: "2026-04-09T00:02:00Z",
+  });
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValue({
+    id: "job-1",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:02:00Z",
+  });
   apiMock.getStyleAnalysisJob.mockResolvedValue(
     buildSucceededJob({
       style_profile_id: "profile-1",
@@ -356,35 +397,40 @@ test("style lab wizard updates existing saved profile", async () => {
     provider_id: "provider-1",
     model_name: "gpt-4.1-mini",
     source_filename: "sample.txt",
-    style_name: "覆盖后的名字",
+    style_name: "旧名字",
     analysis_report_markdown: buildReport(),
-    style_summary_markdown: buildSummary("覆盖后的名字"),
-    prompt_pack_markdown: buildPromptPack("覆盖后的 system prompt"),
+    style_summary_markdown: buildSummary("旧名字"),
+    prompt_pack_markdown: "# System Prompt\n只修改了这里\n",
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:03:00Z",
   });
 
   renderWizard();
 
-  fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
-  fireEvent.change(screen.getByLabelText("风格名称"), {
-    target: { value: "覆盖后的名字" },
+  expect(await screen.findByText("旧名字")).toBeInTheDocument();
+  
+  fireEvent.click(screen.getByRole("button", { name: "编辑档案" }));
+  await screen.findByRole("button", { name: "保存修改" });
+  
+  const promptTab = screen.getByRole("tab", { name: "提示词资产" });
+  fireEvent.mouseDown(promptTab);
+  fireEvent.click(promptTab);
+  
+  const promptTextarea = await screen.findByLabelText("Prompt Pack Markdown");
+  
+  fireEvent.change(promptTextarea, {
+    target: { value: "# System Prompt\n只修改了这里\n" },
   });
-  fireEvent.change(screen.getByLabelText("风格摘要 Markdown"), {
-    target: { value: "# 风格名称\n覆盖后的名字\n" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "确认摘要，下一步" }));
-  fireEvent.change(screen.getByLabelText("Prompt Pack Markdown"), {
-    target: { value: "# System Prompt\n覆盖后的 system prompt\n" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
-
+  
+  fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+  
   await waitFor(() =>
     expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(
       "profile-1",
       expect.objectContaining({
-        style_name: "覆盖后的名字",
-        style_summary_markdown: "# 风格名称\n覆盖后的名字\n",
+        style_name: "旧名字",
+        style_summary_markdown: buildSummary("旧名字"),
+        prompt_pack_markdown: "# System Prompt\n只修改了这里\n",
       }),
     ),
   );

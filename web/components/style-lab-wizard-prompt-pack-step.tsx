@@ -1,6 +1,6 @@
 "use client";
 
-import type { UseFormReturn } from "react-hook-form";
+import { useController, type UseFormReturn } from "react-hook-form";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,19 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
   saving: boolean;
 }) {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-  const { ref: formRef, ...rest } = form.register("promptPackMarkdown");
+  const { field } = useController({
+    name: "promptPackMarkdown",
+    control: form.control,
+  });
+
+  const handleRef = React.useCallback(
+    (e: HTMLTextAreaElement | null) => {
+      field.ref(e);
+      // @ts-ignore
+      textareaRef.current = e;
+    },
+    [field]
+  );
 
   const handleInput = React.useCallback(() => {
     const target = textareaRef.current;
@@ -78,8 +90,12 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
                       id="prompt-pack-markdown"
                       className="min-h-[480px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
                       defaultValue={promptPackMarkdown ?? ""}
-                      onInput={handleInput}
-                      {...rest}
+                      {...field}
+                      ref={handleRef}
+                      onInput={(e) => {
+                        field.onChange(e);
+                        handleInput();
+                      }}
                     />
                 </ScrollArea>
               </div>
