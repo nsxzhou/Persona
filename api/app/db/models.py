@@ -199,6 +199,8 @@ class Project(TimestampMixin, Base):
     style_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("style_profiles.id"), nullable=True
     )
+    # 项目正文内容
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 归档时间 - 如果归档了就有值，否则是None
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

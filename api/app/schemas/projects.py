@@ -44,6 +44,9 @@ class ProjectCreate(BaseModel):
     # 风格配置ID：可选字段
     style_profile_id: str | None = None
 
+    # 项目正文内容
+    content: str = ""
+
 
 # 更新项目的请求Schema
 # 这个类用于接收前端发送的"更新项目"请求的数据
@@ -57,6 +60,7 @@ class ProjectUpdate(BaseModel):
     default_provider_id: str | None = None
     default_model: str | None = None
     style_profile_id: str | None = None
+    content: str | None = None
 
 
 # 项目响应Schema
@@ -80,6 +84,8 @@ class ProjectResponse(BaseModel):
     default_model: str
     # 风格配置ID
     style_profile_id: str | None
+    # 项目正文内容
+    content: str
     # 归档时间 - 没有归档就是None
     archived_at: datetime | None
     # 创建时间 - 自动生成，只读
@@ -89,3 +95,8 @@ class ProjectResponse(BaseModel):
     # 嵌套的提供商信息 - 直接引用另一个Schema
     # Pydantic会自动递归序列化嵌套的对象
     provider: ProviderSummary
+
+
+# 编辑器续写请求Schema
+class EditorCompletionRequest(BaseModel):
+    text_before_cursor: str

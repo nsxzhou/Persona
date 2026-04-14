@@ -258,6 +258,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/editor/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Editor Complete */
+        post: operations["editor_complete_api_v1_projects__project_id__editor_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/style-analysis-jobs": {
         parameters: {
             query?: never;
@@ -542,6 +559,11 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** EditorCompletionRequest */
+        EditorCompletionRequest: {
+            /** Text Before Cursor */
+            text_before_cursor: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -575,6 +597,11 @@ export interface components {
             default_model?: string | null;
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
         };
         /** ProjectResponse */
         ProjectResponse: {
@@ -595,6 +622,8 @@ export interface components {
             default_model: string;
             /** Style Profile Id */
             style_profile_id: string | null;
+            /** Content */
+            content: string;
             /** Archived At */
             archived_at: string | null;
             /**
@@ -623,6 +652,8 @@ export interface components {
             default_model?: string | null;
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Content */
+            content?: string | null;
         };
         /**
          * PromptPackMarkdown
@@ -1501,6 +1532,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editor_complete_api_v1_projects__project_id__editor_complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditorCompletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

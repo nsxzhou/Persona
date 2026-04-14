@@ -658,6 +658,56 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/editor/complete": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Editor Complete",
+        "operationId": "editor_complete_api_v1_projects__project_id__editor_complete_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditorCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/style-analysis-jobs": {
       "get": {
         "tags": [
@@ -1530,6 +1580,19 @@
         ],
         "title": "ConnectionTestResponse"
       },
+      "EditorCompletionRequest": {
+        "properties": {
+          "text_before_cursor": {
+            "type": "string",
+            "title": "Text Before Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text_before_cursor"
+        ],
+        "title": "EditorCompletionRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1614,6 +1677,11 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "default": ""
           }
         },
         "type": "object",
@@ -1665,6 +1733,10 @@
             ],
             "title": "Style Profile Id"
           },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
           "archived_at": {
             "anyOf": [
               {
@@ -1700,6 +1772,7 @@
           "default_provider_id",
           "default_model",
           "style_profile_id",
+          "content",
           "archived_at",
           "created_at",
           "updated_at",
@@ -1782,6 +1855,17 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
           }
         },
         "type": "object",

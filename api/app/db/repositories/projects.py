@@ -59,6 +59,7 @@ class ProjectRepository:
         default_provider_id: str,
         default_model: str,
         style_profile_id: str | None,
+        content: str,
         user_id: str,
     ) -> Project:
         project = Project(
@@ -68,6 +69,7 @@ class ProjectRepository:
             default_provider_id=default_provider_id,
             default_model=default_model,
             style_profile_id=style_profile_id,
+            content=content,
             user_id=user_id,
         )
         session.add(project)

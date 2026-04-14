@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 
 from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import get_settings
 from app.core.redaction import summarize_exception
@@ -37,3 +38,27 @@ class LLMProviderService:
                 "message": CONNECTION_TEST_FAILED_MESSAGE,
                 "error_summary": summarize_exception(exc),
             }
+
+    async def stream_completion(
+        self,
+        provider_config: ProviderConfig,
+        system_prompt: str,
+        user_context: str,
+    ) -> AsyncGenerator[str, None]:
+        settings = get_settings()
+        model = init_chat_model(
+            model=provider_config.default_model,
+            model_provider="openai",
+            base_url=provider_config.base_url,
+            api_key=decrypt_secret(provider_config.api_key_encrypted),
+            temperature=0.7,
+            timeout=settings.llm_timeout_seconds,
+            max_retries=settings.llm_max_retries,
+        )
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_context),
+        ]
+        async for chunk in model.astream(messages):
+            if chunk.content:
+                yield chunk.content

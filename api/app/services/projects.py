@@ -80,6 +80,7 @@ class ProjectService:
             default_provider_id=provider.id,
             default_model=default_model or provider.default_model,
             style_profile_id=payload.style_profile_id,
+            content=payload.content,
             user_id=resolved_user_id,
         )
         await self.repository.refresh_provider(session, project)
@@ -122,6 +123,8 @@ class ProjectService:
         if "default_model" in data:
             default_model = (data["default_model"] or "").strip()
             project.default_model = default_model or provider.default_model
+        if "content" in data:
+            project.content = data["content"]
 
         await self.repository.flush(session)
         return await self.get_or_404(session, project.id, user_id=user_id)
