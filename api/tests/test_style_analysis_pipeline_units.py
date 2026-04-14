@@ -14,7 +14,7 @@ from app.schemas.style_analysis_jobs import (
     MergedAnalysis,
     STYLE_ANALYSIS_REPORT_SECTIONS,
 )
-from app.services.style_analysis_llm import MarkdownLLMClient
+from app.services.style_analysis_llm import EmptyMarkdownResponseError, MarkdownLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import read_chunks_and_classification
 from app.services.style_analysis_pipeline import StyleAnalysisPipeline
@@ -131,6 +131,149 @@ async def test_structured_llm_client_extracts_markdown_text(
             "max_retries": 2,
         }
     ]
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_structured_llm_client_extracts_markdown_from_nonstandard_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            self.calls += 1
+            assert len(messages) == 1
+            if self.calls == 1:
+                return AIMessage(
+                    content="",
+                    additional_kwargs={"content": "# 兼容字段\n正文"},
+                )
+            return AIMessage(
+                content="",
+                additional_kwargs={"output_text": "# 输出文本\n正文"},
+            )
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+
+    result_from_content = await client.ainvoke_markdown(model=model, prompt="第一次")
+    result_from_output_text = await client.ainvoke_markdown(model=model, prompt="第二次")
+
+    assert result_from_content == "# 兼容字段\n正文"
+    assert result_from_output_text == "# 输出文本\n正文"
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_structured_llm_client_uses_reasoning_content_as_last_resort(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            assert len(messages) == 1
+            return AIMessage(
+                content="",
+                additional_kwargs={"reasoning_content": "# 推理兜底\n正文"},
+                response_metadata={"finish_reason": "stop"},
+            )
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+
+    with caplog.at_level("WARNING", logger="app.services.style_analysis_llm"):
+        result = await client.ainvoke_markdown(model=model, prompt="生成报告")
+
+    assert result == "# 推理兜底\n正文"
+    assert "reasoning_content" in caplog.text
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_structured_llm_client_retries_empty_response_until_markdown_arrives(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            self.calls += 1
+            assert len(messages) == 1
+            if self.calls < 3:
+                return AIMessage(
+                    content="",
+                    response_metadata={
+                        "finish_reason": "stop",
+                        "token_usage": {"completion_tokens": 128},
+                    },
+                )
+            return AIMessage(content="# 最终成功\n正文")
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+    result = await client.ainvoke_markdown(model=model, prompt="生成报告")
+
+    assert result == "# 最终成功\n正文"
+    assert model.calls == 3
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_structured_llm_client_raises_diagnostic_error_when_all_attempts_are_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            self.calls += 1
+            assert len(messages) == 1
+            return AIMessage(
+                content="",
+                response_metadata={
+                    "finish_reason": "stop",
+                    "token_usage": {"completion_tokens": 1449, "prompt_tokens": 1575},
+                },
+            )
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+
+    with pytest.raises(EmptyMarkdownResponseError) as exc_info:
+        await client.ainvoke_markdown(model=model, prompt="不要泄漏这段 prompt")
+
+    message = str(exc_info.value)
+    assert "attempt=3/3" in message
+    assert "finish_reason=stop" in message
+    assert "completion_tokens=1449" in message
+    assert "不要泄漏这段 prompt" not in message
+    assert model.calls == 3
     get_settings.cache_clear()
 
 

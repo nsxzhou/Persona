@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -10,8 +12,15 @@ from app.core.config import get_settings
 from app.core.security import decrypt_secret
 from app.db.models import ProviderConfig
 
+logger = logging.getLogger(__name__)
+
+_TEXT_RESPONSE_KEYS = ("content", "output_text", "text")
+_EMPTY_RESPONSE_BACKOFF_SECONDS = (0.5, 1.0)
+
 
 def _extract_text_content(content: Any) -> str:
+    if content is None:
+        return ""
     if isinstance(content, str):
         return content.strip()
     if isinstance(content, dict):
@@ -52,6 +61,29 @@ def _extract_text_content(content: Any) -> str:
     return str(content).strip()
 
 
+def _extract_text_from_mapping(mapping: Any, *, keys: tuple[str, ...]) -> tuple[str, str | None]:
+    if not isinstance(mapping, dict):
+        return "", None
+
+    for key in keys:
+        if key not in mapping:
+            continue
+        text = _extract_text_content(mapping.get(key))
+        if text:
+            return text, key
+    return "", None
+
+
+def _safe_mapping_keys(mapping: Any) -> list[str]:
+    if not isinstance(mapping, dict):
+        return []
+    return sorted(str(key) for key in mapping.keys())
+
+
+class EmptyMarkdownResponseError(ValueError):
+    pass
+
+
 class MarkdownLLMClient:
     def __init__(
         self,
@@ -81,8 +113,126 @@ class MarkdownLLMClient:
         model: Any,
         prompt: str,
     ) -> str:
-        result = await model.ainvoke([HumanMessage(content=prompt)])
-        text = _extract_text_content(getattr(result, "content", result))
-        if not text:
-            raise ValueError("LLM did not return markdown content")
-        return text
+        total_attempts = len(_EMPTY_RESPONSE_BACKOFF_SECONDS) + 1
+        last_diagnostics: dict[str, Any] | None = None
+
+        for attempt in range(1, total_attempts + 1):
+            result = await model.ainvoke([HumanMessage(content=prompt)])
+            text, source, diagnostics = self._extract_markdown_text(result)
+            last_diagnostics = diagnostics
+
+            if text:
+                if source == "additional_kwargs.reasoning_content":
+                    logger.warning(
+                        "Recovered markdown from reasoning_content fallback",
+                        extra={
+                            "source": source,
+                            "finish_reason": diagnostics["finish_reason"],
+                            "completion_tokens": diagnostics["completion_tokens"],
+                        },
+                    )
+                elif source != "content":
+                    logger.info(
+                        "Recovered markdown from non-standard LLM field",
+                        extra={
+                            "source": source,
+                            "finish_reason": diagnostics["finish_reason"],
+                            "completion_tokens": diagnostics["completion_tokens"],
+                        },
+                    )
+                return text
+
+            if attempt < total_attempts:
+                logger.warning(
+                    "LLM returned empty markdown content; retrying",
+                    extra={
+                        "attempt": attempt,
+                        "total_attempts": total_attempts,
+                        "finish_reason": diagnostics["finish_reason"],
+                        "completion_tokens": diagnostics["completion_tokens"],
+                        "additional_keys": diagnostics["additional_keys"],
+                        "response_metadata_keys": diagnostics["response_metadata_keys"],
+                    },
+                )
+                await asyncio.sleep(_EMPTY_RESPONSE_BACKOFF_SECONDS[attempt - 1])
+
+        assert last_diagnostics is not None
+        message = self._build_empty_response_error_message(
+            attempt=total_attempts,
+            total_attempts=total_attempts,
+            diagnostics=last_diagnostics,
+        )
+        logger.error(
+            "LLM returned empty markdown content after retries exhausted",
+            extra={
+                "attempt": total_attempts,
+                "total_attempts": total_attempts,
+                "finish_reason": last_diagnostics["finish_reason"],
+                "completion_tokens": last_diagnostics["completion_tokens"],
+                "additional_keys": last_diagnostics["additional_keys"],
+                "response_metadata_keys": last_diagnostics["response_metadata_keys"],
+            },
+        )
+        raise EmptyMarkdownResponseError(message)
+
+    def _extract_markdown_text(self, result: Any) -> tuple[str, str, dict[str, Any]]:
+        additional_kwargs = getattr(result, "additional_kwargs", {}) or {}
+        response_metadata = getattr(result, "response_metadata", {}) or {}
+
+        candidates = [
+            ("content", getattr(result, "content", result)),
+        ]
+        candidates.extend(
+            (f"additional_kwargs.{key}", additional_kwargs.get(key)) for key in _TEXT_RESPONSE_KEYS
+        )
+        candidates.extend(
+            (f"response_metadata.{key}", response_metadata.get(key)) for key in _TEXT_RESPONSE_KEYS
+        )
+        candidates.append(("additional_kwargs.reasoning_content", additional_kwargs.get("reasoning_content")))
+
+        for source, candidate in candidates:
+            text = _extract_text_content(candidate)
+            if text:
+                return text, source, self._build_response_diagnostics(
+                    additional_kwargs=additional_kwargs,
+                    response_metadata=response_metadata,
+                )
+
+        return "", "empty", self._build_response_diagnostics(
+            additional_kwargs=additional_kwargs,
+            response_metadata=response_metadata,
+        )
+
+    def _build_response_diagnostics(
+        self,
+        *,
+        additional_kwargs: Any,
+        response_metadata: Any,
+    ) -> dict[str, Any]:
+        token_usage = response_metadata.get("token_usage") if isinstance(response_metadata, dict) else {}
+        completion_tokens = None
+        if isinstance(token_usage, dict):
+            completion_tokens = token_usage.get("completion_tokens")
+
+        return {
+            "finish_reason": response_metadata.get("finish_reason") if isinstance(response_metadata, dict) else None,
+            "completion_tokens": completion_tokens,
+            "additional_keys": _safe_mapping_keys(additional_kwargs),
+            "response_metadata_keys": _safe_mapping_keys(response_metadata),
+        }
+
+    def _build_empty_response_error_message(
+        self,
+        *,
+        attempt: int,
+        total_attempts: int,
+        diagnostics: dict[str, Any],
+    ) -> str:
+        return (
+            "LLM did not return markdown content "
+            f"(attempt={attempt}/{total_attempts}, "
+            f"finish_reason={diagnostics['finish_reason']}, "
+            f"completion_tokens={diagnostics['completion_tokens']}, "
+            f"additional_keys={diagnostics['additional_keys']}, "
+            f"response_metadata_keys={diagnostics['response_metadata_keys']})"
+        )
