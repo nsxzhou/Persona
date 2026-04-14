@@ -134,16 +134,16 @@ function useStyleLabJobDetail(jobId: string) {
   const existingProfileQuery = useQuery({
     queryKey: ["style-profiles", job?.style_profile_id],
     queryFn: () => api.getStyleProfile(String(job?.style_profile_id)),
-    enabled: Boolean(job?.style_profile_id && !embeddedProfile),
+    enabled: Boolean(job?.style_profile_id),
   });
-  const existingProfile = embeddedProfile ?? existingProfileQuery.data ?? null;
+  const existingProfile = existingProfileQuery.data ?? null;
   const reportQuery = useQuery({
     queryKey: ["style-analysis-jobs", jobId, "analysis-report"],
     queryFn: () => api.getStyleAnalysisJobAnalysisReport(jobId),
     enabled: Boolean(
       job &&
         job.status === "succeeded" &&
-        !existingProfile &&
+        !job.style_profile_id &&
         !("analysis_report_markdown" in job && job.analysis_report_markdown),
     ),
   });
@@ -153,7 +153,7 @@ function useStyleLabJobDetail(jobId: string) {
     enabled: Boolean(
       job &&
         job.status === "succeeded" &&
-        !existingProfile &&
+        !job.style_profile_id &&
         !("style_summary_markdown" in job && job.style_summary_markdown),
     ),
   });
@@ -163,7 +163,7 @@ function useStyleLabJobDetail(jobId: string) {
     enabled: Boolean(
       job &&
         job.status === "succeeded" &&
-        !existingProfile &&
+        !job.style_profile_id &&
         !("prompt_pack_markdown" in job && job.prompt_pack_markdown),
     ),
   });
@@ -199,28 +199,19 @@ function useStyleLabJobDetail(jobId: string) {
     job,
     existingProfile,
     reportResource: makeDetailResource<string>(report, {
-      isLoading: report == null && !existingProfile ? reportQuery.isLoading : false,
-      isError: report == null && !existingProfile ? reportQuery.isError : false,
-      error:
-        report == null && !existingProfile && reportQuery.error instanceof Error
-          ? reportQuery.error
-          : null,
+      isLoading: report == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : reportQuery.isLoading) : false,
+      isError: report == null ? (job?.style_profile_id ? existingProfileQuery.isError : reportQuery.isError) : false,
+      error: report == null ? ((job?.style_profile_id ? existingProfileQuery.error : reportQuery.error) as Error | null) : null,
     }),
     summaryResource: makeDetailResource<string>(summary, {
-      isLoading: summary == null && !existingProfile ? summaryQuery.isLoading : false,
-      isError: summary == null && !existingProfile ? summaryQuery.isError : false,
-      error:
-        summary == null && !existingProfile && summaryQuery.error instanceof Error
-          ? summaryQuery.error
-          : null,
+      isLoading: summary == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : summaryQuery.isLoading) : false,
+      isError: summary == null ? (job?.style_profile_id ? existingProfileQuery.isError : summaryQuery.isError) : false,
+      error: summary == null ? ((job?.style_profile_id ? existingProfileQuery.error : summaryQuery.error) as Error | null) : null,
     }),
     promptPackResource: makeDetailResource<string>(promptPack, {
-      isLoading: promptPack == null && !existingProfile ? promptPackQuery.isLoading : false,
-      isError: promptPack == null && !existingProfile ? promptPackQuery.isError : false,
-      error:
-        promptPack == null && !existingProfile && promptPackQuery.error instanceof Error
-          ? promptPackQuery.error
-          : null,
+      isLoading: promptPack == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : promptPackQuery.isLoading) : false,
+      isError: promptPack == null ? (job?.style_profile_id ? existingProfileQuery.isError : promptPackQuery.isError) : false,
+      error: promptPack == null ? ((job?.style_profile_id ? existingProfileQuery.error : promptPackQuery.error) as Error | null) : null,
     }),
     isLoading: jobQuery.isLoading && !jobQuery.data,
     errorState,
@@ -306,12 +297,15 @@ function useSaveStyleProfileMutation({
   job,
   form,
   mountProjectId,
+  onSuccessCallback,
 }: {
   job: StyleAnalysisJob | null;
   form: UseFormReturn<FormValues>;
   mountProjectId: string | null;
+  onSuccessCallback?: () => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
@@ -337,7 +331,13 @@ function useSaveStyleProfileMutation({
     },
     onSuccess: () => {
       toast.success("风格档案已保存");
-      router.push("/style-lab");
+      if (onSuccessCallback) {
+        onSuccessCallback();
+        void queryClient.invalidateQueries({ queryKey: ["style-profiles", job?.style_profile_id] });
+        void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", job?.id] });
+      } else {
+        router.push("/style-lab");
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "未知错误");
@@ -378,6 +378,7 @@ function usePauseStyleAnalysisJobMutation(jobId: string) {
 }
 
 export function useStyleLabWizardLogic(jobId: string) {
+  const [isEditing, setIsEditing] = React.useState(false);
   const detail = useStyleLabJobDetail(jobId);
   const wizardState = useStyleLabWizardState({
     jobId,
@@ -392,12 +393,15 @@ export function useStyleLabWizardLogic(jobId: string) {
     job: detail.job,
     form: wizardState.form,
     mountProjectId: wizardState.mountProjectId,
+    onSuccessCallback: isEditing ? () => setIsEditing(false) : undefined,
   });
   const resumeJobMutation = useResumeStyleAnalysisJobMutation(jobId);
   const pauseJobMutation = usePauseStyleAnalysisJobMutation(jobId);
 
   return {
     ...wizardState,
+    isEditing,
+    setIsEditing,
     job: detail.job,
     existingProfile: detail.existingProfile,
     reportResource: detail.reportResource,

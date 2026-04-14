@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
 import type { FormValues } from "@/lib/validations/style-lab";
@@ -32,6 +33,22 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
   onBack: () => void;
   onNext: () => void;
 }) {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const { ref: formRef, ...rest } = form.register("styleSummaryMarkdown");
+
+  const handleInput = React.useCallback(() => {
+    const target = textareaRef.current;
+    if (target) {
+      target.style.height = "auto";
+      const nextHeight = Math.max(360, target.scrollHeight);
+      target.style.height = `${nextHeight}px`;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    handleInput();
+  }, [summaryMarkdown, handleInput]);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
@@ -50,12 +67,15 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="style-summary-markdown">风格摘要 Markdown</Label>
-                <Textarea
-                  id="style-summary-markdown"
-                  className="min-h-[360px] font-mono text-sm"
-                  defaultValue={summaryMarkdown ?? ""}
-                  {...form.register("styleSummaryMarkdown")}
-                />
+                <ScrollArea className="h-[360px] w-full rounded-md border border-input bg-background" type="auto">
+                  <Textarea
+                    id="style-summary-markdown"
+                    className="min-h-[360px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
+                    defaultValue={summaryMarkdown ?? ""}
+                    onInput={handleInput}
+                    {...rest}
+                  />
+                </ScrollArea>
               </div>
             </>
           ) : (

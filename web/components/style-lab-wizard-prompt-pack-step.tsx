@@ -6,6 +6,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { type Project, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
@@ -42,6 +43,22 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
   onSave: () => void;
   saving: boolean;
 }) {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const { ref: formRef, ...rest } = form.register("promptPackMarkdown");
+
+  const handleInput = React.useCallback(() => {
+    const target = textareaRef.current;
+    if (target) {
+      target.style.height = "auto";
+      const nextHeight = Math.max(420, target.scrollHeight);
+      target.style.height = `${nextHeight}px`;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    handleInput();
+  }, [promptPackMarkdown, handleInput]);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
@@ -56,12 +73,15 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
             <>
               <div className="grid gap-2">
                 <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
-                <Textarea
-                  id="prompt-pack-markdown"
-                  className="min-h-[420px] font-mono text-sm"
-                  defaultValue={promptPackMarkdown ?? ""}
-                  {...form.register("promptPackMarkdown")}
-                />
+                <ScrollArea className="h-[420px] w-full rounded-md border border-input bg-background" type="auto">
+                  <Textarea
+                      id="prompt-pack-markdown"
+                      className="min-h-[480px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
+                      defaultValue={promptPackMarkdown ?? ""}
+                      onInput={handleInput}
+                      {...rest}
+                    />
+                </ScrollArea>
               </div>
 
               {!existingProfile ? (

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,6 +69,16 @@ export default function StyleLabPage() {
     },
   });
 
+  const providers = providersQuery.data ?? [];
+  const jobs = jobsQuery.data ?? [];
+  const hasNextPage = jobs.length === PAGE_SIZE;
+
+  useEffect(() => {
+    if (jobsQuery.isSuccess && jobs.length === 0 && page > 1) {
+      setPage((p) => Math.max(1, p - 1));
+    }
+  }, [jobsQuery.isSuccess, jobs.length, page]);
+
   if (providersQuery.isLoading || jobsQuery.isLoading) {
     return <PageLoading title="正在载入 Style Lab..." />;
   }
@@ -85,10 +95,6 @@ export default function StyleLabPage() {
       />
     );
   }
-
-  const providers = providersQuery.data ?? [];
-  const jobs = jobsQuery.data ?? [];
-  const hasNextPage = jobs.length === PAGE_SIZE;
 
   return (
     <section className="space-y-6">
@@ -170,7 +176,6 @@ export default function StyleLabPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
                     }}>
                       <AlertDialogHeader>
                         <AlertDialogTitle>确定要删除该分析任务吗？</AlertDialogTitle>
@@ -183,7 +188,6 @@ export default function StyleLabPage() {
                         <AlertDialogAction
                           onClick={(e) => {
                             e.stopPropagation();
-                            e.preventDefault();
                             deleteJobMutation.mutate(job.id);
                           }}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

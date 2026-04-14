@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { StyleLabWizardPromptPackStep } from "@/components/style-lab-wizard-prompt-pack-step";
 import { StyleLabWizardReportStep } from "@/components/style-lab-wizard-report-step";
 import { StyleLabWizardSummaryStep } from "@/components/style-lab-wizard-summary-step";
+import { StyleLabProfileView } from "@/components/style-lab-profile-view";
 import { useStyleLabWizardLogic, isProcessingStatus } from "@/hooks/use-style-lab-wizard-logic";
 
 export function StyleLabWizardView({ jobId }: { jobId: string }) {
@@ -36,6 +37,8 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
     handlePause,
     isLoading,
     errorState,
+    isEditing,
+    setIsEditing,
   } = useStyleLabWizardLogic(jobId);
 
   if (isLoading) {
@@ -43,6 +46,18 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
   }
   if (errorState) return <PageError title={errorState.title} message={errorState.message} />;
   if (!job) return null;
+
+  const isCompletedAndSaved = job.status === "succeeded" && existingProfile;
+
+  if (isCompletedAndSaved && !isEditing) {
+    return (
+      <StyleLabProfileView 
+        job={job} 
+        profile={existingProfile} 
+        onEdit={() => setIsEditing(true)} 
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12">

@@ -43,12 +43,16 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
 
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    const viewport = scrollAreaRef.current?.querySelector(
-      "[data-radix-scroll-area-viewport]",
-    ) as HTMLDivElement | null;
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
+    // 使用 setTimeout 延迟滚动操作，避免在渲染过程中触发状态更新
+    const timeoutId = setTimeout(() => {
+      const viewport = scrollAreaRef.current?.querySelector(
+        "[data-radix-scroll-area-viewport]",
+      ) as HTMLDivElement | null;
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [logs]);
 
   return (
@@ -114,7 +118,7 @@ export const StyleLabWizardReportStep = React.memo(function StyleLabWizardReport
             {isLoading && !existingProfile ? <p>加载中...</p> : null}
             {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
             {reportMarkdown ? (
-              <pre className="overflow-x-auto rounded-lg border bg-zinc-50 p-4 text-sm leading-relaxed whitespace-pre-wrap dark:bg-zinc-900">
+              <pre className="overflow-x-auto rounded-lg border bg-zinc-50 p-4 text-sm leading-relaxed whitespace-pre-wrap text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">
                 {reportMarkdown}
               </pre>
             ) : (
