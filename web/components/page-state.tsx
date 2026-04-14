@@ -1,3 +1,5 @@
+ "use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function PageLoading({ title = "正在载入 Persona..." }: { title?: string }) {

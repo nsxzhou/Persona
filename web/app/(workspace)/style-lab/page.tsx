@@ -60,12 +60,33 @@ export default function StyleLabPage() {
 
   const deleteJobMutation = useMutation({
     mutationFn: api.deleteStyleAnalysisJob,
+    onMutate: async (jobId) => {
+      await queryClient.cancelQueries({ queryKey: ["style-analysis-jobs"] });
+      const previousQueries = queryClient.getQueriesData<StyleAnalysisJobListItem[]>({
+        queryKey: ["style-analysis-jobs"],
+      });
+      for (const [queryKey, data] of previousQueries) {
+        if (!data) continue;
+        queryClient.setQueryData<StyleAnalysisJobListItem[]>(
+          queryKey,
+          data.filter((job) => job.id !== jobId),
+        );
+      }
+      return { previousQueries };
+    },
     onSuccess: () => {
       toast.success("分析任务已删除");
-      queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs"] });
     },
-    onError: (error) => {
+    onError: (error, _jobId, context) => {
+      if (context?.previousQueries) {
+        for (const [queryKey, data] of context.previousQueries) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
       toast.error(error instanceof Error ? error.message : "删除失败");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs"] });
     },
   });
 

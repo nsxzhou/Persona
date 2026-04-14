@@ -154,6 +154,63 @@ test("style lab page submits txt upload form", async () => {
   await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/style-lab/job-1"));
 });
 
+test("style lab page ignores disabled provider when creating job", async () => {
+  apiMock.getProviderConfigs.mockResolvedValueOnce([
+    {
+      id: "provider-disabled",
+      label: "Disabled Gateway",
+      base_url: "https://api.example.com/v1",
+      default_model: "gpt-disabled",
+      api_key_hint: "****0000",
+      is_enabled: false,
+      last_test_status: null,
+      last_test_error: null,
+      last_tested_at: null,
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:00:00Z",
+    },
+    {
+      id: "provider-enabled",
+      label: "Enabled Gateway",
+      base_url: "https://api.openai.com/v1",
+      default_model: "gpt-4.1-mini",
+      api_key_hint: "****1234",
+      is_enabled: true,
+      last_test_status: null,
+      last_test_error: null,
+      last_tested_at: null,
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:00:00Z",
+    },
+  ]);
+  apiMock.getStyleAnalysisJobs.mockResolvedValue([]);
+  apiMock.createStyleAnalysisJob.mockResolvedValueOnce({
+    ...buildSucceededJob({ id: "job-2" }),
+    status: "pending",
+    completed_at: null,
+  });
+
+  renderDashboard();
+
+  fireEvent.click(await screen.findByRole("button", { name: "+ 新建分析任务" }));
+  fireEvent.change(await screen.findByLabelText("风格档案名称"), {
+    target: { value: "鲁迅杂文风" },
+  });
+  fireEvent.change(screen.getByLabelText("TXT 样本"), {
+    target: {
+      files: [new File(["第一章"], "sample.txt", { type: "text/plain" })],
+    },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "开始分析" }));
+
+  await waitFor(() => expect(apiMock.createStyleAnalysisJob).toHaveBeenCalledTimes(1));
+  expect(apiMock.createStyleAnalysisJob).toHaveBeenCalledWith(
+    expect.objectContaining({ provider_id: "provider-enabled" }),
+    expect.anything(),
+  );
+  await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/style-lab/job-2"));
+});
+
 test("style lab page opens delete confirm dialog when clicking delete", async () => {
   apiMock.getProviderConfigs.mockResolvedValueOnce([
     {

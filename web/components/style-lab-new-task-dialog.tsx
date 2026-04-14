@@ -55,11 +55,15 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
+  const enabledProviders = React.useMemo(
+    () => providers.filter((provider) => provider.is_enabled),
+    [providers],
+  );
   const form = useForm<CreateTaskFormValues>({
     resolver: zodResolver(createTaskSchema, undefined, { mode: "sync" }),
     defaultValues: {
       style_name: "",
-      provider_id: providers[0]?.id ?? "",
+      provider_id: enabledProviders[0]?.id ?? "",
       model: "",
       file: null,
     },
@@ -68,18 +72,30 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
   const resetForm = React.useCallback(() => {
     form.reset({
       style_name: "",
-      provider_id: providers[0]?.id ?? "",
+      provider_id: enabledProviders[0]?.id ?? "",
       model: "",
       file: null,
     });
-  }, [form, providers]);
+  }, [enabledProviders, form]);
 
   React.useEffect(() => {
     const selectedProviderId = form.getValues("provider_id");
-    if (!selectedProviderId && providers.length > 0) {
-      form.setValue("provider_id", providers[0].id, { shouldValidate: true });
+    const selectedProvider = providers.find((provider) => provider.id === selectedProviderId);
+    if (!selectedProviderId && enabledProviders.length > 0) {
+      form.setValue("provider_id", enabledProviders[0].id, { shouldValidate: true });
+      return;
     }
-  }, [form, providers]);
+    if (selectedProviderId && selectedProvider && !selectedProvider.is_enabled) {
+      form.setValue("provider_id", enabledProviders[0]?.id ?? "", { shouldValidate: true });
+    }
+  }, [enabledProviders, form, providers]);
+
+  const selectedProviderId = form.watch("provider_id");
+  const selectedProvider = React.useMemo(
+    () => providers.find((provider) => provider.id === selectedProviderId),
+    [providers, selectedProviderId],
+  );
+  const canSubmit = Boolean(selectedProvider?.is_enabled) && enabledProviders.length > 0;
 
   const createJobMutation = useMutation({
     mutationFn: api.createStyleAnalysisJob,
@@ -114,6 +130,11 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
       <DialogContent className="sm:max-w-[600px]">
         <form
           onSubmit={form.handleSubmit((values) => {
+            const provider = providers.find((item) => item.id === values.provider_id);
+            if (!provider?.is_enabled) {
+              toast.error("当前 Provider 已被禁用，请先在模型配置中启用");
+              return;
+            }
             createJobMutation.mutate({
               style_name: values.style_name.trim(),
               provider_id: values.provider_id,
@@ -152,8 +173,13 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
                     </SelectTrigger>
                     <SelectContent>
                       {providers.map((provider) => (
-                        <SelectItem key={provider.id} value={provider.id}>
+                        <SelectItem
+                          key={provider.id}
+                          value={provider.id}
+                          disabled={!provider.is_enabled}
+                        >
                           {provider.label} / {provider.default_model}
+                          {provider.is_enabled ? "" : "（已禁用）"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -227,7 +253,10 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
             </div>
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={createJobMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={createJobMutation.isPending || !canSubmit}
+            >
               {createJobMutation.isPending ? "创建中..." : "开始分析"}
             </Button>
           </div>
