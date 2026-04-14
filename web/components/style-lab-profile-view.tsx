@@ -55,7 +55,7 @@ export function StyleLabProfileView({
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24 selection:bg-muted">
+    <div className="-m-8 min-h-screen bg-background text-foreground pb-24 selection:bg-muted">
       {/* 导航栏 */}
       <nav className="sticky top-0 bg-background/90 backdrop-blur-md border-b border-border px-6 py-4 flex justify-between items-center z-10">
         <div className="flex items-center gap-4">

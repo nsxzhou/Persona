@@ -25,7 +25,7 @@ export function AppShell({ children }: PropsWithChildren) {
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground hover:translate-x-1 border-l-4 border-transparent hover:border-primary"
             >
               <Icon className="h-4 w-4" />
               <span>{label}</span>

@@ -28,23 +28,23 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #09090b;
+  --foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #09090b;
+  --popover-foreground: #000000;
   --muted: #f4f4f5;
   --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #09090b;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
+  --border: #000000;
+  --input: #000000;
+  --ring: #0055FF;
+  --primary: #0055FF;
+  --primary-foreground: #ffffff;
   --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
+  --secondary-foreground: #000000;
   --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --accent-foreground: #000000;
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
-  --radius: 0.5rem;
+  --radius: 0.25rem;
   
   color-scheme: light;
   --font-ui: "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
@@ -86,5 +86,26 @@ html, body {
 
   * {
     box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  /* Override default shadow utilities to solid offset shadows or none */
+  .shadow-sm {
+    box-shadow: none !important;
+  }
+  .shadow {
+    box-shadow: 2px 2px 0px #000000 !important;
+  }
+  .shadow-md {
+    box-shadow: 4px 4px 0px #000000 !important;
+  }
+  .shadow-lg {
+    box-shadow: 6px 6px 0px #000000 !important;
+  }
+  
+  /* Sharp focus rings */
+  .ring-offset-background {
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring) !important;
   }
 }
