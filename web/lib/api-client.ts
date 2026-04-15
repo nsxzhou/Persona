@@ -235,5 +235,14 @@ export function createApiClient(request: Requester) {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    generateVolumes: (projectId: string) =>
+      request.raw(`/api/v1/projects/${projectId}/editor/generate-volumes`, {
+        method: "POST",
+      }),
+    generateVolumeChapters: (projectId: string, volumeIndex: number) =>
+      request.raw(`/api/v1/projects/${projectId}/editor/generate-volume-chapters`, {
+        method: "POST",
+        body: JSON.stringify({ volume_index: volumeIndex }),
+      }),
   };
 }

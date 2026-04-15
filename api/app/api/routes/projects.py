@@ -24,6 +24,7 @@ from app.schemas.projects import (
     ProjectResponse,
     ProjectUpdate,
     SectionGenerateRequest,
+    VolumeChaptersRequest,
 )
 from app.services.editor import sse_response
 
@@ -224,3 +225,30 @@ async def expand_beat(
         db_session, project_id, current_user.id, payload,
     )
     return sse_response(gen, error_log_message="节拍展开异常")
+
+
+@router.post("/{project_id}/editor/generate-volumes")
+async def generate_volumes(
+    project_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> StreamingResponse:
+    gen = await editor_service.stream_volume_generation(
+        db_session, project_id, current_user.id,
+    )
+    return sse_response(gen, error_log_message="分卷结构生成异常")
+
+
+@router.post("/{project_id}/editor/generate-volume-chapters")
+async def generate_volume_chapters(
+    project_id: str,
+    payload: VolumeChaptersRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> StreamingResponse:
+    gen = await editor_service.stream_volume_chapters_generation(
+        db_session, project_id, current_user.id, payload,
+    )
+    return sse_response(gen, error_log_message="卷章节生成异常")

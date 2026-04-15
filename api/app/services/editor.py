@@ -21,6 +21,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import BadRequestError, UnprocessableEntityError
+from app.core.length_presets import LENGTH_PRESETS, get_progress
+from app.services.outline_parser import parse_outline, insert_chapters_into_volume
 from app.schemas.projects import (
     BeatExpandRequest,
     BeatGenerateRequest,
@@ -28,6 +30,7 @@ from app.schemas.projects import (
     ConceptGenerateRequest,
     ConceptItem,
     SectionGenerateRequest,
+    VolumeChaptersRequest,
 )
 from app.services.context_assembly import assemble_writing_context
 from app.services.editor_prompts import (
@@ -42,6 +45,10 @@ from app.services.editor_prompts import (
     build_concept_generate_user_message,
     build_section_system_prompt,
     build_section_user_message,
+    build_volume_generate_system_prompt,
+    build_volume_generate_user_message,
+    build_volume_chapters_system_prompt,
+    build_volume_chapters_user_message,
 )
 from app.services.llm_provider import LLMProviderService
 from app.services.projects import ProjectService
@@ -134,6 +141,8 @@ class EditorService:
             outline_master=project.outline_master,
             outline_detail=project.outline_detail,
             story_bible=project.story_bible,
+            length_preset=project.length_preset,
+            content_length=len(project.content) if project.content else 0,
         )
 
         messages = [
@@ -161,7 +170,9 @@ class EditorService:
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
-        system_prompt = build_section_system_prompt(payload.section, style_prompt)
+        system_prompt = build_section_system_prompt(
+            payload.section, style_prompt, length_preset=project.length_preset,
+        )
         user_message = build_section_user_message(
             payload.section,
             {
@@ -220,12 +231,33 @@ class EditorService:
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
+        # 篇幅适配：默认 beat 数量和进度上下文
+        preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
+        num_beats = payload.num_beats
+        if num_beats == 8:  # schema 默认值，替换为 preset 默认值
+            num_beats = preset_cfg["beat_count_default"]
+
+        length_context = ""
+        content_length = len(project.content) if project.content else 0
+        if content_length > 0:
+            progress = get_progress(content_length, project.length_preset)
+            length_context = (
+                f"【篇幅上下文】目标 {preset_cfg['target_min'] // 10000}-"
+                f"{preset_cfg['target_max'] // 10000} 万字{preset_cfg['label']}，"
+                f"当前进度 {content_length:,} 字 ({progress['percentage']}%)。"
+            )
+            if progress["phase"] == "ending_zone":
+                length_context += "\n【收束提醒】已接近目标篇幅，请规划收束节拍，引导情节走向结局。"
+            elif progress["phase"] == "over_target":
+                length_context += "\n【超限提醒】已超出目标篇幅，请立即规划结局节拍。"
+
         system_prompt = build_beat_generate_system_prompt(style_prompt)
         user_message = build_beat_generate_user_message(
             payload.text_before_cursor,
             payload.outline_detail,
             payload.story_bible,
-            payload.num_beats,
+            num_beats,
+            length_context=length_context,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -256,7 +288,12 @@ class EditorService:
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
-        system_prompt = build_beat_expand_system_prompt(style_prompt)
+        # 篇幅适配：Beat 扩展字数
+        preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
+
+        system_prompt = build_beat_expand_system_prompt(
+            style_prompt, beat_expand_chars=preset_cfg["beat_expand_chars"],
+        )
         user_message = build_beat_expand_user_message(
             payload.text_before_cursor,
             payload.beat,
@@ -296,6 +333,81 @@ class EditorService:
         )
 
         return self._parse_concepts(raw, payload.count)
+
+    async def stream_volume_generation(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        user_id: str,
+    ) -> AsyncGenerator[str, None]:
+        project = await self.project_service.get_or_404(
+            session, project_id, user_id=user_id,
+        )
+        if not project.provider:
+            raise BadRequestError("项目未配置 Provider，无法调用 AI")
+
+        style_prompt = await self._get_style_prompt(session, project, user_id)
+
+        system_prompt = build_volume_generate_system_prompt(
+            length_preset=project.length_preset,
+            style_prompt=style_prompt,
+        )
+        user_message = build_volume_generate_user_message(project.outline_master)
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_message),
+        ]
+        return self.llm_service.stream_messages(project.provider, messages)
+
+    async def stream_volume_chapters_generation(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        user_id: str,
+        payload: VolumeChaptersRequest,
+    ) -> AsyncGenerator[str, None]:
+        project = await self.project_service.get_or_404(
+            session, project_id, user_id=user_id,
+        )
+        if not project.provider:
+            raise BadRequestError("项目未配置 Provider，无法调用 AI")
+
+        parsed = parse_outline(project.outline_detail or "")
+        if payload.volume_index >= len(parsed["volumes"]):
+            raise BadRequestError(
+                f"卷索引 {payload.volume_index} 超出范围"
+                f"（共 {len(parsed['volumes'])} 卷）"
+            )
+
+        target_vol = parsed["volumes"][payload.volume_index]
+
+        preceding_parts: list[str] = []
+        for i, vol in enumerate(parsed["volumes"]):
+            if i >= payload.volume_index:
+                break
+            if vol["chapters"]:
+                ch_titles = [ch["title"] for ch in vol["chapters"]]
+                preceding_parts.append(
+                    f"**{vol['title']}**: {', '.join(ch_titles)}"
+                )
+        preceding_summary = "\n".join(preceding_parts)
+
+        style_prompt = await self._get_style_prompt(session, project, user_id)
+
+        system_prompt = build_volume_chapters_system_prompt(style_prompt)
+        user_message = build_volume_chapters_user_message(
+            project.outline_master,
+            target_vol["title"],
+            target_vol["meta"],
+            preceding_summary,
+        )
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_message),
+        ]
+        return self.llm_service.stream_messages(project.provider, messages)
 
     @staticmethod
     def _parse_concepts(raw: str, expected_count: int) -> list[ConceptItem]:

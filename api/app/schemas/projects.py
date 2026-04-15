@@ -10,6 +10,7 @@ from app.schemas.provider_configs import ProviderSummary
 
 
 ProjectStatus = Literal["draft", "active", "paused"]
+LengthPreset = Literal["short", "medium", "long"]
 
 
 class ProjectCreate(BaseModel):
@@ -44,6 +45,9 @@ class ProjectCreate(BaseModel):
     # 项目正文内容
     content: str = ""
 
+    # 篇幅预设
+    length_preset: LengthPreset = "short"
+
 
 class ProjectUpdate(BaseModel):
     # 注意这里的类型是 str | None，默认值是 None
@@ -61,6 +65,7 @@ class ProjectUpdate(BaseModel):
     outline_detail: str | None = None
     story_bible: str | None = None
     content: str | None = None
+    length_preset: LengthPreset | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -90,6 +95,8 @@ class ProjectResponse(BaseModel):
     story_bible: str
     # 项目正文内容
     content: str
+    # 篇幅预设
+    length_preset: str
     # 归档时间 - 没有归档就是None
     archived_at: datetime | None
     # 创建时间 - 自动生成，只读
@@ -129,6 +136,7 @@ class BeatGenerateRequest(BaseModel):
     story_bible: str = ""
     outline_detail: str = ""
     num_beats: int = Field(default=8, ge=3, le=15)
+    current_chapter_context: str = Field(default="", description="当前章节的结构化上下文")
 
 
 class BeatGenerateResponse(BaseModel):
@@ -143,6 +151,11 @@ class BeatExpandRequest(BaseModel):
     beat_index: int
     total_beats: int
     preceding_beats_prose: str = ""
+    current_chapter_context: str = Field(default="", description="当前章节的结构化上下文")
+
+
+class VolumeChaptersRequest(BaseModel):
+    volume_index: int = Field(ge=0, description="要生成章节的卷索引（0-based）")
 
 
 class ConceptGenerateRequest(BaseModel):

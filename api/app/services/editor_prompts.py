@@ -6,9 +6,141 @@
 from __future__ import annotations
 
 from app.core.bible_fields import BIBLE_FIELD_KEYS, BIBLE_FIELD_LABELS
+from app.core.length_presets import LENGTH_PRESETS, LengthPresetKey
 
 BEAT_GENERATE_CONTEXT_CHARS = 2000
 BEAT_EXPAND_CONTEXT_CHARS = 1500
+
+# --------------------------------------------------------------------------- #
+#  Length-preset-aware section instructions                                     #
+# --------------------------------------------------------------------------- #
+
+# 按篇幅预设区分的大纲指令
+_OUTLINE_MASTER_INSTRUCTIONS: dict[str, str] = {
+    "short": (
+        "请基于灵感概述、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
+        "以「三幕结构」规划，每幕用二级标题，包含：\n"
+        "- **幕名称与字数范围**（如「第一幕：建置 0-3万字」）\n"
+        "- **核心场景**（不超过 3 个主要场景）\n"
+        "- **核心冲突与转折点**\n"
+        "- **主角状态变化**\n"
+        "- **幕末钩子**（驱动读者继续的悬念或反转）\n\n"
+        "全局节奏要求：\n"
+        "- 短篇节奏紧凑，每 1-2 万字一个重大转折\n"
+        "- 开篇 5000 字内必须建立核心冲突\n"
+        "- 全篇围绕一个核心矛盾展开，不开支线\n"
+        "- 结尾必须有明确的情感落点或意义揭示"
+    ),
+    "medium": (
+        "请基于灵感概述、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
+        "以「阶段」为单位规划（建议 3-5 个阶段），每个阶段用二级标题，包含：\n"
+        "- **阶段名称与字数范围**（如「序章期 0-5万字」）\n"
+        "- **核心地图/场景**\n"
+        "- **阶段核心对手**（实力定位和冲突类型）\n"
+        "- **主角力量等级跨度**（本阶段起点 → 终点）\n"
+        "- **核心爽点事件**（至少 1-2 个）\n"
+        "- **阶段末钩子**\n\n"
+        "全局节奏要求：\n"
+        "- 遵循「小高潮-缓冲-大高潮」循环\n"
+        "- 每 3-5 万字至少一个重大事件\n"
+        "- 开篇 1 万字内建立核心冲突和角色魅力\n"
+        "- 每个阶段结束必须有一个让读者无法放下的钩子"
+    ),
+    "long": (
+        "请基于灵感概述、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
+        "以「地图/阶段」为单位规划，每个阶段用二级标题，包含：\n"
+        "- **阶段名称与字数范围**（如「起步期 0-15万字」）\n"
+        "- **核心地图/场景**（体现世界逐步展开的「地图换挡」）\n"
+        "- **阶段 Boss/核心对手**（实力定位和冲突类型）\n"
+        "- **主角力量等级跨度**（本阶段起点 → 终点）\n"
+        "- **核心爽点事件**（至少 2 个打脸/逆袭/突破）\n"
+        "- **阶段末钩子**（驱动读者继续的悬念或反转）\n\n"
+        "全局节奏要求：\n"
+        "- 遵循「小高潮-缓冲-大高潮」循环\n"
+        "- 每 3-5 万字至少一个重大事件\n"
+        "- 前 30 万字（追读养成期）节奏偏快，密集爽点\n"
+        "- 每个阶段结束必须有一个让读者无法放下的钩子"
+    ),
+}
+
+_OUTLINE_DETAIL_INSTRUCTIONS: dict[str, str] = {
+    "short": (
+        "请基于总纲和已有上下文，展开章节细纲。\n"
+        "目标篇幅 5-15 万字，建议 8-20 章。\n\n"
+        "每章必须包含：\n"
+        "- **章节标题**\n"
+        "- **核心事件**（1-2 句话概括）\n"
+        "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
+        "- **章末钩子**（必填！每章结尾必须有悬念或爆点）\n\n"
+        "节奏规则：\n"
+        "- 短篇不设分卷，直接列出章节\n"
+        "- 每 3-5 章安排一个转折\n"
+        "- 最后 2-3 章进入收束，回收伏笔，不要开新线"
+    ),
+    "medium": (
+        "请基于总纲和已有上下文，展开分卷结构和章节细纲。\n"
+        "目标篇幅 15-50 万字，建议 2-4 卷。\n\n"
+        "每卷用二级标题标注卷名和主题，其下列出各章节。\n"
+        "每章必须包含：\n"
+        "- **章节标题**\n"
+        "- **核心事件**（2-3 句话概括）\n"
+        "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
+        "- **章末钩子**（必填！每章结尾必须有悬念或爆点）\n\n"
+        "节奏规则：\n"
+        "- 同一卷内的章节情绪应有起伏\n"
+        "- 每 3-5 章安排一个小高潮，每卷末安排大高潮\n"
+        "- 最后一卷需安排收束，回收主要伏笔"
+    ),
+    "long": (
+        "请基于总纲和已有上下文，展开分卷结构和章节细纲。\n\n"
+        "每卷用二级标题标注卷名和主题，其下列出各章节。\n"
+        "每章必须包含：\n"
+        "- **章节标题**\n"
+        "- **核心事件**（2-3 句话概括）\n"
+        "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
+        "- **章末钩子**（必填！每章结尾必须有一个让读者想翻下一章的悬念或爆点）\n\n"
+        "节奏规则：\n"
+        "- 同一卷内的章节情绪应有起伏，避免连续多章同一情绪\n"
+        "- 开头和结尾的情绪尽量形成反差（喜→悲，松→紧）\n"
+        "- 每 3-5 章安排一个小高潮，每卷末安排大高潮"
+    ),
+}
+
+# 按篇幅追加的世界观/角色补充提示
+_WORLD_BUILDING_SUFFIX: dict[str, str] = {
+    "short": (
+        "\n\n篇幅适配提示：\n"
+        "- 这是一部短篇小说（5-15万字），设定精简服务于核心冲突\n"
+        "- 力量/修炼体系 3-4 级即可，不需要复杂等级划分\n"
+        "- 势力 1-2 个即可，无需复杂阵营制衡\n"
+        "- 社会结构和经济体系可以简略提及，不需要详细展开\n"
+        "- 历史大事件 1 个即可"
+    ),
+    "medium": (
+        "\n\n篇幅适配提示：\n"
+        "- 这是一部中篇小说（15-50万字），设定适度展开\n"
+        "- 力量体系 4-5 级，势力 2-3 个\n"
+        "- 可以有一定的世界深度，但不需要面面俱到"
+    ),
+    "long": "",  # 长篇保持原样
+}
+
+_CHARACTERS_SUFFIX: dict[str, str] = {
+    "short": (
+        "\n\n篇幅适配提示：\n"
+        "- 这是一部短篇小说（5-15万字），角色精简\n"
+        "- 重要配角 1-2 个即可\n"
+        "- 阶段性反派可以与全书反派合一\n"
+        "- 角色设计聚焦核心冲突，不要过多铺展"
+    ),
+    "medium": (
+        "\n\n篇幅适配提示：\n"
+        "- 这是一部中篇小说（15-50万字），角色数量适中\n"
+        "- 重要配角 2-3 个\n"
+        "- 可以有层次更丰富的角色关系网"
+    ),
+    "long": "",  # 长篇保持原样
+}
 
 # --------------------------------------------------------------------------- #
 #  Section generation prompts (Step 2)                                         #
@@ -115,16 +247,38 @@ _SECTION_META: dict[str, dict[str, str]] = {
 VALID_SECTIONS = frozenset(_SECTION_META.keys())
 
 
-def build_section_system_prompt(section: str, style_prompt: str | None = None) -> str:
-    """构建区块生成的系统提示词。"""
+def build_section_system_prompt(
+    section: str,
+    style_prompt: str | None = None,
+    length_preset: LengthPresetKey = "long",
+) -> str:
+    """构建区块生成的系统提示词（篇幅感知）。"""
     meta = _SECTION_META[section]
+
+    # 按 preset 选择 instruction 变体
+    if section == "outline_master":
+        instruction = _OUTLINE_MASTER_INSTRUCTIONS.get(
+            length_preset, _OUTLINE_MASTER_INSTRUCTIONS["long"]
+        )
+    elif section == "outline_detail":
+        instruction = _OUTLINE_DETAIL_INSTRUCTIONS.get(
+            length_preset, _OUTLINE_DETAIL_INSTRUCTIONS["long"]
+        )
+    else:
+        instruction = meta["instruction"]
+        # 为世界观和角色追加篇幅提示
+        if section == "world_building":
+            instruction += _WORLD_BUILDING_SUFFIX.get(length_preset, "")
+        elif section == "characters":
+            instruction += _CHARACTERS_SUFFIX.get(length_preset, "")
+
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     parts.append(
         f"你是一位资深的小说策划编辑，正在帮助作者构建「{meta['label']}」。\n"
-        f"{meta['instruction']}\n\n"
+        f"{instruction}\n\n"
         "输出要求：\n"
         "- 使用 Markdown 格式，标题层级清晰\n"
         "- 内容丰富具体，避免空泛概括\n"
@@ -147,6 +301,113 @@ def build_section_user_message(section: str, context: dict[str, str]) -> str:
     if parts:
         return "以下是当前已有的创作设定：\n\n" + "\n\n---\n\n".join(parts)
     return "（暂无其他已有设定，请基于你的创意自由发挥）"
+
+
+# --------------------------------------------------------------------------- #
+#  Volume-level generation prompts                                             #
+# --------------------------------------------------------------------------- #
+
+_VOLUME_GENERATE_INSTRUCTIONS: dict[str, str] = {
+    "short": (
+        "请基于总纲，设计三幕结构。\n\n"
+        "只输出幕级结构，不要输出章节。格式要求：\n"
+        "每幕用二级标题（## ），紧跟引用行（> ）标注主题和字数范围。\n\n"
+        "示例格式：\n"
+        "## 第一幕：建置\n"
+        "> 主题：故事起点 | 字数范围：0-3万字\n\n"
+        "目标篇幅：5-15 万字，建议 3 幕。"
+    ),
+    "medium": (
+        "请基于总纲，设计分卷结构。\n\n"
+        "只输出卷级结构，不要输出章节。格式要求：\n"
+        "每卷用二级标题（## ），紧跟引用行（> ）标注主题和字数范围。\n\n"
+        "示例格式：\n"
+        "## 第一卷：卷名\n"
+        "> 主题：xxx | 字数范围：0-10万字\n\n"
+        "目标篇幅：15-50 万字，建议 2-4 卷。"
+    ),
+    "long": (
+        "请基于总纲，设计分卷结构。\n\n"
+        "只输出卷级结构，不要输出章节。格式要求：\n"
+        "每卷用二级标题（## ），紧跟引用行（> ）标注主题和字数范围。\n\n"
+        "示例格式：\n"
+        "## 第一卷：卷名\n"
+        "> 主题：xxx | 字数范围：0-15万字\n\n"
+        "根据总纲中的阶段划分来确定卷数。"
+    ),
+}
+
+
+def build_volume_generate_system_prompt(
+    length_preset: LengthPresetKey = "long",
+    style_prompt: str | None = None,
+) -> str:
+    """构建卷级结构生成的系统提示词。"""
+    instruction = _VOLUME_GENERATE_INSTRUCTIONS.get(
+        length_preset, _VOLUME_GENERATE_INSTRUCTIONS["long"]
+    )
+    parts: list[str] = []
+    if style_prompt:
+        parts.append(style_prompt)
+        parts.append("\n\n---\n")
+    parts.append(
+        "你是一位资深的小说策划编辑，正在帮助作者规划分卷结构。\n\n"
+        f"{instruction}\n\n"
+        "输出要求：\n"
+        "- 使用 Markdown 格式\n"
+        "- 只输出分卷结构，不要输出任何章节内容\n"
+        "- 直接输出内容，不要添加解释性前言或总结"
+    )
+    return "\n".join(parts)
+
+
+def build_volume_generate_user_message(outline_master: str) -> str:
+    """构建卷级结构生成的用户消息。"""
+    if outline_master.strip():
+        return f"## 总纲\n\n{outline_master}"
+    return "（总纲尚未填写，请基于创意自由规划分卷）"
+
+
+_VOLUME_CHAPTERS_SYSTEM = (
+    "你是一位资深的小说策划编辑，正在帮助作者展开某一卷的章节细纲。\n\n"
+    "为指定的卷设计章节。每章用三级标题（### ），格式如下：\n\n"
+    "### 第 N 章：章名\n"
+    "- **核心事件**：一句话概括\n"
+    "- **情绪走向**：如「平静 → 震惊 → 愤怒」\n"
+    "- **章末钩子**：驱动读者继续阅读的悬念或反转\n\n"
+    "要求：\n"
+    "- 章节之间情绪有起伏，不要连续同一情绪\n"
+    "- 每章末必须有钩子\n"
+    "- 参考已有的前几卷章节，保持情节连贯\n"
+    "- 直接输出章节列表，不要输出卷标题，不要添加解释"
+)
+
+
+def build_volume_chapters_system_prompt(style_prompt: str | None = None) -> str:
+    """构建单卷章节生成的系统提示词。"""
+    parts: list[str] = []
+    if style_prompt:
+        parts.append(style_prompt)
+        parts.append("\n\n---\n")
+    parts.append(_VOLUME_CHAPTERS_SYSTEM)
+    return "\n".join(parts)
+
+
+def build_volume_chapters_user_message(
+    outline_master: str,
+    volume_title: str,
+    volume_meta: str,
+    preceding_chapters_summary: str,
+) -> str:
+    """构建单卷章节生成的用户消息。"""
+    parts: list[str] = []
+    if outline_master.strip():
+        parts.append(f"## 总纲\n\n{outline_master}")
+    parts.append(f"## 当前卷\n\n**{volume_title}**\n{volume_meta}")
+    if preceding_chapters_summary.strip():
+        parts.append(f"## 前几卷已有章节（参考，保持连贯）\n\n{preceding_chapters_summary}")
+    parts.append("请为当前卷设计章节细纲：")
+    return "\n\n---\n\n".join(parts)
 
 
 # --------------------------------------------------------------------------- #
@@ -220,7 +481,9 @@ def build_beat_generate_user_message(
     outline_detail: str,
     story_bible: str,
     num_beats: int,
+    length_context: str = "",
 ) -> str:
+    """构建节拍生成的用户消息，包含已有上下文。"""
     parts: list[str] = []
     if outline_detail.strip():
         parts.append(f"## 章节细纲\n\n{outline_detail}")
@@ -230,30 +493,36 @@ def build_beat_generate_user_message(
     recent = text_before_cursor[-BEAT_GENERATE_CONTEXT_CHARS:] if len(text_before_cursor) > BEAT_GENERATE_CONTEXT_CHARS else text_before_cursor
     if recent.strip():
         parts.append(f"## 前文（最近部分）\n\n{recent}")
+    if length_context:
+        parts.append(length_context)
     parts.append(f"\n请生成 {num_beats} 个节拍：")
     return "\n\n---\n\n".join(parts)
 
 
-_BEAT_EXPAND_SYSTEM = (
-    "你是一位小说执笔者，正在根据给定的节拍展开正文。\n\n"
-    "要求：\n"
-    "- 按照节拍描述展开约 500 字的叙事段落\n"
-    "- 保持与前文的语感和风格一致\n"
-    "- 自然衔接前文，不要重复已有内容\n"
-    "- 至少包含一个五感细节（视觉/听觉/嗅觉/触觉）\n"
-    "- 对话部分要有潜台词，不直接说出意图\n"
-    "- 段落控制在 150 字以内，适配移动端阅读\n"
-    "- 动作/战斗场景用短句加快节奏\n"
-    "- 直接输出正文，不要输出节拍本身、不要解释"
-)
+def _build_beat_expand_system(beat_expand_chars: int = 500) -> str:
+    return (
+        "你是一位小说执笔者，正在根据给定的节拍展开正文。\n\n"
+        "要求：\n"
+        f"- 按照节拍描述展开约 {beat_expand_chars} 字的叙事段落\n"
+        "- 保持与前文的语感和风格一致\n"
+        "- 自然衔接前文，不要重复已有内容\n"
+        "- 至少包含一个五感细节（视觉/听觉/嗅觉/触觉）\n"
+        "- 对话部分要有潜台词，不直接说出意图\n"
+        "- 段落控制在 150 字以内，适配移动端阅读\n"
+        "- 动作/战斗场景用短句加快节奏\n"
+        "- 直接输出正文，不要输出节拍本身、不要解释"
+    )
 
 
-def build_beat_expand_system_prompt(style_prompt: str | None = None) -> str:
+def build_beat_expand_system_prompt(
+    style_prompt: str | None = None,
+    beat_expand_chars: int = 500,
+) -> str:
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
         parts.append("\n\n---\n")
-    parts.append(_BEAT_EXPAND_SYSTEM)
+    parts.append(_build_beat_expand_system(beat_expand_chars))
     return "\n".join(parts)
 
 
