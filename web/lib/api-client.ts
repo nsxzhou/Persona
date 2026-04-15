@@ -26,7 +26,10 @@ type StyleAnalysisJobStatus = Pick<
   "id" | "status" | "stage" | "error_message" | "updated_at"
 >;
 
-type Requester = <T>(path: string, init?: RequestInit) => Promise<T>;
+type Requester = {
+  <T>(path: string, init?: RequestInit): Promise<T>;
+  raw: (path: string, init?: RequestInit) => Promise<Response>;
+};
 
 export function createApiClient(request: Requester) {
   return {
@@ -182,6 +185,55 @@ export function createApiClient(request: Requester) {
     deleteStyleProfile: (id: string) =>
       request<void>(`/api/v1/style-profiles/${id}`, {
         method: "DELETE",
+      }),
+    completeEditor: (projectId: string, textBeforeCursor: string) =>
+      request.raw(`/api/v1/projects/${projectId}/editor/complete`, {
+        method: "POST",
+        body: JSON.stringify({ text_before_cursor: textBeforeCursor }),
+      }),
+    proposeBibleUpdate: (projectId: string, currentBible: string, newContentContext: string) =>
+      request<{ proposed_bible: string }>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
+        method: "POST",
+        body: JSON.stringify({
+          current_bible: currentBible,
+          new_content_context: newContentContext,
+        }),
+      }),
+    generateBeats: (projectId: string, textBeforeCursor: string, storyBible: string, outlineDetail: string) =>
+      request<{ beats: string[] }>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
+        method: "POST",
+        body: JSON.stringify({
+          text_before_cursor: textBeforeCursor,
+          story_bible: storyBible,
+          outline_detail: outlineDetail,
+        }),
+      }),
+    expandBeat: (
+      projectId: string,
+      textBeforeCursor: string,
+      storyBible: string,
+      outlineDetail: string,
+      beat: string,
+      beatIndex: number,
+      totalBeats: number,
+      precedingBeatsProse: string
+    ) =>
+      request.raw(`/api/v1/projects/${projectId}/editor/expand-beat`, {
+        method: "POST",
+        body: JSON.stringify({
+          text_before_cursor: textBeforeCursor,
+          story_bible: storyBible,
+          outline_detail: outlineDetail,
+          beat,
+          beat_index: beatIndex,
+          total_beats: totalBeats,
+          preceding_beats_prose: precedingBeatsProse,
+        }),
+      }),
+    generateSection: (projectId: string, payload: Record<string, string>) =>
+      request.raw(`/api/v1/projects/${projectId}/editor/generate-section`, {
+        method: "POST",
+        body: JSON.stringify(payload),
       }),
   };
 }

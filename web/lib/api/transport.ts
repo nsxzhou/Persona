@@ -10,7 +10,7 @@ function buildUrl(baseUrl: string, path: string) {
 }
 
 export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) {
-  return async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const buildRequestArgs = (path: string, init?: RequestInit) => {
     const headers = new Headers(defaultInit?.headers ?? undefined);
     for (const [key, value] of new Headers(init?.headers ?? undefined).entries()) {
       headers.set(key, value);
@@ -18,12 +18,19 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
     if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
+    return {
+      url: buildUrl(baseUrl, path),
+      options: {
+        ...defaultInit,
+        ...init,
+        headers,
+      },
+    };
+  };
 
-    const response = await fetch(buildUrl(baseUrl, path), {
-      ...defaultInit,
-      ...init,
-      headers,
-    });
+  const request = async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    const { url, options } = buildRequestArgs(path, init);
+    const response = await fetch(url, options);
 
     if (!response.ok) {
       const text = await response.text();
@@ -41,4 +48,20 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
 
     return response.json() as Promise<T>;
   };
+
+  const requestRaw = async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
+    const { url, options } = buildRequestArgs(path, init);
+    const response = await fetch(url, options);
+    
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(parseApiErrorDetail(text, response.statusText || "请求失败"));
+    }
+    
+    return response;
+  };
+
+  request.raw = requestRaw;
+
+  return request;
 }
