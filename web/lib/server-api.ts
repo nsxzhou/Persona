@@ -1,22 +1,11 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-
-import type {
-  User,
-  Project,
-  ProviderConfig,
-  StyleProfile,
-  StyleProfileListItem,
-  ProjectPayload,
-} from "@/lib/types";
 import { createJsonRequester } from "@/lib/api/transport";
+import { createApiClient } from "./api-client";
+import { User } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-
-type SetupStatus = {
-  initialized: boolean;
-};
 
 async function getServerRequester() {
   const cookieStore = await cookies();
@@ -31,15 +20,15 @@ async function getServerRequester() {
   });
 }
 
-export async function getServerSetupStatus(): Promise<SetupStatus> {
+export async function getServerApi() {
   const req = await getServerRequester();
-  return req<SetupStatus>("/api/v1/setup/status");
+  return createApiClient(req);
 }
 
 export async function getServerCurrentUser(): Promise<User | null> {
-  const req = await getServerRequester();
+  const api = await getServerApi();
   try {
-    return await req<User>("/api/v1/me");
+    return await api.getCurrentUser();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (
@@ -52,40 +41,4 @@ export async function getServerCurrentUser(): Promise<User | null> {
     }
     throw error;
   }
-}
-
-export async function getServerProject(id: string): Promise<Project> {
-  const req = await getServerRequester();
-  return req<Project>(`/api/v1/projects/${id}`);
-}
-
-export async function getServerProviderConfigs(): Promise<ProviderConfig[]> {
-  const req = await getServerRequester();
-  return req<ProviderConfig[]>("/api/v1/provider-configs");
-}
-
-export async function getServerStyleProfiles(limit = 100): Promise<StyleProfileListItem[]> {
-  const req = await getServerRequester();
-  return req<StyleProfileListItem[]>(`/api/v1/style-profiles?limit=${limit}`);
-}
-
-export async function getServerStyleProfile(id: string): Promise<StyleProfile> {
-  const req = await getServerRequester();
-  return req<StyleProfile>(`/api/v1/style-profiles/${id}`);
-}
-
-export async function createServerProject(payload: ProjectPayload): Promise<Project> {
-  const req = await getServerRequester();
-  return req<Project>("/api/v1/projects", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateServerProject(id: string, payload: Partial<ProjectPayload>): Promise<Project> {
-  const req = await getServerRequester();
-  return req<Project>(`/api/v1/projects/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
 }

@@ -1,4 +1,4 @@
-import { getServerProject, getServerStyleProfiles } from "@/lib/server-api";
+import { getServerApi } from "@/lib/server-api";
 import { ZenEditorView } from "@/components/zen-editor-view";
 import { notFound } from "next/navigation";
 
@@ -8,24 +8,29 @@ export default async function ZenEditorPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
-  const [project, styleProfiles] = await Promise.all([
-    getServerProject(id),
-    getServerStyleProfiles(100),
-  ]);
+  const api = await getServerApi();
 
-  if (!project) {
+  let project;
+  try {
+    project = await api.getProject(id);
+  } catch {
     notFound();
   }
 
-  const activeProfile = styleProfiles.find(
-    (p) => p.id === project.style_profile_id
-  );
+  let activeProfileName;
+  if (project.style_profile_id) {
+    try {
+      const profile = await api.getStyleProfile(project.style_profile_id);
+      activeProfileName = profile.style_name;
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <ZenEditorView 
       project={project} 
-      activeProfileName={activeProfile?.style_name} 
+      activeProfileName={activeProfileName} 
     />
   );
 }

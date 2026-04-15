@@ -3,11 +3,12 @@ import { PropsWithChildren } from "react";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
-import { getServerCurrentUser, getServerSetupStatus } from "@/lib/server-api";
+import { getServerApi, getServerCurrentUser } from "@/lib/server-api";
 
 export default async function WorkspaceLayout({ children }: PropsWithChildren) {
+  const api = await getServerApi();
   const [setupStatus, currentUser] = await Promise.all([
-    getServerSetupStatus(),
+    api.getSetupStatus(),
     getServerCurrentUser(),
   ]);
   if (!setupStatus.initialized) {

@@ -1,17 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerProject, updateServerProject } from "@/lib/server-api";
+import { getServerApi } from "@/lib/server-api";
 import type { ProjectPayload } from "@/lib/types";
 
 export async function createProjectAction(payload: ProjectPayload) {
-  const project = await createServerProject(payload);
+  const api = await getServerApi();
+  const project = await api.createProject(payload);
   revalidatePath("/projects");
   return project;
 }
 
 export async function updateProjectAction(id: string, payload: Partial<ProjectPayload>) {
-  const project = await updateServerProject(id, payload);
+  const api = await getServerApi();
+  const project = await api.updateProject(id, payload);
   revalidatePath("/projects");
   revalidatePath(`/projects/${id}`);
   return project;

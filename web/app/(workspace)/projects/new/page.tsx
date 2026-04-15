@@ -1,8 +1,9 @@
 import { ConceptGachaPage } from "@/components/concept-gacha-page";
-import { getServerProviderConfigs } from "@/lib/server-api";
+import { getServerApi } from "@/lib/server-api";
 
 export default async function NewProjectPage() {
-  const providers = await getServerProviderConfigs();
+  const api = await getServerApi();
+  const providers = await api.getProviderConfigs();
 
   return <ConceptGachaPage providers={providers} />;
 }
