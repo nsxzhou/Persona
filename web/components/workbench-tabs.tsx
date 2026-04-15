@@ -4,6 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BibleTabContent } from "@/components/bible-tab-content";
 import { SettingsTab } from "@/components/settings-tab";
@@ -41,6 +51,7 @@ export function WorkbenchTabs({
 
   // ---- AI generation ----
   const [generatingSection, setGeneratingSection] = useState<BibleFieldKey | null>(null);
+  const [generateConfirmSection, setGenerateConfirmSection] = useState<BibleFieldKey | null>(null);
   const generationReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
   const handleStopGeneration = useCallback(() => {
@@ -49,7 +60,7 @@ export function WorkbenchTabs({
     setGeneratingSection(null);
   }, []);
 
-  const handleGenerate = useCallback(
+  const executeGeneration = useCallback(
     async (sectionKey: BibleFieldKey) => {
       if (generatingSection) return;
 
@@ -61,14 +72,6 @@ export function WorkbenchTabs({
           (k) => BIBLE_SECTION_META.find((s) => s.key === k)?.title ?? k,
         );
         toast.info(`建议先填写：${labels.join("、")}，以获得更好的生成效果`);
-      }
-
-      // Confirm overwrite if field has content
-      if (fields[sectionKey].trim()) {
-        const confirmed = window.confirm(
-          "当前区块已有内容，AI 生成将覆盖现有内容。是否继续？",
-        );
-        if (!confirmed) return;
       }
 
       setGeneratingSection(sectionKey);
@@ -147,6 +150,17 @@ export function WorkbenchTabs({
       }
     },
     [generatingSection, fields, project.id],
+  );
+
+  const handleGenerate = useCallback(
+    (sectionKey: BibleFieldKey) => {
+      if (fields[sectionKey].trim()) {
+        setGenerateConfirmSection(sectionKey);
+      } else {
+        executeGeneration(sectionKey);
+      }
+    },
+    [fields, executeGeneration]
   );
 
   // Global Escape key listener
@@ -256,6 +270,35 @@ export function WorkbenchTabs({
           onNameChange={onNameChange}
         />
       </TabsContent>
+
+      <AlertDialog
+        open={generateConfirmSection !== null}
+        onOpenChange={(open) => {
+          if (!open) setGenerateConfirmSection(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认覆盖内容？</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前区块已有内容，AI 生成将覆盖现有内容。该操作不可撤销。是否继续？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (generateConfirmSection) {
+                  executeGeneration(generateConfirmSection);
+                  setGenerateConfirmSection(null);
+                }
+              }}
+            >
+              继续
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Tabs>
   );
 }

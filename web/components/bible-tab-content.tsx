@@ -8,6 +8,16 @@ import {
   Square,
 } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import type { BibleFieldKey } from "@/lib/bible-fields";
@@ -37,16 +47,22 @@ export function BibleTabContent({
   onStopGenerate,
 }: BibleTabContentProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
 
   const charCount = value.length;
   const isEmpty = !value.trim();
 
   const handleInsertTemplate = () => {
     if (!isEmpty) {
-      const confirmed = window.confirm("当前内容将被模板替换，是否继续？");
-      if (!confirmed) return;
+      setIsTemplateDialogOpen(true);
+      return;
     }
     onChange(BIBLE_TEMPLATES[fieldKey]);
+  };
+
+  const confirmInsertTemplate = () => {
+    onChange(BIBLE_TEMPLATES[fieldKey]);
+    setIsTemplateDialogOpen(false);
   };
 
   // Empty state
@@ -203,6 +219,21 @@ export function BibleTabContent({
       <div className="text-right text-xs text-muted-foreground/50">
         已自动保存
       </div>
+
+      <AlertDialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认替换内容？</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前内容将被模板替换，该操作不可撤销。是否继续？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmInsertTemplate}>继续</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
