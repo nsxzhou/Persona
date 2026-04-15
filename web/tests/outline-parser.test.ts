@@ -1,0 +1,159 @@
+import { describe, expect, test } from "vitest";
+
+import {
+  parseOutline,
+  type ParsedChapter,
+  type ParsedOutline,
+  type ParsedVolume,
+} from "@/lib/outline-parser";
+
+describe("parseOutline", () => {
+  test("multi-volume format with chapters produces correct tree structure", () => {
+    const md = `## 第一卷：黎明之前
+> 主题：觉醒与出发 | 字数范围：0-5万字
+
+### 第 1 章：被遗忘的名字
+- **核心事件**：主角在废墟中醒来
+- **情绪走向**：迷茫 → 恐惧 → 坚定
+- **章末钩子**：手臂上的倒计时开始跳动
+
+### 第 2 章：灰色的天空
+- **核心事件**：主角逃出废墟
+- **情绪走向**：紧张 → 释然
+- **章末钩子**：远方传来号角声
+
+## 第二卷：破晓之时
+> 主题：成长与挑战 | 字数范围：5-10万字
+
+### 第 3 章：陌生的同伴
+- **核心事件**：主角遇到旅伴
+- **情绪走向**：警惕 → 信任
+- **章末钩子**：旅伴的秘密身份暴露`;
+
+    const result = parseOutline(md);
+
+    expect(result.parseErrors).toEqual([]);
+    expect(result.volumes).toHaveLength(2);
+
+    const vol1 = result.volumes[0];
+    expect(vol1.title).toBe("第一卷：黎明之前");
+    expect(vol1.meta).toBe("主题：觉醒与出发 | 字数范围：0-5万字");
+    expect(vol1.chapters).toHaveLength(2);
+
+    expect(vol1.chapters[0].title).toBe("第 1 章：被遗忘的名字");
+    expect(vol1.chapters[0].coreEvent).toBe("主角在废墟中醒来");
+    expect(vol1.chapters[0].emotionArc).toBe("迷茫 → 恐惧 → 坚定");
+    expect(vol1.chapters[0].chapterHook).toBe("手臂上的倒计时开始跳动");
+
+    expect(vol1.chapters[1].title).toBe("第 2 章：灰色的天空");
+    expect(vol1.chapters[1].coreEvent).toBe("主角逃出废墟");
+
+    const vol2 = result.volumes[1];
+    expect(vol2.title).toBe("第二卷：破晓之时");
+    expect(vol2.meta).toBe("主题：成长与挑战 | 字数范围：5-10万字");
+    expect(vol2.chapters).toHaveLength(1);
+    expect(vol2.chapters[0].title).toBe("第 3 章：陌生的同伴");
+  });
+
+  test("short-novel format (acts as volumes with ### chapters) works", () => {
+    const md = `### 第 1 章：开端
+- **核心事件**：故事开始
+- **情绪走向**：平静 → 紧张
+- **章末钩子**：悬念出现
+
+### 第 2 章：发展
+- **核心事件**：冲突升级
+- **情绪走向**：紧张 → 高潮
+- **章末钩子**：转折点`;
+
+    const result = parseOutline(md);
+
+    expect(result.parseErrors).toEqual([]);
+    // Should produce a single implicit volume with chapters
+    expect(result.volumes).toHaveLength(1);
+    expect(result.volumes[0].title).toBe("");
+    expect(result.volumes[0].meta).toBe("");
+    expect(result.volumes[0].chapters).toHaveLength(2);
+    expect(result.volumes[0].chapters[0].title).toBe("第 1 章：开端");
+    expect(result.volumes[0].chapters[1].title).toBe("第 2 章：发展");
+  });
+
+  test("unparseable content returns empty volumes and parseErrors", () => {
+    const md = `这是一段没有任何标题格式的文字。
+只是普通段落。`;
+
+    const result = parseOutline(md);
+
+    expect(result.volumes).toEqual([]);
+    expect(result.parseErrors.length).toBeGreaterThan(0);
+  });
+
+  test("empty string returns empty volumes with no errors", () => {
+    const result = parseOutline("");
+
+    expect(result.volumes).toEqual([]);
+    expect(result.parseErrors).toEqual([]);
+  });
+
+  test("chapters with missing fields return empty strings without crash", () => {
+    const md = `## 第一卷：测试卷
+
+### 第 1 章：缺失字段章节
+- **核心事件**：有核心事件
+- 这行不是标准字段`;
+
+    const result = parseOutline(md);
+
+    expect(result.volumes).toHaveLength(1);
+    const ch = result.volumes[0].chapters[0];
+    expect(ch.title).toBe("第 1 章：缺失字段章节");
+    expect(ch.coreEvent).toBe("有核心事件");
+    expect(ch.emotionArc).toBe("");
+    expect(ch.chapterHook).toBe("");
+  });
+
+  test("rawMarkdown is preserved per chapter", () => {
+    const md = `## 第一卷：原文测试
+
+### 第 1 章：保留原文
+- **核心事件**：测试原文保留
+- **情绪走向**：平静
+- **章末钩子**：结束`;
+
+    const result = parseOutline(md);
+
+    const raw = result.volumes[0].chapters[0].rawMarkdown;
+    expect(raw).toContain("### 第 1 章：保留原文");
+    expect(raw).toContain("**核心事件**：测试原文保留");
+    expect(raw).toContain("**情绪走向**：平静");
+    expect(raw).toContain("**章末钩子**：结束");
+  });
+
+  test("volume without meta blockquote has empty meta", () => {
+    const md = `## 第一卷：无元数据
+
+### 第 1 章：测试
+- **核心事件**：事件`;
+
+    const result = parseOutline(md);
+
+    expect(result.volumes[0].meta).toBe("");
+    expect(result.volumes[0].chapters[0].coreEvent).toBe("事件");
+  });
+
+  test("fields with colon variant (English colon) are parsed", () => {
+    const md = `## 第一卷：冒号测试
+
+### 第 1 章：英文冒号
+- **核心事件**: 使用英文冒号
+- **情绪走向**: 测试
+- **章末钩子**: 完成`;
+
+    const result = parseOutline(md);
+
+    const ch = result.volumes[0].chapters[0];
+    expect(ch.coreEvent).toBe("使用英文冒号");
+    expect(ch.emotionArc).toBe("测试");
+    expect(ch.chapterHook).toBe("完成");
+  });
+});
