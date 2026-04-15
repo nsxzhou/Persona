@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import (
-    BadRequestError,
     ConflictError,
     NotFoundError,
     UnprocessableEntityError,

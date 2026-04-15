@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import StyleAnalysisJob
@@ -7,6 +9,8 @@ from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
 from app.services.style_analysis_job_file_lifecycle import (
     StyleAnalysisJobFileLifecycleService,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class StyleAnalysisJobCleanupService:
@@ -40,4 +44,4 @@ class StyleAnalysisJobCleanupService:
             await checkpointer_factory.delete_thread(job_id)
             await checkpointer_factory.aclose()
         except Exception:
-            pass
+            logger.warning("Failed to clean up checkpointer thread for job %s", job_id, exc_info=True)

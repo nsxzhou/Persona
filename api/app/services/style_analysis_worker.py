@@ -72,6 +72,7 @@ class StyleAnalysisWorkerService:
         self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
         self.storage_service = StyleAnalysisStorageService()
         self._pause_events: dict[str, asyncio.Event] = {}
+        self._worker_id = f"style-worker-{uuid.uuid4()}"
 
     # 关闭 worker 持有的外部资源（主要是 checkpointer 的连接/上下文）
     async def aclose(self) -> None:
@@ -85,7 +86,7 @@ class StyleAnalysisWorkerService:
         self, session_factory: async_sessionmaker[AsyncSession]
     ) -> bool:
         # 为当前 worker 实例生成唯一标识，便于在数据库层做 lease/锁定归属
-        worker_id = f"style-worker-{uuid.uuid4()}"
+        worker_id = self._worker_id
         job_id = await self._claim_next_pending_job(session_factory, worker_id=worker_id)
         if job_id is None:
             return False

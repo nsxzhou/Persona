@@ -36,6 +36,30 @@ def sanitize_style_analysis_error_message(error_message: str | None) -> str:
     if not normalized_message:
         return STYLE_ANALYSIS_USER_ERROR_MESSAGE
     return normalized_message
+
+
+def _reset_job_to_pending(
+    job: StyleAnalysisJob,
+    *,
+    target_status: str = STYLE_ANALYSIS_JOB_STATUS_PENDING,
+    reset_attempts: bool = False,
+    paused_at: datetime | None = None,
+) -> None:
+    """Reset a job's transient fields to prepare it for re-processing."""
+    job.status = target_status
+    job.stage = None
+    job.error_message = None
+    job.started_at = None
+    job.completed_at = None
+    job.locked_by = None
+    job.locked_at = None
+    job.last_heartbeat_at = None
+    job.pause_requested_at = None
+    job.paused_at = paused_at
+    if reset_attempts:
+        job.attempt_count = 0
+
+
 class StyleAnalysisJobService:
     def __init__(
         self,
@@ -173,29 +197,10 @@ class StyleAnalysisJobService:
         if job.status == STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED:
             raise ConflictError("分析任务已成功完成，无需恢复")
         if job.status == STYLE_ANALYSIS_JOB_STATUS_PAUSED:
-            job.status = STYLE_ANALYSIS_JOB_STATUS_PENDING
-            job.stage = None
-            job.error_message = None
-            job.started_at = None
-            job.completed_at = None
-            job.locked_by = None
-            job.locked_at = None
-            job.last_heartbeat_at = None
-            job.pause_requested_at = None
-            job.paused_at = None
+            _reset_job_to_pending(job)
             await session.flush()
             return await self.get_status_or_404(session, job_id, user_id=user_id)
-        job.status = STYLE_ANALYSIS_JOB_STATUS_PENDING
-        job.stage = None
-        job.error_message = None
-        job.started_at = None
-        job.completed_at = None
-        job.locked_by = None
-        job.locked_at = None
-        job.last_heartbeat_at = None
-        job.pause_requested_at = None
-        job.paused_at = None
-        job.attempt_count = 0
+        _reset_job_to_pending(job, reset_attempts=True)
         await session.flush()
         return await self.get_status_or_404(session, job_id, user_id=user_id)
 
@@ -219,16 +224,11 @@ class StyleAnalysisJobService:
         if job.status == STYLE_ANALYSIS_JOB_STATUS_PAUSED:
             return await self.get_status_or_404(session, job_id, user_id=user_id)
         if job.status == STYLE_ANALYSIS_JOB_STATUS_PENDING:
-            job.status = STYLE_ANALYSIS_JOB_STATUS_PAUSED
-            job.stage = None
-            job.error_message = None
-            job.started_at = None
-            job.completed_at = None
-            job.locked_by = None
-            job.locked_at = None
-            job.last_heartbeat_at = None
-            job.pause_requested_at = None
-            job.paused_at = datetime.now(UTC)
+            _reset_job_to_pending(
+                job,
+                target_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
+                paused_at=datetime.now(UTC),
+            )
             await session.flush()
             return await self.get_status_or_404(session, job_id, user_id=user_id)
         await self.repository.request_pause(
