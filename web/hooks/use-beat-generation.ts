@@ -9,12 +9,14 @@ export function useBeatGeneration({
   setContent,
   textareaRef,
   isGenerating,
+  currentChapterContext,
 }: {
   project: Project;
   content: string;
   setContent: (val: string | ((prev: string) => string)) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   isGenerating: boolean;
+  currentChapterContext?: string;
 }) {
   const [beats, setBeats] = useState<string[]>([]);
   const [currentBeatIndex, setCurrentBeatIndex] = useState(-1);
@@ -36,7 +38,8 @@ export function useBeatGeneration({
         project.id,
         textBeforeCursor,
         project.story_bible ?? "",
-        project.outline_detail ?? ""
+        project.outline_detail ?? "",
+        currentChapterContext,
       );
 
       setBeats(data.beats);
@@ -71,7 +74,8 @@ export function useBeatGeneration({
           beats[i],
           i,
           beats.length,
-          beatsProse
+          beatsProse,
+          currentChapterContext,
         );
 
         if (!response.body) throw new Error("No response body");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Project } from "@/lib/types";
 import { ArrowLeft, BookOpen, ListOrdered, Sparkles, Square, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { BeatPanel } from "@/components/beat-panel";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { useEditorCompletion } from "@/hooks/use-editor-completion";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
+import { parseOutline } from "@/lib/outline-parser";
 
 export function ZenEditorView({
   project,
@@ -32,6 +33,42 @@ export function ZenEditorView({
 
   // Mutable project data for bible fields (so side panel reflects updates)
   const [projectData, setProjectData] = useState(project);
+
+  // Chapter navigation state
+  const [currentChapter, setCurrentChapter] = useState<{
+    volumeIndex: number;
+    chapterIndex: number;
+  } | null>(null);
+
+  const parsedOutline = useMemo(
+    () => parseOutline(projectData.outline_detail),
+    [projectData.outline_detail],
+  );
+
+  // Compute completed chapters by scanning content for chapter heading markers
+  const completedChapters = useMemo(() => {
+    const set = new Set<string>();
+    const regex = /^# (.+)$/gm;
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      set.add(match[1].trim());
+    }
+    return set;
+  }, [content]);
+
+  // Build chapter context string for Beat generation
+  const currentChapterContext = useMemo(() => {
+    if (!currentChapter || !parsedOutline.volumes.length) return "";
+    const vol = parsedOutline.volumes[currentChapter.volumeIndex];
+    if (!vol) return "";
+    const ch = vol.chapters[currentChapter.chapterIndex];
+    if (!ch) return "";
+    const parts = [`**${ch.title}**`];
+    if (ch.coreEvent) parts.push(`- 核心事件：${ch.coreEvent}`);
+    if (ch.emotionArc) parts.push(`- 情绪走向：${ch.emotionArc}`);
+    if (ch.chapterHook) parts.push(`- 章末钩子：${ch.chapterHook}`);
+    return parts.join("\n");
+  }, [currentChapter, parsedOutline]);
 
   const { isGenerating, handleGenerate, handleStop } = useEditorCompletion({
     project: projectData,
@@ -57,6 +94,7 @@ export function ZenEditorView({
     setContent,
     textareaRef,
     isGenerating,
+    currentChapterContext,
   });
 
   const { isSaving } = useEditorAutosave(
@@ -65,6 +103,12 @@ export function ZenEditorView({
     project.content,
     isGenerating || isExpandingBeat
   );
+
+  const handleGenerateBeatsForChapter = useCallback(() => {
+    setIsBeatPanelOpen(true);
+    // Trigger beat generation after panel opens
+    setTimeout(() => handleGenerateBeats(), 100);
+  }, [handleGenerateBeats]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Escape" && isGenerating) {
@@ -123,7 +167,7 @@ export function ZenEditorView({
             size="sm"
             onClick={() => setIsPanelOpen((prev) => !prev)}
             className="gap-1.5"
-            title="设定面板 (Cmd+B)"
+            title="创作导航 (Cmd+B)"
           >
             <BookOpen className="w-4 h-4" />
           </Button>
@@ -179,6 +223,12 @@ export function ZenEditorView({
         {isPanelOpen && (
           <EditorSidePanel
             project={projectData}
+            contentLength={content.length}
+            parsedOutline={parsedOutline}
+            currentChapter={currentChapter}
+            completedChapters={completedChapters}
+            onSelectChapter={(vi, ci) => setCurrentChapter({ volumeIndex: vi, chapterIndex: ci })}
+            onGenerateBeatsForChapter={handleGenerateBeatsForChapter}
             onClose={() => setIsPanelOpen(false)}
             onFieldChange={(field, value) => setProjectData((prev) => ({ ...prev, [field]: value }))}
           />

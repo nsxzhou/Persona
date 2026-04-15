@@ -361,6 +361,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/editor/generate-volumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Volumes */
+        post: operations["generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/editor/generate-volume-chapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Volume Chapters */
+        post: operations["generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/style-analysis-jobs": {
         parameters: {
             query?: never;
@@ -652,6 +686,12 @@ export interface components {
              * @default
              */
             preceding_beats_prose: string;
+            /**
+             * Current Chapter Context
+             * @description 当前章节的结构化上下文
+             * @default
+             */
+            current_chapter_context: string;
         };
         /** BeatGenerateRequest */
         BeatGenerateRequest: {
@@ -672,6 +712,12 @@ export interface components {
              * @default 8
              */
             num_beats: number;
+            /**
+             * Current Chapter Context
+             * @description 当前章节的结构化上下文
+             * @default
+             */
+            current_chapter_context: string;
         };
         /** BeatGenerateResponse */
         BeatGenerateResponse: {
@@ -820,6 +866,12 @@ export interface components {
              * @default
              */
             content: string;
+            /**
+             * Length Preset
+             * @default short
+             * @enum {string}
+             */
+            length_preset: "short" | "medium" | "long";
         };
         /** ProjectResponse */
         ProjectResponse: {
@@ -854,6 +906,8 @@ export interface components {
             story_bible: string;
             /** Content */
             content: string;
+            /** Length Preset */
+            length_preset: string;
             /** Archived At */
             archived_at: string | null;
             /**
@@ -896,6 +950,8 @@ export interface components {
             story_bible?: string | null;
             /** Content */
             content?: string | null;
+            /** Length Preset */
+            length_preset?: ("short" | "medium" | "long") | null;
         };
         /**
          * PromptPackMarkdown
@@ -1031,8 +1087,8 @@ export interface components {
             /** Initialized */
             initialized: boolean;
         };
-        /** StyleAnalysisJobListItemResponse */
-        StyleAnalysisJobListItemResponse: {
+        /** StyleAnalysisJobBaseResponse */
+        StyleAnalysisJobBaseResponse: {
             /** Id */
             id: string;
             /** Style Name */
@@ -1309,6 +1365,14 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VolumeChaptersRequest */
+        VolumeChaptersRequest: {
+            /**
+             * Volume Index
+             * @description 要生成章节的卷索引（0-based）
+             */
+            volume_index: number;
         };
     };
     responses: never;
@@ -2062,6 +2126,72 @@ export interface operations {
             };
         };
     };
+    generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeChaptersRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_style_analysis_jobs_api_v1_style_analysis_jobs_get: {
         parameters: {
             query?: {
@@ -2080,7 +2210,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleAnalysisJobListItemResponse"][];
+                    "application/json": components["schemas"]["StyleAnalysisJobBaseResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -2113,7 +2243,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleAnalysisJobListItemResponse"];
+                    "application/json": components["schemas"]["StyleAnalysisJobBaseResponse"];
                 };
             };
             /** @description Validation Error */

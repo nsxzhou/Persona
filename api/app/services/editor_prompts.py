@@ -482,9 +482,12 @@ def build_beat_generate_user_message(
     story_bible: str,
     num_beats: int,
     length_context: str = "",
+    current_chapter_context: str = "",
 ) -> str:
     """构建节拍生成的用户消息，包含已有上下文。"""
     parts: list[str] = []
+    if current_chapter_context.strip():
+        parts.append(f"## 当前章节\n\n{current_chapter_context}")
     if outline_detail.strip():
         parts.append(f"## 章节细纲\n\n{outline_detail}")
     if story_bible.strip():

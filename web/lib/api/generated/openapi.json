@@ -986,6 +986,96 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/editor/generate-volumes": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Generate Volumes",
+        "operationId": "generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/editor/generate-volume-chapters": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Generate Volume Chapters",
+        "operationId": "generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VolumeChaptersRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/style-analysis-jobs": {
       "get": {
         "tags": [
@@ -1025,7 +1115,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/StyleAnalysisJobListItemResponse"
+                    "$ref": "#/components/schemas/StyleAnalysisJobBaseResponse"
                   },
                   "title": "Response List Style Analysis Jobs Api V1 Style Analysis Jobs Get"
                 }
@@ -1066,7 +1156,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StyleAnalysisJobListItemResponse"
+                  "$ref": "#/components/schemas/StyleAnalysisJobBaseResponse"
                 }
               }
             }
@@ -1837,6 +1927,12 @@
             "type": "string",
             "title": "Preceding Beats Prose",
             "default": ""
+          },
+          "current_chapter_context": {
+            "type": "string",
+            "title": "Current Chapter Context",
+            "description": "当前章节的结构化上下文",
+            "default": ""
           }
         },
         "type": "object",
@@ -1870,6 +1966,12 @@
             "minimum": 3.0,
             "title": "Num Beats",
             "default": 8
+          },
+          "current_chapter_context": {
+            "type": "string",
+            "title": "Current Chapter Context",
+            "description": "当前章节的结构化上下文",
+            "default": ""
           }
         },
         "type": "object",
@@ -2187,6 +2289,16 @@
             "type": "string",
             "title": "Content",
             "default": ""
+          },
+          "length_preset": {
+            "type": "string",
+            "enum": [
+              "short",
+              "medium",
+              "long"
+            ],
+            "title": "Length Preset",
+            "default": "short"
           }
         },
         "type": "object",
@@ -2266,6 +2378,10 @@
             "type": "string",
             "title": "Content"
           },
+          "length_preset": {
+            "type": "string",
+            "title": "Length Preset"
+          },
           "archived_at": {
             "anyOf": [
               {
@@ -2308,6 +2424,7 @@
           "outline_detail",
           "story_bible",
           "content",
+          "length_preset",
           "archived_at",
           "created_at",
           "updated_at",
@@ -2467,6 +2584,22 @@
               }
             ],
             "title": "Content"
+          },
+          "length_preset": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "medium",
+                  "long"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Length Preset"
           }
         },
         "type": "object",
@@ -2807,7 +2940,7 @@
         ],
         "title": "SetupStatusResponse"
       },
-      "StyleAnalysisJobListItemResponse": {
+      "StyleAnalysisJobBaseResponse": {
         "properties": {
           "id": {
             "type": "string",
@@ -2946,7 +3079,7 @@
           "provider",
           "sample_file"
         ],
-        "title": "StyleAnalysisJobListItemResponse"
+        "title": "StyleAnalysisJobBaseResponse"
       },
       "StyleAnalysisJobLogsResponse": {
         "properties": {
@@ -3575,6 +3708,21 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VolumeChaptersRequest": {
+        "properties": {
+          "volume_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Volume Index",
+            "description": "要生成章节的卷索引（0-based）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume_index"
+        ],
+        "title": "VolumeChaptersRequest"
       }
     }
   }

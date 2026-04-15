@@ -258,6 +258,7 @@ class EditorService:
             payload.story_bible,
             num_beats,
             length_context=length_context,
+            current_chapter_context=payload.current_chapter_context,
         )
 
         raw = await self.llm_service.invoke_completion(

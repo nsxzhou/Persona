@@ -199,13 +199,14 @@ export function createApiClient(request: Requester) {
           new_content_context: newContentContext,
         }),
       }),
-    generateBeats: (projectId: string, textBeforeCursor: string, storyBible: string, outlineDetail: string) =>
+    generateBeats: (projectId: string, textBeforeCursor: string, storyBible: string, outlineDetail: string, currentChapterContext?: string) =>
       request<{ beats: string[] }>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
         method: "POST",
         body: JSON.stringify({
           text_before_cursor: textBeforeCursor,
           story_bible: storyBible,
           outline_detail: outlineDetail,
+          ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
         }),
       }),
     expandBeat: (
@@ -216,7 +217,8 @@ export function createApiClient(request: Requester) {
       beat: string,
       beatIndex: number,
       totalBeats: number,
-      precedingBeatsProse: string
+      precedingBeatsProse: string,
+      currentChapterContext?: string,
     ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/expand-beat`, {
         method: "POST",
@@ -228,6 +230,7 @@ export function createApiClient(request: Requester) {
           beat_index: beatIndex,
           total_beats: totalBeats,
           preceding_beats_prose: precedingBeatsProse,
+          ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
         }),
       }),
     generateSection: (projectId: string, payload: Record<string, string>) =>
