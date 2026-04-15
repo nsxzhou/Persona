@@ -206,6 +206,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/generate-concepts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Concepts */
+        post: operations["generate_concepts_api_v1_projects_generate_concepts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}": {
         parameters: {
             query?: never;
@@ -269,6 +286,74 @@ export interface paths {
         put?: never;
         /** Editor Complete */
         post: operations["editor_complete_api_v1_projects__project_id__editor_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/editor/generate-section": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Section */
+        post: operations["generate_section_api_v1_projects__project_id__editor_generate_section_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/editor/propose-bible-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propose Bible Update */
+        post: operations["propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/editor/generate-beats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Beats */
+        post: operations["generate_beats_api_v1_projects__project_id__editor_generate_beats_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/editor/expand-beat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Expand Beat */
+        post: operations["expand_beat_api_v1_projects__project_id__editor_expand_beat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -541,6 +626,72 @@ export interface components {
          * @description Markdown analysis report for Style Lab.
          */
         AnalysisReportMarkdown: string;
+        /** BeatExpandRequest */
+        BeatExpandRequest: {
+            /** Text Before Cursor */
+            text_before_cursor: string;
+            /**
+             * Story Bible
+             * @default
+             */
+            story_bible: string;
+            /**
+             * Outline Detail
+             * @default
+             */
+            outline_detail: string;
+            /** Beat */
+            beat: string;
+            /** Beat Index */
+            beat_index: number;
+            /** Total Beats */
+            total_beats: number;
+            /**
+             * Preceding Beats Prose
+             * @default
+             */
+            preceding_beats_prose: string;
+        };
+        /** BeatGenerateRequest */
+        BeatGenerateRequest: {
+            /** Text Before Cursor */
+            text_before_cursor: string;
+            /**
+             * Story Bible
+             * @default
+             */
+            story_bible: string;
+            /**
+             * Outline Detail
+             * @default
+             */
+            outline_detail: string;
+            /**
+             * Num Beats
+             * @default 8
+             */
+            num_beats: number;
+        };
+        /** BeatGenerateResponse */
+        BeatGenerateResponse: {
+            /** Beats */
+            beats: string[];
+        };
+        /** BibleUpdateRequest */
+        BibleUpdateRequest: {
+            /** Current Bible */
+            current_bible: string;
+            /**
+             * New Content Context
+             * @description 本次新生成的文本
+             */
+            new_content_context: string;
+        };
+        /** BibleUpdateResponse */
+        BibleUpdateResponse: {
+            /** Proposed Bible */
+            proposed_bible: string;
+        };
         /** Body_create_style_analysis_job_api_v1_style_analysis_jobs_post */
         Body_create_style_analysis_job_api_v1_style_analysis_jobs_post: {
             /** Style Name */
@@ -551,6 +702,42 @@ export interface components {
             model?: string | null;
             /** File */
             file: string;
+        };
+        /** ConceptGenerateRequest */
+        ConceptGenerateRequest: {
+            /**
+             * Inspiration
+             * @description 用户灵感描述文本
+             */
+            inspiration: string;
+            /**
+             * Provider Id
+             * @description AI 服务商 ID
+             */
+            provider_id: string;
+            /**
+             * Model
+             * @description 可选模型覆盖
+             */
+            model?: string | null;
+            /**
+             * Count
+             * @description 生成候选数量
+             * @default 3
+             */
+            count: number;
+        };
+        /** ConceptGenerateResponse */
+        ConceptGenerateResponse: {
+            /** Concepts */
+            concepts: components["schemas"]["ConceptItem"][];
+        };
+        /** ConceptItem */
+        ConceptItem: {
+            /** Title */
+            title: string;
+            /** Synopsis */
+            synopsis: string;
         };
         /** ConnectionTestResponse */
         ConnectionTestResponse: {
@@ -598,6 +785,36 @@ export interface components {
             /** Style Profile Id */
             style_profile_id?: string | null;
             /**
+             * Inspiration
+             * @default
+             */
+            inspiration: string;
+            /**
+             * World Building
+             * @default
+             */
+            world_building: string;
+            /**
+             * Characters
+             * @default
+             */
+            characters: string;
+            /**
+             * Outline Master
+             * @default
+             */
+            outline_master: string;
+            /**
+             * Outline Detail
+             * @default
+             */
+            outline_detail: string;
+            /**
+             * Story Bible
+             * @default
+             */
+            story_bible: string;
+            /**
              * Content
              * @default
              */
@@ -622,6 +839,18 @@ export interface components {
             default_model: string;
             /** Style Profile Id */
             style_profile_id: string | null;
+            /** Inspiration */
+            inspiration: string;
+            /** World Building */
+            world_building: string;
+            /** Characters */
+            characters: string;
+            /** Outline Master */
+            outline_master: string;
+            /** Outline Detail */
+            outline_detail: string;
+            /** Story Bible */
+            story_bible: string;
             /** Content */
             content: string;
             /** Archived At */
@@ -652,6 +881,18 @@ export interface components {
             default_model?: string | null;
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Inspiration */
+            inspiration?: string | null;
+            /** World Building */
+            world_building?: string | null;
+            /** Characters */
+            characters?: string | null;
+            /** Outline Master */
+            outline_master?: string | null;
+            /** Outline Detail */
+            outline_detail?: string | null;
+            /** Story Bible */
+            story_bible?: string | null;
             /** Content */
             content?: string | null;
         };
@@ -732,6 +973,44 @@ export interface components {
             default_model: string;
             /** Is Enabled */
             is_enabled: boolean;
+        };
+        /** SectionGenerateRequest */
+        SectionGenerateRequest: {
+            /**
+             * Section
+             * @description 要生成的区块名称
+             */
+            section: string;
+            /**
+             * Inspiration
+             * @default
+             */
+            inspiration: string;
+            /**
+             * World Building
+             * @default
+             */
+            world_building: string;
+            /**
+             * Characters
+             * @default
+             */
+            characters: string;
+            /**
+             * Outline Master
+             * @default
+             */
+            outline_master: string;
+            /**
+             * Outline Detail
+             * @default
+             */
+            outline_detail: string;
+            /**
+             * Story Bible
+             * @default
+             */
+            story_bible: string;
         };
         /** SetupRequest */
         SetupRequest: {
@@ -1417,6 +1696,39 @@ export interface operations {
             };
         };
     };
+    generate_concepts_api_v1_projects_generate_concepts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConceptGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConceptGenerateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_project_api_v1_projects__project_id__get: {
         parameters: {
             query?: never;
@@ -1557,6 +1869,146 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EditorCompletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_section_api_v1_projects__project_id__editor_generate_section_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SectionGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BibleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BibleUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_beats_api_v1_projects__project_id__editor_generate_beats_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeatGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BeatGenerateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    expand_beat_api_v1_projects__project_id__editor_expand_beat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeatExpandRequest"];
             };
         };
         responses: {

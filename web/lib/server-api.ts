@@ -40,12 +40,13 @@ export async function getServerCurrentUser(): Promise<User | null> {
   const req = await getServerRequester();
   try {
     return await req<User>("/api/v1/me");
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     if (
-      error.message.includes("401") ||
-      error.message.includes("未登录") ||
-      error.message.includes("登录状态已失效") ||
-      error.message.includes("Unauthorized")
+      message.includes("401") ||
+      message.includes("未登录") ||
+      message.includes("登录状态已失效") ||
+      message.includes("Unauthorized")
     ) {
       return null;
     }

@@ -1,20 +1,26 @@
+interface FastApiValidationItem {
+  loc?: (string | number)[];
+  msg: string;
+  type?: string;
+}
+
 export function parseApiErrorDetail(text: string, fallback: string): string {
   if (!text) {
     return fallback;
   }
 
   try {
-    const data = JSON.parse(text) as Record<string, any>;
-    
+    const data = JSON.parse(text) as Record<string, unknown>;
+
     // Handle standard FastAPI error or generic detail string
     if (data.detail !== undefined) {
       if (typeof data.detail === "string" && data.detail.trim()) {
         return data.detail;
       }
-      
+
       // Handle FastAPI 422 Validation Error array
       if (Array.isArray(data.detail)) {
-        const messages = data.detail.map((err: any) => {
+        const messages = (data.detail as FastApiValidationItem[]).map((err) => {
           const loc = Array.isArray(err.loc) ? err.loc.join(".") : "";
           return loc ? `${loc}: ${err.msg}` : err.msg;
         });

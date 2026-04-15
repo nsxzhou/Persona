@@ -1,6 +1,8 @@
 import type {
   AnalysisMeta,
   AnalysisReportMarkdown,
+  ConceptGeneratePayload,
+  ConceptGenerateResult,
   LoginPayload,
   PromptPackMarkdown,
   Project,
@@ -97,6 +99,11 @@ export const api = {
   restoreProject: (id: string) =>
     request<Project>(`/api/v1/projects/${id}/restore`, {
       method: "POST",
+    }),
+  generateConcepts: (payload: ConceptGeneratePayload) =>
+    request<ConceptGenerateResult>("/api/v1/projects/generate-concepts", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
   getStyleAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
     const offset = params?.offset ?? 0;

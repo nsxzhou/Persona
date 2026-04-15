@@ -482,6 +482,47 @@
         }
       }
     },
+    "/api/v1/projects/generate-concepts": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Generate Concepts",
+        "operationId": "generate_concepts_api_v1_projects_generate_concepts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConceptGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptGenerateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}": {
       "get": {
         "tags": [
@@ -682,6 +723,210 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EditorCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/editor/generate-section": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Generate Section",
+        "operationId": "generate_section_api_v1_projects__project_id__editor_generate_section_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionGenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/editor/propose-bible-update": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Propose Bible Update",
+        "operationId": "propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BibleUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BibleUpdateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/editor/generate-beats": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Generate Beats",
+        "operationId": "generate_beats_api_v1_projects__project_id__editor_generate_beats_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeatGenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeatGenerateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/editor/expand-beat": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Expand Beat",
+        "operationId": "expand_beat_api_v1_projects__project_id__editor_expand_beat_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeatExpandRequest"
               }
             }
           }
@@ -1527,6 +1772,127 @@
         "title": "AnalysisReportMarkdown",
         "description": "Markdown analysis report for Style Lab."
       },
+      "BeatExpandRequest": {
+        "properties": {
+          "text_before_cursor": {
+            "type": "string",
+            "title": "Text Before Cursor"
+          },
+          "story_bible": {
+            "type": "string",
+            "title": "Story Bible",
+            "default": ""
+          },
+          "outline_detail": {
+            "type": "string",
+            "title": "Outline Detail",
+            "default": ""
+          },
+          "beat": {
+            "type": "string",
+            "title": "Beat"
+          },
+          "beat_index": {
+            "type": "integer",
+            "title": "Beat Index"
+          },
+          "total_beats": {
+            "type": "integer",
+            "title": "Total Beats"
+          },
+          "preceding_beats_prose": {
+            "type": "string",
+            "title": "Preceding Beats Prose",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "text_before_cursor",
+          "beat",
+          "beat_index",
+          "total_beats"
+        ],
+        "title": "BeatExpandRequest"
+      },
+      "BeatGenerateRequest": {
+        "properties": {
+          "text_before_cursor": {
+            "type": "string",
+            "title": "Text Before Cursor"
+          },
+          "story_bible": {
+            "type": "string",
+            "title": "Story Bible",
+            "default": ""
+          },
+          "outline_detail": {
+            "type": "string",
+            "title": "Outline Detail",
+            "default": ""
+          },
+          "num_beats": {
+            "type": "integer",
+            "maximum": 15.0,
+            "minimum": 3.0,
+            "title": "Num Beats",
+            "default": 8
+          }
+        },
+        "type": "object",
+        "required": [
+          "text_before_cursor"
+        ],
+        "title": "BeatGenerateRequest"
+      },
+      "BeatGenerateResponse": {
+        "properties": {
+          "beats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Beats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "beats"
+        ],
+        "title": "BeatGenerateResponse"
+      },
+      "BibleUpdateRequest": {
+        "properties": {
+          "current_bible": {
+            "type": "string",
+            "title": "Current Bible"
+          },
+          "new_content_context": {
+            "type": "string",
+            "title": "New Content Context",
+            "description": "本次新生成的文本"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_bible",
+          "new_content_context"
+        ],
+        "title": "BibleUpdateRequest"
+      },
+      "BibleUpdateResponse": {
+        "properties": {
+          "proposed_bible": {
+            "type": "string",
+            "title": "Proposed Bible"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposed_bible"
+        ],
+        "title": "BibleUpdateResponse"
+      },
       "Body_create_style_analysis_job_api_v1_style_analysis_jobs_post": {
         "properties": {
           "style_name": {
@@ -1561,6 +1927,82 @@
           "file"
         ],
         "title": "Body_create_style_analysis_job_api_v1_style_analysis_jobs_post"
+      },
+      "ConceptGenerateRequest": {
+        "properties": {
+          "inspiration": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Inspiration",
+            "description": "用户灵感描述文本"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id",
+            "description": "AI 服务商 ID"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "可选模型覆盖"
+          },
+          "count": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "description": "生成候选数量",
+            "default": 3
+          }
+        },
+        "type": "object",
+        "required": [
+          "inspiration",
+          "provider_id"
+        ],
+        "title": "ConceptGenerateRequest"
+      },
+      "ConceptGenerateResponse": {
+        "properties": {
+          "concepts": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptItem"
+            },
+            "type": "array",
+            "title": "Concepts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "concepts"
+        ],
+        "title": "ConceptGenerateResponse"
+      },
+      "ConceptItem": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "synopsis": {
+            "type": "string",
+            "title": "Synopsis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "synopsis"
+        ],
+        "title": "ConceptItem"
       },
       "ConnectionTestResponse": {
         "properties": {
@@ -1678,6 +2120,36 @@
             ],
             "title": "Style Profile Id"
           },
+          "inspiration": {
+            "type": "string",
+            "title": "Inspiration",
+            "default": ""
+          },
+          "world_building": {
+            "type": "string",
+            "title": "World Building",
+            "default": ""
+          },
+          "characters": {
+            "type": "string",
+            "title": "Characters",
+            "default": ""
+          },
+          "outline_master": {
+            "type": "string",
+            "title": "Outline Master",
+            "default": ""
+          },
+          "outline_detail": {
+            "type": "string",
+            "title": "Outline Detail",
+            "default": ""
+          },
+          "story_bible": {
+            "type": "string",
+            "title": "Story Bible",
+            "default": ""
+          },
           "content": {
             "type": "string",
             "title": "Content",
@@ -1733,6 +2205,30 @@
             ],
             "title": "Style Profile Id"
           },
+          "inspiration": {
+            "type": "string",
+            "title": "Inspiration"
+          },
+          "world_building": {
+            "type": "string",
+            "title": "World Building"
+          },
+          "characters": {
+            "type": "string",
+            "title": "Characters"
+          },
+          "outline_master": {
+            "type": "string",
+            "title": "Outline Master"
+          },
+          "outline_detail": {
+            "type": "string",
+            "title": "Outline Detail"
+          },
+          "story_bible": {
+            "type": "string",
+            "title": "Story Bible"
+          },
           "content": {
             "type": "string",
             "title": "Content"
@@ -1772,6 +2268,12 @@
           "default_provider_id",
           "default_model",
           "style_profile_id",
+          "inspiration",
+          "world_building",
+          "characters",
+          "outline_master",
+          "outline_detail",
+          "story_bible",
           "content",
           "archived_at",
           "created_at",
@@ -1855,6 +2357,72 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "inspiration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspiration"
+          },
+          "world_building": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "World Building"
+          },
+          "characters": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Characters"
+          },
+          "outline_master": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outline Master"
+          },
+          "outline_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outline Detail"
+          },
+          "story_bible": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Story Bible"
           },
           "content": {
             "anyOf": [
@@ -2106,6 +2674,50 @@
           "is_enabled"
         ],
         "title": "ProviderSummary"
+      },
+      "SectionGenerateRequest": {
+        "properties": {
+          "section": {
+            "type": "string",
+            "title": "Section",
+            "description": "要生成的区块名称"
+          },
+          "inspiration": {
+            "type": "string",
+            "title": "Inspiration",
+            "default": ""
+          },
+          "world_building": {
+            "type": "string",
+            "title": "World Building",
+            "default": ""
+          },
+          "characters": {
+            "type": "string",
+            "title": "Characters",
+            "default": ""
+          },
+          "outline_master": {
+            "type": "string",
+            "title": "Outline Master",
+            "default": ""
+          },
+          "outline_detail": {
+            "type": "string",
+            "title": "Outline Detail",
+            "default": ""
+          },
+          "story_bible": {
+            "type": "string",
+            "title": "Story Bible",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "section"
+        ],
+        "title": "SectionGenerateRequest"
       },
       "SetupRequest": {
         "properties": {
