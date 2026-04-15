@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, ArchiveRestore, Archive, PenLine } from "lucide-react";
+import { Plus, ArchiveRestore, Archive, PenLine, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
@@ -12,6 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Pagination,
   PaginationContent,
@@ -58,6 +69,15 @@ export function ProjectsPageClient() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (projectId: string) => api.deleteProject(projectId),
+    onError: (error) => toast.error(error.message),
+    onSuccess: async () => {
+      toast.success("项目已永久删除");
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
   if (projectsQuery.isLoading) {
     return <PageLoading />;
   }
@@ -84,6 +104,7 @@ export function ProjectsPageClient() {
         setPage(1); // Reset page on filter change
       }}
       onRestore={(projectId) => restoreMutation.mutate(projectId)}
+      onDelete={(projectId) => deleteMutation.mutate(projectId)}
     />
   );
 }
@@ -97,6 +118,7 @@ export function ProjectsPageView({
   onIncludeArchivedChange,
   onArchive,
   onRestore,
+  onDelete,
 }: {
   projects: Project[];
   includeArchived: boolean;
@@ -106,6 +128,7 @@ export function ProjectsPageView({
   onIncludeArchivedChange: (checked: boolean) => void;
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <section className="space-y-6">
@@ -168,17 +191,44 @@ export function ProjectsPageView({
               </div>
               <div className="flex gap-2">
                 {project.archived_at ? (
-                  <Button variant="outline" onClick={() => onRestore?.(project.id)}>
-                    <ArchiveRestore className="mr-2 h-4 w-4" />
-                    恢复
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={(e) => { e.stopPropagation(); onRestore?.(project.id); }}>
+                      <ArchiveRestore className="mr-2 h-4 w-4" />
+                      恢复
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" onClick={(e) => e.stopPropagation()}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          永久删除
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确定要永久删除该项目吗？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            该操作不可逆，将永久删除项目「{project.name}」及其所有数据。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => onDelete?.(project.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            确认删除
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={() => onArchive?.(project.id)}>
+                    <Button variant="outline" onClick={(e) => { e.stopPropagation(); onArchive?.(project.id); }}>
                       <Archive className="mr-2 h-4 w-4" />
                       归档
                     </Button>
-                    <Button asChild className="gap-2">
+                    <Button asChild className="gap-2" onClick={(e) => e.stopPropagation()}>
                       <Link href={`/projects/${project.id}/editor`}>
                         <PenLine className="h-4 w-4" />
                         开始写作
@@ -186,7 +236,7 @@ export function ProjectsPageView({
                     </Button>
                   </>
                 )}
-                <Button variant="secondary" asChild>
+                <Button variant="secondary" asChild onClick={(e) => e.stopPropagation()}>
                   <Link href={`/projects/${project.id}`}>查看详情</Link>
                 </Button>
               </div>

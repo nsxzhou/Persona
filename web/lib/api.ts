@@ -100,6 +100,10 @@ export const api = {
     request<Project>(`/api/v1/projects/${id}/restore`, {
       method: "POST",
     }),
+  deleteProject: (id: string) =>
+    request<void>(`/api/v1/projects/${id}`, {
+      method: "DELETE",
+    }),
   generateConcepts: (payload: ConceptGeneratePayload) =>
     request<ConceptGenerateResult>("/api/v1/projects/generate-concepts", {
       method: "POST",
