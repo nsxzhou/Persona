@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -63,6 +64,16 @@ class LLMProviderService:
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_context),
         ]
+        async for chunk in model.astream(messages):
+            if chunk.content:
+                yield chunk.content
+
+    async def stream_messages(
+        self,
+        provider_config: ProviderConfig,
+        messages: list[Any],
+    ) -> AsyncGenerator[str, None]:
+        model = self._build_model(provider_config)
         async for chunk in model.astream(messages):
             if chunk.content:
                 yield chunk.content

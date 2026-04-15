@@ -16,6 +16,8 @@ import re
 from collections.abc import AsyncGenerator
 
 from fastapi.responses import StreamingResponse
+
+from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import BadRequestError, UnprocessableEntityError
@@ -134,21 +136,11 @@ class EditorService:
             story_bible=project.story_bible,
         )
 
-        # Pre-build model while session is alive (reads ORM attrs + decrypts key)
-        model = self.llm_service._build_model(project.provider)
-        user_context = text_before_cursor
-
-        async def _generate():
-            from langchain_core.messages import HumanMessage, SystemMessage
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_context),
-            ]
-            async for chunk in model.astream(messages):
-                if chunk.content:
-                    yield chunk.content
-
-        return _generate()
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_context),
+        ]
+        return self.llm_service.stream_messages(project.provider, messages)
 
     async def stream_section_generation(
         self,
@@ -182,19 +174,11 @@ class EditorService:
             },
         )
 
-        model = self.llm_service._build_model(project.provider)
-
-        async def _generate():
-            from langchain_core.messages import HumanMessage, SystemMessage
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_message),
-            ]
-            async for chunk in model.astream(messages):
-                if chunk.content:
-                    yield chunk.content
-
-        return _generate()
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_message),
+        ]
+        return self.llm_service.stream_messages(project.provider, messages)
 
     async def propose_bible_update(
         self,
@@ -283,19 +267,11 @@ class EditorService:
             payload.story_bible,
         )
 
-        model = self.llm_service._build_model(project.provider)
-
-        async def _generate():
-            from langchain_core.messages import HumanMessage, SystemMessage
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_message),
-            ]
-            async for chunk in model.astream(messages):
-                if chunk.content:
-                    yield chunk.content
-
-        return _generate()
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_message),
+        ]
+        return self.llm_service.stream_messages(project.provider, messages)
 
     async def generate_concepts(
         self,
