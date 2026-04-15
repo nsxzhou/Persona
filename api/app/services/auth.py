@@ -271,7 +271,16 @@ class AuthService:
                 
         if artifact_job_ids:
             import asyncio
-            await asyncio.gather(*[
-                storage_service.cleanup_job_artifacts(job_id) 
-                for job_id in artifact_job_ids
-            ])
+            # 引入 Semaphore 限制最大并发数，避免成千上万的异步任务导致内存和描述符耗尽
+            sem = asyncio.Semaphore(20)
+            
+            async def _cleanup(job_id: str) -> None:
+                async with sem:
+                    await storage_service.cleanup_job_artifacts(job_id)
+                    
+            if hasattr(asyncio, "TaskGroup"):
+                async with asyncio.TaskGroup() as tg:
+                    for job_id in artifact_job_ids:
+                        tg.create_task(_cleanup(job_id))
+            else:
+                await asyncio.gather(*[_cleanup(job_id) for job_id in artifact_job_ids])

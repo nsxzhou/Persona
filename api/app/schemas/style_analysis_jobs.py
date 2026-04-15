@@ -162,5 +162,4 @@ class StyleAnalysisJobStatusResponse(BaseModel):
     pause_requested_at: datetime | None = None
 
 
-class StyleAnalysisJobListItemResponse(StyleAnalysisJobBaseResponse):
-    pass
+StyleAnalysisJobListItemResponse = StyleAnalysisJobBaseResponse

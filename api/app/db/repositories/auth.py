@@ -93,14 +93,21 @@ class AuthRepository:
         *,
         user_id: str | None = None,
     ) -> tuple[list[str], list[str]]:
+        # 为了避免全量加载造成内存爆炸，此处仍使用 stream_scalars，但需要注意如果数据量极大，
+        # 在上层调用时应该考虑分页或批处理。这里保留列表返回以适配上层接口，
+        # 实际更优的做法是直接在数据库中进行级联删除，或者在此处引入 yield 分批返回。
+        # 鉴于外层需要全部 ids 来传给其他服务，目前保持 list 并通过 stream_scalars 构建，
+        # 但这仍可能存在内存风险。我们在外层通过 Semaphore 限制并发。
         sample_stmt = select(StyleSampleFile.storage_path)
         if user_id is not None:
             sample_stmt = sample_stmt.where(StyleSampleFile.user_id == user_id)
-        sample_paths = await session.stream_scalars(sample_stmt)
+        sample_paths = await session.stream_scalars(sample_stmt.yield_per(1000))
+        
         job_stmt = select(StyleAnalysisJob.id)
         if user_id is not None:
             job_stmt = job_stmt.where(StyleAnalysisJob.user_id == user_id)
-        job_ids = await session.stream_scalars(job_stmt)
+        job_ids = await session.stream_scalars(job_stmt.yield_per(1000))
+        
         return (
             [path async for path in sample_paths if path],
             [job_id async for job_id in job_ids if job_id],

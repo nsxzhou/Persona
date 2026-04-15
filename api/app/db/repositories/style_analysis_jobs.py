@@ -64,13 +64,10 @@ class StyleAnalysisJobRepository:
                 defer(StyleAnalysisJob.style_summary_payload),
                 defer(StyleAnalysisJob.prompt_pack_payload),
             )
-        if user_id is None:
-            return await session.scalar(stmt.where(StyleAnalysisJob.id == job_id))
-        return await session.scalar(
-            stmt.where(
-                StyleAnalysisJob.id == job_id, StyleAnalysisJob.user_id == user_id
-            )
-        )
+        stmt = stmt.where(StyleAnalysisJob.id == job_id)
+        if user_id is not None:
+            stmt = stmt.where(StyleAnalysisJob.user_id == user_id)
+        return await session.scalar(stmt)
 
     async def get_status_and_payload(
         self,
