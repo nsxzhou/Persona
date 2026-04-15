@@ -59,7 +59,9 @@ test("workspace layout redirects to setup when system is not initialized", async
     redirect: redirectMock,
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerSetupStatus: vi.fn().mockResolvedValue({ initialized: false }),
+    getServerApi: vi.fn().mockResolvedValue({
+      getSetupStatus: vi.fn().mockResolvedValue({ initialized: false }),
+    }),
     getServerCurrentUser: vi.fn(),
   }));
 
@@ -76,7 +78,9 @@ test("workspace layout redirects to login when initialized but session missing",
     redirect: redirectMock,
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    getServerApi: vi.fn().mockResolvedValue({
+      getSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    }),
     getServerCurrentUser: vi.fn().mockResolvedValue(null),
   }));
 
@@ -93,7 +97,9 @@ test("workspace layout renders app shell for authenticated user", async () => {
     redirect: redirectMock,
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    getServerApi: vi.fn().mockResolvedValue({
+      getSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    }),
     getServerCurrentUser: vi.fn().mockResolvedValue({
       id: "user-1",
       username: "persona-admin",
@@ -126,7 +132,9 @@ test("workspace layout seeds current-user query cache for hydration", async () =
     HydrationBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    getServerApi: vi.fn().mockResolvedValue({
+      getSetupStatus: vi.fn().mockResolvedValue({ initialized: true }),
+    }),
     getServerCurrentUser: vi.fn().mockResolvedValue({
       id: "user-2",
       username: "cached-user",

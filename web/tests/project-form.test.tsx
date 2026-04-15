@@ -61,7 +61,9 @@ test("new project page renders the concept gacha component", async () => {
     ),
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerProviderConfigs: vi.fn().mockResolvedValue([{ id: "p1" }]),
+    getServerApi: vi.fn().mockResolvedValue({
+      getProviderConfigs: vi.fn().mockResolvedValue([{ id: "p1" }]),
+    }),
   }));
 
   const { default: NewProjectPage } = await import("@/app/(workspace)/projects/new/page");
@@ -80,12 +82,14 @@ test("project detail page is a server wrapper around the workbench", async () =>
     ),
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerProject: vi.fn().mockResolvedValue({
-      id: "project-42",
-      name: "Mock Project",
+    getServerApi: vi.fn().mockResolvedValue({
+      getProject: vi.fn().mockResolvedValue({
+        id: "project-42",
+        name: "Mock Project",
+      }),
+      getProviderConfigs: vi.fn().mockResolvedValue([]),
+      getStyleProfiles: vi.fn().mockResolvedValue([]),
     }),
-    getServerProviderConfigs: vi.fn().mockResolvedValue([]),
-    getServerStyleProfiles: vi.fn().mockResolvedValue([]),
   }));
 
   const { default: ProjectDetailPage } = await import("@/app/(workspace)/projects/[id]/page");

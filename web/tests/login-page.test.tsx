@@ -7,7 +7,7 @@ import { LoginPageClient } from "@/components/route-guards";
 
 const redirectMock = vi.hoisted(() => vi.fn());
 const replaceMock = vi.hoisted(() => vi.fn());
-const getServerSetupStatusMock = vi.hoisted(() => vi.fn());
+const getServerApiMock = vi.hoisted(() => vi.fn());
 const getServerCurrentUserMock = vi.hoisted(() => vi.fn());
 const loginMock = vi.hoisted(() => vi.fn());
 const toastSuccessMock = vi.hoisted(() => vi.fn());
@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  getServerSetupStatus: getServerSetupStatusMock,
+  getServerApi: getServerApiMock,
   getServerCurrentUser: getServerCurrentUserMock,
 }));
 
@@ -41,7 +41,9 @@ beforeEach(() => {
 });
 
 test("server login page redirects to setup when system is not initialized", async () => {
-  getServerSetupStatusMock.mockResolvedValueOnce({ initialized: false });
+  getServerApiMock.mockResolvedValueOnce({
+    getSetupStatus: vi.fn().mockResolvedValueOnce({ initialized: false }),
+  });
 
   await LoginPage();
 
@@ -49,7 +51,9 @@ test("server login page redirects to setup when system is not initialized", asyn
 });
 
 test("server login page redirects to projects when already logged in", async () => {
-  getServerSetupStatusMock.mockResolvedValueOnce({ initialized: true });
+  getServerApiMock.mockResolvedValueOnce({
+    getSetupStatus: vi.fn().mockResolvedValueOnce({ initialized: true }),
+  });
   getServerCurrentUserMock.mockResolvedValueOnce({
     id: "user-1",
     username: "persona-admin",
