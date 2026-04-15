@@ -35,10 +35,11 @@ test("server helper forwards cookie to setup status endpoint", async () => {
   );
   vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-  const { getServerSetupStatus } = await import("@/lib/server-api");
-  const result = await getServerSetupStatus();
+  const { getServerApi } = await import("@/lib/server-api");
+  const api = await getServerApi();
+  const setupStatus = await api.getSetupStatus();
 
-  expect(result).toEqual({ initialized: true });
+  expect(setupStatus).toEqual({ initialized: true });
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock).toHaveBeenCalledWith(
     "http://localhost:8000/api/v1/setup/status",
