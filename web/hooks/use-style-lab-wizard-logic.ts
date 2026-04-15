@@ -107,6 +107,65 @@ export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
   };
 }
 
+function useStyleLabResourcesQueries(jobId: string, job: StyleAnalysisJob | null) {
+  const existingProfileQuery = useQuery({
+    queryKey: ["style-profiles", job?.style_profile_id],
+    queryFn: () => api.getStyleProfile(String(job?.style_profile_id)),
+    enabled: Boolean(job?.style_profile_id),
+  });
+
+  const isCompletedAndNoProfile = Boolean(job && job.status === "succeeded" && !job.style_profile_id);
+  const needsReport = isCompletedAndNoProfile && !("analysis_report_markdown" in (job || {}) && (job as any).analysis_report_markdown);
+  const needsSummary = isCompletedAndNoProfile && !("style_summary_markdown" in (job || {}) && (job as any).style_summary_markdown);
+  const needsPromptPack = isCompletedAndNoProfile && !("prompt_pack_markdown" in (job || {}) && (job as any).prompt_pack_markdown);
+
+  const reportQuery = useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "analysis-report"],
+    queryFn: () => api.getStyleAnalysisJobAnalysisReport(jobId),
+    enabled: needsReport,
+  });
+  
+  const summaryQuery = useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "style-summary"],
+    queryFn: () => api.getStyleAnalysisJobStyleSummary(jobId),
+    enabled: needsSummary,
+  });
+  
+  const promptPackQuery = useQuery({
+    queryKey: ["style-analysis-jobs", jobId, "prompt-pack"],
+    queryFn: () => api.getStyleAnalysisJobPromptPack(jobId),
+    enabled: needsPromptPack,
+  });
+
+  return { existingProfileQuery, reportQuery, summaryQuery, promptPackQuery };
+}
+
+function mergeJobResources(
+  job: StyleAnalysisJob | null,
+  queries: ReturnType<typeof useStyleLabResourcesQueries>
+) {
+  const legacyJob = job as any;
+  const { existingProfileQuery, reportQuery, summaryQuery, promptPackQuery } = queries;
+  const existingProfile = existingProfileQuery.data ?? null;
+
+  const report = existingProfile?.analysis_report_markdown ?? legacyJob?.analysis_report_markdown ?? reportQuery.data ?? null;
+  const summary = existingProfile?.style_summary_markdown ?? legacyJob?.style_summary_markdown ?? summaryQuery.data ?? null;
+  const promptPack = existingProfile?.prompt_pack_markdown ?? legacyJob?.prompt_pack_markdown ?? promptPackQuery.data ?? null;
+
+  const makeRes = (val: string | null, q: ReturnType<typeof useQuery>) => makeDetailResource<string>(val, {
+    isLoading: val == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : q.isLoading) : false,
+    isError: val == null ? (job?.style_profile_id ? existingProfileQuery.isError : q.isError) : false,
+    error: val == null ? ((job?.style_profile_id ? existingProfileQuery.error : q.error) as Error | null) : null,
+  });
+
+  return {
+    existingProfile,
+    reportResource: makeRes(report, reportQuery),
+    summaryResource: makeRes(summary, summaryQuery),
+    promptPackResource: makeRes(promptPack, promptPackQuery),
+  };
+}
+
 function useStyleLabJobDetail(jobId: string) {
   const statusQuery = useStyleLabJobStatusQuery(jobId);
   const jobQuery = useStyleLabJobDetailQuery(jobId);
@@ -122,71 +181,12 @@ function useStyleLabJobDetail(jobId: string) {
   }, [jobQuery.data?.status, jobQuery.isFetching, jobQuery.refetch, statusQuery.data?.status]);
 
   const job = mergeStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
-  const legacyJob = job as
-    | (StyleAnalysisJob & {
-        style_profile?: StyleProfile | null;
-        analysis_report_markdown?: string | null;
-        style_summary_markdown?: string | null;
-        prompt_pack_markdown?: string | null;
-      })
-    | null;
-  const embeddedProfile = legacyJob?.style_profile ?? null;
-  const existingProfileQuery = useQuery({
-    queryKey: ["style-profiles", job?.style_profile_id],
-    queryFn: () => api.getStyleProfile(String(job?.style_profile_id)),
-    enabled: Boolean(job?.style_profile_id),
-  });
-  const existingProfile = existingProfileQuery.data ?? null;
-  const reportQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "analysis-report"],
-    queryFn: () => api.getStyleAnalysisJobAnalysisReport(jobId),
-    enabled: Boolean(
-      job &&
-        job.status === "succeeded" &&
-        !job.style_profile_id &&
-        !("analysis_report_markdown" in job && job.analysis_report_markdown),
-    ),
-  });
-  const summaryQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "style-summary"],
-    queryFn: () => api.getStyleAnalysisJobStyleSummary(jobId),
-    enabled: Boolean(
-      job &&
-        job.status === "succeeded" &&
-        !job.style_profile_id &&
-        !("style_summary_markdown" in job && job.style_summary_markdown),
-    ),
-  });
-  const promptPackQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "prompt-pack"],
-    queryFn: () => api.getStyleAnalysisJobPromptPack(jobId),
-    enabled: Boolean(
-      job &&
-        job.status === "succeeded" &&
-        !job.style_profile_id &&
-        !("prompt_pack_markdown" in job && job.prompt_pack_markdown),
-    ),
-  });
-
-  const report =
-    existingProfile?.analysis_report_markdown ??
-    legacyJob?.analysis_report_markdown ??
-    reportQuery.data ??
-    null;
-  const summary =
-    existingProfile?.style_summary_markdown ??
-    legacyJob?.style_summary_markdown ??
-    summaryQuery.data ??
-    null;
-  const promptPack =
-    existingProfile?.prompt_pack_markdown ??
-    legacyJob?.prompt_pack_markdown ??
-    promptPackQuery.data ??
-    null;
+  const resourcesQueries = useStyleLabResourcesQueries(jobId, job);
+  const resources = mergeJobResources(job, resourcesQueries);
 
   let errorState: { title: string; message: string } | null = null;
-  if (jobQuery.isError || (statusQuery.isError && !jobQuery.data) || existingProfileQuery.isError) {
-    const queryError = existingProfileQuery.error ?? jobQuery.error ?? statusQuery.error;
+  if (jobQuery.isError || (statusQuery.isError && !jobQuery.data) || resourcesQueries.existingProfileQuery.isError) {
+    const queryError = resourcesQueries.existingProfileQuery.error ?? jobQuery.error ?? statusQuery.error;
     errorState = {
       title: "加载任务失败",
       message: queryError instanceof Error ? queryError.message : "请重试",
@@ -197,22 +197,7 @@ function useStyleLabJobDetail(jobId: string) {
 
   return {
     job,
-    existingProfile,
-    reportResource: makeDetailResource<string>(report, {
-      isLoading: report == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : reportQuery.isLoading) : false,
-      isError: report == null ? (job?.style_profile_id ? existingProfileQuery.isError : reportQuery.isError) : false,
-      error: report == null ? ((job?.style_profile_id ? existingProfileQuery.error : reportQuery.error) as Error | null) : null,
-    }),
-    summaryResource: makeDetailResource<string>(summary, {
-      isLoading: summary == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : summaryQuery.isLoading) : false,
-      isError: summary == null ? (job?.style_profile_id ? existingProfileQuery.isError : summaryQuery.isError) : false,
-      error: summary == null ? ((job?.style_profile_id ? existingProfileQuery.error : summaryQuery.error) as Error | null) : null,
-    }),
-    promptPackResource: makeDetailResource<string>(promptPack, {
-      isLoading: promptPack == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : promptPackQuery.isLoading) : false,
-      isError: promptPack == null ? (job?.style_profile_id ? existingProfileQuery.isError : promptPackQuery.isError) : false,
-      error: promptPack == null ? ((job?.style_profile_id ? existingProfileQuery.error : promptPackQuery.error) as Error | null) : null,
-    }),
+    ...resources,
     isLoading: jobQuery.isLoading && !jobQuery.data,
     errorState,
   };
