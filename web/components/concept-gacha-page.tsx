@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { createProjectAction } from "@/app/(workspace)/projects/actions";
+import { LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
 import type { ConceptItem, ProviderConfig } from "@/lib/types";
 
 interface ConceptGachaPageProps {
@@ -36,6 +37,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lengthPreset, setLengthPreset] = useState<LengthPresetKey>("short");
 
   const handleGenerate = async () => {
     if (!providerId || !inspiration.trim()) return;
@@ -79,6 +81,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
         outline_detail: "",
         story_bible: "",
         content: "",
+        length_preset: lengthPreset,
       });
       router.replace(`/projects/${project.id}`);
     } catch (e: unknown) {
@@ -208,6 +211,37 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
               </button>
             ))}
           </div>
+
+          {/* Length Preset Selector */}
+          {selectedIndex !== null && (
+            <div className="space-y-3">
+              <Label>篇幅范围</Label>
+              <div className="grid grid-cols-3 gap-3">
+                {(Object.entries(LENGTH_PRESETS) as [LengthPresetKey, (typeof LENGTH_PRESETS)[LengthPresetKey]][]).map(
+                  ([key, cfg]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setLengthPreset(key)}
+                      className={`rounded-lg border-2 p-4 text-left transition-all ${
+                        lengthPreset === key
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <div className="font-medium text-sm">{cfg.label}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {cfg.targetMin / 10000}-{cfg.targetMax / 10000} 万字
+                      </div>
+                      <div className="text-xs text-muted-foreground/70 mt-0.5">
+                        {cfg.description}
+                      </div>
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <Button

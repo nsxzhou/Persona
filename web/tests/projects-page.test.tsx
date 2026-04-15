@@ -28,6 +28,7 @@ test("projects page renders active projects and archive toggle", () => {
           outline_detail: "",
           story_bible: "",
           content: "",
+          length_preset: "short",
           archived_at: null,
           created_at: "2026-04-09T00:00:00Z",
           updated_at: "2026-04-09T00:00:00Z",
