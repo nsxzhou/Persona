@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
@@ -137,6 +137,19 @@ async def restore_project(
         user_id=current_user.id,
     )
     return ProjectResponse.model_validate(project)
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    project_service: ProjectServiceDep,
+) -> None:
+    await project_service.delete(
+        db_session,
+        project_id,
+        user_id=current_user.id,
+    )
 
 
 # --------------------------------------------------------------------------- #

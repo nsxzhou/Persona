@@ -164,3 +164,13 @@ class ProjectService:
         project.archived_at = None
         await self.repository.flush(session)
         return project
+
+    async def delete(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> None:
+        project = await self.get_or_404(session, project_id, user_id=user_id)
+        await self.repository.delete(session, project)

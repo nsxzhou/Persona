@@ -153,6 +153,12 @@ async def test_project_crud_archive_restore_and_filtering(
     assert restore_response.status_code == 200
     assert restore_response.json()["archived_at"] is None
 
+    delete_response = await initialized_client.delete(f"/api/v1/projects/{created['id']}")
+    assert delete_response.status_code == 204
+
+    get_response = await initialized_client.get(f"/api/v1/projects/{created['id']}")
+    assert get_response.status_code == 404
+
 
 @pytest.mark.asyncio
 async def test_project_creation_rejects_disabled_provider(initialized_client: AsyncClient) -> None:
