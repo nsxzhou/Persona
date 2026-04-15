@@ -208,6 +208,8 @@ class Project(TimestampMixin, Base):
     story_bible: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 项目正文内容
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 篇幅预设：short/medium/long
+    length_preset: Mapped[str] = mapped_column(String(16), nullable=False, default="short")
     # 归档时间 - 如果归档了就有值，否则是None
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

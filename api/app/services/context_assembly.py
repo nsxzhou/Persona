@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from app.core.bible_fields import BIBLE_SECTION_ORDER
+from app.core.length_presets import LengthPresetKey, get_progress
 
 
 _WRITING_RULES = """
@@ -41,8 +42,10 @@ def assemble_writing_context(
     outline_master: str = "",
     outline_detail: str = "",
     story_bible: str = "",
+    length_preset: LengthPresetKey = "long",
+    content_length: int = 0,
 ) -> str:
-    """组装写作系统提示词：风格母Prompt + 故事圣经各区块 + 写作规则。"""
+    """组装写作系统提示词：风格母Prompt + 故事圣经各区块 + 写作规则 + 收束引导。"""
     values = {
         "inspiration": inspiration,
         "world_building": world_building,
@@ -64,5 +67,28 @@ def assemble_writing_context(
         parts.append("\n\n---\n\n" + "\n\n".join(sections))
 
     parts.append(_WRITING_RULES)
+
+    # 收束引导：根据进度 phase 追加提示
+    if content_length > 0:
+        progress = get_progress(content_length, length_preset)
+        if progress["phase"] == "ending_zone":
+            parts.append(
+                f"\n\n## 收束引导\n\n"
+                f"当前进度已达目标篇幅的 {progress['percentage']}%，"
+                f"请开始引导故事走向结局：\n"
+                f"- 不要开启新的情节线或引入新角色\n"
+                f"- 开始回收已埋下的伏笔\n"
+                f"- 情节向核心冲突的最终解决方向收束\n"
+                f"- 节奏可以适当加快，推向高潮"
+            )
+        elif progress["phase"] == "over_target":
+            parts.append(
+                f"\n\n## 超出目标提醒\n\n"
+                f"已超出目标篇幅上限（{progress['target_max']:,} 字），"
+                f"请尽快收束故事：\n"
+                f"- 必须在接下来的内容中完成结局\n"
+                f"- 不要添加任何新元素\n"
+                f"- 直接推进到最终结局"
+            )
 
     return "\n".join(parts)
