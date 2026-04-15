@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BibleTabContent } from "@/components/bible-tab-content";
+import { OutlineDetailTab } from "@/components/outline-detail-tab";
 import { SettingsTab } from "@/components/settings-tab";
 import { api } from "@/lib/api";
 import {
@@ -235,17 +236,26 @@ export function WorkbenchTabs({
           className="hidden data-[state=active]:block mt-0 pt-6"
         >
           <div className="max-w-4xl mx-auto">
-            <BibleTabContent
-              fieldKey={section.key}
-              title={section.title}
-              value={fields[section.key]}
-              onChange={(val) => handleFieldChange(section.key, val)}
-              aiEnabled={AI_ENABLED_SECTIONS.has(section.key)}
-              prerequisiteWarning={getPrerequisiteWarning(section.key)}
-              isGenerating={generatingSection === section.key}
-              onGenerate={() => handleGenerate(section.key)}
-              onStopGenerate={handleStopGeneration}
-            />
+            {section.key === "outline_detail" ? (
+              <OutlineDetailTab
+                value={fields.outline_detail}
+                onChange={(val) => handleFieldChange("outline_detail", val)}
+                projectId={project.id}
+                outlineMaster={fields.outline_master}
+              />
+            ) : (
+              <BibleTabContent
+                fieldKey={section.key}
+                title={section.title}
+                value={fields[section.key]}
+                onChange={(val) => handleFieldChange(section.key, val)}
+                aiEnabled={AI_ENABLED_SECTIONS.has(section.key)}
+                prerequisiteWarning={getPrerequisiteWarning(section.key)}
+                isGenerating={generatingSection === section.key}
+                onGenerate={() => handleGenerate(section.key)}
+                onStopGenerate={handleStopGeneration}
+              />
+            )}
           </div>
         </TabsContent>
       ))}
