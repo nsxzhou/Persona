@@ -20,11 +20,7 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobStatusResponse,
 )
 from app.services.provider_configs import ProviderConfigService
-from app.services.style_analysis_pipeline import StyleAnalysisPipelineResult
-from app.services.style_analysis_job_file_lifecycle import (
-    StyleAnalysisJobFileLifecycleService,
-)
-from app.services.style_analysis_job_cleanup import StyleAnalysisJobCleanupService
+from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 STYLE_ANALYSIS_USER_ERROR_MESSAGE = "分析任务失败，请稍后重试。"
 
@@ -67,7 +63,7 @@ class StyleAnalysisJobService:
     ) -> None:
         self.repository = repository or StyleAnalysisJobRepository()
         self.provider_service = ProviderConfigService()
-        self.file_lifecycle = StyleAnalysisJobFileLifecycleService()
+        self.storage_service = StyleAnalysisStorageService()
 
     async def list(
         self,
@@ -386,13 +382,16 @@ class StyleAnalysisJobService:
         session: AsyncSession,
         job_id: str,
         *,
-        result: StyleAnalysisPipelineResult,
+        analysis_meta_payload: dict,
+        analysis_report_payload: str,
+        style_summary_payload: str,
+        prompt_pack_payload: str,
     ) -> None:
         job = await self.get_or_404(session, job_id)
-        job.analysis_meta_payload = result.analysis_meta.model_dump(mode="json")
-        job.analysis_report_payload = result.analysis_report_markdown
-        job.style_summary_payload = result.style_summary_markdown
-        job.prompt_pack_payload = result.prompt_pack_markdown
+        job.analysis_meta_payload = analysis_meta_payload
+        job.analysis_report_payload = analysis_report_payload
+        job.style_summary_payload = style_summary_payload
+        job.prompt_pack_payload = prompt_pack_payload
         job.status = STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None
         job.error_message = None
@@ -470,9 +469,16 @@ class StyleAnalysisJobService:
             content_type=upload_file.content_type,
         )
 
-        storage_path, total_bytes, checksum = await self.file_lifecycle.persist_sample_upload(
+        from app.core.config import get_settings
+        from app.services.style_analysis_text import clean_and_decode_upload
+
+        settings = get_settings()
+        max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
+        
+        content_stream = clean_and_decode_upload(upload_file, max_bytes=max_bytes)
+        storage_path, total_bytes, checksum = await self.storage_service.save_file(
             sample_file.id,
-            upload_file,
+            content_stream,
         )
 
         sample_file.storage_path = storage_path
@@ -511,5 +517,26 @@ class StyleAnalysisJobService:
         if job.style_profile is not None and job.style_profile.projects:
             raise ConflictError("该分析任务的风格档案正被项目引用，无法删除")
 
-        cleanup_service = StyleAnalysisJobCleanupService(self.repository)
-        await cleanup_service.delete_job_and_artifacts(session, job, job_id)
+        sample_storage_path = job.sample_file.storage_path
+        await self.repository.delete_job_graph(session, job)
+        
+        if sample_storage_path:
+            from pathlib import Path
+            try:
+                Path(sample_storage_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        await self.storage_service.cleanup_job_artifacts(job_id)
+
+        try:
+            from app.services.style_analysis_checkpointer import (
+                StyleAnalysisCheckpointerFactory,
+            )
+            import logging
+            logger = logging.getLogger(__name__)
+
+            checkpointer_factory = StyleAnalysisCheckpointerFactory()
+            await checkpointer_factory.delete_thread(job_id)
+            await checkpointer_factory.aclose()
+        except Exception:
+            pass

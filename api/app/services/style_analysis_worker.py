@@ -390,7 +390,14 @@ class StyleAnalysisWorkerService:
         result: StyleAnalysisPipelineResult,
     ) -> None:
         async with session_factory() as session:
-            await self.job_service.mark_job_succeeded(session, job_id, result=result)
+            await self.job_service.mark_job_succeeded(
+                session, 
+                job_id, 
+                analysis_meta_payload=result.analysis_meta.model_dump(mode="json"),
+                analysis_report_payload=result.analysis_report_markdown,
+                style_summary_payload=result.style_summary_markdown,
+                prompt_pack_payload=result.prompt_pack_markdown
+            )
             await session.commit()
 
     # 标记任务失败：写入失败信息，并根据重试策略决定是否需要重试

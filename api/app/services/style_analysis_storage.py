@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import codecs
 import hashlib
 import json
 import shutil
@@ -9,11 +8,9 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import aiofiles
-from fastapi import UploadFile
 
 from app.core.config import get_settings
 from app.core.domain_errors import UnprocessableEntityError
-from app.services.style_analysis_text import detect_encoding
 
 
 class StyleAnalysisStorageService:
@@ -52,80 +49,23 @@ class StyleAnalysisStorageService:
     async def save_file(
         self,
         sample_file_id: str,
-        upload_file: UploadFile,
+        content_stream: AsyncIterator[bytes],
     ) -> tuple[str, int, str]:
         storage_path = self._build_storage_path(sample_file_id)
         storage_path.parent.mkdir(parents=True, exist_ok=True)
-        settings = get_settings()
-        max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
         hasher = hashlib.sha256()
-        total_bytes_in = 0
         total_bytes_out = 0
 
         try:
             async with aiofiles.open(storage_path, "wb") as handle:
-                first_chunk = await upload_file.read(1024 * 1024)
-                if first_chunk:
-                    total_bytes_in += len(first_chunk)
-                if max_bytes and total_bytes_in > max_bytes:
-                    raise UnprocessableEntityError("上传的 TXT 文件过大")
-
-                if not first_chunk:
-                    raise UnprocessableEntityError("上传的 TXT 文件为空")
-
-                encoding_candidates = (
-                    "utf-8-sig",
-                    "utf-8",
-                    "gb18030",
-                    "utf-16",
-                    "utf-16-le",
-                    "utf-16-be",
-                )
-                if first_chunk.startswith(b"\xef\xbb\xbf"):
-                    encoding = "utf-8-sig"
-                elif first_chunk.startswith((b"\xff\xfe", b"\xfe\xff")):
-                    encoding = "utf-16"
-                else:
-                    encoding = detect_encoding(first_chunk, encoding_candidates)
-
-                decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
-
-                text_chunk = decoder.decode(first_chunk)
-                output_bytes = text_chunk.encode("utf-8")
-                hasher.update(output_bytes)
-                total_bytes_out += len(output_bytes)
-                await handle.write(output_bytes)
-
-                while True:
-                    chunk = await upload_file.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    total_bytes_in += len(chunk)
-                    if max_bytes and total_bytes_in > max_bytes:
-                        raise UnprocessableEntityError("上传的 TXT 文件过大")
-
-                    text_chunk = decoder.decode(chunk)
-                    if not text_chunk:
-                        continue
-                    output_bytes = text_chunk.encode("utf-8")
-                    hasher.update(output_bytes)
-                    total_bytes_out += len(output_bytes)
-                    await handle.write(output_bytes)
-
-                final_text = decoder.decode(b"", final=True)
-                if final_text:
-                    output_bytes = final_text.encode("utf-8")
-                    hasher.update(output_bytes)
-                    total_bytes_out += len(output_bytes)
-                    await handle.write(output_bytes)
-        except UnicodeDecodeError as exc:
-            storage_path.unlink(missing_ok=True)
-            raise UnprocessableEntityError(
-                "无法识别 TXT 文件编码，请使用 UTF-8 或 GB18030 保存后重试"
-            ) from exc
+                async for chunk in content_stream:
+                    hasher.update(chunk)
+                    total_bytes_out += len(chunk)
+                    await handle.write(chunk)
         except Exception:
             storage_path.unlink(missing_ok=True)
             raise
+
         if total_bytes_out == 0:
             storage_path.unlink(missing_ok=True)
             raise UnprocessableEntityError("上传的 TXT 文件为空")

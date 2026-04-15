@@ -56,6 +56,66 @@ def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
     return "utf-8"
 
 
+async def clean_and_decode_upload(
+    upload_file,
+    max_bytes: int = 0,
+) -> AsyncIterator[bytes]:
+    """Reads an UploadFile, detects encoding, and yields UTF-8 bytes."""
+    first_chunk = await upload_file.read(1024 * 1024)
+    if not first_chunk:
+        from app.core.domain_errors import UnprocessableEntityError
+        raise UnprocessableEntityError("上传的 TXT 文件为空")
+
+    total_bytes_in = len(first_chunk)
+    if max_bytes and total_bytes_in > max_bytes:
+        from app.core.domain_errors import UnprocessableEntityError
+        raise UnprocessableEntityError("上传的 TXT 文件过大")
+
+    encoding_candidates = (
+        "utf-8-sig",
+        "utf-8",
+        "gb18030",
+        "utf-16",
+        "utf-16-le",
+        "utf-16-be",
+    )
+    if first_chunk.startswith(b"\xef\xbb\xbf"):
+        encoding = "utf-8-sig"
+    elif first_chunk.startswith((b"\xff\xfe", b"\xfe\xff")):
+        encoding = "utf-16"
+    else:
+        encoding = detect_encoding(first_chunk, encoding_candidates)
+
+    decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
+
+    try:
+        text_chunk = decoder.decode(first_chunk)
+        if text_chunk:
+            yield text_chunk.encode("utf-8")
+
+        while True:
+            chunk = await upload_file.read(1024 * 1024)
+            if not chunk:
+                break
+            total_bytes_in += len(chunk)
+            if max_bytes and total_bytes_in > max_bytes:
+                from app.core.domain_errors import UnprocessableEntityError
+                raise UnprocessableEntityError("上传的 TXT 文件过大")
+
+            text_chunk = decoder.decode(chunk)
+            if text_chunk:
+                yield text_chunk.encode("utf-8")
+
+        final_text = decoder.decode(b"", final=True)
+        if final_text:
+            yield final_text.encode("utf-8")
+    except UnicodeDecodeError as exc:
+        from app.core.domain_errors import UnprocessableEntityError
+        raise UnprocessableEntityError(
+            "无法识别 TXT 文件编码，请使用 UTF-8 或 GB18030 保存后重试"
+        ) from exc
+
+
 async def read_chunks_and_classification(
     stream: AsyncIterator[bytes],
     *,
