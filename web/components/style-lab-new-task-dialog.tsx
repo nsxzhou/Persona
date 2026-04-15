@@ -172,15 +172,13 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
                       <SelectValue placeholder="选择 Provider" />
                     </SelectTrigger>
                     <SelectContent>
-                      {providers.map((provider) => (
+                      {enabledProviders.map((provider) => (
                         <SelectItem
                           key={provider.id}
                           value={provider.id}
-                          disabled={!provider.is_enabled}
                         >
                           <span className="flex items-center truncate">
                             {provider.label}
-                            {!provider.is_enabled && <span className="ml-1 text-destructive text-xs shrink-0"> (已禁用)</span>}
                             <span className="ml-2 text-foreground/70 truncate">/ {provider.default_model}</span>
                           </span>
                         </SelectItem>
