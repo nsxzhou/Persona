@@ -151,17 +151,15 @@ export function ProjectForm({
                   <CommandList>
                     <CommandEmpty>未找到对应的 Provider</CommandEmpty>
                     <CommandGroup>
-                      {providers.map((provider) => (
+                      {enabledProviders.map((provider) => (
                         <CommandItem
                           key={provider.id}
                           value={`${provider.label} ${provider.default_model}`}
-                          disabled={!provider.is_enabled}
                           onSelect={() => {
-                            if (!provider.is_enabled) return;
                             form.setValue("default_provider_id", provider.id);
                             setProviderOpen(false);
                           }}
-                          className={cn("cursor-pointer", !provider.is_enabled && "opacity-50 cursor-not-allowed")}
+                          className="cursor-pointer"
                         >
                           <Check
                             className={cn(
@@ -170,7 +168,6 @@ export function ProjectForm({
                             )}
                           />
                           {provider.label}
-                          {!provider.is_enabled && <span className="ml-1 text-destructive text-xs"> (已禁用)</span>}
                           <span className="ml-2 text-foreground/70 truncate">/ {provider.default_model}</span>
                         </CommandItem>
                       ))}

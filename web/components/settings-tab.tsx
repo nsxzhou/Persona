@@ -115,8 +115,10 @@ export function SettingsTab({
             <SelectValue placeholder="选择 Provider" />
           </SelectTrigger>
           <SelectContent>
-            {providers.map((p) => (
-              <SelectItem key={p.id} value={p.id} disabled={!p.is_enabled}>
+            {providers
+              .filter((p) => p.is_enabled || p.id === project.provider.id)
+              .map((p) => (
+              <SelectItem key={p.id} value={p.id}>
                 {p.label} / {p.default_model}
                 {!p.is_enabled && " (已禁用)"}
               </SelectItem>
