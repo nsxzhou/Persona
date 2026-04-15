@@ -80,6 +80,12 @@ class ProjectService:
             default_provider_id=provider.id,
             default_model=default_model or provider.default_model,
             style_profile_id=payload.style_profile_id,
+            inspiration=payload.inspiration,
+            world_building=payload.world_building,
+            characters=payload.characters,
+            outline_master=payload.outline_master,
+            outline_detail=payload.outline_detail,
+            story_bible=payload.story_bible,
             content=payload.content,
             user_id=resolved_user_id,
         )
@@ -125,6 +131,12 @@ class ProjectService:
             project.default_model = default_model or provider.default_model
         if "content" in data:
             project.content = data["content"]
+        for field in (
+            "inspiration", "world_building", "characters",
+            "outline_master", "outline_detail", "story_bible",
+        ):
+            if field in data:
+                setattr(project, field, data[field])
 
         await self.repository.flush(session)
         return await self.get_or_404(session, project.id, user_id=user_id)
@@ -151,22 +163,4 @@ class ProjectService:
         project = await self.get_or_404(session, project_id, user_id=user_id)
         project.archived_at = None
         await self.repository.flush(session)
-        return project
-
-    async def set_style_profile_id(
-        self,
-        session: AsyncSession,
-        project_id: str,
-        style_profile_id: str | None,
-        *,
-        user_id: str | None = None,
-    ) -> Project:
-        project = await self.repository.set_style_profile_id_by_project_id(
-            session,
-            project_id,
-            style_profile_id,
-            user_id=user_id,
-        )
-        if project is None:
-            raise NotFoundError("项目不存在")
         return project

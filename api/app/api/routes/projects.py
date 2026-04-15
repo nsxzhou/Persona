@@ -1,14 +1,31 @@
 from __future__ import annotations
 
-import json
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import CurrentUserDep, DbSessionDep, ProjectServiceDep, StyleProfileServiceDep
-from app.schemas.projects import ProjectCreate, ProjectResponse, ProjectUpdate, EditorCompletionRequest
-from app.services.llm_provider import LLMProviderService
+from app.api.deps import (
+    CurrentUserDep,
+    DbSessionDep,
+    EditorServiceDep,
+    ProjectServiceDep,
+)
+from app.schemas.projects import (
+    BeatExpandRequest,
+    BeatGenerateRequest,
+    BeatGenerateResponse,
+    BibleUpdateRequest,
+    BibleUpdateResponse,
+    ConceptGenerateRequest,
+    ConceptGenerateResponse,
+    EditorCompletionRequest,
+    ProjectCreate,
+    ProjectResponse,
+    ProjectUpdate,
+    SectionGenerateRequest,
+)
+from app.services.editor import sse_response
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +65,20 @@ async def create_project(
         user_id=current_user.id,
     )
     return ProjectResponse.model_validate(project)
+
+
+@router.post("/generate-concepts", response_model=ConceptGenerateResponse)
+async def generate_concepts(
+    payload: ConceptGenerateRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> ConceptGenerateResponse:
+    concepts = await editor_service.generate_concepts(
+        db_session, current_user.id, payload,
+    )
+    return ConceptGenerateResponse(concepts=concepts)
+
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
@@ -107,41 +138,76 @@ async def restore_project(
     )
     return ProjectResponse.model_validate(project)
 
+
+# --------------------------------------------------------------------------- #
+#  AI editor endpoints — thin handlers delegating to EditorService             #
+# --------------------------------------------------------------------------- #
+
 @router.post("/{project_id}/editor/complete")
 async def editor_complete(
     project_id: str,
     payload: EditorCompletionRequest,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
-    project_service: ProjectServiceDep,
-    style_profile_service: StyleProfileServiceDep,
+    editor_service: EditorServiceDep,
 ) -> StreamingResponse:
-    project = await project_service.get_or_404(
-        db_session,
-        project_id,
-        user_id=current_user.id,
+    gen = await editor_service.stream_completion(
+        db_session, project_id, current_user.id, payload.text_before_cursor,
     )
-    if not project.style_profile_id:
-        raise HTTPException(status_code=400, detail="项目未挂载风格档案")
-        
-    style_profile = await style_profile_service.get_or_404(
-        db_session,
-        project.style_profile_id,
-        user_id=current_user.id,
+    return sse_response(gen, error_log_message="AI 续写异常")
+
+
+@router.post("/{project_id}/editor/generate-section")
+async def generate_section(
+    project_id: str,
+    payload: SectionGenerateRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> StreamingResponse:
+    gen = await editor_service.stream_section_generation(
+        db_session, project_id, current_user.id, payload,
     )
-    system_prompt = style_profile.prompt_pack_payload
-    llm_service = LLMProviderService()
-    
-    async def sse_generator():
-        try:
-            async for chunk in llm_service.stream_completion(
-                provider_config=project.provider,
-                system_prompt=system_prompt,
-                user_context=payload.text_before_cursor
-            ):
-                yield f"data: {json.dumps(chunk)}\n\n"
-        except Exception as e:
-            logger.exception("AI 续写异常")
-            yield f"event: error\ndata: {json.dumps(str(e))}\n\n"
-            
-    return StreamingResponse(sse_generator(), media_type="text/event-stream")
+    return sse_response(gen, error_log_message="区块 AI 生成异常")
+
+
+@router.post("/{project_id}/editor/propose-bible-update", response_model=BibleUpdateResponse)
+async def propose_bible_update(
+    project_id: str,
+    payload: BibleUpdateRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> BibleUpdateResponse:
+    proposed = await editor_service.propose_bible_update(
+        db_session, project_id, current_user.id, payload,
+    )
+    return BibleUpdateResponse(proposed_bible=proposed)
+
+
+@router.post("/{project_id}/editor/generate-beats", response_model=BeatGenerateResponse)
+async def generate_beats(
+    project_id: str,
+    payload: BeatGenerateRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> BeatGenerateResponse:
+    beats = await editor_service.generate_beats(
+        db_session, project_id, current_user.id, payload,
+    )
+    return BeatGenerateResponse(beats=beats)
+
+
+@router.post("/{project_id}/editor/expand-beat")
+async def expand_beat(
+    project_id: str,
+    payload: BeatExpandRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    editor_service: EditorServiceDep,
+) -> StreamingResponse:
+    gen = await editor_service.stream_beat_expansion(
+        db_session, project_id, current_user.id, payload,
+    )
+    return sse_response(gen, error_log_message="节拍展开异常")

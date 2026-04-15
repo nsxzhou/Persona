@@ -44,6 +44,14 @@ class ProjectCreate(BaseModel):
     # 风格配置ID：可选字段
     style_profile_id: str | None = None
 
+    # 故事圣经各区块
+    inspiration: str = ""
+    world_building: str = ""
+    characters: str = ""
+    outline_master: str = ""
+    outline_detail: str = ""
+    story_bible: str = ""
+
     # 项目正文内容
     content: str = ""
 
@@ -60,6 +68,12 @@ class ProjectUpdate(BaseModel):
     default_provider_id: str | None = None
     default_model: str | None = None
     style_profile_id: str | None = None
+    inspiration: str | None = None
+    world_building: str | None = None
+    characters: str | None = None
+    outline_master: str | None = None
+    outline_detail: str | None = None
+    story_bible: str | None = None
     content: str | None = None
 
 
@@ -84,6 +98,13 @@ class ProjectResponse(BaseModel):
     default_model: str
     # 风格配置ID
     style_profile_id: str | None
+    # 故事圣经各区块
+    inspiration: str
+    world_building: str
+    characters: str
+    outline_master: str
+    outline_detail: str
+    story_bible: str
     # 项目正文内容
     content: str
     # 归档时间 - 没有归档就是None
@@ -100,3 +121,68 @@ class ProjectResponse(BaseModel):
 # 编辑器续写请求Schema
 class EditorCompletionRequest(BaseModel):
     text_before_cursor: str
+
+
+# 区块 AI 生成请求Schema
+class SectionGenerateRequest(BaseModel):
+    section: str = Field(description="要生成的区块名称")
+    inspiration: str = ""
+    world_building: str = ""
+    characters: str = ""
+    outline_master: str = ""
+    outline_detail: str = ""
+    story_bible: str = ""
+
+
+# 故事圣经更新提议请求Schema
+class BibleUpdateRequest(BaseModel):
+    current_bible: str
+    new_content_context: str = Field(description="本次新生成的文本")
+
+
+# 故事圣经更新提议响应Schema
+class BibleUpdateResponse(BaseModel):
+    proposed_bible: str
+
+
+# 节拍生成请求Schema
+class BeatGenerateRequest(BaseModel):
+    text_before_cursor: str
+    story_bible: str = ""
+    outline_detail: str = ""
+    num_beats: int = Field(default=8, ge=3, le=15)
+
+
+# 节拍生成响应Schema
+class BeatGenerateResponse(BaseModel):
+    beats: list[str]
+
+
+# 节拍展开请求Schema
+class BeatExpandRequest(BaseModel):
+    text_before_cursor: str
+    story_bible: str = ""
+    outline_detail: str = ""
+    beat: str
+    beat_index: int
+    total_beats: int
+    preceding_beats_prose: str = ""
+
+
+# 灵感抽卡请求Schema
+class ConceptGenerateRequest(BaseModel):
+    inspiration: str = Field(min_length=1, max_length=8000, description="用户灵感描述文本")
+    provider_id: str = Field(description="AI 服务商 ID")
+    model: str | None = Field(default=None, description="可选模型覆盖")
+    count: int = Field(default=3, ge=1, le=5, description="生成候选数量")
+
+
+# 单个灵感候选项
+class ConceptItem(BaseModel):
+    title: str
+    synopsis: str
+
+
+# 灵感抽卡响应Schema
+class ConceptGenerateResponse(BaseModel):
+    concepts: list[ConceptItem]

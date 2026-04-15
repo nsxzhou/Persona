@@ -191,14 +191,21 @@ class Project(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     # 外键关联到提供商配置
     default_provider_id: Mapped[str] = mapped_column(
-        ForeignKey("provider_configs.id"), nullable=False
+        ForeignKey("provider_configs.id"), nullable=False, index=True
     )
     # 默认使用的模型
     default_model: Mapped[str] = mapped_column(String(100), nullable=False)
     # 风格配置ID - 可选
     style_profile_id: Mapped[str | None] = mapped_column(
-        ForeignKey("style_profiles.id"), nullable=True
+        ForeignKey("style_profiles.id"), nullable=True, index=True
     )
+    # 故事圣经各区块
+    inspiration: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    world_building: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    characters: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    outline_master: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    outline_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    story_bible: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 项目正文内容
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 归档时间 - 如果归档了就有值，否则是None
@@ -381,7 +388,7 @@ class StyleProfile(TimestampMixin, Base):
     )
     # 生成这个配置时使用的LLM提供商配置ID
     provider_id: Mapped[str] = mapped_column(
-        ForeignKey("provider_configs.id"), nullable=False
+        ForeignKey("provider_configs.id"), nullable=False, index=True
     )
     # 生成这个配置时使用的具体模型名称
     model_name: Mapped[str] = mapped_column(String(100), nullable=False)

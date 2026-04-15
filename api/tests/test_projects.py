@@ -28,13 +28,13 @@ def test_projects_routes_use_annotated_service_dependency() -> None:
 
 
 @pytest.mark.asyncio
-async def test_project_service_can_bind_style_profile_id_by_project_id(
+async def test_project_service_can_update_style_profile_id(
     app_with_db: FastAPI,
 ) -> None:
     from app.core.security import hash_password
     from app.core.domain_errors import NotFoundError
     from app.db.repositories.auth import AuthRepository
-    from app.schemas.projects import ProjectCreate
+    from app.schemas.projects import ProjectCreate, ProjectUpdate
     from app.schemas.provider_configs import ProviderConfigCreate
     from app.services.projects import ProjectService
     from app.services.provider_configs import ProviderConfigService
@@ -69,25 +69,33 @@ async def test_project_service_can_bind_style_profile_id_by_project_id(
             user_id=user.id,
         )
 
-        target_style_profile_id = "11111111-1111-1111-1111-111111111111"
-        updated = await ProjectService().set_style_profile_id(
+        # Setting style_profile_id to None (clearing) should succeed
+        updated = await ProjectService().update(
             session,
             project.id,
-            target_style_profile_id,
+            ProjectUpdate(style_profile_id=None),
             user_id=user.id,
         )
         assert updated.id == project.id
-        assert updated.style_profile_id == target_style_profile_id
+        assert updated.style_profile_id is None
 
-        with pytest.raises(NotFoundError) as exc_info:
-            await ProjectService().set_style_profile_id(
+        # Setting a non-existent style_profile_id should raise NotFoundError
+        with pytest.raises(NotFoundError):
+            await ProjectService().update(
                 session,
-                "non-existent-project-id",
-                target_style_profile_id,
+                project.id,
+                ProjectUpdate(style_profile_id="11111111-1111-1111-1111-111111111111"),
                 user_id=user.id,
             )
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == "项目不存在"
+
+        # Updating a non-existent project should raise NotFoundError
+        with pytest.raises(NotFoundError):
+            await ProjectService().update(
+                session,
+                "non-existent-project-id",
+                ProjectUpdate(style_profile_id=None),
+                user_id=user.id,
+            )
 
 
 @pytest.mark.asyncio

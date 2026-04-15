@@ -13,6 +13,8 @@ from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_db_session
 from app.services.auth import AuthService
+from app.services.editor import EditorService
+from app.services.llm_provider import LLMProviderService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_analysis_jobs import StyleAnalysisJobService
@@ -93,3 +95,30 @@ StyleProfileServiceDep = Annotated[
     StyleProfileService,
     Depends(get_style_profile_service),
 ]
+
+
+def get_llm_provider_service() -> LLMProviderService:
+    return LLMProviderService()
+
+
+LLMProviderServiceDep = Annotated[
+    LLMProviderService,
+    Depends(get_llm_provider_service),
+]
+
+
+def get_editor_service(
+    llm_service: LLMProviderServiceDep,
+    project_service: ProjectServiceDep,
+    style_profile_service: StyleProfileServiceDep,
+    provider_config_service: ProviderConfigServiceDep,
+) -> EditorService:
+    return EditorService(
+        llm_service=llm_service,
+        project_service=project_service,
+        style_profile_service=style_profile_service,
+        provider_config_service=provider_config_service,
+    )
+
+
+EditorServiceDep = Annotated[EditorService, Depends(get_editor_service)]
