@@ -77,22 +77,11 @@ export function WorkbenchTabs({
       setGeneratingSection(sectionKey);
 
       try {
-        const response = await fetch(
-          `/api/v1/projects/${project.id}/editor/generate-section`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              section: sectionKey,
-              ...fields,
-            }),
-          },
-        );
+        const response = await api.generateSection(project.id, {
+          section: sectionKey,
+          ...fields,
+        });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || "请求失败");
-        }
         if (!response.body) throw new Error("No response body");
 
         const reader = response.body.getReader();

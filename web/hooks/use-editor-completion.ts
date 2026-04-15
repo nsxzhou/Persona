@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Project } from "@/lib/types";
+import { api } from "@/lib/api";
 
 export function useEditorCompletion({
   project,
@@ -45,18 +46,7 @@ export function useEditorCompletion({
     setIsGenerating(true);
 
     try {
-      const response = await fetch(`/api/v1/projects/${project.id}/editor/complete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text_before_cursor: textBeforeCursor }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "请求失败");
-      }
+      const response = await api.completeEditor(project.id, textBeforeCursor);
 
       if (!response.body) throw new Error("No response body");
 
@@ -140,26 +130,17 @@ export function useEditorCompletion({
       const MIN_LENGTH_FOR_BIBLE_UPDATE = 200;
       if (currentGenerated.trim().length >= MIN_LENGTH_FOR_BIBLE_UPDATE && project.story_bible !== undefined) {
         try {
-          const bibleRes = await fetch(
-            `/api/v1/projects/${project.id}/editor/propose-bible-update`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                current_bible: project.story_bible,
-                new_content_context: currentGenerated,
-              }),
-            }
+          const { proposed_bible } = await api.proposeBibleUpdate(
+            project.id,
+            project.story_bible,
+            currentGenerated
           );
-          if (bibleRes.ok) {
-            const { proposed_bible } = await bibleRes.json();
-            if (proposed_bible && proposed_bible !== project.story_bible) {
-              setBibleDiff({
-                open: true,
-                current: project.story_bible,
-                proposed: proposed_bible,
-              });
-            }
+          if (proposed_bible && proposed_bible !== project.story_bible) {
+            setBibleDiff({
+              open: true,
+              current: project.story_bible,
+              proposed: proposed_bible,
+            });
           }
         } catch {
           // ignore

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Project } from "@/lib/types";
+import { api } from "@/lib/api";
 
 export function useBeatGeneration({
   project,
@@ -31,23 +32,13 @@ export function useBeatGeneration({
         ? content.substring(0, textarea.selectionStart)
         : content;
 
-      const res = await fetch(
-        `/api/v1/projects/${project.id}/editor/generate-beats`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text_before_cursor: textBeforeCursor,
-            story_bible: project.story_bible ?? "",
-            outline_detail: project.outline_detail ?? "",
-          }),
-        },
+      const data = await api.generateBeats(
+        project.id,
+        textBeforeCursor,
+        project.story_bible ?? "",
+        project.outline_detail ?? ""
       );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "生成节拍失败");
-      }
-      const data = await res.json();
+
       setBeats(data.beats);
       setCurrentBeatIndex(-1);
     } catch (e: unknown) {
@@ -72,27 +63,17 @@ export function useBeatGeneration({
       setIsExpandingBeat(true);
 
       try {
-        const response = await fetch(
-          `/api/v1/projects/${project.id}/editor/expand-beat`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text_before_cursor: textBeforeCursor,
-              story_bible: project.story_bible ?? "",
-              outline_detail: project.outline_detail ?? "",
-              beat: beats[i],
-              beat_index: i,
-              total_beats: beats.length,
-              preceding_beats_prose: beatsProse,
-            }),
-          },
+        const response = await api.expandBeat(
+          project.id,
+          textBeforeCursor,
+          project.story_bible ?? "",
+          project.outline_detail ?? "",
+          beats[i],
+          i,
+          beats.length,
+          beatsProse
         );
 
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          throw new Error(err.detail || "展开节拍失败");
-        }
         if (!response.body) throw new Error("No response body");
 
         const reader = response.body.getReader();
