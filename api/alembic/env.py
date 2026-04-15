@@ -8,7 +8,7 @@ from alembic import context
 # SQLAlchemy 的引擎/连接池组件：
 # - engine_from_config: 用配置创建同步引擎（常见于 Alembic 默认模板）
 # - pool: 提供不同的连接池策略（这里会用到 NullPool）
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
 
 # Base: SQLAlchemy Declarative Base，所有 ORM 模型都会挂在它的 metadata 上
 # metadata 是 Alembic “对照当前模型结构”生成/校验迁移的依据

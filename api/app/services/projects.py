@@ -72,21 +72,12 @@ class ProjectService:
                 user_id=resolved_user_id,
             )
         default_model = payload.default_model.strip() if payload.default_model else ""
+        payload.default_provider_id = provider.id
+        payload.default_model = default_model or provider.default_model
+
         project = await self.repository.create(
             session,
-            name=payload.name,
-            description=payload.description,
-            status=payload.status,
-            default_provider_id=provider.id,
-            default_model=default_model or provider.default_model,
-            style_profile_id=payload.style_profile_id,
-            inspiration=payload.inspiration,
-            world_building=payload.world_building,
-            characters=payload.characters,
-            outline_master=payload.outline_master,
-            outline_detail=payload.outline_detail,
-            story_bible=payload.story_bible,
-            content=payload.content,
+            payload,
             user_id=resolved_user_id,
         )
         await self.repository.refresh_provider(session, project)

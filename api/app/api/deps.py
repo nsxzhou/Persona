@@ -1,10 +1,7 @@
-# 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
 from typing import Annotated
 
-# 导入FastAPI依赖注入系统
-# Depends是FastAPI最强大也是最独特的功能
 from fastapi import Depends, Request, Response
 
 from sqlalchemy.ext.asyncio import AsyncSession
