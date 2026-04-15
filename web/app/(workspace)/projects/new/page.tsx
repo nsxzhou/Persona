@@ -1,11 +1,8 @@
-import { ProjectPageClient } from "@/components/project-form";
-import { getServerProviderConfigs, getServerStyleProfiles } from "@/lib/server-api";
+import { ConceptGachaPage } from "@/components/concept-gacha-page";
+import { getServerProviderConfigs } from "@/lib/server-api";
 
 export default async function NewProjectPage() {
-  const [providers, styleProfiles] = await Promise.all([
-    getServerProviderConfigs(),
-    getServerStyleProfiles(100),
-  ]);
+  const providers = await getServerProviderConfigs();
 
-  return <ProjectPageClient mode="new" initialProviders={providers} initialStyleProfiles={styleProfiles} />;
+  return <ConceptGachaPage providers={providers} />;
 }

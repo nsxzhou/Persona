@@ -27,10 +27,10 @@ import type { Project, ProjectPayload, ProviderConfig, StyleProfileListItem } fr
 import { createProjectAction, updateProjectAction } from "@/app/(workspace)/projects/actions";
 
 const schema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, { message: "项目名称不能为空" }),
   description: z.string(),
   status: z.enum(["draft", "active", "paused"]),
-  default_provider_id: z.string().min(1),
+  default_provider_id: z.string().min(1, { message: "必须选择一个可用的默认 Provider" }),
   default_model: z.string().optional(),
   style_profile_id: z.string().nullable(),
 });
@@ -51,6 +51,8 @@ export function ProjectForm({
   submitting: boolean;
   onSubmit: (values: ProjectPayload | Partial<ProjectPayload>) => Promise<void>;
 }) {
+  const enabledProviders = useMemo(() => providers.filter(p => p.is_enabled), [providers]);
+
   const [providerOpen, setProviderOpen] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema, undefined, { mode: "sync" }),
@@ -69,11 +71,11 @@ export function ProjectForm({
       name: project?.name ?? "",
       description: project?.description ?? "",
       status: project?.status ?? "draft",
-      default_provider_id: project?.provider.id ?? providers[0]?.id ?? "",
+      default_provider_id: project?.provider?.id ?? enabledProviders[0]?.id ?? "",
       default_model: project?.default_model ?? "",
       style_profile_id: project?.style_profile_id ?? null,
     });
-  }, [form, project, providers]);
+  }, [form, project, enabledProviders]);
 
   const selectedStatus = useWatch({ control: form.control, name: "status" });
   const selectedProviderId = useWatch({ control: form.control, name: "default_provider_id" });
@@ -85,9 +87,17 @@ export function ProjectForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit(async (values) => {
-        await onSubmit(values);
-      })}
+      onSubmit={form.handleSubmit(
+        async (values) => {
+          await onSubmit(values);
+        },
+        (errors) => {
+          const firstError = Object.values(errors)[0];
+          if (firstError?.message) {
+            toast.error(firstError.message as string);
+          }
+        }
+      )}
     >
       <Card>
         <CardContent className="grid gap-5 pt-6">
@@ -145,11 +155,13 @@ export function ProjectForm({
                         <CommandItem
                           key={provider.id}
                           value={`${provider.label} ${provider.default_model}`}
+                          disabled={!provider.is_enabled}
                           onSelect={() => {
+                            if (!provider.is_enabled) return;
                             form.setValue("default_provider_id", provider.id);
                             setProviderOpen(false);
                           }}
-                          className="cursor-pointer"
+                          className={cn("cursor-pointer", !provider.is_enabled && "opacity-50 cursor-not-allowed")}
                         >
                           <Check
                             className={cn(
@@ -158,6 +170,7 @@ export function ProjectForm({
                             )}
                           />
                           {provider.label}
+                          {!provider.is_enabled && <span className="ml-1 text-destructive text-xs"> (已禁用)</span>}
                           <span className="ml-2 text-foreground/70 truncate">/ {provider.default_model}</span>
                         </CommandItem>
                       ))}

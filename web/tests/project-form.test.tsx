@@ -53,17 +53,15 @@ test("project form lets user select a style profile and submit it", async () => 
   })));
 });
 
-test("new project page is a server wrapper around the new-project client container", async () => {
+test("new project page renders the concept gacha component", async () => {
   vi.resetModules();
-  vi.doMock("@/components/project-form", () => ({
-    ProjectPageClient: ({ mode, projectId }: { mode: "new" | "detail"; projectId?: string }) => (
-      <div>project-page-client-{mode}-{projectId ?? "none"}</div>
+  vi.doMock("@/components/concept-gacha-page", () => ({
+    ConceptGachaPage: ({ providers }: { providers: unknown[] }) => (
+      <div>concept-gacha-providers-{providers.length}</div>
     ),
-    ProjectForm: () => null,
   }));
   vi.doMock("@/lib/server-api", () => ({
-    getServerProviderConfigs: vi.fn().mockResolvedValue([]),
-    getServerStyleProfiles: vi.fn().mockResolvedValue([]),
+    getServerProviderConfigs: vi.fn().mockResolvedValue([{ id: "p1" }]),
   }));
 
   const { default: NewProjectPage } = await import("@/app/(workspace)/projects/new/page");
@@ -71,16 +69,15 @@ test("new project page is a server wrapper around the new-project client contain
   const node = await NewProjectPage();
   render(node);
 
-  expect(screen.getByText("project-page-client-new-none")).toBeInTheDocument();
+  expect(screen.getByText("concept-gacha-providers-1")).toBeInTheDocument();
 });
 
-test("project detail page is a server wrapper around the detail client container", async () => {
+test("project detail page is a server wrapper around the workbench", async () => {
   vi.resetModules();
-  vi.doMock("@/components/project-form", () => ({
-    ProjectPageClient: ({ mode, projectId }: { mode: "new" | "detail"; projectId?: string }) => (
-      <div>project-page-client-{mode}-{projectId ?? "none"}</div>
+  vi.doMock("@/components/project-workbench", () => ({
+    ProjectWorkbench: ({ project }: { project: { id: string; name: string } }) => (
+      <div>project-workbench-{project.id}</div>
     ),
-    ProjectForm: () => null,
   }));
   vi.doMock("@/lib/server-api", () => ({
     getServerProject: vi.fn().mockResolvedValue({
@@ -98,5 +95,5 @@ test("project detail page is a server wrapper around the detail client container
 
   render(page);
 
-  expect(screen.getByText("project-page-client-detail-project-42")).toBeInTheDocument();
+  expect(screen.getByText("project-workbench-project-42")).toBeInTheDocument();
 });

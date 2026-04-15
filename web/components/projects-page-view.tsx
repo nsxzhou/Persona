@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, ArchiveRestore, Archive } from "lucide-react";
+import { Plus, ArchiveRestore, Archive, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
@@ -173,10 +173,18 @@ export function ProjectsPageView({
                     恢复
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={() => onArchive?.(project.id)}>
-                    <Archive className="mr-2 h-4 w-4" />
-                    归档
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={() => onArchive?.(project.id)}>
+                      <Archive className="mr-2 h-4 w-4" />
+                      归档
+                    </Button>
+                    <Button asChild className="gap-2">
+                      <Link href={`/projects/${project.id}/editor`}>
+                        <PenLine className="h-4 w-4" />
+                        开始写作
+                      </Link>
+                    </Button>
+                  </>
                 )}
                 <Button variant="secondary" asChild>
                   <Link href={`/projects/${project.id}`}>查看详情</Link>
