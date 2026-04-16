@@ -82,8 +82,8 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
                   <Textarea
                     id="style-summary-markdown"
                     className="min-h-[360px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
-                    defaultValue={summaryMarkdown ?? ""}
                     {...field}
+                    value={field.value ?? ""}
                     ref={handleRef}
                     onInput={(e) => {
                       field.onChange(e);
