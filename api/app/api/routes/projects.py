@@ -12,6 +12,7 @@ from app.api.deps import (
     ProjectChapterServiceDep,
     ProjectServiceDep,
 )
+from app.api.sse import sse_response
 from app.schemas.projects import (
     BeatExpandRequest,
     BeatGenerateRequest,
@@ -29,7 +30,6 @@ from app.schemas.projects import (
     SectionGenerateRequest,
     VolumeChaptersRequest,
 )
-from app.services.editor import sse_response
 
 logger = logging.getLogger(__name__)
 

@@ -584,6 +584,47 @@ async def test_delete_style_analysis_job_removes_storage_and_unblocks_provider_d
 
 
 @pytest.mark.asyncio
+async def test_delete_style_analysis_job_tolerates_cleanup_failures_and_deletes_db_graph(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "删除清理容错", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    assert create_response.status_code == 201
+    job = create_response.json()
+
+    async def failing_cleanup_job_artifacts(self, job_id: str) -> None:
+        del self, job_id
+        raise OSError("artifact cleanup failed")
+
+    async def failing_delete_thread(self, job_id: str) -> None:
+        del self, job_id
+        raise RuntimeError("checkpoint cleanup failed")
+
+    monkeypatch.setattr(
+        StyleAnalysisStorageService,
+        "cleanup_job_artifacts",
+        failing_cleanup_job_artifacts,
+    )
+    monkeypatch.setattr(
+        "app.services.style_analysis_jobs.StyleAnalysisCheckpointerFactory.delete_thread",
+        failing_delete_thread,
+    )
+
+    delete_job_response = await initialized_client.delete(f"/api/v1/style-analysis-jobs/{job['id']}")
+    assert delete_job_response.status_code == 204
+
+    async with app_with_db.state.session_factory() as session:
+        db_job = await session.scalar(select(StyleAnalysisJob).where(StyleAnalysisJob.id == job["id"]))
+        assert db_job is None
+
+
+@pytest.mark.asyncio
 async def test_get_style_analysis_job_logs_returns_incremental_chunks(
     client: AsyncClient,
 ) -> None:
@@ -642,6 +683,47 @@ async def test_get_style_analysis_job_logs_returns_incremental_chunks(
     oversized_payload = oversized_response.json()
     assert "第一行日志" in oversized_payload["content"]
     assert oversized_payload["truncated"] is True
+
+
+@pytest.mark.asyncio
+async def test_storage_incremental_logs_respects_max_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    storage = StyleAnalysisStorageService()
+    await storage.append_job_log("job-1", "第一行日志")
+    await storage.append_job_log("job-1", "第二行日志")
+
+    full_content = await storage.read_job_logs("job-1")
+    first_content, first_offset, first_truncated = await storage.read_job_logs_incremental(
+        "job-1",
+        offset=0,
+        max_bytes=24,
+    )
+    assert first_truncated is False
+    assert first_content
+    assert first_offset < len(full_content.encode("utf-8"))
+
+    collected = first_content
+    next_offset = first_offset
+    total_size = len(full_content.encode("utf-8"))
+    while next_offset < total_size:
+        chunk_content, chunk_offset, chunk_truncated = await storage.read_job_logs_incremental(
+            "job-1",
+            offset=next_offset,
+            max_bytes=24,
+        )
+        assert chunk_truncated is False
+        assert chunk_offset >= next_offset
+        collected += chunk_content
+        next_offset = chunk_offset
+
+    assert collected == full_content
+    get_settings.cache_clear()
 
 
 def test_build_job_result_bundle_does_not_fallback_to_legacy_draft_payload() -> None:
@@ -1049,8 +1131,9 @@ async def test_run_claimed_job_emits_periodic_heartbeat_during_long_stage(
         style_name: str,
         source_filename: str,
         stage_callback,
+        should_pause=None,
     ):
-        del provider, model_name, style_name, source_filename
+        del provider, model_name, style_name, source_filename, should_pause
 
         class FakePipeline:
             async def run(
@@ -1197,22 +1280,10 @@ async def test_worker_entrypoint_delegates_polling_to_service_run_worker(
     assert fake_engine.dispose_calls == 1
 
 
-def test_build_job_detail_response_uses_mapper_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_job_detail_response_maps_detail_fields() -> None:
     from app.api.assemblers import build_job_detail_response
 
     now = datetime.now(UTC)
-    parsed_report = build_fake_analysis_report()
-    parsed_summary = build_fake_style_summary("映射入口")
-    parsed_prompt_pack = build_fake_prompt_pack()
-
-    def fake_build_job_result_bundle(job):
-        del job
-        return None, parsed_report, parsed_summary, parsed_prompt_pack
-
-    monkeypatch.setattr(
-        "app.api.assemblers.build_job_result_bundle",
-        fake_build_job_result_bundle,
-    )
 
     job = SimpleNamespace(
         id="job-1",
@@ -1253,9 +1324,10 @@ def test_build_job_detail_response_uses_mapper_bundle(monkeypatch: pytest.Monkey
 
     response = build_job_detail_response(job)
 
-    assert response.analysis_report_markdown == parsed_report
-    assert response.style_summary_markdown == parsed_summary
-    assert response.prompt_pack_markdown == parsed_prompt_pack
+    assert response.id == "job-1"
+    assert response.style_name == "映射入口"
+    assert response.provider_id == "provider-1"
+    assert response.pause_requested_at is None
 
 
 @pytest.mark.asyncio

@@ -19,6 +19,7 @@ import { BibleTabContent } from "@/components/bible-tab-content";
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
 import { SettingsTab } from "@/components/settings-tab";
 import { api } from "@/lib/api";
+import { consumeTextEventStream } from "@/lib/sse";
 import {
   AI_ENABLED_SECTIONS,
   BIBLE_SECTION_META,
@@ -109,39 +110,13 @@ export function WorkbenchTabs({
 
         const reader = response.body.getReader();
         generationReaderRef.current = reader;
-        const decoder = new TextDecoder();
-        let buffer = "";
         let generated = "";
-        let sseError = false;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("event: error")) {
-              sseError = true;
-            } else if (line.startsWith("data: ")) {
-              const dataStr = line.substring(6);
-              if (!dataStr) continue;
-              if (sseError) {
-                const detail = (() => { try { return JSON.parse(dataStr); } catch { return dataStr; } })();
-                throw new Error(detail || "生成过程中发生错误");
-              }
-              try {
-                const parsed = JSON.parse(dataStr);
-                generated += parsed;
-                setFields((prev) => ({ ...prev, [sectionKey]: generated }));
-              } catch {
-                // ignore parse errors
-              }
-            }
-          }
-        }
+        await consumeTextEventStream(reader, {
+          onData: (_chunk, fullText) => {
+            generated = fullText;
+            setFields((prev) => ({ ...prev, [sectionKey]: fullText }));
+          },
+        });
 
         // Auto-save after generation
         if (generated) {

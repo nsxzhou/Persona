@@ -1,6 +1,8 @@
 # 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 # 导入SQLAlchemy核心组件
 # select: 用于构造SQL SELECT查询
 from sqlalchemy import select
@@ -17,6 +19,19 @@ from sqlalchemy.orm import defer, joinedload, selectinload
 
 # 导入数据库模型
 from app.db.models import StyleAnalysisJob, StyleProfile
+
+
+@dataclass(frozen=True)
+class StyleProfileCreateData:
+    source_job_id: str
+    provider_id: str
+    model_name: str
+    source_filename: str
+    style_name: str
+    analysis_report_payload: str
+    style_summary_payload: str
+    prompt_pack_payload: str
+    user_id: str
 
 
 # 风格配置文件仓库类
@@ -147,28 +162,20 @@ class StyleProfileRepository:
         self,
         session: AsyncSession,
         *,
-        source_job_id: str,
-        provider_id: str,
-        model_name: str,
-        source_filename: str,
-        style_name: str,
-        analysis_report_payload: str,
-        style_summary_payload: str,
-        prompt_pack_payload: str,
-        user_id: str,
+        data: StyleProfileCreateData,
     ) -> StyleProfile:
         # 创建新的风格配置
         # 注意：这里没有接收id参数，ID由数据库模型自动生成UUID
         profile = StyleProfile(
-            source_job_id=source_job_id,
-            provider_id=provider_id,
-            model_name=model_name,
-            source_filename=source_filename,
-            style_name=style_name,
-            analysis_report_payload=analysis_report_payload,
-            style_summary_payload=style_summary_payload,
-            prompt_pack_payload=prompt_pack_payload,
-            user_id=user_id,
+            source_job_id=data.source_job_id,
+            provider_id=data.provider_id,
+            model_name=data.model_name,
+            source_filename=data.source_filename,
+            style_name=data.style_name,
+            analysis_report_payload=data.analysis_report_payload,
+            style_summary_payload=data.style_summary_payload,
+            prompt_pack_payload=data.prompt_pack_payload,
+            user_id=data.user_id,
         )
         # 将对象添加到会话
         session.add(profile)

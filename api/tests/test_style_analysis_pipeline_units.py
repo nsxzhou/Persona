@@ -193,7 +193,7 @@ async def test_structured_llm_client_uses_reasoning_content_as_last_resort(
         result = await client.ainvoke_markdown(model=model, prompt="生成报告")
 
     assert result == "# 推理兜底\n正文"
-    assert "reasoning_content" in caplog.text
+    assert "Recovered markdown from reasoning_content fallback" in caplog.text
     get_settings.cache_clear()
 
 

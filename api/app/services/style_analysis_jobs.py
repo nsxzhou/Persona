@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from collections.abc import AsyncIterator
 
-from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError
@@ -21,8 +23,10 @@ from app.schemas.style_analysis_jobs import (
 )
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_analysis_storage import StyleAnalysisStorageService
+from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
 
 STYLE_ANALYSIS_USER_ERROR_MESSAGE = "分析任务失败，请稍后重试。"
+logger = logging.getLogger(__name__)
 
 
 def sanitize_style_analysis_error_message(error_message: str | None) -> str:
@@ -64,6 +68,7 @@ class StyleAnalysisJobService:
         self.repository = repository or StyleAnalysisJobRepository()
         self.provider_service = ProviderConfigService()
         self.storage_service = StyleAnalysisStorageService()
+        self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
 
     async def list(
         self,
@@ -452,7 +457,9 @@ class StyleAnalysisJobService:
         style_name: str,
         provider_id: str,
         model: str | None,
-        upload_file: UploadFile,
+        original_filename: str,
+        content_type: str | None,
+        content_stream: AsyncIterator[bytes],
     ) -> StyleAnalysisJob:
         provider = await self.provider_service.ensure_enabled(
             session,
@@ -460,22 +467,14 @@ class StyleAnalysisJobService:
             user_id=user_id,
         )
         resolved_user_id = user_id or provider.user_id
-        file_name = (upload_file.filename or "").strip()
+        file_name = original_filename.strip()
 
         sample_file = await self.repository.create_sample_file(
             session,
             user_id=resolved_user_id,
             original_filename=file_name,
-            content_type=upload_file.content_type,
+            content_type=content_type,
         )
-
-        from app.core.config import get_settings
-        from app.services.style_analysis_text import clean_and_decode_upload
-
-        settings = get_settings()
-        max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
-        
-        content_stream = clean_and_decode_upload(upload_file, max_bytes=max_bytes)
         storage_path, total_bytes, checksum = await self.storage_service.save_file(
             sample_file.id,
             content_stream,
@@ -504,6 +503,28 @@ class StyleAnalysisJobService:
             include_payloads=False,
         )
 
+    async def _delete_job_external_resources(
+        self,
+        *,
+        job_id: str,
+        sample_storage_path: str | None,
+    ) -> None:
+        if sample_storage_path:
+            try:
+                Path(sample_storage_path).unlink(missing_ok=True)
+            except OSError:
+                logger.exception("Failed to delete style sample file", extra={"job_id": job_id})
+
+        try:
+            await self.storage_service.cleanup_job_artifacts(job_id)
+        except OSError:
+            logger.exception("Failed to cleanup style analysis artifacts", extra={"job_id": job_id})
+
+        try:
+            await self.checkpointer_factory.delete_thread(job_id)
+        except Exception:
+            logger.exception("Failed to cleanup style analysis checkpoint", extra={"job_id": job_id})
+
     async def delete(
         self,
         session: AsyncSession,
@@ -519,24 +540,8 @@ class StyleAnalysisJobService:
 
         sample_storage_path = job.sample_file.storage_path
         await self.repository.delete_job_graph(session, job)
-        
-        if sample_storage_path:
-            from pathlib import Path
-            try:
-                Path(sample_storage_path).unlink(missing_ok=True)
-            except OSError:
-                pass
-        await self.storage_service.cleanup_job_artifacts(job_id)
-
-        try:
-            from app.services.style_analysis_checkpointer import (
-                StyleAnalysisCheckpointerFactory,
-            )
-            import logging
-            logger = logging.getLogger(__name__)
-
-            checkpointer_factory = StyleAnalysisCheckpointerFactory()
-            await checkpointer_factory.delete_thread(job_id)
-            await checkpointer_factory.aclose()
-        except Exception:
-            pass
+        await session.flush()
+        await self._delete_job_external_resources(
+            job_id=job_id,
+            sample_storage_path=sample_storage_path,
+        )

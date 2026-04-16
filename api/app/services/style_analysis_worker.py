@@ -63,10 +63,7 @@ class StyleAnalysisRunContext:
     classification: InputClassification
 
 
-# 风格分析 Worker：负责从数据库领取 pending 任务，执行 pipeline，并写回结果/状态
-# 该类不常驻轮询本身；轮询逻辑由 run_worker 提供，便于在不同入口中复用
-class StyleAnalysisWorkerService:
-    # 初始化 worker 所依赖的 service：job 管理、checkpointer、存储读写
+class StyleAnalysisJobExecutor:
     def __init__(self) -> None:
         self.job_service = StyleAnalysisJobService()
         self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
@@ -78,14 +75,9 @@ class StyleAnalysisWorkerService:
     async def aclose(self) -> None:
         await self.checkpointer_factory.aclose()
 
-    # 处理一个 pending 任务：
-    # 1) 抢占数据库中的一个 pending job
-    # 2) 如果没有任务，返回 False（上层可据此决定 sleep/退避）
-    # 3) 如果抢到任务，执行并返回 True
     async def process_next_pending(
         self, session_factory: async_sessionmaker[AsyncSession]
     ) -> bool:
-        # 为当前 worker 实例生成唯一标识，便于在数据库层做 lease/锁定归属
         worker_id = self._worker_id
         job_id = await self._claim_next_pending_job(session_factory, worker_id=worker_id)
         if job_id is None:
@@ -434,10 +426,10 @@ class StyleAnalysisWorkerService:
     async def _delete_checkpointer_thread(self, job_id: str) -> None:
         await self.checkpointer_factory.delete_thread(job_id)
 
-    # 轮询运行 worker：
-    # - 以 poll_interval_seconds 为基础间隔不断尝试处理 pending job
-    # - 当没有任务时采用指数退避，最大不超过 max_poll_interval_seconds
-    # - 定期检查并处理 stale 的 running job（可能是进程崩溃/心跳中断导致）
+class StyleAnalysisWorkerRunner:
+    def __init__(self, executor: StyleAnalysisJobExecutor | None = None) -> None:
+        self.executor = executor or StyleAnalysisJobExecutor()
+
     async def run_worker(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -467,22 +459,41 @@ class StyleAnalysisWorkerService:
         while True:
             now = time.monotonic()
             if now - last_stale_check >= stale_check_interval:
-                await self.fail_stale_running_jobs(
+                await self.executor.fail_stale_running_jobs(
                     session_factory,
                     stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
                 )
                 last_stale_check = now
-            processed = await self.process_next_pending(session_factory)
+            processed = await self.executor.process_next_pending(session_factory)
             if processed:
-                # 有任务被处理：重置退避间隔，尽快处理后续任务
                 current_interval = poll_interval_seconds
                 continue
-            # 没任务：sleep 并指数退避，避免空转占用 CPU
             await asyncio.sleep(current_interval)
             current_interval = min(max_poll_interval_seconds, current_interval * 2)
 
-    # 处理 stale 的 running 任务：
-    # - 将长时间未心跳的 running job 恢复为 pending（可重试）或标记为 failed（超过最大重试）
+    async def aclose(self) -> None:
+        await self.executor.aclose()
+
+
+# 风格分析 Worker：兼容旧接口，内部委托给 executor/runner
+class StyleAnalysisWorkerService(StyleAnalysisJobExecutor):
+    def __init__(self) -> None:
+        super().__init__()
+        self._runner = StyleAnalysisWorkerRunner(self)
+
+    async def run_worker(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        poll_interval_seconds: float,
+        max_poll_interval_seconds: float | None = None,
+    ) -> None:
+        await self._runner.run_worker(
+            session_factory,
+            poll_interval_seconds=poll_interval_seconds,
+            max_poll_interval_seconds=max_poll_interval_seconds,
+        )
+
     async def fail_stale_running_jobs(
         self,
         session_factory: async_sessionmaker[AsyncSession],

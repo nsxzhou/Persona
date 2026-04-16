@@ -43,7 +43,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
   onSave: () => void;
   saving: boolean;
 }) {
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const { field } = useController({
     name: "promptPackMarkdown",
     control: form.control,
@@ -52,7 +52,6 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
   const handleRef = React.useCallback(
     (e: HTMLTextAreaElement | null) => {
       field.ref(e);
-      // @ts-ignore
       textareaRef.current = e;
     },
     [field]

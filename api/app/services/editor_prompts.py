@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from app.core.bible_fields import BIBLE_FIELD_KEYS, BIBLE_FIELD_LABELS
-from app.core.length_presets import LENGTH_PRESETS, LengthPresetKey
+from app.core.length_presets import LengthPresetKey
 
 BEAT_GENERATE_CONTEXT_CHARS = 2000
 BEAT_EXPAND_CONTEXT_CHARS = 1500

@@ -19,6 +19,16 @@ export type StyleAnalysisJobStatus = StyleAnalysisJob["status"];
 export type StyleAnalysisJobStage = NonNullable<StyleAnalysisJob["stage"]>;
 export type StyleProfile = OpenApiSchema<"StyleProfileResponse">;
 export type StyleProfileListItem = OpenApiSchema<"StyleProfileListItemResponse">;
+export type SetupStatusResponse = OpenApiSchema<"SetupStatusResponse">;
+export type SetupResponse = OpenApiSchema<"SetupResponse">;
+export type StyleAnalysisJobStatusSnapshot = OpenApiSchema<"StyleAnalysisJobStatusResponse">;
+export type StyleAnalysisJobCreatePayload =
+  Omit<components["schemas"]["Body_create_style_analysis_job_api_v1_style_analysis_jobs_post"], "file"> & {
+    file: File;
+  };
+export type BeatGenerateResponse = OpenApiSchema<"BeatGenerateResponse">;
+export type BibleUpdateResponse = OpenApiSchema<"BibleUpdateResponse">;
+export type ConnectionTestResponse = OpenApiSchema<"ConnectionTestResponse">;
 
 export type SetupPayload = components["schemas"]["SetupRequest"];
 export type LoginPayload = components["schemas"]["LoginRequest"];

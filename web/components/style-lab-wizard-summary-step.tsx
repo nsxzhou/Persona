@@ -33,7 +33,7 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
   onBack: () => void;
   onNext: () => void;
 }) {
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const { field } = useController({
     name: "styleSummaryMarkdown",
     control: form.control,
@@ -42,7 +42,6 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
   const handleRef = React.useCallback(
     (e: HTMLTextAreaElement | null) => {
       field.ref(e);
-      // @ts-ignore
       textareaRef.current = e;
     },
     [field]

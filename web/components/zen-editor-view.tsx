@@ -70,6 +70,8 @@ export function ZenEditorView({
   const [chapterFocusMode, setChapterFocusMode] = useState<"idle" | "navigate" | "generate_beats">(
     initialChapterSelection ? (initialIntent ?? "navigate") : "idle",
   );
+  const initialSelectionRef = useRef(initialChapterSelection);
+  const initialIntentRef = useRef(initialIntent);
 
   const parsedOutline = useMemo(
     () => parseOutline(projectData.outline_detail),
@@ -250,7 +252,7 @@ export function ZenEditorView({
     }
     setContent(selectedChapterRecord.content);
     setSavedChapterContent(selectedChapterRecord.content);
-  }, [selectedChapterRecord?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedChapterRecord]);
 
   useEffect(() => {
     if (!selectedChapterRecord || content === selectedChapterRecord.content) return;
@@ -281,10 +283,10 @@ export function ZenEditorView({
       setIsLeftExpanded(false);
       setIsRightExpanded(false);
     } else if (width < 1280) {
-      if (!initialChapterSelection) setIsLeftExpanded(false);
-      if (initialIntent !== "generate_beats") setIsRightExpanded(false);
+      if (!initialSelectionRef.current) setIsLeftExpanded(false);
+      if (initialIntentRef.current !== "generate_beats") setIsRightExpanded(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleLeft = useCallback(() => {
     setLeftPanelMode("navigation");

@@ -1,11 +1,16 @@
 import type {
   AnalysisMeta,
   AnalysisReportMarkdown,
+  BeatGenerateResponse,
+  BibleUpdateResponse,
+  ConnectionTestResponse,
   ConceptGeneratePayload,
   ConceptGenerateResult,
   LoginPayload,
   PromptPackMarkdown,
   Project,
+  SetupResponse,
+  SetupStatusResponse,
   ProjectChapter,
   ProjectChapterUpdate,
   ProjectPayload,
@@ -13,8 +18,10 @@ import type {
   ProviderPayload,
   SetupPayload,
   StyleAnalysisJob,
+  StyleAnalysisJobCreatePayload,
   StyleAnalysisJobListItem,
   StyleAnalysisJobLogs,
+  StyleAnalysisJobStatusSnapshot,
   StyleProfile,
   StyleProfileCreatePayload,
   StyleProfileListItem,
@@ -23,11 +30,6 @@ import type {
   User,
 } from "@/lib/types";
 
-type StyleAnalysisJobStatus = Pick<
-  StyleAnalysisJob,
-  "id" | "status" | "stage" | "error_message" | "updated_at"
->;
-
 type Requester = {
   <T>(path: string, init?: RequestInit): Promise<T>;
   raw: (path: string, init?: RequestInit) => Promise<Response>;
@@ -35,9 +37,9 @@ type Requester = {
 
 export function createApiClient(request: Requester) {
   return {
-    getSetupStatus: () => request<{ initialized: boolean }>("/api/v1/setup/status"),
+    getSetupStatus: () => request<SetupStatusResponse>("/api/v1/setup/status"),
     setup: (payload: SetupPayload) =>
-      request<{ user: User; provider: ProviderConfig }>("/api/v1/setup", {
+      request<SetupResponse>("/api/v1/setup", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
@@ -67,7 +69,7 @@ export function createApiClient(request: Requester) {
         body: JSON.stringify(payload),
       }),
     testProviderConfig: (id: string) =>
-      request<{ status: string; message: string }>(`/api/v1/provider-configs/${id}/test`, {
+      request<ConnectionTestResponse>(`/api/v1/provider-configs/${id}/test`, {
         method: "POST",
       }),
     deleteProviderConfig: (id: string) =>
@@ -133,7 +135,7 @@ export function createApiClient(request: Requester) {
       );
     },
     getStyleAnalysisJobStatus: (id: string) =>
-      request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/status`),
+      request<StyleAnalysisJobStatusSnapshot>(`/api/v1/style-analysis-jobs/${id}/status`),
     getStyleAnalysisJob: (id: string) =>
       request<StyleAnalysisJob>(`/api/v1/style-analysis-jobs/${id}`),
     getStyleAnalysisJobLogs: (id: string, offset = 0) =>
@@ -147,23 +149,18 @@ export function createApiClient(request: Requester) {
     getStyleAnalysisJobPromptPack: (id: string) =>
       request<PromptPackMarkdown>(`/api/v1/style-analysis-jobs/${id}/prompt-pack`),
     resumeStyleAnalysisJob: (id: string) =>
-      request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/resume`, {
+      request<StyleAnalysisJobStatusSnapshot>(`/api/v1/style-analysis-jobs/${id}/resume`, {
         method: "POST",
       }),
     pauseStyleAnalysisJob: (id: string) =>
-      request<StyleAnalysisJobStatus>(`/api/v1/style-analysis-jobs/${id}/pause`, {
+      request<StyleAnalysisJobStatusSnapshot>(`/api/v1/style-analysis-jobs/${id}/pause`, {
         method: "POST",
       }),
     deleteStyleAnalysisJob: (id: string) =>
       request<void>(`/api/v1/style-analysis-jobs/${id}`, {
         method: "DELETE",
       }),
-    createStyleAnalysisJob: (payload: {
-      style_name: string;
-      provider_id: string;
-      model?: string;
-      file: File;
-    }) => {
+    createStyleAnalysisJob: (payload: StyleAnalysisJobCreatePayload & { file: File }) => {
       const formData = new FormData();
       formData.append("style_name", payload.style_name);
       formData.append("provider_id", payload.provider_id);
@@ -175,10 +172,6 @@ export function createApiClient(request: Requester) {
       return request<StyleAnalysisJobListItem>("/api/v1/style-analysis-jobs", {
         method: "POST",
         body: formData,
-        // Omit Content-Type to let the browser set it with the boundary
-        headers: {
-          "Content-Type": undefined as any,
-        },
       });
     },
     getStyleProfiles: (params?: { offset?: number; limit?: number }) => {
@@ -225,7 +218,7 @@ export function createApiClient(request: Requester) {
       currentRuntimeThreads: string,
       newContentContext: string,
     ) =>
-      request<{ proposed_runtime_state: string; proposed_runtime_threads: string }>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
+      request<BibleUpdateResponse>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
         method: "POST",
         body: JSON.stringify({
           current_runtime_state: currentRuntimeState,
@@ -243,7 +236,7 @@ export function createApiClient(request: Requester) {
       previousChapterContext?: string,
       totalContentLength = 0,
     ) =>
-      request<{ beats: string[] }>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
+      request<BeatGenerateResponse>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
         method: "POST",
         body: JSON.stringify({
           text_before_cursor: textBeforeCursor,

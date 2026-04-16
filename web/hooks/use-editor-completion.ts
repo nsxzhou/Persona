@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Project } from "@/lib/types";
 import { api } from "@/lib/api";
+import { consumeTextEventStream } from "@/lib/sse";
 
 export function useEditorCompletion({
   project,
@@ -72,11 +73,8 @@ export function useEditorCompletion({
 
       const reader = response.body.getReader();
       readerRef.current = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
 
       let currentGenerated = "";
-      let sseError = false;
       let needsFlush = false;
 
       const flushToState = () => {
@@ -91,49 +89,19 @@ export function useEditorCompletion({
       };
 
       let lastFlushTime = Date.now();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("event: error")) {
-            sseError = true;
-          } else if (line.startsWith("data: ")) {
-            const dataStr = line.substring(6);
-            if (!dataStr) continue;
-            if (sseError) {
-              const detail = (() => {
-                try {
-                  return JSON.parse(dataStr);
-                } catch {
-                  return dataStr;
-                }
-              })();
-              throw new Error(detail || "生成过程中发生错误");
-            }
-            try {
-              const parsed = JSON.parse(dataStr);
-              currentGenerated += parsed;
-              needsFlush = true;
-            } catch {
-              // ignore
-            }
-          }
-        }
-        if (needsFlush) {
+      await consumeTextEventStream(reader, {
+        onData: (chunk, fullText) => {
+          currentGenerated = fullText;
+          if (!chunk) return;
+          needsFlush = true;
           const now = Date.now();
           if (now - lastFlushTime > 100) {
             lastFlushTime = now;
             if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
             rafRef.current = requestAnimationFrame(flushToState);
           }
-        }
-      }
+        },
+      });
       
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
