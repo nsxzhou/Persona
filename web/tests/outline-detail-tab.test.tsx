@@ -1,0 +1,90 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
+
+import { OutlineDetailTab } from "@/components/outline-detail-tab";
+
+const apiMock = vi.hoisted(() => ({
+  generateVolumes: vi.fn(),
+  generateVolumeChapters: vi.fn(),
+  updateProject: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/api", () => ({
+  api: apiMock,
+}));
+
+describe("OutlineDetailTab", () => {
+  test("renders unified toolbar modes and compact volume overview", () => {
+    render(
+      <OutlineDetailTab
+        value={`## 第一卷 反派开局
+> 主打反转与误导
+
+### 第1章 反派开局，短命名单
+- **核心事件**：开局认命
+
+### 第2章 纨绔是假装，天香楼才是入口
+- **核心事件**：天香楼试探`}
+        onChange={vi.fn()}
+        projectId="project-1"
+        outlineMaster="已存在总纲"
+        {...({
+          content: "# 第1章 反派开局，短命名单",
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "预览" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI 生成" })).toBeInTheDocument();
+    expect(screen.getByText("第一卷 反派开局")).toBeInTheDocument();
+    expect(screen.getByText("已完成 1/2 章")).toBeInTheDocument();
+    expect(screen.queryByText("第1章 反派开局，短命名单")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看章节" }));
+
+    const chapterLink = screen.getByRole("link", { name: "第1章 反派开局，短命名单" });
+    expect(chapterLink).toHaveAttribute(
+      "href",
+      "/projects/project-1/editor?volumeIndex=0&chapterIndex=0&intent=navigate",
+    );
+
+    const generateLink = screen.getByRole("link", { name: "AI 生成 第1章 反派开局，短命名单" });
+    expect(generateLink).toHaveAttribute(
+      "href",
+      "/projects/project-1/editor?volumeIndex=0&chapterIndex=0&intent=generate_beats",
+    );
+  });
+
+  test("shows generate button for a volume without chapters and confirm before regenerating an existing volume", () => {
+    render(
+      <OutlineDetailTab
+        value={`## 第一幕：高危开局与关系占位
+> 主题：先活下来，把必死反派改造成可操盘变量 | 字数范围：0-4万字
+
+## 第二幕：洗白不是认怂，结盟就是换资源
+> 主题：从单点自救转向结构经营，把名声、关系与组织力一起做出来 | 字数范围：4-8万字
+
+### 第1章 纨绔是假装，天香楼才是入口
+- **核心事件**：天香楼试探`}
+        onChange={vi.fn()}
+        projectId="project-2"
+        outlineMaster="已存在总纲"
+        content=""
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "生成本卷章节细纲" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新生成章节细纲" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "重新生成章节细纲" }));
+    expect(screen.getByText("确认重新生成章节细纲？")).toBeInTheDocument();
+    expect(screen.getByText("当前卷下已生成的章节细纲将被覆盖，但不会影响其他分卷。")).toBeInTheDocument();
+  });
+});
