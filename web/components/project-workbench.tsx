@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight as Breadcrumb,
@@ -15,12 +15,21 @@ export function ProjectWorkbench({
   project: initialProject,
   providers,
   styleProfiles,
+  initialTab = "inspiration",
+  highlightedVolumeIndex = null,
 }: {
   project: Project;
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
+  initialTab?: string;
+  highlightedVolumeIndex?: number | null;
 }) {
   const [displayName, setDisplayName] = useState(initialProject.name);
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -55,6 +64,9 @@ export function ProjectWorkbench({
         providers={providers}
         styleProfiles={styleProfiles}
         onNameChange={setDisplayName}
+        activeTab={activeTab}
+        onActiveTabChange={setActiveTab}
+        highlightedVolumeIndex={highlightedVolumeIndex}
       />
     </div>
   );

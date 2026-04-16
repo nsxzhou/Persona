@@ -32,6 +32,9 @@ interface WorkbenchTabsProps {
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
   onNameChange?: (name: string) => void;
+  activeTab?: string;
+  onActiveTabChange?: (value: string) => void;
+  highlightedVolumeIndex?: number | null;
 }
 
 export function WorkbenchTabs({
@@ -39,6 +42,9 @@ export function WorkbenchTabs({
   providers,
   styleProfiles,
   onNameChange,
+  activeTab = "inspiration",
+  onActiveTabChange,
+  highlightedVolumeIndex = null,
 }: WorkbenchTabsProps) {
   // ---- Bible field state ----
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
@@ -207,7 +213,7 @@ export function WorkbenchTabs({
   };
 
   return (
-    <Tabs defaultValue="inspiration" className="w-full">
+    <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
       <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
         {BIBLE_SECTION_META.map((section) => (
           <TabsTrigger
@@ -242,6 +248,8 @@ export function WorkbenchTabs({
                 onChange={(val) => handleFieldChange("outline_detail", val)}
                 projectId={project.id}
                 outlineMaster={fields.outline_master}
+                content={project.content}
+                highlightedVolumeIndex={highlightedVolumeIndex}
               />
             ) : (
               <BibleTabContent
