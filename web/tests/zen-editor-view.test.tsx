@@ -186,6 +186,21 @@ describe("ZenEditorView", () => {
     expect(screen.getByText("已定位章节")).toBeInTheDocument();
   });
 
+  test("typing into the selected chapter does not get reset by chapter synchronization", async () => {
+    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("");
+    });
+
+    const textbox = screen.getByRole("textbox");
+    fireEvent.change(textbox, { target: { value: "新写入的正文" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("新写入的正文");
+    });
+  });
+
   test("book and settings rail buttons switch different left panel modes", async () => {
     render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
 

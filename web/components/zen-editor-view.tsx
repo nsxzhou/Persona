@@ -252,7 +252,7 @@ export function ZenEditorView({
     }
     setContent(selectedChapterRecord.content);
     setSavedChapterContent(selectedChapterRecord.content);
-  }, [selectedChapterRecord]);
+  }, [selectedChapterRecord?.id]);
 
   useEffect(() => {
     if (!selectedChapterRecord || content === selectedChapterRecord.content) return;
