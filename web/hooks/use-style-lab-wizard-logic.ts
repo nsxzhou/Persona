@@ -6,6 +6,7 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
+import { styleLabQueryKeys } from "@/lib/style-lab-query-keys";
 import { formSchema, makeEmptyFormValues, type FormValues } from "@/lib/validations/style-lab";
 import {
   type StyleAnalysisJobLogs,
@@ -63,7 +64,7 @@ function mergeStatusIntoJob(
 
 function useStyleLabJobStatusQuery(jobId: string) {
   return useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "status"],
+    queryKey: styleLabQueryKeys.jobs.status(jobId),
     queryFn: () => api.getStyleAnalysisJobStatus(jobId),
     refetchInterval: (query) => (isProcessingStatus(query.state.data?.status) ? 2000 : false),
   });
@@ -71,7 +72,7 @@ function useStyleLabJobStatusQuery(jobId: string) {
 
 function useStyleLabJobDetailQuery(jobId: string) {
   return useQuery({
-    queryKey: ["style-analysis-jobs", jobId],
+    queryKey: styleLabQueryKeys.jobs.detail(jobId),
     queryFn: () => api.getStyleAnalysisJob(jobId),
   });
 }
@@ -86,7 +87,7 @@ export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
   }, [jobId]);
 
   const query = useQuery<StyleAnalysisJobLogs>({
-    queryKey: ["style-analysis-jobs", jobId, "logs"],
+    queryKey: styleLabQueryKeys.jobs.logs(jobId),
     queryFn: () => api.getStyleAnalysisJobLogs(jobId, offset),
     refetchInterval: isProcessing ? 1000 : false,
   });
@@ -120,19 +121,19 @@ function useStyleLabResourcesQueries(jobId: string, job: StyleAnalysisJob | null
   const needsPromptPack = isCompletedAndNoProfile;
 
   const reportQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "analysis-report"],
+    queryKey: styleLabQueryKeys.jobs.analysisReport(jobId),
     queryFn: () => api.getStyleAnalysisJobAnalysisReport(jobId),
     enabled: needsReport,
   });
   
   const summaryQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "style-summary"],
+    queryKey: styleLabQueryKeys.jobs.styleSummary(jobId),
     queryFn: () => api.getStyleAnalysisJobStyleSummary(jobId),
     enabled: needsSummary,
   });
   
   const promptPackQuery = useQuery({
-    queryKey: ["style-analysis-jobs", jobId, "prompt-pack"],
+    queryKey: styleLabQueryKeys.jobs.promptPack(jobId),
     queryFn: () => api.getStyleAnalysisJobPromptPack(jobId),
     enabled: needsPromptPack,
   });
@@ -318,7 +319,9 @@ function useSaveStyleProfileMutation({
       if (onSuccessCallback) {
         onSuccessCallback();
         void queryClient.invalidateQueries({ queryKey: ["style-profiles", job?.style_profile_id] });
-        void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", job?.id] });
+        if (job?.id) {
+          void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(job.id) });
+        }
       } else {
         router.push("/style-lab");
       }
@@ -336,8 +339,8 @@ function useResumeStyleAnalysisJobMutation(jobId: string) {
     mutationFn: () => api.resumeStyleAnalysisJob(jobId),
     onSuccess: () => {
       toast.success("任务已恢复");
-      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId, "status"] });
-      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId] });
+      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(jobId) });
+      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "未知错误");
@@ -352,8 +355,8 @@ function usePauseStyleAnalysisJobMutation(jobId: string) {
     mutationFn: () => api.pauseStyleAnalysisJob(jobId),
     onSuccess: () => {
       toast.success("已发送暂停请求");
-      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId, "status"] });
-      void queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs", jobId] });
+      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(jobId) });
+      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "未知错误");

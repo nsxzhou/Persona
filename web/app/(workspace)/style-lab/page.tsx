@@ -30,6 +30,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { api } from "@/lib/api";
+import { styleLabQueryKeys } from "@/lib/style-lab-query-keys";
 import { type StyleAnalysisJobListItem } from "@/lib/types";
 import { StyleLabNewTaskDialog } from "@/components/style-lab-new-task-dialog";
 
@@ -51,22 +52,22 @@ export default function StyleLabPage() {
   });
 
   const jobsQuery = useQuery({
-    queryKey: ["style-analysis-jobs", page],
-    queryFn: () => api.getStyleAnalysisJobs({ 
+    queryKey: styleLabQueryKeys.jobs.list(page),
+    queryFn: () => api.getStyleAnalysisJobs({
       offset: (page - 1) * PAGE_SIZE,
-      limit: PAGE_SIZE 
+      limit: PAGE_SIZE
     }),
   });
 
   const deleteJobMutation = useMutation({
     mutationFn: api.deleteStyleAnalysisJob,
     onMutate: async (jobId) => {
-      await queryClient.cancelQueries({ queryKey: ["style-analysis-jobs"] });
+      await queryClient.cancelQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
       const previousQueries = queryClient.getQueriesData<StyleAnalysisJobListItem[]>({
-        queryKey: ["style-analysis-jobs"],
+        queryKey: styleLabQueryKeys.jobs.lists(),
       });
       for (const [queryKey, data] of previousQueries) {
-        if (!data) continue;
+        if (!Array.isArray(data)) continue;
         queryClient.setQueryData<StyleAnalysisJobListItem[]>(
           queryKey,
           data.filter((job) => job.id !== jobId),
@@ -74,7 +75,8 @@ export default function StyleLabPage() {
       }
       return { previousQueries };
     },
-    onSuccess: () => {
+    onSuccess: (_data, jobId) => {
+      queryClient.removeQueries({ queryKey: styleLabQueryKeys.jobs.detail(jobId) });
       toast.success("分析任务已删除");
     },
     onError: (error, _jobId, context) => {
@@ -86,7 +88,7 @@ export default function StyleLabPage() {
       toast.error(error instanceof Error ? error.message : "删除失败");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs"] });
+      queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
     },
   });
 

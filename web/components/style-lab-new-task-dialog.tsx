@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { styleLabQueryKeys } from "@/lib/style-lab-query-keys";
 import type { ProviderConfig } from "@/lib/types";
 
 const createTaskSchema = z.object({
@@ -101,7 +102,7 @@ export function StyleLabNewTaskDialog({ providers }: { providers: ProviderConfig
     mutationFn: api.createStyleAnalysisJob,
     onSuccess: (newJob) => {
       toast.success("分析任务已创建");
-      queryClient.invalidateQueries({ queryKey: ["style-analysis-jobs"] });
+      queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
       setOpen(false);
       resetForm();
       // Redirect to the new wizard page

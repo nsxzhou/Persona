@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, vi } from "vitest";
+import { toast } from "sonner";
 
 import StyleLabPage from "@/app/(workspace)/style-lab/page";
 import { StyleLabWizardView } from "@/components/style-lab-wizard-view";
@@ -102,8 +103,16 @@ beforeEach(() => {
   apiMock.getStyleAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
 });
 
-function renderDashboard() {
-  const queryClient = new QueryClient();
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function renderDashboard(queryClient = createTestQueryClient()) {
   return render(
     <QueryClientProvider client={queryClient}>
       <StyleLabPage />
@@ -111,11 +120,10 @@ function renderDashboard() {
   );
 }
 
-function renderWizard() {
-  const queryClient = new QueryClient();
+function renderWizard(queryClient = createTestQueryClient(), jobId = "job-1") {
   return render(
     <QueryClientProvider client={queryClient}>
-      <StyleLabWizardView jobId="job-1" />
+      <StyleLabWizardView jobId={jobId} />
     </QueryClientProvider>,
   );
 }
@@ -247,6 +255,59 @@ test("style lab page opens delete confirm dialog when clicking delete", async ()
   fireEvent.click(screen.getByTitle("删除任务"));
 
   expect(await screen.findByText("确定要删除该分析任务吗？")).toBeInTheDocument();
+});
+
+test("style lab page deletes job after visiting workspace", async () => {
+  const queryClient = createTestQueryClient();
+  const cachedJob = buildSucceededJob({
+    id: "job-delete",
+    style_name: "可删除任务",
+  });
+
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-delete",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:01:00Z",
+  });
+  apiMock.getStyleAnalysisJob.mockResolvedValueOnce(cachedJob);
+  apiMock.getProjects.mockResolvedValueOnce([]);
+
+  const wizard = renderWizard(queryClient, "job-delete");
+  await screen.findByText("可删除任务");
+  wizard.unmount();
+
+  apiMock.getProviderConfigs.mockResolvedValueOnce([
+    {
+      id: "provider-1",
+      label: "Primary Gateway",
+      base_url: "https://api.openai.com/v1",
+      default_model: "gpt-4.1-mini",
+      api_key_hint: "****1234",
+      is_enabled: true,
+      last_test_status: null,
+      last_test_error: null,
+      last_tested_at: null,
+      created_at: "2026-04-09T00:00:00Z",
+      updated_at: "2026-04-09T00:00:00Z",
+    },
+  ]);
+  apiMock.getStyleAnalysisJobs.mockResolvedValueOnce([cachedJob]);
+  apiMock.getStyleAnalysisJobs.mockResolvedValue([]);
+  apiMock.deleteStyleAnalysisJob.mockResolvedValueOnce(undefined);
+
+  renderDashboard(queryClient);
+
+  await screen.findByText("可删除任务");
+  fireEvent.click(screen.getByTitle("删除任务"));
+  fireEvent.click(await screen.findByRole("button", { name: "删除" }));
+
+  await waitFor(() =>
+    expect(apiMock.deleteStyleAnalysisJob).toHaveBeenCalledWith("job-delete", expect.anything()),
+  );
+  await waitFor(() => expect(screen.queryByText("可删除任务")).not.toBeInTheDocument());
+  expect(toast.error).not.toHaveBeenCalled();
 });
 
 test("style lab wizard shows running stage feedback", async () => {
