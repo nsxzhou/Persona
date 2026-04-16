@@ -2,17 +2,25 @@
 
 import Link from "next/link";
 import { PropsWithChildren } from "react";
+import { usePathname } from "next/navigation";
 import { BookOpenText, FolderKanban, KeyRound, Sparkles, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+export const NAV_ITEMS = [
   { href: "/projects", label: "项目", icon: FolderKanban },
   { href: "/settings/models", label: "模型配置", icon: KeyRound },
   { href: "/style-lab", label: "风格实验室", icon: Sparkles },
   { href: "/settings/account", label: "账户", icon: UserCircle2 },
-];
+] as const;
 
 export function AppShell({ children }: PropsWithChildren) {
+  const pathname = usePathname();
+  const isEditorRoute = pathname.includes("/editor");
+
+  if (isEditorRoute) {
+    return <main className="w-full">{children}</main>;
+  }
+
   return (
     <div className="flex min-h-screen bg-zinc-50 text-foreground">
       <aside className="fixed inset-y-0 z-10 flex w-64 flex-col border-r border-border bg-background">
@@ -21,7 +29,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <span className="font-semibold tracking-tight">Persona Studio</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          {navItems.map(({ href, label, icon: Icon }) => (
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}

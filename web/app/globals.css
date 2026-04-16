@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
+@import "@uiw/react-markdown-preview/markdown.css";
 
 @theme {
   --color-background: var(--background);
@@ -20,10 +21,10 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
 }
 
 :root {
@@ -44,7 +45,7 @@
   --accent-foreground: #000000;
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
-  --radius: 0.25rem;
+  --radius: 0px;
   
   color-scheme: light;
   --font-ui: "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
@@ -73,7 +74,7 @@ html, body {
   }
   ::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: var(--radius);
+    border-radius: 0;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);

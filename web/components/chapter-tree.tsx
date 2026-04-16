@@ -9,6 +9,7 @@ interface ChapterTreeProps {
   currentChapter: { volumeIndex: number; chapterIndex: number } | null;
   completedChapters: Set<string>;
   onSelectChapter: (volumeIndex: number, chapterIndex: number) => void;
+  onGoGenerateVolume?: (volumeIndex: number) => void;
 }
 
 export function ChapterTree({
@@ -16,6 +17,7 @@ export function ChapterTree({
   currentChapter,
   completedChapters,
   onSelectChapter,
+  onGoGenerateVolume,
 }: ChapterTreeProps) {
   const [collapsedVolumes, setCollapsedVolumes] = useState<Set<number>>(new Set());
 
@@ -66,6 +68,23 @@ export function ChapterTree({
 
             {/* Chapters */}
             {!isCollapsed &&
+              vol.chapters.length === 0 && (
+                <div className="px-8 py-3 space-y-2 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">本卷尚未生成章节细纲</p>
+                  <p>请先回到「分卷与章节细纲」页为该分卷生成章节细纲</p>
+                  {onGoGenerateVolume ? (
+                    <button
+                      type="button"
+                      onClick={() => onGoGenerateVolume(vi)}
+                      className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      去生成本卷章节细纲
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            {!isCollapsed &&
+              vol.chapters.length > 0 &&
               vol.chapters.map((ch, ci) => {
                 const isActive =
                   currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === ci;
@@ -76,9 +95,10 @@ export function ChapterTree({
                     <button
                       type="button"
                       onClick={() => onSelectChapter(vi, ci)}
+                      aria-label={ch.title}
                       className={`flex w-full items-center gap-2 pl-8 pr-4 py-1.5 text-left text-xs transition-colors ${
                         isActive
-                          ? "bg-primary/10 border-l-2 border-primary"
+                          ? "border-l-2 border-primary bg-primary/15 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.18)]"
                           : "hover:bg-muted/30"
                       }`}
                     >
@@ -94,7 +114,7 @@ export function ChapterTree({
                           isCompleted
                             ? "line-through text-muted-foreground/50"
                             : isActive
-                              ? "font-medium text-foreground"
+                              ? "font-semibold text-foreground"
                               : "text-muted-foreground"
                         }`}
                       >

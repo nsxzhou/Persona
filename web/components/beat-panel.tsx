@@ -4,12 +4,12 @@ import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronRight,
   Loader2,
   Play,
   Plus,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,11 +60,11 @@ export function BeatPanel({
   };
 
   return (
-    <aside className="w-80 border-l border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
+    <aside className="w-full border-l border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <span className="text-sm font-semibold">节拍写作</span>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-          <X className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 

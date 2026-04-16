@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,9 @@ export function EditorSidePanel({
   completedChapters,
   onSelectChapter,
   onGenerateBeatsForChapter,
-  onClose,
+  onCollapse,
   onFieldChange,
+  onGoGenerateVolume,
 }: {
   project: Project;
   contentLength: number;
@@ -30,8 +31,9 @@ export function EditorSidePanel({
   completedChapters: Set<string>;
   onSelectChapter: (volumeIndex: number, chapterIndex: number) => void;
   onGenerateBeatsForChapter: () => void;
-  onClose: () => void;
+  onCollapse: () => void;
   onFieldChange?: (field: BibleFieldKey, value: string) => void;
+  onGoGenerateVolume?: (volumeIndex: number) => void;
 }) {
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     inspiration: project.inspiration,
@@ -116,18 +118,20 @@ export function EditorSidePanel({
         ? "进入收束"
         : null;
 
-  // Current chapter info for the action button
   const currentChapterTitle = currentChapter
     ? parsedOutline.volumes[currentChapter.volumeIndex]?.chapters[currentChapter.chapterIndex]?.title
     : null;
+  const currentVolumeHasChapters = currentChapter
+    ? (parsedOutline.volumes[currentChapter.volumeIndex]?.chapters.length ?? 0) > 0
+    : true;
 
   return (
-    <aside className="w-80 border-l border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
+    <aside className="w-[260px] border-r border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <span className="text-sm font-semibold">创作导航</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onCollapse}>
+          <ChevronLeft className="h-4 w-4" />
         </Button>
       </div>
 
@@ -149,18 +153,19 @@ export function EditorSidePanel({
         </div>
       </div>
 
-      {/* Chapter Tree — main scrollable area */}
+      {/* Chapter Tree */}
       <div className="flex-1 overflow-y-auto">
         <ChapterTree
           outline={parsedOutline}
           currentChapter={currentChapter}
           completedChapters={completedChapters}
           onSelectChapter={onSelectChapter}
+          onGoGenerateVolume={onGoGenerateVolume}
         />
       </div>
 
       {/* Current chapter action */}
-      {currentChapterTitle && (
+      {currentChapterTitle && currentVolumeHasChapters && (
         <div className="border-t border-border p-3 space-y-1.5 shrink-0">
           <Button
             className="w-full gap-2"

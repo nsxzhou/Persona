@@ -1,7 +1,7 @@
 "use client";
 
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import UiwMarkdownPreview from "@uiw/react-markdown-preview";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 
 interface MarkdownPreviewProps {
   content: string;
@@ -14,10 +14,24 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
   }
 
   return (
-    <div className={`prose prose-sm dark:prose-invert max-w-none ${className ?? ""}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-        {content}
-      </ReactMarkdown>
+    <div className={className}>
+      <UiwMarkdownPreview
+        source={content}
+        rehypePlugins={[
+          [
+            rehypeSanitize,
+            {
+              ...defaultSchema,
+              attributes: {
+                ...defaultSchema.attributes,
+                "*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
+              },
+            },
+          ],
+        ]}
+        style={{ backgroundColor: "transparent" }}
+        wrapperElement={{ "data-color-mode": "light" }}
+      />
     </div>
   );
 }
