@@ -32,7 +32,9 @@ export function useEditorCompletion({
   disabled?: boolean;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(
+    null,
+  );
   const rafRef = useRef<number | null>(null);
 
   const handleStop = useCallback(() => {
@@ -47,7 +49,9 @@ export function useEditorCompletion({
 
   const handleGenerate = async () => {
     if (!project.style_profile_id) {
-      toast.error("项目未挂载风格档案，无法进行续写。请先在项目设置中选择风格档案。");
+      toast.error(
+        "项目未挂载风格档案，无法进行续写。请先在项目设置中选择风格档案。",
+      );
       return;
     }
     if (isGenerating || disabled) return;
@@ -102,11 +106,11 @@ export function useEditorCompletion({
           }
         },
       });
-      
+
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       flushToState();
-      
+
       requestAnimationFrame(() => {
         if (textarea) {
           const newPos = cursorPosition + currentGenerated.length;
@@ -115,17 +119,25 @@ export function useEditorCompletion({
         }
       });
 
-      const MIN_LENGTH_FOR_BIBLE_UPDATE = 200;
-      if (currentGenerated.trim().length >= MIN_LENGTH_FOR_BIBLE_UPDATE && project.runtime_state !== undefined) {
+      const MIN_LENGTH_FOR_BIBLE_UPDATE = 1000;
+      if (
+        currentGenerated.trim().length >= MIN_LENGTH_FOR_BIBLE_UPDATE &&
+        project.runtime_state !== undefined
+      ) {
         try {
-          const { proposed_runtime_state, proposed_runtime_threads } = await api.proposeBibleUpdate(
-            project.id,
-            project.runtime_state,
-            project.runtime_threads ?? "",
-            currentGenerated
-          );
-          const stateChanged = proposed_runtime_state && proposed_runtime_state !== project.runtime_state;
-          const threadsChanged = proposed_runtime_threads && proposed_runtime_threads !== (project.runtime_threads ?? "");
+          const { proposed_runtime_state, proposed_runtime_threads } =
+            await api.proposeBibleUpdate(
+              project.id,
+              project.runtime_state,
+              project.runtime_threads ?? "",
+              currentGenerated,
+            );
+          const stateChanged =
+            proposed_runtime_state &&
+            proposed_runtime_state !== project.runtime_state;
+          const threadsChanged =
+            proposed_runtime_threads &&
+            proposed_runtime_threads !== (project.runtime_threads ?? "");
           if (stateChanged || threadsChanged) {
             setBibleDiff({
               open: true,
