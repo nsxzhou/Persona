@@ -2,12 +2,29 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ZenEditorView } from "@/components/zen-editor-view";
+import type { Project } from "@/lib/types";
 
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+const completionMock = vi.hoisted(() => ({
+  isGenerating: false,
+  handleGenerate: vi.fn(),
+  handleStop: vi.fn(),
+}));
+
+const beatGenerationMock = vi.hoisted(() => ({
+  beats: [] as string[],
+  setBeats: vi.fn(),
+  currentBeatIndex: -1,
+  isGeneratingBeats: false,
+  isExpandingBeat: false,
+  handleGenerateBeats: vi.fn(),
+  handleStartBeatExpand: vi.fn(),
 }));
 
 const apiMock = vi.hoisted(() => ({
@@ -31,23 +48,11 @@ vi.mock("@/hooks/use-editor-autosave", () => ({
 }));
 
 vi.mock("@/hooks/use-editor-completion", () => ({
-  useEditorCompletion: () => ({
-    isGenerating: false,
-    handleGenerate: vi.fn(),
-    handleStop: vi.fn(),
-  }),
+  useEditorCompletion: () => completionMock,
 }));
 
 vi.mock("@/hooks/use-beat-generation", () => ({
-  useBeatGeneration: () => ({
-    beats: [],
-    setBeats: vi.fn(),
-    currentBeatIndex: -1,
-    isGeneratingBeats: false,
-    isExpandingBeat: false,
-    handleGenerateBeats: vi.fn(),
-    handleStartBeatExpand: vi.fn(),
-  }),
+  useBeatGeneration: () => beatGenerationMock,
 }));
 
 vi.mock("@/components/beat-panel", () => ({
@@ -70,7 +75,7 @@ vi.mock("next/navigation", async () => {
   };
 });
 
-const project = {
+const project: Project = {
   id: "project-1",
   name: "反派攻略手册",
   description: "",
@@ -96,7 +101,7 @@ const project = {
   archived_at: null,
   created_at: "2026-04-10T00:00:00Z",
   updated_at: "2026-04-10T00:00:00Z",
-  provider: null,
+  provider: null as never,
 };
 
 const chapters = [
@@ -126,6 +131,16 @@ const chapters = [
 
 describe("ZenEditorView", () => {
   beforeEach(() => {
+    completionMock.isGenerating = false;
+    completionMock.handleGenerate.mockReset();
+    completionMock.handleStop.mockReset();
+    beatGenerationMock.beats = [];
+    beatGenerationMock.setBeats.mockReset();
+    beatGenerationMock.currentBeatIndex = -1;
+    beatGenerationMock.isGeneratingBeats = false;
+    beatGenerationMock.isExpandingBeat = false;
+    beatGenerationMock.handleGenerateBeats.mockReset();
+    beatGenerationMock.handleStartBeatExpand.mockReset();
     apiMock.getProjectChapters.mockReset();
     apiMock.syncProjectChapters.mockReset();
     apiMock.updateProjectChapter.mockReset();
@@ -198,6 +213,29 @@ describe("ZenEditorView", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toHaveValue("新写入的正文");
+    });
+  });
+
+  test("disables the editor textarea while streaming completion is active", async () => {
+    completionMock.isGenerating = true;
+
+    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toBeDisabled();
+    });
+    expect(screen.getByRole("button", { name: /停止 \(Esc\)/ })).toBeInTheDocument();
+  });
+
+  test("disables the editor textarea while beat expansion is active", async () => {
+    beatGenerationMock.isExpandingBeat = true;
+    beatGenerationMock.beats = ["第一拍"];
+    beatGenerationMock.currentBeatIndex = 0;
+
+    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toBeDisabled();
     });
   });
 

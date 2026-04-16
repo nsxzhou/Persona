@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
 from httpx import AsyncClient
 
@@ -148,3 +151,53 @@ def test_editor_prompt_builders_include_chapter_scoped_context() -> None:
     assert "## 当前章节" in expand_message
     assert "第1章上下文" in expand_message
     assert "## 前序章节" in expand_message
+
+
+@pytest.mark.asyncio
+async def test_sync_outline_fetches_existing_chapters_once_and_reuses_in_memory_index() -> None:
+    from app.services.project_chapters import ProjectChapterService
+
+    repository = SimpleNamespace(
+        list_by_project=AsyncMock(
+            return_value=[
+                SimpleNamespace(
+                    id="chapter-1",
+                    project_id="project-1",
+                    volume_index=0,
+                    chapter_index=0,
+                    title="旧标题",
+                    content="",
+                    word_count=0,
+                )
+            ]
+        ),
+        get_by_position=AsyncMock(),
+        create=AsyncMock(
+            return_value=SimpleNamespace(
+                id="chapter-2",
+                project_id="project-1",
+                volume_index=0,
+                chapter_index=1,
+                title="第2章：案卷上的名字",
+                content="",
+                word_count=0,
+            )
+        ),
+        flush=AsyncMock(),
+    )
+    project_service = SimpleNamespace(
+        get_or_404=AsyncMock(return_value=SimpleNamespace(outline_detail=OUTLINE_DETAIL))
+    )
+    service = ProjectChapterService(repository=repository, project_service=project_service)
+
+    chapters = await service.sync_outline(
+        session=object(),
+        project_id="project-1",
+        user_id="user-1",
+    )
+
+    repository.list_by_project.assert_awaited_once()
+    repository.get_by_position.assert_not_called()
+    repository.create.assert_awaited_once()
+    repository.flush.assert_awaited_once()
+    assert chapters[0].title == "第1章：醒在死牢"

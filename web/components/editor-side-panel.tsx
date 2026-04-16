@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ChapterTree } from "@/components/chapter-tree";
-import { api } from "@/lib/api";
 import { getProgress, LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
 import type { ParsedOutline } from "@/lib/outline-parser";
 import type { Project } from "@/lib/types";
@@ -22,6 +20,7 @@ export function EditorSidePanel({
   onGenerateBeatsForChapter,
   onCollapse,
   onFieldChange,
+  onPersistField,
   onGoGenerateVolume,
   mode = "navigation",
 }: {
@@ -34,6 +33,7 @@ export function EditorSidePanel({
   onGenerateBeatsForChapter: () => void;
   onCollapse: () => void;
   onFieldChange?: (field: BibleFieldKey, value: string) => void;
+  onPersistField?: (field: BibleFieldKey, value: string) => Promise<void>;
   onGoGenerateVolume?: (volumeIndex: number) => void;
   mode?: "navigation" | "settings";
 }) {
@@ -74,15 +74,12 @@ export function EditorSidePanel({
   const debouncedSave = useCallback(
     (field: string, value: string) => {
       if (saveTimers.current[field]) clearTimeout(saveTimers.current[field]);
-      saveTimers.current[field] = setTimeout(async () => {
-        try {
-          await api.updateProject(project.id, { [field]: value });
-        } catch {
-          toast.error("保存失败");
-        }
+      if (!onPersistField) return;
+      saveTimers.current[field] = setTimeout(() => {
+        void onPersistField(field as BibleFieldKey, value);
       }, 1500);
     },
-    [project.id],
+    [onPersistField],
   );
 
   useEffect(() => {

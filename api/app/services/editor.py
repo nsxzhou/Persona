@@ -20,17 +20,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import BadRequestError, UnprocessableEntityError
 from app.core.length_presets import LENGTH_PRESETS, get_progress
-from app.services.outline_parser import parse_outline
-from app.schemas.projects import (
+from app.schemas.editor import (
     BeatExpandRequest,
     BeatGenerateRequest,
     BibleUpdateRequest,
     ConceptGenerateRequest,
-    EditorCompletionRequest,
-    ConceptItem,
     SectionGenerateRequest,
     VolumeChaptersRequest,
 )
+from app.schemas.projects import ConceptItem
 from app.services.context_assembly import (
     WritingContextSections,
     assemble_writing_context,
@@ -54,6 +52,7 @@ from app.services.editor_prompts import (
     parse_bible_update_response,
 )
 from app.services.llm_provider import LLMProviderService
+from app.services.outline_parser import parse_outline
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_profiles import StyleProfileService
@@ -62,7 +61,8 @@ logger = logging.getLogger(__name__)
 
 _BEAT_PREFIX_RE = re.compile(r"^[\d]+[.、)\]\s]+|^[-*+]\s+")
 
-class EditorService:
+
+class _EditorServiceBase:
     def __init__(
         self,
         llm_service: LLMProviderService | None = None,
@@ -74,8 +74,6 @@ class EditorService:
         self.project_service = project_service or ProjectService()
         self.style_profile_service = style_profile_service or StyleProfileService()
         self.provider_config_service = provider_config_service or ProviderConfigService()
-
-    # -- private helpers ---------------------------------------------------- #
 
     async def _get_style_prompt(
         self,
@@ -93,14 +91,14 @@ class EditorService:
         )
         return style_profile.prompt_pack_payload
 
-    # -- public methods ----------------------------------------------------- #
 
+class WritingEditorService(_EditorServiceBase):
     async def stream_completion(
         self,
         session: AsyncSession,
         project_id: str,
         user_id: str,
-        payload: EditorCompletionRequest,
+        payload,
     ) -> AsyncGenerator[str, None]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
@@ -189,6 +187,46 @@ class EditorService:
         ]
         return self.llm_service.stream_messages(project.provider, messages)
 
+    async def stream_beat_expansion(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        user_id: str,
+        payload: BeatExpandRequest,
+    ) -> AsyncGenerator[str, None]:
+        project = await self.project_service.get_or_404(
+            session, project_id, user_id=user_id,
+        )
+        if not project.provider:
+            raise BadRequestError("项目未配置 Provider，无法调用 AI")
+
+        style_prompt = await self._get_style_prompt(session, project, user_id)
+        preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
+
+        system_prompt = build_beat_expand_system_prompt(
+            style_prompt, beat_expand_chars=preset_cfg["beat_expand_chars"],
+        )
+        user_message = build_beat_expand_user_message(
+            payload.text_before_cursor,
+            payload.beat,
+            payload.beat_index,
+            payload.total_beats,
+            payload.preceding_beats_prose,
+            payload.outline_detail,
+            payload.runtime_state,
+            payload.runtime_threads,
+            current_chapter_context=payload.current_chapter_context,
+            previous_chapter_context=payload.previous_chapter_context,
+        )
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_message),
+        ]
+        return self.llm_service.stream_messages(project.provider, messages)
+
+
+class MemoryEditorService(_EditorServiceBase):
     async def propose_bible_update(
         self,
         session: AsyncSession,
@@ -196,7 +234,6 @@ class EditorService:
         user_id: str,
         payload: BibleUpdateRequest,
     ) -> tuple[str, str]:
-        """Propose runtime field updates. Returns (proposed_state, proposed_threads)."""
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
@@ -217,6 +254,8 @@ class EditorService:
         )
         return parse_bible_update_response(raw)
 
+
+class PlanningEditorService(_EditorServiceBase):
     async def generate_beats(
         self,
         session: AsyncSession,
@@ -232,10 +271,9 @@ class EditorService:
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
-        # 篇幅适配：默认 beat 数量和进度上下文
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
         num_beats = payload.num_beats
-        if num_beats == 8:  # schema 默认值，替换为 preset 默认值
+        if num_beats == 8:
             num_beats = preset_cfg["beat_count_default"]
 
         length_context = ""
@@ -277,46 +315,6 @@ class EditorService:
         ]
         return [b for b in beats if b]
 
-    async def stream_beat_expansion(
-        self,
-        session: AsyncSession,
-        project_id: str,
-        user_id: str,
-        payload: BeatExpandRequest,
-    ) -> AsyncGenerator[str, None]:
-        project = await self.project_service.get_or_404(
-            session, project_id, user_id=user_id,
-        )
-        if not project.provider:
-            raise BadRequestError("项目未配置 Provider，无法调用 AI")
-
-        style_prompt = await self._get_style_prompt(session, project, user_id)
-
-        # 篇幅适配：Beat 扩展字数
-        preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
-
-        system_prompt = build_beat_expand_system_prompt(
-            style_prompt, beat_expand_chars=preset_cfg["beat_expand_chars"],
-        )
-        user_message = build_beat_expand_user_message(
-            payload.text_before_cursor,
-            payload.beat,
-            payload.beat_index,
-            payload.total_beats,
-            payload.preceding_beats_prose,
-            payload.outline_detail,
-            payload.runtime_state,
-            payload.runtime_threads,
-            current_chapter_context=payload.current_chapter_context,
-            previous_chapter_context=payload.previous_chapter_context,
-        )
-
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_message),
-        ]
-        return self.llm_service.stream_messages(project.provider, messages)
-
     async def generate_concepts(
         self,
         session: AsyncSession,
@@ -339,7 +337,7 @@ class EditorService:
             model_name=payload.model,
         )
 
-        return self._parse_concepts(raw, payload.count)
+        return EditorService._parse_concepts(raw, payload.count)
 
     async def stream_volume_generation(
         self,
@@ -415,6 +413,49 @@ class EditorService:
             HumanMessage(content=user_message),
         ]
         return self.llm_service.stream_messages(project.provider, messages)
+
+
+class EditorService:
+    def __init__(
+        self,
+        llm_service: LLMProviderService | None = None,
+        project_service: ProjectService | None = None,
+        style_profile_service: StyleProfileService | None = None,
+        provider_config_service: ProviderConfigService | None = None,
+    ) -> None:
+        shared_kwargs = {
+            "llm_service": llm_service,
+            "project_service": project_service,
+            "style_profile_service": style_profile_service,
+            "provider_config_service": provider_config_service,
+        }
+        self.writing = WritingEditorService(**shared_kwargs)
+        self.memory = MemoryEditorService(**shared_kwargs)
+        self.planning = PlanningEditorService(**shared_kwargs)
+
+    async def stream_completion(self, session: AsyncSession, project_id: str, user_id: str, payload) -> AsyncGenerator[str, None]:
+        return await self.writing.stream_completion(session, project_id, user_id, payload)
+
+    async def stream_section_generation(self, session: AsyncSession, project_id: str, user_id: str, payload: SectionGenerateRequest) -> AsyncGenerator[str, None]:
+        return await self.writing.stream_section_generation(session, project_id, user_id, payload)
+
+    async def propose_bible_update(self, session: AsyncSession, project_id: str, user_id: str, payload: BibleUpdateRequest) -> tuple[str, str]:
+        return await self.memory.propose_bible_update(session, project_id, user_id, payload)
+
+    async def generate_beats(self, session: AsyncSession, project_id: str, user_id: str, payload: BeatGenerateRequest) -> list[str]:
+        return await self.planning.generate_beats(session, project_id, user_id, payload)
+
+    async def stream_beat_expansion(self, session: AsyncSession, project_id: str, user_id: str, payload: BeatExpandRequest) -> AsyncGenerator[str, None]:
+        return await self.writing.stream_beat_expansion(session, project_id, user_id, payload)
+
+    async def generate_concepts(self, session: AsyncSession, user_id: str, payload: ConceptGenerateRequest) -> list[ConceptItem]:
+        return await self.planning.generate_concepts(session, user_id, payload)
+
+    async def stream_volume_generation(self, session: AsyncSession, project_id: str, user_id: str) -> AsyncGenerator[str, None]:
+        return await self.planning.stream_volume_generation(session, project_id, user_id)
+
+    async def stream_volume_chapters_generation(self, session: AsyncSession, project_id: str, user_id: str, payload: VolumeChaptersRequest) -> AsyncGenerator[str, None]:
+        return await self.planning.stream_volume_chapters_generation(session, project_id, user_id, payload)
 
     @staticmethod
     def _parse_concepts(raw: str, expected_count: int) -> list[ConceptItem]:

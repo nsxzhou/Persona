@@ -1,15 +1,15 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Project } from "@/lib/types";
 import { api } from "@/lib/api";
-import { consumeTextEventStream } from "@/lib/sse";
+import { useStreamingText } from "@/hooks/use-streaming-text";
 
 export function useEditorCompletion({
   project,
   content,
   setContent,
   textareaRef,
-  setBibleDiff,
+  onGeneratedContent,
   currentChapterContext = "",
   previousChapterContext = "",
   totalContentLength = 0,
@@ -19,31 +19,19 @@ export function useEditorCompletion({
   content: string;
   setContent: (val: string | ((prev: string) => string)) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  setBibleDiff: (val: {
-    open: boolean;
-    currentState: string;
-    proposedState: string;
-    currentThreads: string;
-    proposedThreads: string;
-  }) => void;
+  onGeneratedContent?: (generated: string) => Promise<void> | void;
   currentChapterContext?: string;
   previousChapterContext?: string;
   totalContentLength?: number;
   disabled?: boolean;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const { consumeResponse, cancelStream } = useStreamingText();
 
   const handleStop = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    readerRef.current?.cancel();
-    readerRef.current = null;
+    cancelStream();
     setIsGenerating(false);
-  }, []);
+  }, [cancelStream]);
 
   const handleGenerate = async () => {
     if (!project.style_profile_id) {
@@ -57,6 +45,7 @@ export function useEditorCompletion({
 
     const cursorPosition = textarea.selectionStart;
     const textBeforeCursor = content.substring(0, cursorPosition);
+    const textAfterCursor = content.substring(cursorPosition);
 
     setIsGenerating(true);
 
@@ -69,44 +58,13 @@ export function useEditorCompletion({
         totalContentLength,
       );
 
-      if (!response.body) throw new Error("No response body");
-
-      const reader = response.body.getReader();
-      readerRef.current = reader;
-
-      let currentGenerated = "";
-      let needsFlush = false;
-
-      const flushToState = () => {
-        rafRef.current = null;
-        const captured = currentGenerated;
-        setContent((prev) => {
-          const before = textBeforeCursor;
-          const after = prev.substring(cursorPosition);
-          return before + captured + after;
-        });
-        needsFlush = false;
-      };
-
-      let lastFlushTime = Date.now();
-      await consumeTextEventStream(reader, {
-        onData: (chunk, fullText) => {
-          currentGenerated = fullText;
-          if (!chunk) return;
-          needsFlush = true;
-          const now = Date.now();
-          if (now - lastFlushTime > 100) {
-            lastFlushTime = now;
-            if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-            rafRef.current = requestAnimationFrame(flushToState);
-          }
+      const currentGenerated = await consumeResponse({
+        response,
+        onFlush: (fullText) => {
+          setContent(`${textBeforeCursor}${fullText}${textAfterCursor}`);
         },
       });
-      
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      flushToState();
-      
+
       requestAnimationFrame(() => {
         if (textarea) {
           const newPos = cursorPosition + currentGenerated.length;
@@ -115,34 +73,10 @@ export function useEditorCompletion({
         }
       });
 
-      const MIN_LENGTH_FOR_BIBLE_UPDATE = 200;
-      if (currentGenerated.trim().length >= MIN_LENGTH_FOR_BIBLE_UPDATE && project.runtime_state !== undefined) {
-        try {
-          const { proposed_runtime_state, proposed_runtime_threads } = await api.proposeBibleUpdate(
-            project.id,
-            project.runtime_state,
-            project.runtime_threads ?? "",
-            currentGenerated
-          );
-          const stateChanged = proposed_runtime_state && proposed_runtime_state !== project.runtime_state;
-          const threadsChanged = proposed_runtime_threads && proposed_runtime_threads !== (project.runtime_threads ?? "");
-          if (stateChanged || threadsChanged) {
-            setBibleDiff({
-              open: true,
-              currentState: project.runtime_state,
-              proposedState: proposed_runtime_state,
-              currentThreads: project.runtime_threads ?? "",
-              proposedThreads: proposed_runtime_threads,
-            });
-          }
-        } catch {
-          // ignore
-        }
+      if (currentGenerated.trim()) {
+        await onGeneratedContent?.(currentGenerated);
       }
-
-      readerRef.current = null;
     } catch (e: unknown) {
-      readerRef.current = null;
       const message = e instanceof Error ? e.message : "请求失败";
       if (message !== "The operation was cancelled.") {
         toast.error(message);
