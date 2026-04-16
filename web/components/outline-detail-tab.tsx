@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { api } from "@/lib/api";
 import { parseOutline, type ParsedOutline } from "@/lib/outline-parser";
+import { consumeTextEventStream } from "@/lib/sse";
 import type { ProjectChapter } from "@/lib/types";
 
 type OutlineDetailMode = "edit" | "preview" | "generate";
@@ -71,45 +72,11 @@ export function OutlineDetailTab({
 
       const reader = response.body.getReader();
       readerRef.current = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let generated = "";
-      let sseError = false;
-
-      while (true) {
-        const { done, value: chunk } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("event: error")) {
-            sseError = true;
-          } else if (line.startsWith("data: ")) {
-            const dataStr = line.substring(6);
-            if (!dataStr) continue;
-            if (sseError) {
-              const detail = (() => {
-                try {
-                  return JSON.parse(dataStr);
-                } catch {
-                  return dataStr;
-                }
-              })();
-              throw new Error(detail || "生成过程中发生错误");
-            }
-            try {
-              const parsed = JSON.parse(dataStr);
-              generated += parsed;
-              onChunk(generated);
-            } catch {
-              // ignore parse errors
-            }
-          }
-        }
-      }
+      const generated = await consumeTextEventStream(reader, {
+        onData: (_chunk, fullText) => {
+          onChunk(fullText);
+        },
+      });
 
       readerRef.current = null;
       return generated;

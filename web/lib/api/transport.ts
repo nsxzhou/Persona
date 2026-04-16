@@ -12,8 +12,14 @@ function buildUrl(baseUrl: string, path: string) {
 export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) {
   const buildRequestArgs = (path: string, init?: RequestInit) => {
     const headers = new Headers(defaultInit?.headers ?? undefined);
-    for (const [key, value] of new Headers(init?.headers ?? undefined).entries()) {
-      headers.set(key, value);
+    if (init?.headers) {
+      for (const [key, value] of Object.entries(Object.fromEntries(new Headers(init.headers).entries()))) {
+        if (value === "undefined") {
+          headers.delete(key);
+          continue;
+        }
+        headers.set(key, value);
+      }
     }
     if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");

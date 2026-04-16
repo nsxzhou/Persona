@@ -200,6 +200,7 @@ class StyleAnalysisStorageService:
         job_id: str,
         *,
         offset: int,
+        max_bytes: int = 64 * 1024,
     ) -> tuple[str, int, bool]:
         path = self._log_artifact_path(job_id)
         if not path.exists():
@@ -212,6 +213,8 @@ class StyleAnalysisStorageService:
 
         async with aiofiles.open(path, "rb") as handle:
             await handle.seek(effective_offset)
-            content = (await handle.read()).decode("utf-8")
+            raw_content = await handle.read(max_bytes)
+            content = raw_content.decode("utf-8")
 
-        return content, file_size, truncated
+        next_offset = min(file_size, effective_offset + len(raw_content))
+        return content, next_offset, truncated

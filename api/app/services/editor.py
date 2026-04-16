@@ -15,14 +15,12 @@ import logging
 import re
 from collections.abc import AsyncGenerator
 
-from fastapi.responses import StreamingResponse
-
 from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import BadRequestError, UnprocessableEntityError
 from app.core.length_presets import LENGTH_PRESETS, get_progress
-from app.services.outline_parser import parse_outline, insert_chapters_into_volume
+from app.services.outline_parser import parse_outline
 from app.schemas.projects import (
     BeatExpandRequest,
     BeatGenerateRequest,
@@ -33,7 +31,10 @@ from app.schemas.projects import (
     SectionGenerateRequest,
     VolumeChaptersRequest,
 )
-from app.services.context_assembly import assemble_writing_context
+from app.services.context_assembly import (
+    WritingContextSections,
+    assemble_writing_context,
+)
 from app.services.editor_prompts import (
     VALID_SECTIONS,
     build_beat_expand_system_prompt,
@@ -60,29 +61,6 @@ from app.services.style_profiles import StyleProfileService
 logger = logging.getLogger(__name__)
 
 _BEAT_PREFIX_RE = re.compile(r"^[\d]+[.、)\]\s]+|^[-*+]\s+")
-
-
-# ---- SSE response helper -------------------------------------------------- #
-
-def sse_response(
-    content_generator: AsyncGenerator[str, None],
-    *,
-    error_log_message: str = "SSE streaming error",
-) -> StreamingResponse:
-    """Wrap an async str generator into a ``text/event-stream`` response."""
-
-    async def _sse():
-        try:
-            async for chunk in content_generator:
-                yield f"data: {json.dumps(chunk)}\n\n"
-        except Exception as e:
-            logger.exception(error_log_message)
-            yield f"event: error\ndata: {json.dumps(str(e))}\n\n"
-
-    return StreamingResponse(_sse(), media_type="text/event-stream")
-
-
-# ---- EditorService -------------------------------------------------------- #
 
 class EditorService:
     def __init__(
@@ -137,13 +115,15 @@ class EditorService:
         )
         system_prompt = assemble_writing_context(
             style_profile.prompt_pack_payload,
-            inspiration=project.inspiration,
-            world_building=project.world_building,
-            characters=project.characters,
-            outline_master=project.outline_master,
-            outline_detail=project.outline_detail,
-            runtime_state=project.runtime_state,
-            runtime_threads=project.runtime_threads,
+            sections=WritingContextSections(
+                inspiration=project.inspiration,
+                world_building=project.world_building,
+                characters=project.characters,
+                outline_master=project.outline_master,
+                outline_detail=project.outline_detail,
+                runtime_state=project.runtime_state,
+                runtime_threads=project.runtime_threads,
+            ),
             length_preset=project.length_preset,
             content_length=payload.total_content_length,
         )

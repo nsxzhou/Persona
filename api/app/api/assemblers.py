@@ -81,7 +81,7 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
         completed_at=job.completed_at,
         created_at=job.created_at,
         updated_at=job.updated_at,
-        pause_requested_at=job.pause_requested_at,
+        pause_requested_at=getattr(job, "pause_requested_at", None),
         provider=job.provider,
         sample_file=job.sample_file,
         style_profile_id=job.style_profile_id,

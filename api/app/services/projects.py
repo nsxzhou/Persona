@@ -77,8 +77,20 @@ class ProjectService:
 
         project = await self.repository.create(
             session,
-            payload,
             user_id=resolved_user_id,
+            name=payload.name,
+            description=payload.description,
+            status=payload.status,
+            default_provider_id=payload.default_provider_id,
+            default_model=payload.default_model,
+            style_profile_id=payload.style_profile_id,
+            inspiration=payload.inspiration,
+            world_building=payload.world_building,
+            characters=payload.characters,
+            outline_master=payload.outline_master,
+            outline_detail=payload.outline_detail,
+            runtime_state=payload.runtime_state,
+            runtime_threads=payload.runtime_threads,
         )
         await self.repository.refresh_provider(session, project)
         return await self.get_or_404(session, project.id, user_id=resolved_user_id)

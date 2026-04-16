@@ -11,6 +11,9 @@ const apiMock = vi.hoisted(() => ({
   deleteStyleAnalysisJob: vi.fn(),
   getStyleAnalysisJobStatus: vi.fn(),
   getStyleAnalysisJob: vi.fn(),
+  getStyleAnalysisJobAnalysisReport: vi.fn(),
+  getStyleAnalysisJobStyleSummary: vi.fn(),
+  getStyleAnalysisJobPromptPack: vi.fn(),
   createStyleAnalysisJob: vi.fn(),
   getStyleProfiles: vi.fn(),
   getStyleProfile: vi.fn(),
@@ -94,6 +97,9 @@ beforeEach(() => {
     error_message: null,
     updated_at: "2026-04-09T00:01:00Z",
   });
+  apiMock.getStyleAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
+  apiMock.getStyleAnalysisJobStyleSummary.mockResolvedValue(buildSummary());
+  apiMock.getStyleAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
 });
 
 function renderDashboard() {
@@ -406,6 +412,33 @@ test("style lab wizard renders markdown report and saves new profile with mount"
       }),
     ),
   );
+});
+
+test("style lab wizard fetches detail resources from dedicated endpoints instead of legacy job fields", async () => {
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    updated_at: "2026-04-09T00:02:00Z",
+  });
+  apiMock.getStyleAnalysisJob.mockResolvedValue(
+    buildSucceededJob({
+      style_profile_id: null,
+      style_profile: null,
+    }),
+  );
+  apiMock.getStyleAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
+  apiMock.getStyleAnalysisJobStyleSummary.mockResolvedValue(buildSummary());
+  apiMock.getStyleAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
+  apiMock.getProjects.mockResolvedValue([]);
+
+  renderWizard();
+
+  expect(await screen.findByText(/执行摘要/)).toBeInTheDocument();
+  expect(apiMock.getStyleAnalysisJobAnalysisReport).toHaveBeenCalledWith("job-1");
+  expect(apiMock.getStyleAnalysisJobStyleSummary).toHaveBeenCalledWith("job-1");
+  expect(apiMock.getStyleAnalysisJobPromptPack).toHaveBeenCalledWith("job-1");
 });
 
 test("style lab profile view allows editing prompt only without summary error", async () => {

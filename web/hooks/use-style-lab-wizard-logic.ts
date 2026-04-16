@@ -11,6 +11,7 @@ import {
   type StyleAnalysisJobLogs,
   type StyleAnalysisJob,
   type StyleProfile,
+  type StyleAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 
 type WizardStep = 1 | 2 | 3;
@@ -28,10 +29,7 @@ type DetailQueryLike = {
   error: Error | null;
 };
 
-type StyleAnalysisJobStatusSnapshot = Pick<
-  StyleAnalysisJob,
-  "id" | "status" | "stage" | "error_message" | "updated_at"
->;
+const LOG_WINDOW_SIZE = 64 * 1024;
 
 export function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
   return status === "pending" || status === "running";
@@ -88,16 +86,18 @@ export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
   }, [jobId]);
 
   const query = useQuery<StyleAnalysisJobLogs>({
-    queryKey: ["style-analysis-jobs", jobId, "logs", offset],
+    queryKey: ["style-analysis-jobs", jobId, "logs"],
     queryFn: () => api.getStyleAnalysisJobLogs(jobId, offset),
     refetchInterval: isProcessing ? 1000 : false,
-    placeholderData: (previous) => previous,
   });
 
   React.useEffect(() => {
     const payload = query.data as StyleAnalysisJobLogs | undefined;
     if (!payload) return;
-    setLogs((prev) => (payload.truncated ? payload.content : prev + payload.content));
+    setLogs((prev) => {
+      const next = payload.truncated ? payload.content : prev + payload.content;
+      return next.slice(-LOG_WINDOW_SIZE);
+    });
     setOffset((prev) => (prev === payload.next_offset ? prev : payload.next_offset));
   }, [query.data]);
 
@@ -115,9 +115,9 @@ function useStyleLabResourcesQueries(jobId: string, job: StyleAnalysisJob | null
   });
 
   const isCompletedAndNoProfile = Boolean(job && job.status === "succeeded" && !job.style_profile_id);
-  const needsReport = isCompletedAndNoProfile && !("analysis_report_markdown" in (job || {}) && (job as any).analysis_report_markdown);
-  const needsSummary = isCompletedAndNoProfile && !("style_summary_markdown" in (job || {}) && (job as any).style_summary_markdown);
-  const needsPromptPack = isCompletedAndNoProfile && !("prompt_pack_markdown" in (job || {}) && (job as any).prompt_pack_markdown);
+  const needsReport = isCompletedAndNoProfile;
+  const needsSummary = isCompletedAndNoProfile;
+  const needsPromptPack = isCompletedAndNoProfile;
 
   const reportQuery = useQuery({
     queryKey: ["style-analysis-jobs", jobId, "analysis-report"],
@@ -144,13 +144,12 @@ function mergeJobResources(
   job: StyleAnalysisJob | null,
   queries: ReturnType<typeof useStyleLabResourcesQueries>
 ) {
-  const legacyJob = job as any;
   const { existingProfileQuery, reportQuery, summaryQuery, promptPackQuery } = queries;
   const existingProfile = existingProfileQuery.data ?? null;
 
-  const report = existingProfile?.analysis_report_markdown ?? legacyJob?.analysis_report_markdown ?? reportQuery.data ?? null;
-  const summary = existingProfile?.style_summary_markdown ?? legacyJob?.style_summary_markdown ?? summaryQuery.data ?? null;
-  const promptPack = existingProfile?.prompt_pack_markdown ?? legacyJob?.prompt_pack_markdown ?? promptPackQuery.data ?? null;
+  const report = existingProfile?.analysis_report_markdown ?? reportQuery.data ?? null;
+  const summary = existingProfile?.style_summary_markdown ?? summaryQuery.data ?? null;
+  const promptPack = existingProfile?.prompt_pack_markdown ?? promptPackQuery.data ?? null;
 
   const makeRes = (val: string | null, q: ReturnType<typeof useQuery>) => makeDetailResource<string>(val, {
     isLoading: val == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : q.isLoading) : false,

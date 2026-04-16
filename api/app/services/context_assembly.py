@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from app.core.bible_fields import BIBLE_SECTION_ORDER
 from app.core.length_presets import LengthPresetKey, get_progress
 
@@ -33,28 +35,34 @@ _WRITING_RULES = """
 """
 
 
+@dataclass(frozen=True)
+class WritingContextSections:
+    inspiration: str = ""
+    world_building: str = ""
+    characters: str = ""
+    outline_master: str = ""
+    outline_detail: str = ""
+    runtime_state: str = ""
+    runtime_threads: str = ""
+
+
 def assemble_writing_context(
     style_prompt: str,
     *,
-    inspiration: str = "",
-    world_building: str = "",
-    characters: str = "",
-    outline_master: str = "",
-    outline_detail: str = "",
-    runtime_state: str = "",
-    runtime_threads: str = "",
+    sections: WritingContextSections | None = None,
     length_preset: LengthPresetKey = "long",
     content_length: int = 0,
 ) -> str:
     """组装写作系统提示词：风格母Prompt + 各区块 + 写作规则 + 收束引导。"""
+    resolved_sections = sections or WritingContextSections()
     values = {
-        "inspiration": inspiration,
-        "world_building": world_building,
-        "characters": characters,
-        "outline_master": outline_master,
-        "outline_detail": outline_detail,
-        "runtime_state": runtime_state,
-        "runtime_threads": runtime_threads,
+        "inspiration": resolved_sections.inspiration,
+        "world_building": resolved_sections.world_building,
+        "characters": resolved_sections.characters,
+        "outline_master": resolved_sections.outline_master,
+        "outline_detail": resolved_sections.outline_detail,
+        "runtime_state": resolved_sections.runtime_state,
+        "runtime_threads": resolved_sections.runtime_threads,
     }
 
     parts = [style_prompt]

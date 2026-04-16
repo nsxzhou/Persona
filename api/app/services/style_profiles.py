@@ -5,9 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import StyleProfile
 from app.db.repositories.projects import ProjectRepository
-from app.db.repositories.style_profiles import StyleProfileRepository
+from app.db.repositories.style_profiles import StyleProfileCreateData, StyleProfileRepository
 from app.schemas.style_profiles import StyleProfileCreate, StyleProfileUpdate
-from app.api.assemblers import build_job_result_bundle
 
 
 class StyleProfileService:
@@ -83,22 +82,24 @@ class StyleProfileService:
         if job is None:
             raise NotFoundError("分析任务不存在")
 
-        _, analysis_report, _, _ = build_job_result_bundle(job)
+        analysis_report = job.analysis_report_payload
         if job.status != "succeeded" or analysis_report is None:
             raise ConflictError("仅已成功完成的分析任务可以保存为风格档案")
         resolved_user_id = user_id or job.user_id
 
         profile = await self.repository.create(
             session,
-            source_job_id=job.id,
-            provider_id=job.provider_id,
-            model_name=job.model_name,
-            source_filename=job.sample_file.original_filename,
-            style_name=payload.style_name,
-            analysis_report_payload=analysis_report,
-            style_summary_payload=payload.style_summary_markdown,
-            prompt_pack_payload=payload.prompt_pack_markdown,
-            user_id=resolved_user_id,
+            data=StyleProfileCreateData(
+                source_job_id=job.id,
+                provider_id=job.provider_id,
+                model_name=job.model_name,
+                source_filename=job.sample_file.original_filename,
+                style_name=payload.style_name,
+                analysis_report_payload=analysis_report,
+                style_summary_payload=payload.style_summary_markdown,
+                prompt_pack_payload=payload.prompt_pack_markdown,
+                user_id=resolved_user_id,
+            ),
         )
         await self._mount_project(
             session,

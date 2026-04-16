@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.db.models import Project
-from app.schemas.projects import ProjectCreate
 
 
 class ProjectRepository:
@@ -53,23 +52,36 @@ class ProjectRepository:
     async def create(
         self,
         session: AsyncSession,
-        payload: ProjectCreate,
+        *,
         user_id: str,
+        name: str,
+        description: str,
+        status: str,
+        default_provider_id: str,
+        default_model: str,
+        style_profile_id: str | None,
+        inspiration: str,
+        world_building: str,
+        characters: str,
+        outline_master: str,
+        outline_detail: str,
+        runtime_state: str,
+        runtime_threads: str,
     ) -> Project:
         project = Project(
-            name=payload.name,
-            description=payload.description,
-            status=payload.status,
-            default_provider_id=payload.default_provider_id,
-            default_model=payload.default_model,
-            style_profile_id=payload.style_profile_id,
-            inspiration=payload.inspiration,
-            world_building=payload.world_building,
-            characters=payload.characters,
-            outline_master=payload.outline_master,
-            outline_detail=payload.outline_detail,
-            runtime_state=payload.runtime_state,
-            runtime_threads=payload.runtime_threads,
+            name=name,
+            description=description,
+            status=status,
+            default_provider_id=default_provider_id,
+            default_model=default_model,
+            style_profile_id=style_profile_id,
+            inspiration=inspiration,
+            world_building=world_building,
+            characters=characters,
+            outline_master=outline_master,
+            outline_detail=outline_detail,
+            runtime_state=runtime_state,
+            runtime_threads=runtime_threads,
             user_id=user_id,
         )
         session.add(project)
