@@ -276,6 +276,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/chapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Chapters */
+        get: operations["list_project_chapters_api_v1_projects__project_id__chapters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/chapters/sync-outline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync Project Chapters From Outline */
+        post: operations["sync_project_chapters_from_outline_api_v1_projects__project_id__chapters_sync_outline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/chapters/{chapter_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Project Chapter */
+        patch: operations["update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch"];
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/editor/complete": {
         parameters: {
             query?: never;
@@ -666,10 +717,15 @@ export interface components {
             /** Text Before Cursor */
             text_before_cursor: string;
             /**
-             * Story Bible
+             * Runtime State
              * @default
              */
-            story_bible: string;
+            runtime_state: string;
+            /**
+             * Runtime Threads
+             * @default
+             */
+            runtime_threads: string;
             /**
              * Outline Detail
              * @default
@@ -692,16 +748,27 @@ export interface components {
              * @default
              */
             current_chapter_context: string;
+            /**
+             * Previous Chapter Context
+             * @description 前序章节上下文
+             * @default
+             */
+            previous_chapter_context: string;
         };
         /** BeatGenerateRequest */
         BeatGenerateRequest: {
             /** Text Before Cursor */
             text_before_cursor: string;
             /**
-             * Story Bible
+             * Runtime State
              * @default
              */
-            story_bible: string;
+            runtime_state: string;
+            /**
+             * Runtime Threads
+             * @default
+             */
+            runtime_threads: string;
             /**
              * Outline Detail
              * @default
@@ -718,6 +785,17 @@ export interface components {
              * @default
              */
             current_chapter_context: string;
+            /**
+             * Previous Chapter Context
+             * @description 前序章节上下文
+             * @default
+             */
+            previous_chapter_context: string;
+            /**
+             * Total Content Length
+             * @default 0
+             */
+            total_content_length: number;
         };
         /** BeatGenerateResponse */
         BeatGenerateResponse: {
@@ -726,8 +804,16 @@ export interface components {
         };
         /** BibleUpdateRequest */
         BibleUpdateRequest: {
-            /** Current Bible */
-            current_bible: string;
+            /**
+             * Current Runtime State
+             * @default
+             */
+            current_runtime_state: string;
+            /**
+             * Current Runtime Threads
+             * @default
+             */
+            current_runtime_threads: string;
             /**
              * New Content Context
              * @description 本次新生成的文本
@@ -736,8 +822,10 @@ export interface components {
         };
         /** BibleUpdateResponse */
         BibleUpdateResponse: {
-            /** Proposed Bible */
-            proposed_bible: string;
+            /** Proposed Runtime State */
+            proposed_runtime_state: string;
+            /** Proposed Runtime Threads */
+            proposed_runtime_threads: string;
         };
         /** Body_create_style_analysis_job_api_v1_style_analysis_jobs_post */
         Body_create_style_analysis_job_api_v1_style_analysis_jobs_post: {
@@ -797,6 +885,21 @@ export interface components {
         EditorCompletionRequest: {
             /** Text Before Cursor */
             text_before_cursor: string;
+            /**
+             * Current Chapter Context
+             * @default
+             */
+            current_chapter_context: string;
+            /**
+             * Previous Chapter Context
+             * @default
+             */
+            previous_chapter_context: string;
+            /**
+             * Total Content Length
+             * @default 0
+             */
+            total_content_length: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -809,6 +912,41 @@ export interface components {
             username: string;
             /** Password */
             password: string;
+        };
+        /** ProjectChapterResponse */
+        ProjectChapterResponse: {
+            /** Id */
+            id: string;
+            /** Project Id */
+            project_id: string;
+            /** Volume Index */
+            volume_index: number;
+            /** Chapter Index */
+            chapter_index: number;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /** Word Count */
+            word_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProjectChapterUpdate */
+        ProjectChapterUpdate: {
+            /**
+             * Content
+             * @default
+             */
+            content: string;
         };
         /** ProjectCreate */
         ProjectCreate: {
@@ -857,15 +995,15 @@ export interface components {
              */
             outline_detail: string;
             /**
-             * Story Bible
+             * Runtime State
              * @default
              */
-            story_bible: string;
+            runtime_state: string;
             /**
-             * Content
+             * Runtime Threads
              * @default
              */
-            content: string;
+            runtime_threads: string;
             /**
              * Length Preset
              * @default short
@@ -902,10 +1040,10 @@ export interface components {
             outline_master: string;
             /** Outline Detail */
             outline_detail: string;
-            /** Story Bible */
-            story_bible: string;
-            /** Content */
-            content: string;
+            /** Runtime State */
+            runtime_state: string;
+            /** Runtime Threads */
+            runtime_threads: string;
             /** Length Preset */
             length_preset: string;
             /** Archived At */
@@ -946,10 +1084,10 @@ export interface components {
             outline_master?: string | null;
             /** Outline Detail */
             outline_detail?: string | null;
-            /** Story Bible */
-            story_bible?: string | null;
-            /** Content */
-            content?: string | null;
+            /** Runtime State */
+            runtime_state?: string | null;
+            /** Runtime Threads */
+            runtime_threads?: string | null;
             /** Length Preset */
             length_preset?: ("short" | "medium" | "long") | null;
         };
@@ -1064,10 +1202,15 @@ export interface components {
              */
             outline_detail: string;
             /**
-             * Story Bible
+             * Runtime State
              * @default
              */
-            story_bible: string;
+            runtime_state: string;
+            /**
+             * Runtime Threads
+             * @default
+             */
+            runtime_threads: string;
         };
         /** SetupRequest */
         SetupRequest: {
@@ -1938,6 +2081,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_chapters_api_v1_projects__project_id__chapters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectChapterResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_project_chapters_from_outline_api_v1_projects__project_id__chapters_sync_outline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectChapterResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                chapter_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectChapterUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectChapterResponse"];
                 };
             };
             /** @description Validation Error */

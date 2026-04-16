@@ -12,6 +12,7 @@ from app.db.session import get_db_session
 from app.services.auth import AuthService
 from app.services.editor import EditorService
 from app.services.llm_provider import LLMProviderService
+from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_analysis_jobs import StyleAnalysisJobService
@@ -72,6 +73,18 @@ def get_project_service(
 
 
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
+
+
+def get_project_chapter_service(
+    project_service: ProjectServiceDep,
+) -> ProjectChapterService:
+    return ProjectChapterService(project_service=project_service)
+
+
+ProjectChapterServiceDep = Annotated[
+    ProjectChapterService,
+    Depends(get_project_chapter_service),
+]
 
 
 def get_style_analysis_job_service() -> StyleAnalysisJobService:

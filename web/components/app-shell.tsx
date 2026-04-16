@@ -15,7 +15,7 @@ export const NAV_ITEMS = [
 
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
-  const isEditorRoute = pathname.includes("/editor");
+  const isEditorRoute = pathname?.includes("/editor") ?? false;
 
   if (isEditorRoute) {
     return <main className="w-full">{children}</main>;

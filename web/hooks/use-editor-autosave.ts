@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 export function useEditorAutosave(
   projectId: string,
+  chapterId: string | null,
   currentContent: string,
   savedContent: string,
   disabled: boolean
@@ -12,7 +13,7 @@ export function useEditorAutosave(
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (disabled || currentContent === savedContent) return;
+    if (disabled || !chapterId || currentContent === savedContent) return;
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -21,7 +22,7 @@ export function useEditorAutosave(
     saveTimeoutRef.current = setTimeout(async () => {
       setIsSaving(true);
       try {
-        await api.updateProject(projectId, { content: currentContent });
+        await api.updateProjectChapter(projectId, chapterId, { content: currentContent });
       } catch (e) {
         console.error("Failed to save content", e);
         toast.error("自动保存失败");
@@ -33,7 +34,7 @@ export function useEditorAutosave(
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [currentContent, savedContent, projectId, disabled]);
+  }, [chapterId, currentContent, savedContent, projectId, disabled]);
 
   return { isSaving };
 }

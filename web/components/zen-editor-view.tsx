@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Project } from "@/lib/types";
+import type { Project, ProjectChapter } from "@/lib/types";
 import {
   ArrowLeft,
   BookOpen,
@@ -30,6 +30,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+type ChapterSelection = { volumeIndex: number; chapterIndex: number };
+
 export function ZenEditorView({
   project,
   activeProfileName,
@@ -38,29 +40,30 @@ export function ZenEditorView({
 }: {
   project: Project;
   activeProfileName?: string;
-  initialChapterSelection?: { volumeIndex: number; chapterIndex: number } | null;
+  initialChapterSelection?: ChapterSelection | null;
   initialIntent?: "navigate" | "generate_beats" | null;
 }) {
   const router = useRouter();
-  const [content, setContent] = useState(project.content || "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [content, setContent] = useState("");
+  const [savedChapterContent, setSavedChapterContent] = useState("");
+  const [chapters, setChapters] = useState<ProjectChapter[]>([]);
+  const [isLoadingChapters, setIsLoadingChapters] = useState(true);
   const [bibleDiff, setBibleDiff] = useState<{
     open: boolean;
-    current: string;
-    proposed: string;
-  }>({ open: false, current: "", proposed: "" });
+    currentState: string;
+    proposedState: string;
+    currentThreads: string;
+    proposedThreads: string;
+  }>({ open: false, currentState: "", proposedState: "", currentThreads: "", proposedThreads: "" });
 
   const [projectData, setProjectData] = useState(project);
 
-  // Panel state
   const [isLeftExpanded, setIsLeftExpanded] = useState(Boolean(initialChapterSelection));
   const [isRightExpanded, setIsRightExpanded] = useState(initialIntent === "generate_beats");
+  const [leftPanelMode, setLeftPanelMode] = useState<"navigation" | "settings">("navigation");
 
-  // Chapter navigation state
-  const [currentChapter, setCurrentChapter] = useState<{
-    volumeIndex: number;
-    chapterIndex: number;
-  } | null>(initialChapterSelection);
+  const [currentChapter, setCurrentChapter] = useState<ChapterSelection | null>(initialChapterSelection);
   const [selectedVolumeIndex, setSelectedVolumeIndex] = useState<number | null>(
     initialChapterSelection?.volumeIndex ?? null,
   );
@@ -73,15 +76,29 @@ export function ZenEditorView({
     [projectData.outline_detail],
   );
 
-  const completedChapters = useMemo(() => {
-    const set = new Set<string>();
-    const regex = /^# (.+)$/gm;
-    let match;
-    while ((match = regex.exec(content)) !== null) {
-      set.add(match[1].trim());
-    }
-    return set;
-  }, [content]);
+  const selectedChapterRecord = useMemo(() => {
+    if (!currentChapter) return null;
+    return chapters.find(
+      (chapter) =>
+        chapter.volume_index === currentChapter.volumeIndex &&
+        chapter.chapter_index === currentChapter.chapterIndex,
+    ) ?? null;
+  }, [chapters, currentChapter]);
+
+  const completedChapters = useMemo(
+    () => new Set(chapters.filter((chapter) => chapter.word_count > 0).map((chapter) => chapter.title)),
+    [chapters],
+  );
+
+  const totalContentLength = useMemo(
+    () =>
+      chapters.reduce(
+        (sum, chapter) =>
+          sum + (chapter.id === selectedChapterRecord?.id ? content.length : chapter.word_count),
+        0,
+      ),
+    [chapters, content.length, selectedChapterRecord?.id],
+  );
 
   const currentChapterContext = useMemo(() => {
     if (!currentChapter || !parsedOutline.volumes.length) return "";
@@ -96,12 +113,67 @@ export function ZenEditorView({
     return parts.join("\n");
   }, [currentChapter, parsedOutline]);
 
+  const previousChapterContext = useMemo(() => {
+    if (!currentChapter) return "";
+    return chapters
+      .filter((chapter) => {
+        if (chapter.volume_index < currentChapter.volumeIndex) return true;
+        if (chapter.volume_index > currentChapter.volumeIndex) return false;
+        return chapter.chapter_index < currentChapter.chapterIndex;
+      })
+      .filter((chapter) => chapter.content.trim())
+      .map((chapter) => `## ${chapter.title}\n\n${chapter.content.slice(-800)}`)
+      .join("\n\n---\n\n");
+  }, [chapters, currentChapter]);
+
+  const syncSelectedChapterContent = useCallback((chapterId: string, nextContent: string) => {
+    setChapters((prev) =>
+      prev.map((chapter) =>
+        chapter.id === chapterId
+          ? { ...chapter, content: nextContent, word_count: nextContent.length }
+          : chapter,
+      ),
+    );
+  }, []);
+
+  const proposeRuntimeUpdate = useCallback(
+    async (generated: string) => {
+      if (generated.trim().length < 200) return;
+      try {
+        const { proposed_runtime_state, proposed_runtime_threads } = await api.proposeBibleUpdate(
+          project.id,
+          projectData.runtime_state,
+          projectData.runtime_threads ?? "",
+          generated,
+        );
+        const stateChanged = proposed_runtime_state && proposed_runtime_state !== projectData.runtime_state;
+        const threadsChanged = proposed_runtime_threads && proposed_runtime_threads !== (projectData.runtime_threads ?? "");
+        if (stateChanged || threadsChanged) {
+          setBibleDiff({
+            open: true,
+            currentState: projectData.runtime_state,
+            proposedState: proposed_runtime_state,
+            currentThreads: projectData.runtime_threads ?? "",
+            proposedThreads: proposed_runtime_threads,
+          });
+        }
+      } catch {
+        // 运行时状态提议失败不阻断正文生成。
+      }
+    },
+    [project.id, projectData.runtime_state, projectData.runtime_threads],
+  );
+
   const { isGenerating, handleGenerate, handleStop } = useEditorCompletion({
     project: projectData,
     content,
     setContent,
     textareaRef,
     setBibleDiff,
+    currentChapterContext,
+    previousChapterContext,
+    totalContentLength,
+    disabled: !selectedChapterRecord,
   });
 
   const {
@@ -119,26 +191,71 @@ export function ZenEditorView({
     textareaRef,
     isGenerating,
     currentChapterContext,
+    previousChapterContext,
+    totalContentLength,
+    disabled: !selectedChapterRecord,
+    onGeneratedContent: proposeRuntimeUpdate,
   });
 
   const { isSaving } = useEditorAutosave(
     project.id,
+    selectedChapterRecord?.id ?? null,
     content,
-    project.content,
-    isGenerating || isExpandingBeat
+    savedChapterContent,
+    isGenerating || isExpandingBeat,
   );
 
-  const handleGenerateBeatsForChapter = useCallback(() => {
-    setIsRightExpanded(true);
-    setTimeout(() => handleGenerateBeats(), 100);
-  }, [handleGenerateBeats]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadChapters() {
+      setIsLoadingChapters(true);
+      try {
+        const loaded = await api.getProjectChapters(project.id);
+        const next = loaded.length > 0 ? loaded : await api.syncProjectChapters(project.id);
+        if (!cancelled) setChapters(next);
+      } catch (e: unknown) {
+        if (!cancelled) toast.error(e instanceof Error ? e.message : "加载章节失败");
+      } finally {
+        if (!cancelled) setIsLoadingChapters(false);
+      }
+    }
+    loadChapters();
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id]);
 
-  const handleSelectChapter = useCallback((volumeIndex: number, chapterIndex: number) => {
-    setSelectedVolumeIndex(volumeIndex);
-    setCurrentChapter({ volumeIndex, chapterIndex });
-    setChapterFocusMode("navigate");
+  useEffect(() => {
+    if (isLoadingChapters || chapters.length === 0 || currentChapter) return;
+    const explicit = initialChapterSelection
+      ? chapters.find(
+          (chapter) =>
+            chapter.volume_index === initialChapterSelection.volumeIndex &&
+            chapter.chapter_index === initialChapterSelection.chapterIndex,
+        )
+      : null;
+    const target = explicit ?? chapters.find((chapter) => chapter.word_count === 0) ?? chapters[0];
+    setSelectedVolumeIndex(target.volume_index);
+    setCurrentChapter({ volumeIndex: target.volume_index, chapterIndex: target.chapter_index });
+    setChapterFocusMode(initialIntent ?? "navigate");
     setIsLeftExpanded(true);
-  }, []);
+    if (initialIntent === "generate_beats") setIsRightExpanded(true);
+  }, [chapters, currentChapter, initialChapterSelection, initialIntent, isLoadingChapters]);
+
+  useEffect(() => {
+    if (!selectedChapterRecord) {
+      setContent("");
+      setSavedChapterContent("");
+      return;
+    }
+    setContent(selectedChapterRecord.content);
+    setSavedChapterContent(selectedChapterRecord.content);
+  }, [selectedChapterRecord?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!selectedChapterRecord || content === selectedChapterRecord.content) return;
+    syncSelectedChapterContent(selectedChapterRecord.id, content);
+  }, [content, selectedChapterRecord, syncSelectedChapterContent]);
 
   useEffect(() => {
     if (selectedVolumeIndex === null) return;
@@ -158,7 +275,6 @@ export function ZenEditorView({
     }
   }, [currentChapter, parsedOutline, selectedVolumeIndex]);
 
-  // Responsive defaults
   useEffect(() => {
     const width = window.innerWidth;
     if (width < 1024) {
@@ -170,22 +286,48 @@ export function ZenEditorView({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mutex mode for narrow screens
   const toggleLeft = useCallback(() => {
-    setIsLeftExpanded((prev) => {
-      const next = !prev;
-      if (next && window.innerWidth < 1024) setIsRightExpanded(false);
-      return next;
-    });
+    setLeftPanelMode("navigation");
+    setIsLeftExpanded(true);
+    if (window.innerWidth < 1024) setIsRightExpanded(false);
+  }, []);
+
+  const openSettings = useCallback(() => {
+    setLeftPanelMode("settings");
+    setIsLeftExpanded(true);
+    if (window.innerWidth < 1024) setIsRightExpanded(false);
   }, []);
 
   const toggleRight = useCallback(() => {
+    if (!selectedChapterRecord) return;
     setIsRightExpanded((prev) => {
       const next = !prev;
       if (next && window.innerWidth < 1024) setIsLeftExpanded(false);
       return next;
     });
-  }, []);
+  }, [selectedChapterRecord]);
+
+  const handleGenerateBeatsForChapter = useCallback(() => {
+    if (!selectedChapterRecord) return;
+    setIsRightExpanded(true);
+    setTimeout(() => handleGenerateBeats(), 100);
+  }, [handleGenerateBeats, selectedChapterRecord]);
+
+  const handleSelectChapter = useCallback((volumeIndex: number, chapterIndex: number) => {
+    setSelectedVolumeIndex(volumeIndex);
+    setCurrentChapter({ volumeIndex, chapterIndex });
+    setChapterFocusMode("navigate");
+    setIsLeftExpanded(true);
+    setLeftPanelMode("navigation");
+    setBeats([]);
+  }, [setBeats]);
+
+  const handleGoGenerateVolume = useCallback(
+    (volumeIndex: number) => {
+      router.push(`/projects/${project.id}?tab=outline_detail&volumeIndex=${volumeIndex}`);
+    },
+    [project.id, router],
+  );
 
   const currentVolumeTitle = selectedVolumeIndex !== null
     ? getVolumeTitle(parsedOutline.volumes[selectedVolumeIndex]?.title ?? "")
@@ -203,18 +345,11 @@ export function ZenEditorView({
     : "请从左侧创作导航选择章节";
   const missingOutlineStatus = selectedVolumeIndex !== null && !currentVolumeHasChapters;
 
-  const handleGoGenerateVolume = useCallback(
-    (volumeIndex: number) => {
-      router.push(`/projects/${project.id}?tab=outline_detail&volumeIndex=${volumeIndex}`);
-    },
-    [project.id, router],
-  );
-
   const chapterBannerAction = missingOutlineStatus && selectedVolumeIndex !== null ? (
     <Button variant="outline" size="sm" onClick={() => handleGoGenerateVolume(selectedVolumeIndex)}>
       去生成本卷章节细纲
     </Button>
-  ) : currentChapter ? (
+  ) : currentChapter && selectedChapterRecord ? (
     <Button className="gap-2" size="sm" onClick={handleGenerateBeatsForChapter}>
       <Sparkles className="h-4 w-4" />
       为当前章节生成节拍
@@ -225,7 +360,6 @@ export function ZenEditorView({
     </Button>
   );
 
-  // Dynamic max-width for writing area
   const editorMaxWidth = isLeftExpanded && isRightExpanded
     ? "max-w-[600px]"
     : isLeftExpanded || isRightExpanded
@@ -256,9 +390,7 @@ export function ZenEditorView({
 
   return (
     <div className="flex h-screen w-full bg-background text-foreground">
-      {/* Icon Rail */}
       <div className="w-12 shrink-0 bg-[#111] flex flex-col items-center pt-3 gap-1">
-        {/* Logo / Quick Menu */}
         <Popover>
           <PopoverTrigger asChild>
             <button
@@ -283,25 +415,23 @@ export function ZenEditorView({
           </PopoverContent>
         </Popover>
 
-        {/* 创作导航 toggle */}
         <button
           type="button"
           onClick={toggleLeft}
           className={`w-9 h-9 flex items-center justify-center transition-colors ${
-            isLeftExpanded ? "bg-white/15" : "hover:bg-white/10"
+            isLeftExpanded && leftPanelMode === "navigation" ? "bg-white/15" : "hover:bg-white/10"
           }`}
           title="创作导航 (⌘B)"
         >
           <BookOpen className="h-[18px] w-[18px] text-white" />
         </button>
 
-        {/* 创作设定 toggle */}
         <button
           type="button"
-          onClick={() => {
-            if (!isLeftExpanded) setIsLeftExpanded(true);
-          }}
-          className="w-9 h-9 flex items-center justify-center opacity-50 hover:opacity-80 transition-opacity"
+          onClick={openSettings}
+          className={`w-9 h-9 flex items-center justify-center transition-colors ${
+            isLeftExpanded && leftPanelMode === "settings" ? "bg-white/15" : "opacity-50 hover:opacity-80"
+          }`}
           title="创作设定"
         >
           <Settings className="h-[18px] w-[18px] text-white" />
@@ -309,7 +439,6 @@ export function ZenEditorView({
 
         <div className="flex-1" />
 
-        {/* Back to project */}
         <button
           type="button"
           onClick={() => router.push(`/projects/${project.id}`)}
@@ -320,7 +449,6 @@ export function ZenEditorView({
         </button>
       </div>
 
-      {/* Left Panel: 创作导航 */}
       <div
         className="shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
         style={{ width: isLeftExpanded ? 260 : 0 }}
@@ -328,7 +456,7 @@ export function ZenEditorView({
         {isLeftExpanded && (
           <EditorSidePanel
             project={projectData}
-            contentLength={content.length}
+            contentLength={totalContentLength}
             parsedOutline={parsedOutline}
             currentChapter={currentChapter}
             completedChapters={completedChapters}
@@ -337,13 +465,12 @@ export function ZenEditorView({
             onGoGenerateVolume={handleGoGenerateVolume}
             onCollapse={() => setIsLeftExpanded(false)}
             onFieldChange={(field, value) => setProjectData((prev) => ({ ...prev, [field]: value }))}
+            mode={leftPanelMode}
           />
         )}
       </div>
 
-      {/* Center Column */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
         <header className="border-b shrink-0">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-4">
@@ -382,7 +509,7 @@ export function ZenEditorView({
                   variant="outline"
                   size="sm"
                   onClick={handleGenerate}
-                  disabled={!project.style_profile_id}
+                  disabled={!project.style_profile_id || !selectedChapterRecord}
                   className="gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
@@ -392,7 +519,6 @@ export function ZenEditorView({
             </div>
           </div>
 
-          {/* Chapter Context Banner */}
           <div className="px-6 pb-3">
             <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
@@ -427,15 +553,15 @@ export function ZenEditorView({
           </div>
         </header>
 
-        {/* Writing Area */}
         <main className="flex-1 overflow-hidden flex justify-center bg-muted/20">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="开始创作... (按 ⌘J 进行 AI 续写)"
-            className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50`}
+            disabled={!selectedChapterRecord}
+            placeholder={selectedChapterRecord ? "开始创作... (按 ⌘J 进行 AI 续写)" : "请先选择章节..."}
+            className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed`}
             style={{
               fontFamily: "var(--font-serif), serif",
             }}
@@ -443,7 +569,6 @@ export function ZenEditorView({
         </main>
       </div>
 
-      {/* Right Panel: 节拍写作 */}
       {isRightExpanded ? (
         <div
           className="shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
@@ -458,14 +583,15 @@ export function ZenEditorView({
             onBeatsChange={setBeats}
             onStartExpand={handleStartBeatExpand}
             onClose={() => setIsRightExpanded(false)}
+            disabled={!selectedChapterRecord}
           />
         </div>
       ) : (
-        /* Collapsed right rail */
         <button
           type="button"
           onClick={toggleRight}
-          className="w-12 shrink-0 border-l border-border bg-background flex flex-col items-center pt-3 gap-2 hover:bg-muted/30 transition-colors cursor-pointer"
+          disabled={!selectedChapterRecord}
+          className="w-12 shrink-0 border-l border-border bg-background flex flex-col items-center pt-3 gap-2 hover:bg-muted/30 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           title="展开节拍写作 (⌘⇧J)"
         >
           <ListOrdered className="h-[18px] w-[18px] text-muted-foreground" />
@@ -484,22 +610,23 @@ export function ZenEditorView({
         </button>
       )}
 
-      {/* Bible Diff Dialog */}
       <BibleDiffDialog
         open={bibleDiff.open}
-        currentBible={bibleDiff.current}
-        proposedBible={bibleDiff.proposed}
-        onAccept={async (bible) => {
+        currentState={bibleDiff.currentState}
+        proposedState={bibleDiff.proposedState}
+        currentThreads={bibleDiff.currentThreads}
+        proposedThreads={bibleDiff.proposedThreads}
+        onAccept={async (state, threads) => {
           try {
-            await api.updateProject(project.id, { story_bible: bible });
-            setProjectData((prev) => ({ ...prev, story_bible: bible }));
-            toast.success("故事圣经已更新");
+            await api.updateProject(project.id, { runtime_state: state, runtime_threads: threads });
+            setProjectData((prev) => ({ ...prev, runtime_state: state, runtime_threads: threads }));
+            toast.success("运行时状态已更新");
           } catch {
-            toast.error("更新故事圣经失败");
+            toast.error("更新运行时状态失败");
           }
-          setBibleDiff({ open: false, current: "", proposed: "" });
+          setBibleDiff({ open: false, currentState: "", proposedState: "", currentThreads: "", proposedThreads: "" });
         }}
-        onDismiss={() => setBibleDiff({ open: false, current: "", proposed: "" })}
+        onDismiss={() => setBibleDiff({ open: false, currentState: "", proposedState: "", currentThreads: "", proposedThreads: "" })}
       />
     </div>
   );

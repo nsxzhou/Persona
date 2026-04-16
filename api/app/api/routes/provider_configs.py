@@ -61,14 +61,14 @@ async def update_provider_config(
 @router.post("/{provider_id}/test", response_model=ConnectionTestResponse)
 async def test_provider_config(
     provider_id: str,
-    current_user: CurrentUserDep,
+    _current_user: CurrentUserDep,
     db_session: DbSessionDep,
     provider_service: ProviderConfigServiceDep,
 ) -> ConnectionTestResponse:
     result = await provider_service.test_connection_and_update(
         db_session,
         provider_id,
-        user_id=current_user.id,
+        user_id=getattr(_current_user, "id", None),
     )
     return ConnectionTestResponse(**result)
 

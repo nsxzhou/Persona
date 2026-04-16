@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { api } from "@/lib/api";
 import { parseOutline, type ParsedOutline } from "@/lib/outline-parser";
+import type { ProjectChapter } from "@/lib/types";
 
 type OutlineDetailMode = "edit" | "preview" | "generate";
 
@@ -27,7 +28,7 @@ interface OutlineDetailTabProps {
   onChange: (value: string) => void;
   projectId: string;
   outlineMaster: string;
-  content?: string;
+  chapters?: ProjectChapter[];
   highlightedVolumeIndex?: number | null;
 }
 
@@ -36,7 +37,7 @@ export function OutlineDetailTab({
   onChange,
   projectId,
   outlineMaster,
-  content = "",
+  chapters = [],
   highlightedVolumeIndex = null,
 }: OutlineDetailTabProps) {
   const [mode, setMode] = useState<OutlineDetailMode>("edit");
@@ -49,7 +50,10 @@ export function OutlineDetailTab({
   const parsed = useMemo(() => parseOutline(value), [value]);
   const hasVolumes = parsed.volumes.length > 0;
   const allVolumesHaveChapters = hasVolumes && parsed.volumes.every((v) => v.chapters.length > 0);
-  const completedChapters = useMemo(() => getCompletedChapters(content), [content]);
+  const completedChapters = useMemo(
+    () => new Set(chapters.filter((chapter) => chapter.word_count > 0).map((chapter) => chapter.title)),
+    [chapters],
+  );
 
   useEffect(() => {
     if (highlightedVolumeIndex === null || highlightedVolumeIndex < 0) return;
@@ -526,18 +530,6 @@ function VolumeChapterList({
       )}
     </div>
   );
-}
-
-function getCompletedChapters(content: string) {
-  const completed = new Set<string>();
-  const regex = /^# (.+)$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(content)) !== null) {
-    completed.add(match[1].trim());
-  }
-
-  return completed;
 }
 
 function getVolumeTitle(title: string) {

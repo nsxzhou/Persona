@@ -9,6 +9,7 @@ from app.api.deps import (
     CurrentUserDep,
     DbSessionDep,
     EditorServiceDep,
+    ProjectChapterServiceDep,
     ProjectServiceDep,
 )
 from app.schemas.projects import (
@@ -21,6 +22,8 @@ from app.schemas.projects import (
     ConceptGenerateResponse,
     EditorCompletionRequest,
     ProjectCreate,
+    ProjectChapterResponse,
+    ProjectChapterUpdate,
     ProjectResponse,
     ProjectUpdate,
     SectionGenerateRequest,
@@ -153,6 +156,51 @@ async def delete_project(
     )
 
 
+@router.get("/{project_id}/chapters", response_model=list[ProjectChapterResponse])
+async def list_project_chapters(
+    project_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    chapter_service: ProjectChapterServiceDep,
+) -> list[ProjectChapterResponse]:
+    chapters = await chapter_service.list(
+        db_session, project_id, user_id=current_user.id,
+    )
+    return [ProjectChapterResponse.model_validate(chapter) for chapter in chapters]
+
+
+@router.post("/{project_id}/chapters/sync-outline", response_model=list[ProjectChapterResponse])
+async def sync_project_chapters_from_outline(
+    project_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    chapter_service: ProjectChapterServiceDep,
+) -> list[ProjectChapterResponse]:
+    chapters = await chapter_service.sync_outline(
+        db_session, project_id, user_id=current_user.id,
+    )
+    return [ProjectChapterResponse.model_validate(chapter) for chapter in chapters]
+
+
+@router.patch("/{project_id}/chapters/{chapter_id}", response_model=ProjectChapterResponse)
+async def update_project_chapter(
+    project_id: str,
+    chapter_id: str,
+    payload: ProjectChapterUpdate,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    chapter_service: ProjectChapterServiceDep,
+) -> ProjectChapterResponse:
+    chapter = await chapter_service.update(
+        db_session,
+        project_id,
+        chapter_id,
+        payload.content,
+        user_id=current_user.id,
+    )
+    return ProjectChapterResponse.model_validate(chapter)
+
+
 # --------------------------------------------------------------------------- #
 #  AI editor endpoints — thin handlers delegating to EditorService             #
 # --------------------------------------------------------------------------- #
@@ -166,7 +214,7 @@ async def editor_complete(
     editor_service: EditorServiceDep,
 ) -> StreamingResponse:
     gen = await editor_service.stream_completion(
-        db_session, project_id, current_user.id, payload.text_before_cursor,
+        db_session, project_id, current_user.id, payload,
     )
     return sse_response(gen, error_log_message="AI 续写异常")
 
@@ -193,10 +241,13 @@ async def propose_bible_update(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> BibleUpdateResponse:
-    proposed = await editor_service.propose_bible_update(
+    proposed_state, proposed_threads = await editor_service.propose_bible_update(
         db_session, project_id, current_user.id, payload,
     )
-    return BibleUpdateResponse(proposed_bible=proposed)
+    return BibleUpdateResponse(
+        proposed_runtime_state=proposed_state,
+        proposed_runtime_threads=proposed_threads,
+    )
 
 
 @router.post("/{project_id}/editor/generate-beats", response_model=BeatGenerateResponse)

@@ -23,6 +23,7 @@ export function BeatPanel({
   onBeatsChange,
   onStartExpand,
   onClose,
+  disabled = false,
 }: {
   beats: string[];
   currentBeatIndex: number;
@@ -32,6 +33,7 @@ export function BeatPanel({
   onBeatsChange: (beats: string[]) => void;
   onStartExpand: () => void;
   onClose: () => void;
+  disabled?: boolean;
 }) {
   const [newBeat, setNewBeat] = useState("");
 
@@ -71,7 +73,9 @@ export function BeatPanel({
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {beats.length === 0 && !isGeneratingBeats && (
           <p className="text-xs text-muted-foreground text-center py-4">
-            点击下方「生成节拍」按钮，AI 将根据大纲和前文为你规划节拍。
+            {disabled
+              ? "请先选择一个章节，再使用节拍写作。"
+              : "点击下方「生成节拍」按钮，AI 将根据大纲和前文为你规划节拍。"}
           </p>
         )}
 
@@ -160,7 +164,7 @@ export function BeatPanel({
             className="w-full gap-2"
             size="sm"
             onClick={onGenerateBeats}
-            disabled={isGeneratingBeats}
+            disabled={disabled || isGeneratingBeats}
           >
             {isGeneratingBeats ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -176,6 +180,7 @@ export function BeatPanel({
             size="sm"
             variant="secondary"
             onClick={onStartExpand}
+            disabled={disabled}
           >
             <Play className="h-4 w-4" />
             开始逐拍写作

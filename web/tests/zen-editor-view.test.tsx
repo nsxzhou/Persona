@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ZenEditorView } from "@/components/zen-editor-view";
 
@@ -10,9 +10,19 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const apiMock = vi.hoisted(() => ({
+  getProjectChapters: vi.fn(),
+  syncProjectChapters: vi.fn(),
+  updateProjectChapter: vi.fn(),
+  updateProject: vi.fn(),
+}));
+
 vi.mock("@/lib/api", () => ({
   api: {
-    updateProject: vi.fn(),
+    getProjectChapters: apiMock.getProjectChapters,
+    syncProjectChapters: apiMock.syncProjectChapters,
+    updateProjectChapter: apiMock.updateProjectChapter,
+    updateProject: apiMock.updateProject,
   },
 }));
 
@@ -41,7 +51,11 @@ vi.mock("@/hooks/use-beat-generation", () => ({
 }));
 
 vi.mock("@/components/beat-panel", () => ({
-  BeatPanel: () => <div data-testid="beat-panel">节拍面板</div>,
+  BeatPanel: ({ disabled }: { disabled?: boolean }) => (
+    <button type="button" data-testid="beat-panel" disabled={disabled}>
+      节拍面板
+    </button>
+  ),
 }));
 
 const navigationMock = vi.hoisted(() => ({
@@ -76,8 +90,8 @@ const project = {
 
 ### 第2章 纨绔是假装，天香楼才是入口
 - **核心事件**：天香楼试探`,
-  story_bible: "",
-  content: "",
+  runtime_state: "",
+  runtime_threads: "",
   length_preset: "short",
   archived_at: null,
   created_at: "2026-04-10T00:00:00Z",
@@ -85,12 +99,54 @@ const project = {
   provider: null,
 };
 
+const chapters = [
+  {
+    id: "chapter-1",
+    project_id: "project-1",
+    volume_index: 0,
+    chapter_index: 0,
+    title: "第1章 反派开局，短命名单",
+    content: "第一章正文",
+    word_count: 4,
+    created_at: "2026-04-10T00:00:00Z",
+    updated_at: "2026-04-10T00:00:00Z",
+  },
+  {
+    id: "chapter-2",
+    project_id: "project-1",
+    volume_index: 0,
+    chapter_index: 1,
+    title: "第2章 纨绔是假装，天香楼才是入口",
+    content: "",
+    word_count: 0,
+    created_at: "2026-04-10T00:00:00Z",
+    updated_at: "2026-04-10T00:00:00Z",
+  },
+];
+
 describe("ZenEditorView", () => {
-  test("shows empty current-chapter state before a chapter is selected", () => {
+  beforeEach(() => {
+    apiMock.getProjectChapters.mockReset();
+    apiMock.syncProjectChapters.mockReset();
+    apiMock.updateProjectChapter.mockReset();
+    apiMock.updateProject.mockReset();
+    apiMock.getProjectChapters.mockResolvedValue(chapters);
+    apiMock.syncProjectChapters.mockResolvedValue(chapters);
+    apiMock.updateProjectChapter.mockImplementation(async (_projectId, chapterId, payload) => ({
+      ...chapters.find((chapter) => chapter.id === chapterId),
+      content: payload.content,
+      word_count: payload.content.length,
+    }));
+  });
+
+  test("selects the first unwritten chapter by default", async () => {
     render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
 
-    expect(screen.getByText("未选择章节")).toBeInTheDocument();
-    expect(screen.getByText("请从右侧创作导航选择章节")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("第2章 纨绔是假装，天香楼才是入口").length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText("已定位章节")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveValue("");
   });
 
   test("hydrates chapter selection from the editor entry context", async () => {
@@ -112,18 +168,47 @@ describe("ZenEditorView", () => {
     expect(screen.getAllByText("第2章 纨绔是假装，天香楼才是入口").length).toBeGreaterThan(0);
     expect(screen.getByText("已定位章节，准备生成节拍")).toBeInTheDocument();
     expect(screen.getByText("创作导航")).toBeInTheDocument();
-    expect(screen.getByTestId("beat-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("beat-panel")).toBeEnabled();
   });
 
-  test("updates the current chapter banner after clicking a chapter in the side panel", async () => {
+  test("clicking another chapter swaps editor content instead of keeping previous chapter", async () => {
     render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
 
-    fireEvent.click(screen.getByTitle("创作导航 (Cmd+B)"));
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("");
+    });
+    fireEvent.click(screen.getByTitle("创作导航 (⌘B)"));
     fireEvent.click(screen.getByRole("button", { name: /第1章 反派开局，短命名单/ }));
 
     await waitFor(() => {
-      expect(screen.getAllByText("第1章 反派开局，短命名单").length).toBeGreaterThan(0);
+      expect(screen.getByRole("textbox")).toHaveValue("第一章正文");
     });
+    expect(screen.getByText("已定位章节")).toBeInTheDocument();
+  });
+
+  test("book and settings rail buttons switch different left panel modes", async () => {
+    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => expect(screen.getByText("当前章节")).toBeInTheDocument());
+    fireEvent.click(screen.getByTitle("创作设定"));
+
+    expect(screen.getByText("运行时状态")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /第1章 反派开局，短命名单/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("创作导航 (⌘B)"));
+    expect(screen.getByRole("button", { name: /第1章 反派开局，短命名单/ })).toBeInTheDocument();
+  });
+
+  test("allows collapsing the active volume while keeping current chapter banner", async () => {
+    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /第2章 纨绔是假装/ })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /第一卷 反派开局/ }));
+
+    expect(screen.queryByRole("button", { name: /第2章 纨绔是假装/ })).not.toBeInTheDocument();
     expect(screen.getByText("已定位章节")).toBeInTheDocument();
   });
 

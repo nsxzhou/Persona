@@ -9,12 +9,26 @@ export function useEditorCompletion({
   setContent,
   textareaRef,
   setBibleDiff,
+  currentChapterContext = "",
+  previousChapterContext = "",
+  totalContentLength = 0,
+  disabled = false,
 }: {
   project: Project;
   content: string;
   setContent: (val: string | ((prev: string) => string)) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  setBibleDiff: (val: { open: boolean; current: string; proposed: string }) => void;
+  setBibleDiff: (val: {
+    open: boolean;
+    currentState: string;
+    proposedState: string;
+    currentThreads: string;
+    proposedThreads: string;
+  }) => void;
+  currentChapterContext?: string;
+  previousChapterContext?: string;
+  totalContentLength?: number;
+  disabled?: boolean;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
@@ -35,7 +49,7 @@ export function useEditorCompletion({
       toast.error("项目未挂载风格档案，无法进行续写。请先在项目设置中选择风格档案。");
       return;
     }
-    if (isGenerating) return;
+    if (isGenerating || disabled) return;
 
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -46,7 +60,13 @@ export function useEditorCompletion({
     setIsGenerating(true);
 
     try {
-      const response = await api.completeEditor(project.id, textBeforeCursor);
+      const response = await api.completeEditor(
+        project.id,
+        textBeforeCursor,
+        currentChapterContext,
+        previousChapterContext,
+        totalContentLength,
+      );
 
       if (!response.body) throw new Error("No response body");
 
@@ -128,18 +148,23 @@ export function useEditorCompletion({
       });
 
       const MIN_LENGTH_FOR_BIBLE_UPDATE = 200;
-      if (currentGenerated.trim().length >= MIN_LENGTH_FOR_BIBLE_UPDATE && project.story_bible !== undefined) {
+      if (currentGenerated.trim().length >= MIN_LENGTH_FOR_BIBLE_UPDATE && project.runtime_state !== undefined) {
         try {
-          const { proposed_bible } = await api.proposeBibleUpdate(
+          const { proposed_runtime_state, proposed_runtime_threads } = await api.proposeBibleUpdate(
             project.id,
-            project.story_bible,
+            project.runtime_state,
+            project.runtime_threads ?? "",
             currentGenerated
           );
-          if (proposed_bible && proposed_bible !== project.story_bible) {
+          const stateChanged = proposed_runtime_state && proposed_runtime_state !== project.runtime_state;
+          const threadsChanged = proposed_runtime_threads && proposed_runtime_threads !== (project.runtime_threads ?? "");
+          if (stateChanged || threadsChanged) {
             setBibleDiff({
               open: true,
-              current: project.story_bible,
-              proposed: proposed_bible,
+              currentState: project.runtime_state,
+              proposedState: proposed_runtime_state,
+              currentThreads: project.runtime_threads ?? "",
+              proposedThreads: proposed_runtime_threads,
             });
           }
         } catch {

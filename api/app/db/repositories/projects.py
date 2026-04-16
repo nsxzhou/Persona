@@ -68,8 +68,8 @@ class ProjectRepository:
             characters=payload.characters,
             outline_master=payload.outline_master,
             outline_detail=payload.outline_detail,
-            story_bible=payload.story_bible,
-            content=payload.content,
+            runtime_state=payload.runtime_state,
+            runtime_threads=payload.runtime_threads,
             user_id=user_id,
         )
         session.add(project)

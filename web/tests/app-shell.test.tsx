@@ -5,6 +5,10 @@ import { vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+  usePathname: () => "/projects",
+}));
 
 
 test("app shell renders left navigation items", () => {
@@ -57,6 +61,7 @@ test("workspace layout redirects to setup when system is not initialized", async
   const redirectMock = vi.fn();
   vi.doMock("next/navigation", () => ({
     redirect: redirectMock,
+    usePathname: () => "/projects",
   }));
   vi.doMock("@/lib/server-api", () => ({
     getServerApi: vi.fn().mockResolvedValue({
@@ -76,6 +81,7 @@ test("workspace layout redirects to login when initialized but session missing",
   const redirectMock = vi.fn();
   vi.doMock("next/navigation", () => ({
     redirect: redirectMock,
+    usePathname: () => "/projects",
   }));
   vi.doMock("@/lib/server-api", () => ({
     getServerApi: vi.fn().mockResolvedValue({
@@ -95,6 +101,7 @@ test("workspace layout renders app shell for authenticated user", async () => {
   const redirectMock = vi.fn();
   vi.doMock("next/navigation", () => ({
     redirect: redirectMock,
+    usePathname: () => "/projects",
   }));
   vi.doMock("@/lib/server-api", () => ({
     getServerApi: vi.fn().mockResolvedValue({
@@ -123,6 +130,7 @@ test("workspace layout seeds current-user query cache for hydration", async () =
 
   vi.doMock("next/navigation", () => ({
     redirect: redirectMock,
+    usePathname: () => "/projects",
   }));
   vi.doMock("@tanstack/react-query", () => ({
     QueryClient: class {

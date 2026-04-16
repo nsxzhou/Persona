@@ -118,6 +118,7 @@ async def test_project_crud_archive_restore_and_filtering(
     )
     assert create_response.status_code == 201
     created = create_response.json()
+    assert "content" not in created
     assert created["default_model"] == initialized_provider["default_model"]
     assert created["provider"]["id"] == provider_id
 

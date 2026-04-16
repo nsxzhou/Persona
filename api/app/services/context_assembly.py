@@ -41,18 +41,20 @@ def assemble_writing_context(
     characters: str = "",
     outline_master: str = "",
     outline_detail: str = "",
-    story_bible: str = "",
+    runtime_state: str = "",
+    runtime_threads: str = "",
     length_preset: LengthPresetKey = "long",
     content_length: int = 0,
 ) -> str:
-    """组装写作系统提示词：风格母Prompt + 故事圣经各区块 + 写作规则 + 收束引导。"""
+    """组装写作系统提示词：风格母Prompt + 各区块 + 写作规则 + 收束引导。"""
     values = {
         "inspiration": inspiration,
         "world_building": world_building,
         "characters": characters,
         "outline_master": outline_master,
         "outline_detail": outline_detail,
-        "story_bible": story_bible,
+        "runtime_state": runtime_state,
+        "runtime_threads": runtime_threads,
     }
 
     parts = [style_prompt]

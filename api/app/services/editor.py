@@ -28,6 +28,7 @@ from app.schemas.projects import (
     BeatGenerateRequest,
     BibleUpdateRequest,
     ConceptGenerateRequest,
+    EditorCompletionRequest,
     ConceptItem,
     SectionGenerateRequest,
     VolumeChaptersRequest,
@@ -49,6 +50,7 @@ from app.services.editor_prompts import (
     build_volume_generate_user_message,
     build_volume_chapters_system_prompt,
     build_volume_chapters_user_message,
+    parse_bible_update_response,
 )
 from app.services.llm_provider import LLMProviderService
 from app.services.projects import ProjectService
@@ -120,7 +122,7 @@ class EditorService:
         session: AsyncSession,
         project_id: str,
         user_id: str,
-        text_before_cursor: str,
+        payload: EditorCompletionRequest,
     ) -> AsyncGenerator[str, None]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
@@ -140,10 +142,25 @@ class EditorService:
             characters=project.characters,
             outline_master=project.outline_master,
             outline_detail=project.outline_detail,
-            story_bible=project.story_bible,
+            runtime_state=project.runtime_state,
+            runtime_threads=project.runtime_threads,
             length_preset=project.length_preset,
-            content_length=len(project.content) if project.content else 0,
+            content_length=payload.total_content_length,
         )
+        user_context_parts: list[str] = []
+        if payload.previous_chapter_context.strip():
+            user_context_parts.append(
+                f"## 前序章节\n\n{payload.previous_chapter_context}"
+            )
+        if payload.current_chapter_context.strip():
+            user_context_parts.append(
+                f"## 当前章节\n\n{payload.current_chapter_context}"
+            )
+        user_context_parts.append(
+            "请从以下当前章节光标位置继续写作，保持自然衔接：\n\n"
+            f"{payload.text_before_cursor}"
+        )
+        user_context = "\n\n---\n\n".join(user_context_parts)
 
         messages = [
             SystemMessage(content=system_prompt),
@@ -181,7 +198,8 @@ class EditorService:
                 "characters": payload.characters,
                 "outline_master": payload.outline_master,
                 "outline_detail": payload.outline_detail,
-                "story_bible": payload.story_bible,
+                "runtime_state": payload.runtime_state,
+                "runtime_threads": payload.runtime_threads,
             },
         )
 
@@ -197,7 +215,8 @@ class EditorService:
         project_id: str,
         user_id: str,
         payload: BibleUpdateRequest,
-    ) -> str:
+    ) -> tuple[str, str]:
+        """Propose runtime field updates. Returns (proposed_state, proposed_threads)."""
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
@@ -206,15 +225,17 @@ class EditorService:
 
         system_prompt = build_bible_update_system_prompt()
         user_message = build_bible_update_user_message(
-            payload.current_bible,
+            payload.current_runtime_state,
+            payload.current_runtime_threads,
             payload.new_content_context,
         )
 
-        return await self.llm_service.invoke_completion(
+        raw = await self.llm_service.invoke_completion(
             provider_config=project.provider,
             system_prompt=system_prompt,
             user_context=user_message,
         )
+        return parse_bible_update_response(raw)
 
     async def generate_beats(
         self,
@@ -238,7 +259,7 @@ class EditorService:
             num_beats = preset_cfg["beat_count_default"]
 
         length_context = ""
-        content_length = len(project.content) if project.content else 0
+        content_length = payload.total_content_length
         if content_length > 0:
             progress = get_progress(content_length, project.length_preset)
             length_context = (
@@ -255,10 +276,12 @@ class EditorService:
         user_message = build_beat_generate_user_message(
             payload.text_before_cursor,
             payload.outline_detail,
-            payload.story_bible,
+            payload.runtime_state,
+            payload.runtime_threads,
             num_beats,
             length_context=length_context,
             current_chapter_context=payload.current_chapter_context,
+            previous_chapter_context=payload.previous_chapter_context,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -302,7 +325,10 @@ class EditorService:
             payload.total_beats,
             payload.preceding_beats_prose,
             payload.outline_detail,
-            payload.story_bible,
+            payload.runtime_state,
+            payload.runtime_threads,
+            current_chapter_context=payload.current_chapter_context,
+            previous_chapter_context=payload.previous_chapter_context,
         )
 
         messages = [

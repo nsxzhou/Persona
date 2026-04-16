@@ -732,6 +732,159 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/chapters": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Project Chapters",
+        "operationId": "list_project_chapters_api_v1_projects__project_id__chapters_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectChapterResponse"
+                  },
+                  "title": "Response List Project Chapters Api V1 Projects  Project Id  Chapters Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/chapters/sync-outline": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Sync Project Chapters From Outline",
+        "operationId": "sync_project_chapters_from_outline_api_v1_projects__project_id__chapters_sync_outline_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectChapterResponse"
+                  },
+                  "title": "Response Sync Project Chapters From Outline Api V1 Projects  Project Id  Chapters Sync Outline Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/chapters/{chapter_id}": {
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update Project Chapter",
+        "operationId": "update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "chapter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Chapter Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectChapterUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectChapterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/editor/complete": {
       "post": {
         "tags": [
@@ -1901,9 +2054,14 @@
             "type": "string",
             "title": "Text Before Cursor"
           },
-          "story_bible": {
+          "runtime_state": {
             "type": "string",
-            "title": "Story Bible",
+            "title": "Runtime State",
+            "default": ""
+          },
+          "runtime_threads": {
+            "type": "string",
+            "title": "Runtime Threads",
             "default": ""
           },
           "outline_detail": {
@@ -1933,6 +2091,12 @@
             "title": "Current Chapter Context",
             "description": "当前章节的结构化上下文",
             "default": ""
+          },
+          "previous_chapter_context": {
+            "type": "string",
+            "title": "Previous Chapter Context",
+            "description": "前序章节上下文",
+            "default": ""
           }
         },
         "type": "object",
@@ -1950,9 +2114,14 @@
             "type": "string",
             "title": "Text Before Cursor"
           },
-          "story_bible": {
+          "runtime_state": {
             "type": "string",
-            "title": "Story Bible",
+            "title": "Runtime State",
+            "default": ""
+          },
+          "runtime_threads": {
+            "type": "string",
+            "title": "Runtime Threads",
             "default": ""
           },
           "outline_detail": {
@@ -1972,6 +2141,18 @@
             "title": "Current Chapter Context",
             "description": "当前章节的结构化上下文",
             "default": ""
+          },
+          "previous_chapter_context": {
+            "type": "string",
+            "title": "Previous Chapter Context",
+            "description": "前序章节上下文",
+            "default": ""
+          },
+          "total_content_length": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Content Length",
+            "default": 0
           }
         },
         "type": "object",
@@ -1998,9 +2179,15 @@
       },
       "BibleUpdateRequest": {
         "properties": {
-          "current_bible": {
+          "current_runtime_state": {
             "type": "string",
-            "title": "Current Bible"
+            "title": "Current Runtime State",
+            "default": ""
+          },
+          "current_runtime_threads": {
+            "type": "string",
+            "title": "Current Runtime Threads",
+            "default": ""
           },
           "new_content_context": {
             "type": "string",
@@ -2010,21 +2197,25 @@
         },
         "type": "object",
         "required": [
-          "current_bible",
           "new_content_context"
         ],
         "title": "BibleUpdateRequest"
       },
       "BibleUpdateResponse": {
         "properties": {
-          "proposed_bible": {
+          "proposed_runtime_state": {
             "type": "string",
-            "title": "Proposed Bible"
+            "title": "Proposed Runtime State"
+          },
+          "proposed_runtime_threads": {
+            "type": "string",
+            "title": "Proposed Runtime Threads"
           }
         },
         "type": "object",
         "required": [
-          "proposed_bible"
+          "proposed_runtime_state",
+          "proposed_runtime_threads"
         ],
         "title": "BibleUpdateResponse"
       },
@@ -2162,6 +2353,22 @@
           "text_before_cursor": {
             "type": "string",
             "title": "Text Before Cursor"
+          },
+          "current_chapter_context": {
+            "type": "string",
+            "title": "Current Chapter Context",
+            "default": ""
+          },
+          "previous_chapter_context": {
+            "type": "string",
+            "title": "Previous Chapter Context",
+            "default": ""
+          },
+          "total_content_length": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Content Length",
+            "default": 0
           }
         },
         "type": "object",
@@ -2204,6 +2411,72 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "ProjectChapterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "volume_index": {
+            "type": "integer",
+            "title": "Volume Index"
+          },
+          "chapter_index": {
+            "type": "integer",
+            "title": "Chapter Index"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "word_count": {
+            "type": "integer",
+            "title": "Word Count"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "volume_index",
+          "chapter_index",
+          "title",
+          "content",
+          "word_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectChapterResponse"
+      },
+      "ProjectChapterUpdate": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ProjectChapterUpdate"
       },
       "ProjectCreate": {
         "properties": {
@@ -2280,14 +2553,14 @@
             "title": "Outline Detail",
             "default": ""
           },
-          "story_bible": {
+          "runtime_state": {
             "type": "string",
-            "title": "Story Bible",
+            "title": "Runtime State",
             "default": ""
           },
-          "content": {
+          "runtime_threads": {
             "type": "string",
-            "title": "Content",
+            "title": "Runtime Threads",
             "default": ""
           },
           "length_preset": {
@@ -2370,13 +2643,13 @@
             "type": "string",
             "title": "Outline Detail"
           },
-          "story_bible": {
+          "runtime_state": {
             "type": "string",
-            "title": "Story Bible"
+            "title": "Runtime State"
           },
-          "content": {
+          "runtime_threads": {
             "type": "string",
-            "title": "Content"
+            "title": "Runtime Threads"
           },
           "length_preset": {
             "type": "string",
@@ -2422,8 +2695,8 @@
           "characters",
           "outline_master",
           "outline_detail",
-          "story_bible",
-          "content",
+          "runtime_state",
+          "runtime_threads",
           "length_preset",
           "archived_at",
           "created_at",
@@ -2563,7 +2836,7 @@
             ],
             "title": "Outline Detail"
           },
-          "story_bible": {
+          "runtime_state": {
             "anyOf": [
               {
                 "type": "string"
@@ -2572,9 +2845,9 @@
                 "type": "null"
               }
             ],
-            "title": "Story Bible"
+            "title": "Runtime State"
           },
-          "content": {
+          "runtime_threads": {
             "anyOf": [
               {
                 "type": "string"
@@ -2583,7 +2856,7 @@
                 "type": "null"
               }
             ],
-            "title": "Content"
+            "title": "Runtime Threads"
           },
           "length_preset": {
             "anyOf": [
@@ -2873,9 +3146,14 @@
             "title": "Outline Detail",
             "default": ""
           },
-          "story_bible": {
+          "runtime_state": {
             "type": "string",
-            "title": "Story Bible",
+            "title": "Runtime State",
+            "default": ""
+          },
+          "runtime_threads": {
+            "type": "string",
+            "title": "Runtime Threads",
             "default": ""
           }
         },

@@ -79,8 +79,8 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
         characters: "",
         outline_master: "",
         outline_detail: "",
-        story_bible: "",
-        content: "",
+        runtime_state: "",
+        runtime_threads: "",
         length_preset: lengthPreset,
       });
       router.replace(`/projects/${project.id}`);

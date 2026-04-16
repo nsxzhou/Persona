@@ -44,7 +44,7 @@ export function ChapterTree({
     <div className="py-2">
       {outline.volumes.map((vol, vi) => {
         const isActiveVolume = currentChapter?.volumeIndex === vi;
-        const isCollapsed = collapsedVolumes.has(vi) && !isActiveVolume;
+        const isCollapsed = collapsedVolumes.has(vi);
         const completedCount = vol.chapters.filter((ch) => completedChapters.has(ch.title)).length;
 
         return (

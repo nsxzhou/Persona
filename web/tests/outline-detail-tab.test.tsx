@@ -35,7 +35,19 @@ describe("OutlineDetailTab", () => {
         projectId="project-1"
         outlineMaster="已存在总纲"
         {...({
-          content: "# 第1章 反派开局，短命名单",
+          chapters: [
+            {
+              id: "chapter-1",
+              project_id: "project-1",
+              volume_index: 0,
+              chapter_index: 0,
+              title: "第1章 反派开局，短命名单",
+              content: "正文",
+              word_count: 2,
+              created_at: "2026-04-10T00:00:00Z",
+              updated_at: "2026-04-10T00:00:00Z",
+            },
+          ],
         } as Record<string, unknown>)}
       />,
     );
@@ -76,7 +88,7 @@ describe("OutlineDetailTab", () => {
         onChange={vi.fn()}
         projectId="project-2"
         outlineMaster="已存在总纲"
-        content=""
+        chapters={[]}
       />,
     );
 

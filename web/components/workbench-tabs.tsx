@@ -25,7 +25,7 @@ import {
   RECOMMENDED_PREREQUISITES,
   type BibleFieldKey,
 } from "@/lib/bible-fields";
-import type { Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type { Project, ProjectChapter, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 interface WorkbenchTabsProps {
   project: Project;
@@ -53,13 +53,29 @@ export function WorkbenchTabs({
     characters: project.characters,
     outline_master: project.outline_master,
     outline_detail: project.outline_detail,
-    story_bible: project.story_bible,
+    runtime_state: project.runtime_state,
+    runtime_threads: project.runtime_threads,
   }));
 
   // ---- AI generation ----
   const [generatingSection, setGeneratingSection] = useState<BibleFieldKey | null>(null);
   const [generateConfirmSection, setGenerateConfirmSection] = useState<BibleFieldKey | null>(null);
+  const [chapters, setChapters] = useState<ProjectChapter[]>([]);
   const generationReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getProjectChapters(project.id)
+      .then((loaded) => {
+        if (!cancelled) setChapters(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setChapters([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id]);
 
   const handleStopGeneration = useCallback(() => {
     generationReaderRef.current?.cancel();
@@ -248,7 +264,7 @@ export function WorkbenchTabs({
                 onChange={(val) => handleFieldChange("outline_detail", val)}
                 projectId={project.id}
                 outlineMaster={fields.outline_master}
-                content={project.content}
+                chapters={chapters}
                 highlightedVolumeIndex={highlightedVolumeIndex}
               />
             ) : (

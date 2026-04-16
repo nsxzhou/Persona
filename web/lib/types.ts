@@ -5,6 +5,7 @@ type OpenApiSchema<Name extends keyof components["schemas"]> = components["schem
 export type User = OpenApiSchema<"UserResponse">;
 export type ProviderConfig = OpenApiSchema<"ProviderConfigResponse">;
 export type Project = OpenApiSchema<"ProjectResponse">;
+export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse">;
 
 export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
 export type AnalysisReportMarkdown = OpenApiSchema<"AnalysisReportMarkdown">;
@@ -22,6 +23,7 @@ export type StyleProfileListItem = OpenApiSchema<"StyleProfileListItemResponse">
 export type SetupPayload = components["schemas"]["SetupRequest"];
 export type LoginPayload = components["schemas"]["LoginRequest"];
 export type ProjectPayload = components["schemas"]["ProjectCreate"];
+export type ProjectChapterUpdate = components["schemas"]["ProjectChapterUpdate"];
 export type ProviderPayload = components["schemas"]["ProviderConfigCreate"];
 
 export type StyleProfileCreatePayload = components["schemas"]["StyleProfileCreate"];

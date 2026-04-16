@@ -226,18 +226,29 @@ _SECTION_META: dict[str, dict[str, str]] = {
             "- 每 3-5 章安排一个小高潮，每卷末安排大高潮"
         ),
     },
-    "story_bible": {
-        "label": "故事圣经补充",
+    "runtime_state": {
+        "label": "运行时状态",
         "instruction": (
-            "请基于已有上下文，生成一份初始的故事圣经补充材料。\n\n"
+            "请基于已有上下文，生成一份初始的运行时状态追踪文档。\n\n"
             "必须包含以下部分：\n"
             "1. **时间线** — 关键事件按时序排列\n"
-            "2. **活跃伏笔** — 尚未回收的悬念/暗示/线索，每条标注：\n"
+            "2. **角色当前状态** — 各角色的状态变化记录"
+            "（伤病、关系变化、新出场角色等）\n"
+            "3. **新揭示世界规则** — 随剧情发展揭示的世界设定"
+            "（如某个能力的限制条件、某地的特殊规则等）"
+        ),
+    },
+    "runtime_threads": {
+        "label": "伏笔与线索追踪",
+        "instruction": (
+            "请基于已有上下文，生成一份初始的伏笔与线索追踪文档。\n\n"
+            "必须包含以下部分：\n"
+            "1. **活跃伏笔** — 尚未回收的悬念/暗示/线索，每条标注：\n"
             "   - 类型（设定伏笔/人物伏笔/道具伏笔）\n"
             "   - 埋设位置（大约在哪里出现）\n"
             "   - 重要程度（核心线/支线）\n"
-            "3. **已回收线索** — 已完成回收的伏笔\n"
-            "4. **设定约束备忘** — 已确立的硬性设定规则"
+            "2. **已回收线索** — 已完成回收的伏笔\n"
+            "3. **设定约束备忘** — 已确立的硬性设定规则"
             "（如某角色的能力限制、某地点的特殊规则等），"
             "防止后续写作出现自相矛盾"
         ),
@@ -416,33 +427,68 @@ def build_volume_chapters_user_message(
 
 _BIBLE_UPDATE_SYSTEM = (
     "你是一位小说项目的设定维护助手。\n"
-    "你的职责是根据最新生成的正文内容，更新故事圣经的「补充」部分。\n\n"
-    "故事圣经补充包含四个部分：\n"
+    "你的职责是根据最新生成的正文内容，更新两部分运行时追踪文档。\n\n"
+    "你必须输出以下两个区块，用对应的二级标题分隔：\n\n"
+    "## 运行时状态\n"
+    "包含三个部分：\n"
     "1. **时间线** — 关键事件按时序排列\n"
-    "2. **活跃伏笔** — 尚未回收的悬念，每条标注类型"
+    "2. **角色当前状态** — 角色的状态变化（伤病、关系变化、新出场角色）\n"
+    "3. **新揭示世界规则** — 随剧情揭示的世界设定\n\n"
+    "## 伏笔与线索追踪\n"
+    "包含三个部分：\n"
+    "1. **活跃伏笔** — 尚未回收的悬念，每条标注类型"
     "（设定/人物/道具）和重要程度（核心/支线）\n"
-    "3. **已回收线索** — 已完成回收的伏笔，标注回收位置\n"
-    "4. **设定约束备忘** — 已确立的硬性设定规则\n\n"
+    "2. **已回收线索** — 已完成回收的伏笔，标注回收位置\n"
+    "3. **设定约束备忘** — 已确立的硬性设定规则\n\n"
     "更新规则：\n"
     "- 保留原有内容中仍然有效的信息\n"
     "- 根据新正文追加新出现的事件、角色、伏笔\n"
     "- 如果新正文回收了某条伏笔，将其从「活跃伏笔」移至「已回收线索」\n"
     "- 如果新正文确立了新的硬性设定规则，添加到「设定约束备忘」\n"
-    "- 输出完整的更新后故事圣经补充，使用 Markdown 格式\n"
+    "- 输出完整的更新后内容，使用 Markdown 格式\n"
+    "- 必须包含「## 运行时状态」和「## 伏笔与线索追踪」两个二级标题\n"
     "- 直接输出内容，不要添加解释"
 )
+
+_RUNTIME_THREADS_HEADING = "## 伏笔与线索追踪"
+
+
+def parse_bible_update_response(raw: str) -> tuple[str, str]:
+    """Split AI bible update response into (runtime_state, runtime_threads).
+
+    The AI is instructed to output two ``##`` sections. If parsing fails,
+    all content goes to runtime_state and runtime_threads is empty.
+    """
+    idx = raw.find(_RUNTIME_THREADS_HEADING)
+    if idx == -1:
+        return raw.strip(), ""
+    state_part = raw[:idx].strip()
+    threads_part = raw[idx + len(_RUNTIME_THREADS_HEADING):].strip()
+    # Remove the "## 运行时状态" heading if present at the start
+    state_heading = "## 运行时状态"
+    if state_part.startswith(state_heading):
+        state_part = state_part[len(state_heading):].strip()
+    return state_part, threads_part
 
 
 def build_bible_update_system_prompt() -> str:
     return _BIBLE_UPDATE_SYSTEM
 
 
-def build_bible_update_user_message(current_bible: str, new_content: str) -> str:
+def build_bible_update_user_message(
+    current_runtime_state: str,
+    current_runtime_threads: str,
+    new_content: str,
+) -> str:
     parts: list[str] = []
-    if current_bible.strip():
-        parts.append(f"## 当前故事圣经补充\n\n{current_bible}")
+    if current_runtime_state.strip():
+        parts.append(f"## 当前运行时状态\n\n{current_runtime_state}")
     else:
-        parts.append("## 当前故事圣经补充\n\n（空，尚未建立）")
+        parts.append("## 当前运行时状态\n\n（空，尚未建立）")
+    if current_runtime_threads.strip():
+        parts.append(f"## 当前伏笔与线索追踪\n\n{current_runtime_threads}")
+    else:
+        parts.append("## 当前伏笔与线索追踪\n\n（空，尚未建立）")
     parts.append(f"## 本次新生成的正文\n\n{new_content}")
     return "\n\n---\n\n".join(parts)
 
@@ -479,10 +525,12 @@ def build_beat_generate_system_prompt(style_prompt: str | None = None) -> str:
 def build_beat_generate_user_message(
     text_before_cursor: str,
     outline_detail: str,
-    story_bible: str,
+    runtime_state: str,
+    runtime_threads: str,
     num_beats: int,
     length_context: str = "",
     current_chapter_context: str = "",
+    previous_chapter_context: str = "",
 ) -> str:
     """构建节拍生成的用户消息，包含已有上下文。"""
     parts: list[str] = []
@@ -490,8 +538,12 @@ def build_beat_generate_user_message(
         parts.append(f"## 当前章节\n\n{current_chapter_context}")
     if outline_detail.strip():
         parts.append(f"## 章节细纲\n\n{outline_detail}")
-    if story_bible.strip():
-        parts.append(f"## 故事圣经\n\n{story_bible}")
+    if runtime_state.strip():
+        parts.append(f"## 运行时状态\n\n{runtime_state}")
+    if runtime_threads.strip():
+        parts.append(f"## 伏笔与线索追踪\n\n{runtime_threads}")
+    if previous_chapter_context.strip():
+        parts.append(f"## 前序章节\n\n{previous_chapter_context}")
     # 取最后 N 字作为前文上下文
     recent = text_before_cursor[-BEAT_GENERATE_CONTEXT_CHARS:] if len(text_before_cursor) > BEAT_GENERATE_CONTEXT_CHARS else text_before_cursor
     if recent.strip():
@@ -536,13 +588,22 @@ def build_beat_expand_user_message(
     total_beats: int,
     preceding_beats_prose: str,
     outline_detail: str,
-    story_bible: str,
+    runtime_state: str,
+    runtime_threads: str,
+    current_chapter_context: str = "",
+    previous_chapter_context: str = "",
 ) -> str:
     parts: list[str] = []
+    if current_chapter_context.strip():
+        parts.append(f"## 当前章节\n\n{current_chapter_context}")
     if outline_detail.strip():
         parts.append(f"## 章节细纲\n\n{outline_detail}")
-    if story_bible.strip():
-        parts.append(f"## 故事圣经\n\n{story_bible}")
+    if runtime_state.strip():
+        parts.append(f"## 运行时状态\n\n{runtime_state}")
+    if runtime_threads.strip():
+        parts.append(f"## 伏笔与线索追踪\n\n{runtime_threads}")
+    if previous_chapter_context.strip():
+        parts.append(f"## 前序章节\n\n{previous_chapter_context}")
     recent = text_before_cursor[-BEAT_EXPAND_CONTEXT_CHARS:] if len(text_before_cursor) > BEAT_EXPAND_CONTEXT_CHARS else text_before_cursor
     if recent.strip():
         parts.append(f"## 前文\n\n{recent}")

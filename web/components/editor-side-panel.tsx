@@ -23,6 +23,7 @@ export function EditorSidePanel({
   onCollapse,
   onFieldChange,
   onGoGenerateVolume,
+  mode = "navigation",
 }: {
   project: Project;
   contentLength: number;
@@ -34,6 +35,7 @@ export function EditorSidePanel({
   onCollapse: () => void;
   onFieldChange?: (field: BibleFieldKey, value: string) => void;
   onGoGenerateVolume?: (volumeIndex: number) => void;
+  mode?: "navigation" | "settings";
 }) {
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     inspiration: project.inspiration,
@@ -41,7 +43,8 @@ export function EditorSidePanel({
     characters: project.characters,
     outline_master: project.outline_master,
     outline_detail: project.outline_detail,
-    story_bible: project.story_bible,
+    runtime_state: project.runtime_state,
+    runtime_threads: project.runtime_threads,
   }));
 
   useEffect(() => {
@@ -51,11 +54,11 @@ export function EditorSidePanel({
       characters: project.characters,
       outline_master: project.outline_master,
       outline_detail: project.outline_detail,
-      story_bible: project.story_bible,
+      runtime_state: project.runtime_state,
+      runtime_threads: project.runtime_threads,
     });
-  }, [project.inspiration, project.world_building, project.characters, project.outline_master, project.outline_detail, project.story_bible]);
+  }, [project.inspiration, project.world_building, project.characters, project.outline_master, project.outline_detail, project.runtime_state, project.runtime_threads]);
 
-  const [bibleExpanded, setBibleExpanded] = useState(false);
   const [expandedFields, setExpandedFields] = useState<Set<BibleFieldKey>>(new Set());
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -129,7 +132,9 @@ export function EditorSidePanel({
     <aside className="w-[260px] border-r border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <span className="text-sm font-semibold">创作导航</span>
+        <span className="text-sm font-semibold">
+          {mode === "navigation" ? "创作导航" : "创作设定"}
+        </span>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onCollapse}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -153,55 +158,36 @@ export function EditorSidePanel({
         </div>
       </div>
 
-      {/* Chapter Tree */}
-      <div className="flex-1 overflow-y-auto">
-        <ChapterTree
-          outline={parsedOutline}
-          currentChapter={currentChapter}
-          completedChapters={completedChapters}
-          onSelectChapter={onSelectChapter}
-          onGoGenerateVolume={onGoGenerateVolume}
-        />
-      </div>
+      {mode === "navigation" ? (
+        <>
+          <div className="flex-1 overflow-y-auto">
+            <ChapterTree
+              outline={parsedOutline}
+              currentChapter={currentChapter}
+              completedChapters={completedChapters}
+              onSelectChapter={onSelectChapter}
+              onGoGenerateVolume={onGoGenerateVolume}
+            />
+          </div>
 
-      {/* Current chapter action */}
-      {currentChapterTitle && currentVolumeHasChapters && (
-        <div className="border-t border-border p-3 space-y-1.5 shrink-0">
-          <Button
-            className="w-full gap-2"
-            size="sm"
-            onClick={onGenerateBeatsForChapter}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            为当前章节生成节拍
-          </Button>
-          <p className="text-[10px] text-center text-muted-foreground truncate">
-            {currentChapterTitle}
-          </p>
-        </div>
-      )}
-
-      {/* Divider */}
-      <div className="border-t border-border shrink-0" />
-
-      {/* Bible fields — collapsible section */}
-      <div className="shrink-0">
-        <button
-          type="button"
-          onClick={() => setBibleExpanded(!bibleExpanded)}
-          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs hover:bg-muted/50 transition-colors"
-        >
-          {bibleExpanded ? (
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          {currentChapterTitle && currentVolumeHasChapters && (
+            <div className="border-t border-border p-3 space-y-1.5 shrink-0">
+              <Button
+                className="w-full gap-2"
+                size="sm"
+                onClick={onGenerateBeatsForChapter}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                为当前章节生成节拍
+              </Button>
+              <p className="text-[10px] text-center text-muted-foreground truncate">
+                {currentChapterTitle}
+              </p>
+            </div>
           )}
-          <span className="font-semibold text-muted-foreground">创作设定</span>
-        </button>
-      </div>
-
-      {bibleExpanded && (
-        <div className="overflow-y-auto max-h-[300px] border-t border-border">
+        </>
+      ) : (
+        <div className="flex-1 overflow-y-auto border-t border-border">
           {BIBLE_SECTION_META.map(({ key, title }) => {
             const isOpen = expandedFields.has(key);
             const text = fields[key];

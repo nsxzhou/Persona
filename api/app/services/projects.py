@@ -120,11 +120,9 @@ class ProjectService:
         if "default_model" in data:
             default_model = (data["default_model"] or "").strip()
             project.default_model = default_model or provider.default_model
-        if "content" in data:
-            project.content = data["content"]
         for field in (
             "inspiration", "world_building", "characters",
-            "outline_master", "outline_detail", "story_bible",
+            "outline_master", "outline_detail", "runtime_state", "runtime_threads",
         ):
             if field in data:
                 setattr(project, field, data[field])

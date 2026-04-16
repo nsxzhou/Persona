@@ -10,6 +10,10 @@ export function useBeatGeneration({
   textareaRef,
   isGenerating,
   currentChapterContext,
+  previousChapterContext = "",
+  totalContentLength = 0,
+  disabled = false,
+  onGeneratedContent,
 }: {
   project: Project;
   content: string;
@@ -17,6 +21,10 @@ export function useBeatGeneration({
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   isGenerating: boolean;
   currentChapterContext?: string;
+  previousChapterContext?: string;
+  totalContentLength?: number;
+  disabled?: boolean;
+  onGeneratedContent?: (generated: string) => void;
 }) {
   const [beats, setBeats] = useState<string[]>([]);
   const [currentBeatIndex, setCurrentBeatIndex] = useState(-1);
@@ -26,7 +34,7 @@ export function useBeatGeneration({
   const rafRef = useRef<number | null>(null);
 
   const handleGenerateBeats = async () => {
-    if (isGeneratingBeats) return;
+    if (isGeneratingBeats || disabled) return;
     setIsGeneratingBeats(true);
     try {
       const textarea = textareaRef.current;
@@ -37,9 +45,12 @@ export function useBeatGeneration({
       const data = await api.generateBeats(
         project.id,
         textBeforeCursor,
-        project.story_bible ?? "",
+        project.runtime_state ?? "",
+        project.runtime_threads ?? "",
         project.outline_detail ?? "",
         currentChapterContext,
+        previousChapterContext,
+        totalContentLength,
       );
 
       setBeats(data.beats);
@@ -52,13 +63,11 @@ export function useBeatGeneration({
   };
 
   const handleStartBeatExpand = async () => {
-    if (beats.length === 0 || isExpandingBeat || isGenerating) return;
+    if (beats.length === 0 || isExpandingBeat || isGenerating || disabled) return;
+    if (content.trim() && !window.confirm("当前章节已有正文，继续将替换本章正文。")) return;
 
-    // Capture cursor position once before the loop to avoid stale content/DOM mismatch
-    const textarea = textareaRef.current;
-    const cursorPos = textarea ? textarea.selectionStart : content.length;
-    const textBeforeCursor = content.substring(0, cursorPos);
-    const textAfterCursor = content.substring(cursorPos);
+    const textBeforeCursor = "";
+    const textAfterCursor = "";
 
     let beatsProse = "";
     for (let i = 0; i < beats.length; i++) {
@@ -69,13 +78,15 @@ export function useBeatGeneration({
         const response = await api.expandBeat(
           project.id,
           textBeforeCursor,
-          project.story_bible ?? "",
+          project.runtime_state ?? "",
+          project.runtime_threads ?? "",
           project.outline_detail ?? "",
           beats[i],
           i,
           beats.length,
           beatsProse,
           currentChapterContext,
+          previousChapterContext,
         );
 
         if (!response.body) throw new Error("No response body");
@@ -151,6 +162,7 @@ export function useBeatGeneration({
     }
     setIsExpandingBeat(false);
     setCurrentBeatIndex(-1);
+    if (beatsProse.trim()) onGeneratedContent?.(beatsProse);
   };
 
   return {

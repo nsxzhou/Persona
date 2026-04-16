@@ -101,12 +101,16 @@ class AuthRepository:
         sample_stmt = select(StyleSampleFile.storage_path)
         if user_id is not None:
             sample_stmt = sample_stmt.where(StyleSampleFile.user_id == user_id)
-        sample_paths = await session.stream_scalars(sample_stmt.yield_per(1000))
+        sample_paths = await session.stream_scalars(
+            sample_stmt.execution_options(yield_per=1000)
+        )
         
         job_stmt = select(StyleAnalysisJob.id)
         if user_id is not None:
             job_stmt = job_stmt.where(StyleAnalysisJob.user_id == user_id)
-        job_ids = await session.stream_scalars(job_stmt.yield_per(1000))
+        job_ids = await session.stream_scalars(
+            job_stmt.execution_options(yield_per=1000)
+        )
         
         return (
             [path async for path in sample_paths if path],

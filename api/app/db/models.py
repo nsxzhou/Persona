@@ -15,6 +15,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 
@@ -199,15 +200,15 @@ class Project(TimestampMixin, Base):
     style_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("style_profiles.id"), nullable=True, index=True
     )
-    # 故事圣经各区块
+    # 蓝图层：作者手动编辑的创作规划资产
     inspiration: Mapped[str] = mapped_column(Text, nullable=False, default="")
     world_building: Mapped[str] = mapped_column(Text, nullable=False, default="")
     characters: Mapped[str] = mapped_column(Text, nullable=False, default="")
     outline_master: Mapped[str] = mapped_column(Text, nullable=False, default="")
     outline_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    story_bible: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    # 项目正文内容
-    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 活态层：AI 写作后自动提议更新的运行时状态
+    runtime_state: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    runtime_threads: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 篇幅预设：short/medium/long
     length_preset: Mapped[str] = mapped_column(String(16), nullable=False, default="short")
     # 归档时间 - 如果归档了就有值，否则是None
@@ -221,6 +222,33 @@ class Project(TimestampMixin, Base):
         back_populates="projects"
     )
     user: Mapped["User"] = relationship(back_populates="projects")
+    chapters: Mapped[list["ProjectChapter"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+
+
+class ProjectChapter(TimestampMixin, Base):
+    __tablename__ = "project_chapters"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "volume_index",
+            "chapter_index",
+            name="uq_project_chapter_position",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    volume_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    chapter_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    word_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    project: Mapped["Project"] = relationship(back_populates="chapters")
 
 
 # 风格样本文件表模型

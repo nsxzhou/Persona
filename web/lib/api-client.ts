@@ -6,6 +6,8 @@ import type {
   LoginPayload,
   PromptPackMarkdown,
   Project,
+  ProjectChapter,
+  ProjectChapterUpdate,
   ProjectPayload,
   ProviderConfig,
   ProviderPayload,
@@ -88,6 +90,21 @@ export function createApiClient(request: Requester) {
       }),
     updateProject: (id: string, payload: Partial<ProjectPayload>) =>
       request<Project>(`/api/v1/projects/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    getProjectChapters: (projectId: string) =>
+      request<ProjectChapter[]>(`/api/v1/projects/${projectId}/chapters`),
+    syncProjectChapters: (projectId: string) =>
+      request<ProjectChapter[]>(`/api/v1/projects/${projectId}/chapters/sync-outline`, {
+        method: "POST",
+      }),
+    updateProjectChapter: (
+      projectId: string,
+      chapterId: string,
+      payload: ProjectChapterUpdate,
+    ) =>
+      request<ProjectChapter>(`/api/v1/projects/${projectId}/chapters/${chapterId}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
@@ -186,51 +203,84 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/style-profiles/${id}`, {
         method: "DELETE",
       }),
-    completeEditor: (projectId: string, textBeforeCursor: string) =>
+    completeEditor: (
+      projectId: string,
+      textBeforeCursor: string,
+      currentChapterContext = "",
+      previousChapterContext = "",
+      totalContentLength = 0,
+    ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/complete`, {
         method: "POST",
-        body: JSON.stringify({ text_before_cursor: textBeforeCursor }),
+        body: JSON.stringify({
+          text_before_cursor: textBeforeCursor,
+          current_chapter_context: currentChapterContext,
+          previous_chapter_context: previousChapterContext,
+          total_content_length: totalContentLength,
+        }),
       }),
-    proposeBibleUpdate: (projectId: string, currentBible: string, newContentContext: string) =>
-      request<{ proposed_bible: string }>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
+    proposeBibleUpdate: (
+      projectId: string,
+      currentRuntimeState: string,
+      currentRuntimeThreads: string,
+      newContentContext: string,
+    ) =>
+      request<{ proposed_runtime_state: string; proposed_runtime_threads: string }>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
         method: "POST",
         body: JSON.stringify({
-          current_bible: currentBible,
+          current_runtime_state: currentRuntimeState,
+          current_runtime_threads: currentRuntimeThreads,
           new_content_context: newContentContext,
         }),
       }),
-    generateBeats: (projectId: string, textBeforeCursor: string, storyBible: string, outlineDetail: string, currentChapterContext?: string) =>
+    generateBeats: (
+      projectId: string,
+      textBeforeCursor: string,
+      runtimeState: string,
+      runtimeThreads: string,
+      outlineDetail: string,
+      currentChapterContext?: string,
+      previousChapterContext?: string,
+      totalContentLength = 0,
+    ) =>
       request<{ beats: string[] }>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
         method: "POST",
         body: JSON.stringify({
           text_before_cursor: textBeforeCursor,
-          story_bible: storyBible,
+          runtime_state: runtimeState,
+          runtime_threads: runtimeThreads,
           outline_detail: outlineDetail,
           ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
+          ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
+          total_content_length: totalContentLength,
         }),
       }),
     expandBeat: (
       projectId: string,
       textBeforeCursor: string,
-      storyBible: string,
+      runtimeState: string,
+      runtimeThreads: string,
       outlineDetail: string,
       beat: string,
       beatIndex: number,
       totalBeats: number,
       precedingBeatsProse: string,
       currentChapterContext?: string,
+      previousChapterContext?: string,
     ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/expand-beat`, {
         method: "POST",
         body: JSON.stringify({
           text_before_cursor: textBeforeCursor,
-          story_bible: storyBible,
+          runtime_state: runtimeState,
+          runtime_threads: runtimeThreads,
           outline_detail: outlineDetail,
           beat,
           beat_index: beatIndex,
           total_beats: totalBeats,
           preceding_beats_prose: precedingBeatsProse,
           ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
+          ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
         }),
       }),
     generateSection: (projectId: string, payload: Record<string, string>) =>

@@ -34,16 +34,15 @@ class ProjectCreate(BaseModel):
     # 风格配置ID：可选字段
     style_profile_id: str | None = None
 
-    # 故事圣经各区块
+    # 蓝图层：创作规划资产
     inspiration: str = ""
     world_building: str = ""
     characters: str = ""
     outline_master: str = ""
     outline_detail: str = ""
-    story_bible: str = ""
-
-    # 项目正文内容
-    content: str = ""
+    # 活态层：运行时状态
+    runtime_state: str = ""
+    runtime_threads: str = ""
 
     # 篇幅预设
     length_preset: LengthPreset = "short"
@@ -63,8 +62,8 @@ class ProjectUpdate(BaseModel):
     characters: str | None = None
     outline_master: str | None = None
     outline_detail: str | None = None
-    story_bible: str | None = None
-    content: str | None = None
+    runtime_state: str | None = None
+    runtime_threads: str | None = None
     length_preset: LengthPreset | None = None
 
 
@@ -86,15 +85,15 @@ class ProjectResponse(BaseModel):
     default_model: str
     # 风格配置ID
     style_profile_id: str | None
-    # 故事圣经各区块
+    # 蓝图层
     inspiration: str
     world_building: str
     characters: str
     outline_master: str
     outline_detail: str
-    story_bible: str
-    # 项目正文内容
-    content: str
+    # 活态层
+    runtime_state: str
+    runtime_threads: str
     # 篇幅预设
     length_preset: str
     # 归档时间 - 没有归档就是None
@@ -110,6 +109,9 @@ class ProjectResponse(BaseModel):
 
 class EditorCompletionRequest(BaseModel):
     text_before_cursor: str
+    current_chapter_context: str = ""
+    previous_chapter_context: str = ""
+    total_content_length: int = Field(default=0, ge=0)
 
 
 class SectionGenerateRequest(BaseModel):
@@ -119,24 +121,30 @@ class SectionGenerateRequest(BaseModel):
     characters: str = ""
     outline_master: str = ""
     outline_detail: str = ""
-    story_bible: str = ""
+    runtime_state: str = ""
+    runtime_threads: str = ""
 
 
 class BibleUpdateRequest(BaseModel):
-    current_bible: str
+    current_runtime_state: str = ""
+    current_runtime_threads: str = ""
     new_content_context: str = Field(description="本次新生成的文本")
 
 
 class BibleUpdateResponse(BaseModel):
-    proposed_bible: str
+    proposed_runtime_state: str
+    proposed_runtime_threads: str
 
 
 class BeatGenerateRequest(BaseModel):
     text_before_cursor: str
-    story_bible: str = ""
+    runtime_state: str = ""
+    runtime_threads: str = ""
     outline_detail: str = ""
     num_beats: int = Field(default=8, ge=3, le=15)
     current_chapter_context: str = Field(default="", description="当前章节的结构化上下文")
+    previous_chapter_context: str = Field(default="", description="前序章节上下文")
+    total_content_length: int = Field(default=0, ge=0)
 
 
 class BeatGenerateResponse(BaseModel):
@@ -145,13 +153,15 @@ class BeatGenerateResponse(BaseModel):
 
 class BeatExpandRequest(BaseModel):
     text_before_cursor: str
-    story_bible: str = ""
+    runtime_state: str = ""
+    runtime_threads: str = ""
     outline_detail: str = ""
     beat: str
     beat_index: int
     total_beats: int
     preceding_beats_prose: str = ""
     current_chapter_context: str = Field(default="", description="当前章节的结构化上下文")
+    previous_chapter_context: str = Field(default="", description="前序章节上下文")
 
 
 class VolumeChaptersRequest(BaseModel):
@@ -172,3 +182,21 @@ class ConceptItem(BaseModel):
 
 class ConceptGenerateResponse(BaseModel):
     concepts: list[ConceptItem]
+
+
+class ProjectChapterResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    volume_index: int
+    chapter_index: int
+    title: str
+    content: str
+    word_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectChapterUpdate(BaseModel):
+    content: str = ""
