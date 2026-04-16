@@ -32,7 +32,7 @@ describe("BibleTabContent", () => {
 
     expect(textarea.value).toContain("## 核心时代与生活秩序");
     expect(textarea.value).toContain("## 权力结构与身份壁垒");
-    expect(textarea.value).toContain("## 会逼主角做选择的关键规则");
+    expect(textarea.value).toContain("## 主角当前处境与约束");
     expect(textarea.value).toContain("## 当前局势与旧事阴影");
     expect(textarea.value).toContain("## 后续可能扩展的空间（如有）");
     expect(textarea.value).not.toContain("## 规则体系");
