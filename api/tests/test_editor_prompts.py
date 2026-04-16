@@ -13,7 +13,7 @@ def test_world_building_prompt_uses_core_scaffold_and_conditional_modules() -> N
     assert "只保留当前故事真正需要的模块" in prompt
     assert "1. **时代与秩序**" in prompt
     assert "2. **当前局势与核心冲突土壤**" in prompt
-    assert "3. **主角受限规则**" in prompt
+    assert "3. **主角当前处境与约束**" in prompt
     assert "仅在确有需要时，才补充下列可选模块" in prompt
     assert "隐秘规则/禁忌" in prompt
     assert "主要势力" in prompt
