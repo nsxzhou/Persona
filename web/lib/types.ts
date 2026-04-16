@@ -13,7 +13,7 @@ export type PromptPackMarkdown = OpenApiSchema<"PromptPackMarkdown">;
 export type StyleAnalysisJobLogs = OpenApiSchema<"StyleAnalysisJobLogsResponse">;
 
 export type StyleAnalysisJob = OpenApiSchema<"StyleAnalysisJobResponse">;
-export type StyleAnalysisJobListItem = OpenApiSchema<"StyleAnalysisJobListItemResponse">;
+export type StyleAnalysisJobListItem = OpenApiSchema<"StyleAnalysisJobBaseResponse">;
 export type StyleAnalysisJobStatus = StyleAnalysisJob["status"];
 export type StyleAnalysisJobStage = NonNullable<StyleAnalysisJob["stage"]>;
 export type StyleProfile = OpenApiSchema<"StyleProfileResponse">;
