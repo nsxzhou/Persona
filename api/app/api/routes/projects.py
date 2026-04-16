@@ -13,7 +13,7 @@ from app.api.deps import (
     ProjectServiceDep,
 )
 from app.api.sse import sse_response
-from app.schemas.projects import (
+from app.schemas.editor import (
     BeatExpandRequest,
     BeatGenerateRequest,
     BeatGenerateResponse,
@@ -22,13 +22,14 @@ from app.schemas.projects import (
     ConceptGenerateRequest,
     ConceptGenerateResponse,
     EditorCompletionRequest,
-    ProjectCreate,
-    ProjectChapterResponse,
-    ProjectChapterUpdate,
-    ProjectResponse,
-    ProjectUpdate,
     SectionGenerateRequest,
     VolumeChaptersRequest,
+)
+from app.schemas.project_chapters import ProjectChapterResponse, ProjectChapterUpdate
+from app.schemas.projects import (
+    ProjectCreate,
+    ProjectResponse,
+    ProjectUpdate,
 )
 
 logger = logging.getLogger(__name__)

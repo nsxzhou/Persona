@@ -13,7 +13,7 @@ import type {
 
 describe("API contracts", () => {
   test("api client methods align with exported OpenAPI contract types", async () => {
-    const request = vi.fn(async <T,>(_path: string) => undefined as T) as {
+    const request = vi.fn(async <T,>(_path: string) => undefined as T) as unknown as {
       <T>(path: string, init?: RequestInit): Promise<T>;
       raw: (path: string, init?: RequestInit) => Promise<Response>;
     };
@@ -86,9 +86,7 @@ describe("API contracts", () => {
     await request("/upload", {
       method: "POST",
       body: formData,
-      headers: {
-        "Content-Type": undefined,
-      },
+      headers: { "Content-Type": undefined } as unknown as HeadersInit,
     });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];

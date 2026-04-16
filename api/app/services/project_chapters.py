@@ -39,26 +39,34 @@ class ProjectChapterService:
             session, project_id, user_id=user_id,
         )
         parsed = parse_outline(project.outline_detail or "")
+        existing_chapters = await self.repository.list_by_project(session, project_id)
+        existing_chapter_map = {
+            (chapter.volume_index, chapter.chapter_index): chapter
+            for chapter in existing_chapters
+        }
 
         for volume_index, volume in enumerate(parsed["volumes"]):
             for chapter_index, chapter_outline in enumerate(volume["chapters"]):
-                chapter = await self.repository.get_by_position(
-                    session, project_id, volume_index, chapter_index,
-                )
+                chapter = existing_chapter_map.get((volume_index, chapter_index))
                 title = chapter_outline["title"]
                 if chapter is None:
-                    await self.repository.create(
+                    chapter = await self.repository.create(
                         session,
                         project_id=project_id,
                         volume_index=volume_index,
                         chapter_index=chapter_index,
                         title=title,
                     )
+                    existing_chapters.append(chapter)
+                    existing_chapter_map[(volume_index, chapter_index)] = chapter
                 elif chapter.title != title:
                     chapter.title = title
 
         await self.repository.flush(session)
-        return await self.repository.list_by_project(session, project_id)
+        return sorted(
+            existing_chapters,
+            key=lambda chapter: (chapter.volume_index, chapter.chapter_index),
+        )
 
     async def update(
         self,

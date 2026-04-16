@@ -22,6 +22,8 @@ import { BeatPanel } from "@/components/beat-panel";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { useEditorCompletion } from "@/hooks/use-editor-completion";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
+import { useProjectState } from "@/hooks/use-project-state";
+import { useRuntimeUpdateProposal } from "@/hooks/use-runtime-update-proposal";
 import { parseOutline } from "@/lib/outline-parser";
 import { NAV_ITEMS } from "@/components/app-shell";
 import {
@@ -49,15 +51,7 @@ export function ZenEditorView({
   const [savedChapterContent, setSavedChapterContent] = useState("");
   const [chapters, setChapters] = useState<ProjectChapter[]>([]);
   const [isLoadingChapters, setIsLoadingChapters] = useState(true);
-  const [bibleDiff, setBibleDiff] = useState<{
-    open: boolean;
-    currentState: string;
-    proposedState: string;
-    currentThreads: string;
-    proposedThreads: string;
-  }>({ open: false, currentState: "", proposedState: "", currentThreads: "", proposedThreads: "" });
-
-  const [projectData, setProjectData] = useState(project);
+  const { projectData, setProjectData, persistProjectUpdate } = useProjectState(project);
 
   const [isLeftExpanded, setIsLeftExpanded] = useState(Boolean(initialChapterSelection));
   const [isRightExpanded, setIsRightExpanded] = useState(initialIntent === "generate_beats");
@@ -138,32 +132,25 @@ export function ZenEditorView({
     );
   }, []);
 
-  const proposeRuntimeUpdate = useCallback(
-    async (generated: string) => {
-      if (generated.trim().length < 200) return;
-      try {
-        const { proposed_runtime_state, proposed_runtime_threads } = await api.proposeBibleUpdate(
-          project.id,
-          projectData.runtime_state,
-          projectData.runtime_threads ?? "",
-          generated,
-        );
-        const stateChanged = proposed_runtime_state && proposed_runtime_state !== projectData.runtime_state;
-        const threadsChanged = proposed_runtime_threads && proposed_runtime_threads !== (projectData.runtime_threads ?? "");
-        if (stateChanged || threadsChanged) {
-          setBibleDiff({
-            open: true,
-            currentState: projectData.runtime_state,
-            proposedState: proposed_runtime_state,
-            currentThreads: projectData.runtime_threads ?? "",
-            proposedThreads: proposed_runtime_threads,
-          });
-        }
-      } catch {
-        // 运行时状态提议失败不阻断正文生成。
-      }
+  const {
+    bibleDiff,
+    proposeRuntimeUpdate,
+    acceptRuntimeUpdate,
+    dismissRuntimeUpdate,
+  } = useRuntimeUpdateProposal({
+    projectId: project.id,
+    project: projectData,
+    persistProjectUpdate,
+  });
+
+  const persistProjectField = useCallback(
+    async (field: keyof Pick<Project, "runtime_state" | "runtime_threads" | "inspiration" | "world_building" | "characters" | "outline_master" | "outline_detail">, value: string) => {
+      await persistProjectUpdate(
+        { [field]: value },
+        { errorMessage: "保存失败" },
+      );
     },
-    [project.id, projectData.runtime_state, projectData.runtime_threads],
+    [persistProjectUpdate],
   );
 
   const { isGenerating, handleGenerate, handleStop } = useEditorCompletion({
@@ -171,7 +158,7 @@ export function ZenEditorView({
     content,
     setContent,
     textareaRef,
-    setBibleDiff,
+    onGeneratedContent: proposeRuntimeUpdate,
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
@@ -467,6 +454,7 @@ export function ZenEditorView({
             onGoGenerateVolume={handleGoGenerateVolume}
             onCollapse={() => setIsLeftExpanded(false)}
             onFieldChange={(field, value) => setProjectData((prev) => ({ ...prev, [field]: value }))}
+            onPersistField={persistProjectField}
             mode={leftPanelMode}
           />
         )}
@@ -561,7 +549,7 @@ export function ZenEditorView({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!selectedChapterRecord}
+            disabled={!selectedChapterRecord || isGenerating || isExpandingBeat}
             placeholder={selectedChapterRecord ? "开始创作... (按 ⌘J 进行 AI 续写)" : "请先选择章节..."}
             className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed`}
             style={{
@@ -618,17 +606,8 @@ export function ZenEditorView({
         proposedState={bibleDiff.proposedState}
         currentThreads={bibleDiff.currentThreads}
         proposedThreads={bibleDiff.proposedThreads}
-        onAccept={async (state, threads) => {
-          try {
-            await api.updateProject(project.id, { runtime_state: state, runtime_threads: threads });
-            setProjectData((prev) => ({ ...prev, runtime_state: state, runtime_threads: threads }));
-            toast.success("运行时状态已更新");
-          } catch {
-            toast.error("更新运行时状态失败");
-          }
-          setBibleDiff({ open: false, currentState: "", proposedState: "", currentThreads: "", proposedThreads: "" });
-        }}
-        onDismiss={() => setBibleDiff({ open: false, currentState: "", proposedState: "", currentThreads: "", proposedThreads: "" })}
+        onAccept={acceptRuntimeUpdate}
+        onDismiss={dismissRuntimeUpdate}
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Project } from "@/lib/types";
 import { api } from "@/lib/api";
-import { consumeTextEventStream } from "@/lib/sse";
+import { useStreamingText } from "@/hooks/use-streaming-text";
 
 export function useBeatGeneration({
   project,
@@ -31,8 +31,7 @@ export function useBeatGeneration({
   const [currentBeatIndex, setCurrentBeatIndex] = useState(-1);
   const [isGeneratingBeats, setIsGeneratingBeats] = useState(false);
   const [isExpandingBeat, setIsExpandingBeat] = useState(false);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const { consumeResponse } = useStreamingText();
 
   const handleGenerateBeats = async () => {
     if (isGeneratingBeats || disabled) return;
@@ -90,43 +89,16 @@ export function useBeatGeneration({
           previousChapterContext,
         );
 
-        if (!response.body) throw new Error("No response body");
-
-        const reader = response.body.getReader();
-        readerRef.current = reader;
-        let beatGenerated = "";
-        let needsFlush = false;
-
-        const flushToState = () => {
-          rafRef.current = null;
-          const newContent = textBeforeCursor + beatsProse + beatGenerated + textAfterCursor;
-          setContent(newContent);
-          needsFlush = false;
-        };
-
-        let lastFlushTime = Date.now();
-        await consumeTextEventStream(reader, {
-          onData: (chunk, fullText) => {
-            beatGenerated = fullText;
-            if (!chunk) return;
-            needsFlush = true;
-            const now = Date.now();
-            if (now - lastFlushTime > 100) {
-              lastFlushTime = now;
-              if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-              rafRef.current = requestAnimationFrame(flushToState);
-            }
+        const beatGenerated = await consumeResponse({
+          response,
+          onFlush: (fullText) => {
+            const newContent = textBeforeCursor + beatsProse + fullText + textAfterCursor;
+            setContent(newContent);
           },
         });
-        
-        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-        flushToState();
 
         beatsProse += beatGenerated;
-        readerRef.current = null;
       } catch (e: unknown) {
-        readerRef.current = null;
         const message = e instanceof Error ? e.message : "展开失败";
         if (message !== "The operation was cancelled.") {
           toast.error(message);
