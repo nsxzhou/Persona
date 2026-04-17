@@ -1,3 +1,14 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  Globe,
+  Users,
+  ScrollText,
+  ListTree,
+  Activity,
+  Link2,
+} from "lucide-react";
+
 export type BlueprintFieldKey =
   | "inspiration"
   | "world_building"
@@ -11,20 +22,24 @@ export type RuntimeFieldKey =
 
 export type BibleFieldKey = BlueprintFieldKey | RuntimeFieldKey;
 
+export type BibleSectionGroup = "blueprint" | "runtime";
+
 export interface BibleSectionMeta {
   key: BibleFieldKey;
   title: string;
+  icon: LucideIcon;
+  group: BibleSectionGroup;
 }
 
 /** Ordered metadata for all story bible sections (blueprint + runtime). */
 export const BIBLE_SECTION_META: BibleSectionMeta[] = [
-  { key: "inspiration", title: "灵感概述" },
-  { key: "world_building", title: "世界观设定" },
-  { key: "characters", title: "角色卡" },
-  { key: "outline_master", title: "总纲" },
-  { key: "outline_detail", title: "分卷与章节细纲" },
-  { key: "runtime_state", title: "运行时状态" },
-  { key: "runtime_threads", title: "伏笔与线索追踪" },
+  { key: "inspiration", title: "灵感概述", icon: BookOpen, group: "blueprint" },
+  { key: "world_building", title: "世界观设定", icon: Globe, group: "blueprint" },
+  { key: "characters", title: "角色卡", icon: Users, group: "blueprint" },
+  { key: "outline_master", title: "总纲", icon: ScrollText, group: "blueprint" },
+  { key: "outline_detail", title: "分卷与章节细纲", icon: ListTree, group: "blueprint" },
+  { key: "runtime_state", title: "运行时状态", icon: Activity, group: "runtime" },
+  { key: "runtime_threads", title: "伏笔与线索追踪", icon: Link2, group: "runtime" },
 ];
 
 export const BIBLE_FIELD_KEYS: readonly BibleFieldKey[] = BIBLE_SECTION_META.map(
