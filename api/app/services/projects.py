@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError
-from app.db.models import Project, ProviderConfig
+from app.db.models import Project
 from app.db.repositories.projects import ProjectRepository
 from app.schemas.projects import ProjectCreate, ProjectUpdate
 from app.services.provider_configs import ProviderConfigService
@@ -32,7 +32,7 @@ class ProjectService:
         offset: int = 0,
         limit: int = 50,
     ) -> list[Project]:
-        return await self.repository.list(
+        return await self.repository.list_summaries(
             session,
             user_id=user_id,
             include_archived=include_archived,
@@ -106,38 +106,41 @@ class ProjectService:
         project = await self.get_or_404(session, project_id, user_id=user_id)
         data = payload.model_dump(exclude_unset=True)
 
-        provider: ProviderConfig = project.provider
         if "default_provider_id" in data and data["default_provider_id"]:
             provider = await self.provider_service.ensure_enabled(
                 session,
-                data["default_provider_id"],
+                data.pop("default_provider_id"),
                 user_id=user_id,
             )
             project.default_provider_id = provider.id
+            if data.get("default_model") is None:
+                project.default_model = provider.default_model
+        else:
+            data.pop("default_provider_id", None)
 
-        if "name" in data:
-            project.name = data["name"]
-        if "description" in data:
-            project.description = data["description"]
-        if "status" in data:
-            project.status = data["status"]
         if "style_profile_id" in data:
-            if data["style_profile_id"] is not None:
+            style_profile_id = data.pop("style_profile_id")
+            if style_profile_id is not None:
                 await self.style_profile_service.get_or_404(
                     session,
-                    data["style_profile_id"],
+                    style_profile_id,
                     user_id=user_id,
                 )
-            project.style_profile_id = data["style_profile_id"]
+            project.style_profile_id = style_profile_id
+
         if "default_model" in data:
-            default_model = (data["default_model"] or "").strip()
-            project.default_model = default_model or provider.default_model
-        for field in (
+            default_model = (data.pop("default_model") or "").strip()
+            project.default_model = default_model or project.provider.default_model
+
+        _ASSIGNABLE_FIELDS = {
+            "name", "description", "status", "length_preset",
             "inspiration", "world_building", "characters",
-            "outline_master", "outline_detail", "runtime_state", "runtime_threads",
-        ):
-            if field in data:
-                setattr(project, field, data[field])
+            "outline_master", "outline_detail",
+            "runtime_state", "runtime_threads",
+        }
+        for field, value in data.items():
+            if field in _ASSIGNABLE_FIELDS:
+                setattr(project, field, value)
 
         await self.repository.flush(session)
         return await self.get_or_404(session, project.id, user_id=user_id)

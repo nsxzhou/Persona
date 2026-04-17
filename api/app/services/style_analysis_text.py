@@ -151,12 +151,18 @@ async def read_chunks_and_classification(
 
     total_char_count = 0
     emitted_chunk_count = 0
+    # Capture a small prefix for format classification (timestamps/speakers/noise).
+    sample_buf: list[str] = []
+    SAMPLE_LIMIT = 200
 
     chapter_patterns = [
         re.compile(r"^\s*第[零一二三四五六七八九十百千万0-9]+[章节卷回折][\s　]*.*$"),
         re.compile(r"^\s*Chapter\s*\d+\s*.*$", re.IGNORECASE),
         re.compile(r"^\s*\d+[\.、]\s+.*$"),
     ]
+    _TIMESTAMP_RE = re.compile(r"(?:\[|\()\d{1,2}:\d{2}(?::\d{2})?(?:\]|\))|^\d{1,2}:\d{2}", re.MULTILINE)
+    _SPEAKER_RE = re.compile(r"^[A-Z][A-Za-z ]{0,20}[:：]|^[一-龥]{1,6}[:：]", re.MULTILINE)
+    _NOISE_RE = re.compile(r"\[(?:pauses?|laughs?|inaudible|静默|笑|背景音)\]", re.IGNORECASE)
 
     def is_chapter_header(line: str) -> bool:
         stripped = line.strip()
@@ -220,25 +226,43 @@ async def read_chunks_and_classification(
         stripped = line.strip()
         if stripped:
             total_char_count += len(stripped)
-            
+            if len(sample_buf) < SAMPLE_LIMIT:
+                sample_buf.append(stripped)
+
         if is_chapter_header(line) or current_chunk_char_count > 15000:
             # Emit if we already have substantial content (e.g., > 50 characters)
             if current_chunk_char_count > 50:
                 await emit_chunk()
-                
+
         current_chunk_lines.append(line)
         current_chunk_char_count += len(stripped)
 
     # Emit any remaining content
     await emit_chunk()
 
+    sample_text = "\n".join(sample_buf)
+    has_timestamps = bool(_TIMESTAMP_RE.search(sample_text))
+    has_speaker_labels = bool(_SPEAKER_RE.search(sample_text))
+    has_noise_markers = bool(_NOISE_RE.search(sample_text))
+    text_type: Literal["混合文本", "口语字幕", "章节正文"]
+    if has_timestamps or has_speaker_labels:
+        text_type = "口语字幕" if has_timestamps else "混合文本"
+        location_indexing: Literal["时间戳", "章节或段落位置", "无法定位"] = (
+            "时间戳" if has_timestamps else "章节或段落位置"
+        )
+    else:
+        text_type = "章节正文"
+        location_indexing = "章节或段落位置"
+
     classification: InputClassification = {
-        "text_type": "章节正文",
-        "has_timestamps": False,
-        "has_speaker_labels": False,
-        "has_noise_markers": False,
+        "text_type": text_type,
+        "has_timestamps": has_timestamps,
+        "has_speaker_labels": has_speaker_labels,
+        "has_noise_markers": has_noise_markers,
         "uses_batch_processing": False,
-        "location_indexing": "章节或段落位置",
-        "noise_notes": "未发现显著噪声。",
+        "location_indexing": location_indexing,
+        "noise_notes": (
+            "检测到对话/语气/背景音标记。" if has_noise_markers else "未发现显著噪声。"
+        ),
     }
     return emitted_chunk_count, total_char_count, classification

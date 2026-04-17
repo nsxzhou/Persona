@@ -5,11 +5,35 @@
 
 from __future__ import annotations
 
+import re
+
 from app.core.bible_fields import BIBLE_FIELD_KEYS, BIBLE_FIELD_LABELS
+from app.core.domain_errors import UnprocessableEntityError
 from app.core.length_presets import LengthPresetKey
+from app.schemas.projects import ConceptItem
 
 BEAT_GENERATE_CONTEXT_CHARS = 2000
 BEAT_EXPAND_CONTEXT_CHARS = 1500
+
+
+def parse_concept_response(raw: str, expected_count: int) -> list[ConceptItem]:
+    """Parse LLM concept-generation response ("### 标题\\n\\n摘要" blocks)."""
+    text = raw.strip()
+    concepts: list[ConceptItem] = []
+    for part in re.split(r"^###\s+", text, flags=re.MULTILINE):
+        part = part.strip()
+        if not part:
+            continue
+        lines = part.split("\n", 1)
+        if len(lines) < 2:
+            continue
+        title = re.sub(r"^\d+[\.、\s]+", "", lines[0].strip())
+        synopsis = lines[1].strip()
+        if title and synopsis:
+            concepts.append(ConceptItem(title=title, synopsis=synopsis))
+    if not concepts:
+        raise UnprocessableEntityError("AI 返回的格式无法解析，请重试")
+    return concepts[:expected_count]
 
 # --------------------------------------------------------------------------- #
 #  Length-preset-aware section instructions                                     #
@@ -516,8 +540,13 @@ def build_bible_update_system_prompt() -> str:
 def build_bible_update_user_message(
     current_runtime_state: str,
     current_runtime_threads: str,
-    new_content: str,
+    content_to_check: str,
+    sync_scope: str,
 ) -> str:
+    scope_label = {
+        "generated_fragment": "## 待检查正文（新增片段）",
+        "chapter_full": "## 待检查正文（整章）",
+    }.get(sync_scope, "## 待检查正文")
     parts: list[str] = []
     if current_runtime_state.strip():
         parts.append(f"## 当前运行时状态\n\n{current_runtime_state}")
@@ -527,7 +556,7 @@ def build_bible_update_user_message(
         parts.append(f"## 当前伏笔与线索追踪\n\n{current_runtime_threads}")
     else:
         parts.append("## 当前伏笔与线索追踪\n\n（空，尚未建立）")
-    parts.append(f"## 本次新生成的正文\n\n{new_content}")
+    parts.append(f"{scope_label}\n\n{content_to_check}")
     return "\n\n---\n\n".join(parts)
 
 

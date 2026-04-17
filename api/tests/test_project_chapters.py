@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -50,10 +52,36 @@ async def test_sync_outline_creates_chapter_records_and_project_omits_content(
         (0, 1, "第2章：案卷上的名字"),
     ]
     assert [c["word_count"] for c in chapters] == [0, 0]
+    assert chapters[0]["memory_sync_status"] is None
+    assert chapters[0]["memory_sync_proposed_state"] is None
+    assert chapters[0]["memory_sync_proposed_threads"] is None
 
     list_response = await initialized_client.get(f"/api/v1/projects/{project['id']}/chapters")
     assert list_response.status_code == 200
-    assert list_response.json() == chapters
+    listed_chapters = list_response.json()
+    assert [
+        (
+            c["id"],
+            c["volume_index"],
+            c["chapter_index"],
+            c["title"],
+            c["memory_sync_status"],
+            c["memory_sync_proposed_state"],
+            c["memory_sync_proposed_threads"],
+        )
+        for c in listed_chapters
+    ] == [
+        (
+            c["id"],
+            c["volume_index"],
+            c["chapter_index"],
+            c["title"],
+            c["memory_sync_status"],
+            c["memory_sync_proposed_state"],
+            c["memory_sync_proposed_threads"],
+        )
+        for c in chapters
+    ]
 
 
 @pytest.mark.asyncio
@@ -201,3 +229,95 @@ async def test_sync_outline_fetches_existing_chapters_once_and_reuses_in_memory_
     repository.create.assert_awaited_once()
     repository.flush.assert_awaited_once()
     assert chapters[0].title == "第1章：醒在死牢"
+
+
+@pytest.mark.asyncio
+async def test_update_invalidates_memory_sync_snapshot_when_saved_content_changes() -> None:
+    from app.schemas.project_chapters import ProjectChapterUpdate
+    from app.services.project_chapters import ProjectChapterService
+
+    chapter = SimpleNamespace(
+        id="chapter-1",
+        project_id="project-1",
+        volume_index=0,
+        chapter_index=0,
+        title="第1章：醒在死牢",
+        content="旧正文",
+        word_count=3,
+        memory_sync_status="synced",
+        memory_sync_source="auto",
+        memory_sync_scope="generated_fragment",
+        memory_sync_checked_at=datetime.now(UTC),
+        memory_sync_checked_content_hash="old-hash",
+        memory_sync_error_message=None,
+        memory_sync_proposed_state="旧提议状态",
+        memory_sync_proposed_threads="旧提议伏笔",
+    )
+    repository = SimpleNamespace(
+        get_by_id=AsyncMock(return_value=chapter),
+        flush=AsyncMock(),
+    )
+    project_service = SimpleNamespace(get_or_404=AsyncMock(return_value=SimpleNamespace()))
+    service = ProjectChapterService(repository=repository, project_service=project_service)
+
+    updated = await service.update(
+        session=object(),
+        project_id="project-1",
+        chapter_id="chapter-1",
+        payload=ProjectChapterUpdate(content="新的正文"),
+        user_id="user-1",
+    )
+
+    assert updated.content == "新的正文"
+    assert updated.memory_sync_status is None
+    assert updated.memory_sync_source is None
+    assert updated.memory_sync_scope is None
+    assert updated.memory_sync_checked_at is None
+    assert updated.memory_sync_checked_content_hash is None
+    assert updated.memory_sync_error_message is None
+    assert updated.memory_sync_proposed_state is None
+    assert updated.memory_sync_proposed_threads is None
+
+
+@pytest.mark.asyncio
+async def test_update_keeps_memory_sync_snapshot_when_hash_matches_saved_content() -> None:
+    from app.schemas.project_chapters import ProjectChapterUpdate
+    from app.services.project_chapters import ProjectChapterService
+
+    matching_hash = hashlib.sha256("新的正文".encode("utf-8")).hexdigest()
+    chapter = SimpleNamespace(
+        id="chapter-1",
+        project_id="project-1",
+        volume_index=0,
+        chapter_index=0,
+        title="第1章：醒在死牢",
+        content="旧正文",
+        word_count=3,
+        memory_sync_status="no_change",
+        memory_sync_source="manual",
+        memory_sync_scope="chapter_full",
+        memory_sync_checked_at=datetime.now(UTC),
+        memory_sync_checked_content_hash=matching_hash,
+        memory_sync_error_message=None,
+        memory_sync_proposed_state=None,
+        memory_sync_proposed_threads=None,
+    )
+    repository = SimpleNamespace(
+        get_by_id=AsyncMock(return_value=chapter),
+        flush=AsyncMock(),
+    )
+    project_service = SimpleNamespace(get_or_404=AsyncMock(return_value=SimpleNamespace()))
+    service = ProjectChapterService(repository=repository, project_service=project_service)
+
+    updated = await service.update(
+        session=object(),
+        project_id="project-1",
+        chapter_id="chapter-1",
+        payload=ProjectChapterUpdate(content="新的正文"),
+        user_id="user-1",
+    )
+
+    assert updated.memory_sync_status == "no_change"
+    assert updated.memory_sync_source == "manual"
+    assert updated.memory_sync_scope == "chapter_full"
+    assert updated.memory_sync_checked_content_hash == matching_hash

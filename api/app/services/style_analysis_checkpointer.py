@@ -21,6 +21,11 @@ def normalize_checkpoint_url(raw_url: str) -> tuple[str, str] | None:
 
 
 class StyleAnalysisCheckpointerFactory:
+    """Long-lived singleton factory — ``get()`` memoises the checkpointer
+    and its async context manager. Only one instance should be kept alive
+    per process; call ``aclose()`` during shutdown.
+    """
+
     def __init__(self) -> None:
         self._checkpointer: Any | None = None
         self._context_manager: AbstractAsyncContextManager[Any] | None = None

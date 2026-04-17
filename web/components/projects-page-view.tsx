@@ -33,7 +33,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { api } from "@/lib/api";
-import type { Project } from "@/lib/types";
+import type { ProjectSummary } from "@/lib/types";
 
 const PAGE_SIZE = 10;
 
@@ -120,7 +120,7 @@ export function ProjectsPageView({
   onRestore,
   onDelete,
 }: {
-  projects: Project[];
+  projects: ProjectSummary[];
   includeArchived: boolean;
   page: number;
   hasNextPage: boolean;

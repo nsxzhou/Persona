@@ -4,17 +4,11 @@ from __future__ import annotations
 
 # asyncio：用于异步并发、任务调度、事件通知（Event）和超时等待等
 import asyncio
-# logging：标准日志库，用于记录 worker 执行过程中的异常与关键事件
 import logging
-# time：提供单调时钟 time.monotonic，用于实现轮询退避与间隔计算
-import sys
 import time
-from typing import cast
-# uuid：生成 worker_id 等全局唯一标识，便于任务抢占与日志排查
 import uuid
-# collections.abc：类型注解用的 Callable（可调用对象）
+from typing import cast
 from collections.abc import Callable
-# dataclasses：用于定义轻量不可变的数据结构（运行上下文）
 from dataclasses import dataclass
 
 # SQLAlchemy 异步会话：用于数据库读写（claim/heartbeat/写回结果等）
@@ -176,20 +170,10 @@ class StyleAnalysisJobExecutor:
                 stage=current_stage,
             )
         except Exception as exc:
-            logger.disabled = False
-            logger.propagate = True
-            record = logger.makeRecord(
-                logger.name,
-                logging.ERROR,
-                __file__,
-                0,
-                "style analysis job failed: %s",
-                (exc,),
-                sys.exc_info(),
-                None,
+            logger.exception(
+                "style analysis job failed",
                 extra={"job_id": job_id},
             )
-            logger.handle(record)
             # 失败写回：根据 attempt_count 决定是否需要重试，以及是否清理产物
             await self._mark_job_failed(
                 session_factory,
@@ -426,74 +410,6 @@ class StyleAnalysisJobExecutor:
     async def _delete_checkpointer_thread(self, job_id: str) -> None:
         await self.checkpointer_factory.delete_thread(job_id)
 
-class StyleAnalysisWorkerRunner:
-    def __init__(self, executor: StyleAnalysisJobExecutor | None = None) -> None:
-        self.executor = executor or StyleAnalysisJobExecutor()
-
-    async def run_worker(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        poll_interval_seconds: float,
-        max_poll_interval_seconds: float | None = None,
-    ) -> None:
-        # 参数校验：轮询间隔必须为正数
-        if poll_interval_seconds <= 0:
-            raise ValueError("poll_interval_seconds must be greater than 0")
-        if max_poll_interval_seconds is not None and max_poll_interval_seconds <= 0:
-            raise ValueError("max_poll_interval_seconds must be greater than 0")
-        # 未显式指定最大退避间隔时，默认与基础轮询间隔相同（表示不退避）
-        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
-        if max_poll_interval_seconds < poll_interval_seconds:
-            max_poll_interval_seconds = poll_interval_seconds
-        settings = get_settings()
-        # last_stale_check：记录上次检查 stale 的时间点（单调时钟）
-        last_stale_check = 0.0
-        # stale_check_interval：检查 stale 的频率，至少 5 秒，通常为 stale_timeout 的 1/3
-        stale_check_interval = max(
-            5.0,
-            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
-        )
-        # current_interval：当前轮询等待时间，会在“无任务”时指数增长
-        current_interval = poll_interval_seconds
-        while True:
-            now = time.monotonic()
-            if now - last_stale_check >= stale_check_interval:
-                await self.executor.fail_stale_running_jobs(
-                    session_factory,
-                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
-                )
-                last_stale_check = now
-            processed = await self.executor.process_next_pending(session_factory)
-            if processed:
-                current_interval = poll_interval_seconds
-                continue
-            await asyncio.sleep(current_interval)
-            current_interval = min(max_poll_interval_seconds, current_interval * 2)
-
-    async def aclose(self) -> None:
-        await self.executor.aclose()
-
-
-# 风格分析 Worker：兼容旧接口，内部委托给 executor/runner
-class StyleAnalysisWorkerService(StyleAnalysisJobExecutor):
-    def __init__(self) -> None:
-        super().__init__()
-        self._runner = StyleAnalysisWorkerRunner(self)
-
-    async def run_worker(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        poll_interval_seconds: float,
-        max_poll_interval_seconds: float | None = None,
-    ) -> None:
-        await self._runner.run_worker(
-            session_factory,
-            poll_interval_seconds=poll_interval_seconds,
-            max_poll_interval_seconds=max_poll_interval_seconds,
-        )
-
     async def fail_stale_running_jobs(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -507,3 +423,49 @@ class StyleAnalysisWorkerService(StyleAnalysisJobExecutor):
                 max_attempts=get_settings().style_analysis_max_attempts,
             )
             await session.commit()
+
+    async def run_worker(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        poll_interval_seconds: float,
+        max_poll_interval_seconds: float | None = None,
+    ) -> None:
+        """Poll for pending jobs with exponential backoff when idle.
+
+        Periodically scans for stale ``running`` jobs and requeues / fails
+        them based on ``attempt_count``.
+        """
+        if poll_interval_seconds <= 0:
+            raise ValueError("poll_interval_seconds must be greater than 0")
+        if max_poll_interval_seconds is not None and max_poll_interval_seconds <= 0:
+            raise ValueError("max_poll_interval_seconds must be greater than 0")
+        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
+        if max_poll_interval_seconds < poll_interval_seconds:
+            max_poll_interval_seconds = poll_interval_seconds
+
+        settings = get_settings()
+        last_stale_check = 0.0
+        stale_check_interval = max(
+            5.0,
+            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
+        )
+        current_interval = poll_interval_seconds
+        while True:
+            now = time.monotonic()
+            if now - last_stale_check >= stale_check_interval:
+                await self.fail_stale_running_jobs(
+                    session_factory,
+                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
+                )
+                last_stale_check = now
+            processed = await self.process_next_pending(session_factory)
+            if processed:
+                current_interval = poll_interval_seconds
+                continue
+            await asyncio.sleep(current_interval)
+            current_interval = min(max_poll_interval_seconds, current_interval * 2)
+
+
+# Public alias — preserves historical import path.
+StyleAnalysisWorkerService = StyleAnalysisJobExecutor

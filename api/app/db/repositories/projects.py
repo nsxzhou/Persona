@@ -2,12 +2,55 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, load_only
 
 from app.db.models import Project
 
 
+_SUMMARY_COLUMNS = (
+    Project.id,
+    Project.user_id,
+    Project.name,
+    Project.description,
+    Project.status,
+    Project.default_provider_id,
+    Project.default_model,
+    Project.style_profile_id,
+    Project.length_preset,
+    Project.archived_at,
+    Project.created_at,
+    Project.updated_at,
+)
+
+
 class ProjectRepository:
+    async def list_summaries(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str | None = None,
+        include_archived: bool,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[Project]:
+        """Return projects without heavy Text columns (inspiration/outline/runtime...)."""
+        query = (
+            select(Project)
+            .options(
+                load_only(*_SUMMARY_COLUMNS),
+                joinedload(Project.provider),
+            )
+            .order_by(Project.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        if user_id is not None:
+            query = query.where(Project.user_id == user_id)
+        if not include_archived:
+            query = query.where(Project.archived_at.is_(None))
+        result = await session.stream_scalars(query)
+        return [project async for project in result]
+
     async def list(
         self,
         session: AsyncSession,

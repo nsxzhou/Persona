@@ -18,46 +18,46 @@ _TEXT_RESPONSE_KEYS = ("content", "output_text", "text")
 _EMPTY_RESPONSE_BACKOFF_SECONDS = (0.5, 1.0)
 
 
+def _extract_from_mapping(mapping: dict) -> str:
+    """Try the common text-bearing keys of a single dict; recurse one level."""
+    for key in ("text", "output_text", "value", "content"):
+        value = mapping.get(key)
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, dict):
+            nested = value.get("value") or value.get("text") or value.get("content")
+            if isinstance(nested, str):
+                return nested.strip()
+    return ""
+
+
+def _extract_from_list(items: list) -> str:
+    """Join text from a list of str/dict entries (as returned by some LLM providers)."""
+    parts: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            parts.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        text = _extract_from_mapping(item)
+        if text:
+            parts.append(text)
+            continue
+        if item.get("type") == "text" and isinstance(item.get("content"), str):
+            parts.append(item["content"])
+    return "\n".join(part.strip() for part in parts if part and part.strip()).strip()
+
+
 def _extract_text_content(content: Any) -> str:
     if content is None:
         return ""
     if isinstance(content, str):
         return content.strip()
     if isinstance(content, dict):
-        for key in ("text", "output_text", "value", "content"):
-            value = content.get(key)
-            if isinstance(value, str):
-                return value.strip()
-            if isinstance(value, dict):
-                nested = value.get("value") or value.get("text") or value.get("content")
-                if isinstance(nested, str):
-                    return nested.strip()
+        return _extract_from_mapping(content)
     if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-                continue
-            if isinstance(item, dict):
-                candidates = [
-                    item.get("text"),
-                    item.get("output_text"),
-                    item.get("value"),
-                    item.get("content"),
-                ]
-                for candidate in candidates:
-                    if isinstance(candidate, str):
-                        parts.append(candidate)
-                        break
-                    if isinstance(candidate, dict):
-                        nested = candidate.get("value") or candidate.get("text") or candidate.get("content")
-                        if isinstance(nested, str):
-                            parts.append(nested)
-                            break
-                else:
-                    if item.get("type") == "text" and isinstance(item.get("content"), str):
-                        parts.append(item["content"])
-        return "\n".join(part.strip() for part in parts if part and part.strip()).strip()
+        return _extract_from_list(content)
     return str(content).strip()
 
 

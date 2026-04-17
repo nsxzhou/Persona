@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { type Project, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
+import { type ProjectSummary, type StyleAnalysisJob, type StyleProfile } from "@/lib/types";
 import type { FormValues } from "@/lib/validations/style-lab";
 
 const NONE_VALUE = "__none__";
@@ -35,7 +35,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
-  projects: Project[];
+  projects: ProjectSummary[];
   mountProjectId: string | null;
   setMountProjectId: (value: string | null) => void;
   form: UseFormReturn<FormValues>;

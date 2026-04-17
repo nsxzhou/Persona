@@ -14,6 +14,7 @@ import type {
   ProjectChapter,
   ProjectChapterUpdate,
   ProjectPayload,
+  ProjectSummary,
   ProviderConfig,
   ProviderPayload,
   SetupPayload,
@@ -80,7 +81,7 @@ export function createApiClient(request: Requester) {
       const includeArchived = params?.includeArchived ?? false;
       const offset = params?.offset ?? 0;
       const limit = params?.limit ?? 50;
-      return request<Project[]>(
+      return request<ProjectSummary[]>(
         `/api/v1/projects?include_archived=${includeArchived}&offset=${offset}&limit=${limit}`
       );
     },
@@ -216,14 +217,16 @@ export function createApiClient(request: Requester) {
       projectId: string,
       currentRuntimeState: string,
       currentRuntimeThreads: string,
-      newContentContext: string,
+      contentToCheck: string,
+      syncScope: "generated_fragment" | "chapter_full",
     ) =>
       request<BibleUpdateResponse>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
         method: "POST",
         body: JSON.stringify({
           current_runtime_state: currentRuntimeState,
           current_runtime_threads: currentRuntimeThreads,
-          new_content_context: newContentContext,
+          content_to_check: contentToCheck,
+          sync_scope: syncScope,
         }),
       }),
     generateBeats: (

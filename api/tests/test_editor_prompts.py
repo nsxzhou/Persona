@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.services.editor_prompts import (
+    build_bible_update_user_message,
     build_section_system_prompt,
     build_section_user_message,
 )
@@ -102,3 +103,17 @@ def test_identity_swap_inspiration_regression_is_passed_with_grounded_guardrails
     assert inspiration in user_message
     assert "借皮囊/借壳/替身/换身份/李代桃僵" in system_prompt
     assert "默认优先按现实权谋或身份操作理解" in system_prompt
+
+
+def test_bible_update_prompt_uses_scope_aware_check_content_label() -> None:
+    user_message = build_bible_update_user_message(
+        current_runtime_state="旧状态",
+        current_runtime_threads="旧伏笔",
+        content_to_check="这是整章正文",
+        sync_scope="chapter_full",
+    )
+
+    assert "## 当前运行时状态\n\n旧状态" in user_message
+    assert "## 当前伏笔与线索追踪\n\n旧伏笔" in user_message
+    assert "## 待检查正文（整章）\n\n这是整章正文" in user_message
+    assert "## 本次新生成的正文" not in user_message

@@ -815,10 +815,16 @@ export interface components {
              */
             current_runtime_threads: string;
             /**
-             * New Content Context
-             * @description 本次新生成的文本
+             * Content To Check
+             * @description 待检查的正文内容
              */
-            new_content_context: string;
+            content_to_check: string;
+            /**
+             * Sync Scope
+             * @description 本次检查的正文范围
+             * @enum {string}
+             */
+            sync_scope: "generated_fragment" | "chapter_full";
         };
         /** BibleUpdateResponse */
         BibleUpdateResponse: {
@@ -826,6 +832,8 @@ export interface components {
             proposed_runtime_state: string;
             /** Proposed Runtime Threads */
             proposed_runtime_threads: string;
+            /** Changed */
+            changed: boolean;
         };
         /** Body_create_style_analysis_job_api_v1_style_analysis_jobs_post */
         Body_create_style_analysis_job_api_v1_style_analysis_jobs_post: {
@@ -929,6 +937,22 @@ export interface components {
             content: string;
             /** Word Count */
             word_count: number;
+            /** Memory Sync Status */
+            memory_sync_status?: ("checking" | "pending_review" | "synced" | "no_change" | "failed") | null;
+            /** Memory Sync Source */
+            memory_sync_source?: ("auto" | "manual") | null;
+            /** Memory Sync Scope */
+            memory_sync_scope?: ("generated_fragment" | "chapter_full") | null;
+            /** Memory Sync Checked At */
+            memory_sync_checked_at?: string | null;
+            /** Memory Sync Checked Content Hash */
+            memory_sync_checked_content_hash?: string | null;
+            /** Memory Sync Error Message */
+            memory_sync_error_message?: string | null;
+            /** Memory Sync Proposed State */
+            memory_sync_proposed_state?: string | null;
+            /** Memory Sync Proposed Threads */
+            memory_sync_proposed_threads?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -942,11 +966,24 @@ export interface components {
         };
         /** ProjectChapterUpdate */
         ProjectChapterUpdate: {
-            /**
-             * Content
-             * @default
-             */
-            content: string;
+            /** Content */
+            content?: string | null;
+            /** Memory Sync Status */
+            memory_sync_status?: ("checking" | "pending_review" | "synced" | "no_change" | "failed") | null;
+            /** Memory Sync Source */
+            memory_sync_source?: ("auto" | "manual") | null;
+            /** Memory Sync Scope */
+            memory_sync_scope?: ("generated_fragment" | "chapter_full") | null;
+            /** Memory Sync Checked At */
+            memory_sync_checked_at?: string | null;
+            /** Memory Sync Checked Content Hash */
+            memory_sync_checked_content_hash?: string | null;
+            /** Memory Sync Error Message */
+            memory_sync_error_message?: string | null;
+            /** Memory Sync Proposed State */
+            memory_sync_proposed_state?: string | null;
+            /** Memory Sync Proposed Threads */
+            memory_sync_proposed_threads?: string | null;
         };
         /** ProjectCreate */
         ProjectCreate: {

@@ -10,7 +10,6 @@ dependency has been torn down.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from collections.abc import AsyncGenerator
@@ -18,13 +17,14 @@ from collections.abc import AsyncGenerator
 from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.domain_errors import BadRequestError, UnprocessableEntityError
+from app.core.domain_errors import BadRequestError
 from app.core.length_presets import LENGTH_PRESETS, get_progress
 from app.schemas.editor import (
     BeatExpandRequest,
     BeatGenerateRequest,
     BibleUpdateRequest,
     ConceptGenerateRequest,
+    EditorCompletionRequest,
     SectionGenerateRequest,
     VolumeChaptersRequest,
 )
@@ -50,6 +50,7 @@ from app.services.editor_prompts import (
     build_volume_chapters_system_prompt,
     build_volume_chapters_user_message,
     parse_bible_update_response,
+    parse_concept_response,
 )
 from app.services.llm_provider import LLMProviderService
 from app.services.outline_parser import parse_outline
@@ -98,7 +99,7 @@ class WritingEditorService(_EditorServiceBase):
         session: AsyncSession,
         project_id: str,
         user_id: str,
-        payload,
+        payload: EditorCompletionRequest,
     ) -> AsyncGenerator[str, None]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
@@ -233,7 +234,7 @@ class MemoryEditorService(_EditorServiceBase):
         project_id: str,
         user_id: str,
         payload: BibleUpdateRequest,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, bool]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
@@ -244,7 +245,8 @@ class MemoryEditorService(_EditorServiceBase):
         user_message = build_bible_update_user_message(
             payload.current_runtime_state,
             payload.current_runtime_threads,
-            payload.new_content_context,
+            payload.content_to_check,
+            payload.sync_scope,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -252,7 +254,12 @@ class MemoryEditorService(_EditorServiceBase):
             system_prompt=system_prompt,
             user_context=user_message,
         )
-        return parse_bible_update_response(raw)
+        proposed_state, proposed_threads = parse_bible_update_response(raw)
+        changed = (
+            proposed_state != payload.current_runtime_state
+            or proposed_threads != payload.current_runtime_threads
+        )
+        return proposed_state, proposed_threads, changed
 
 
 class PlanningEditorService(_EditorServiceBase):
@@ -337,7 +344,7 @@ class PlanningEditorService(_EditorServiceBase):
             model_name=payload.model,
         )
 
-        return EditorService._parse_concepts(raw, payload.count)
+        return parse_concept_response(raw, payload.count)
 
     async def stream_volume_generation(
         self,
@@ -416,6 +423,12 @@ class PlanningEditorService(_EditorServiceBase):
 
 
 class EditorService:
+    """Aggregate container exposing writing/memory/planning sub-services.
+
+    Kept for DI convenience; all work is delegated to the sub-services
+    which are accessed via the ``writing``/``memory``/``planning`` attributes.
+    """
+
     def __init__(
         self,
         llm_service: LLMProviderService | None = None,
@@ -432,68 +445,3 @@ class EditorService:
         self.writing = WritingEditorService(**shared_kwargs)
         self.memory = MemoryEditorService(**shared_kwargs)
         self.planning = PlanningEditorService(**shared_kwargs)
-
-    async def stream_completion(self, session: AsyncSession, project_id: str, user_id: str, payload) -> AsyncGenerator[str, None]:
-        return await self.writing.stream_completion(session, project_id, user_id, payload)
-
-    async def stream_section_generation(self, session: AsyncSession, project_id: str, user_id: str, payload: SectionGenerateRequest) -> AsyncGenerator[str, None]:
-        return await self.writing.stream_section_generation(session, project_id, user_id, payload)
-
-    async def propose_bible_update(self, session: AsyncSession, project_id: str, user_id: str, payload: BibleUpdateRequest) -> tuple[str, str]:
-        return await self.memory.propose_bible_update(session, project_id, user_id, payload)
-
-    async def generate_beats(self, session: AsyncSession, project_id: str, user_id: str, payload: BeatGenerateRequest) -> list[str]:
-        return await self.planning.generate_beats(session, project_id, user_id, payload)
-
-    async def stream_beat_expansion(self, session: AsyncSession, project_id: str, user_id: str, payload: BeatExpandRequest) -> AsyncGenerator[str, None]:
-        return await self.writing.stream_beat_expansion(session, project_id, user_id, payload)
-
-    async def generate_concepts(self, session: AsyncSession, user_id: str, payload: ConceptGenerateRequest) -> list[ConceptItem]:
-        return await self.planning.generate_concepts(session, user_id, payload)
-
-    async def stream_volume_generation(self, session: AsyncSession, project_id: str, user_id: str) -> AsyncGenerator[str, None]:
-        return await self.planning.stream_volume_generation(session, project_id, user_id)
-
-    async def stream_volume_chapters_generation(self, session: AsyncSession, project_id: str, user_id: str, payload: VolumeChaptersRequest) -> AsyncGenerator[str, None]:
-        return await self.planning.stream_volume_chapters_generation(session, project_id, user_id, payload)
-
-    @staticmethod
-    def _parse_concepts(raw: str, expected_count: int) -> list[ConceptItem]:
-        """Parse LLM output into ConceptItem list with fault tolerance from Markdown."""
-        text = raw.strip()
-        concepts: list[ConceptItem] = []
-
-        # 匹配 ### 标题，并捕获接下来的内容直到下一个 ### 或文本结束
-        pattern = re.compile(r"^###\s+(.+?)\n+(.*?)(?=(?:^###|\Z))", re.MULTILINE | re.DOTALL)
-        
-        for match in pattern.finditer(text):
-            title = match.group(1).strip()
-            synopsis = match.group(2).strip()
-            
-            # 清理可能存在的序号，如 "1. 标题" -> "标题"
-            title = re.sub(r"^\d+[\.、\s]+", "", title)
-            
-            if title and synopsis:
-                concepts.append(ConceptItem(title=title, synopsis=synopsis))
-
-        # Fallback 策略：如果正则没有匹配到任何内容，尝试简单的字符串分割
-        if not concepts:
-            parts = re.split(r'^###\s+', text, flags=re.MULTILINE)
-            for part in parts:
-                part = part.strip()
-                if not part:
-                    continue
-                lines = part.split('\n', 1)
-                if len(lines) >= 2:
-                    title = lines[0].strip()
-                    synopsis = lines[1].strip()
-                    
-                    title = re.sub(r"^\d+[\.、\s]+", "", title)
-                    
-                    if title and synopsis:
-                        concepts.append(ConceptItem(title=title, synopsis=synopsis))
-
-        if not concepts:
-            raise UnprocessableEntityError("AI 返回的格式无法解析，请重试")
-
-        return concepts[:expected_count]

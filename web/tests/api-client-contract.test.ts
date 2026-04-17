@@ -46,6 +46,7 @@ describe("API contracts", () => {
       "",
       "",
       "new content",
+      "generated_fragment",
     );
 
     const payload: StyleAnalysisJobCreatePayload = {
@@ -58,6 +59,36 @@ describe("API contracts", () => {
 
     await Promise.all([setupStatusPromise, setupPromise, statusPromise, beatsPromise, biblePromise]);
     expect(request).toHaveBeenCalled();
+  });
+
+  test("proposeBibleUpdate sends content_to_check and sync_scope", async () => {
+    const request = vi.fn(async <T,>(_path: string) => undefined as T) as unknown as {
+      <T>(path: string, init?: RequestInit): Promise<T>;
+      raw: (path: string, init?: RequestInit) => Promise<Response>;
+    };
+    request.raw = vi.fn(async () => new Response(null, { status: 204 }));
+    const client = createApiClient(request);
+
+    await client.proposeBibleUpdate(
+      "project-1",
+      "当前状态",
+      "当前伏笔",
+      "整章正文",
+      "chapter_full",
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/projects/project-1/editor/propose-bible-update",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          current_runtime_state: "当前状态",
+          current_runtime_threads: "当前伏笔",
+          content_to_check: "整章正文",
+          sync_scope: "chapter_full",
+        }),
+      }),
+    );
   });
 
   test("style analysis create payload accepts a browser File directly", () => {

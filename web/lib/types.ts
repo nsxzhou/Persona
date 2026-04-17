@@ -5,7 +5,32 @@ type OpenApiSchema<Name extends keyof components["schemas"]> = components["schem
 export type User = OpenApiSchema<"UserResponse">;
 export type ProviderConfig = OpenApiSchema<"ProviderConfigResponse">;
 export type Project = OpenApiSchema<"ProjectResponse">;
-export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse">;
+export type ProjectSummary = Omit<
+  Project,
+  | "inspiration"
+  | "world_building"
+  | "characters"
+  | "outline_master"
+  | "outline_detail"
+  | "runtime_state"
+  | "runtime_threads"
+>;
+export type MemorySyncStatus = "checking" | "pending_review" | "synced" | "no_change" | "failed";
+export type MemorySyncSource = "auto" | "manual";
+export type MemorySyncScope = "generated_fragment" | "chapter_full";
+
+export type ChapterMemorySyncSnapshot = {
+  memory_sync_status: MemorySyncStatus | null;
+  memory_sync_source: MemorySyncSource | null;
+  memory_sync_scope: MemorySyncScope | null;
+  memory_sync_checked_at: string | null;
+  memory_sync_checked_content_hash: string | null;
+  memory_sync_error_message: string | null;
+  memory_sync_proposed_state: string | null;
+  memory_sync_proposed_threads: string | null;
+};
+
+export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse"> & ChapterMemorySyncSnapshot;
 
 export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
 export type AnalysisReportMarkdown = OpenApiSchema<"AnalysisReportMarkdown">;
@@ -27,13 +52,16 @@ export type StyleAnalysisJobCreatePayload =
     file: File;
   };
 export type BeatGenerateResponse = OpenApiSchema<"BeatGenerateResponse">;
-export type BibleUpdateResponse = OpenApiSchema<"BibleUpdateResponse">;
+export type BibleUpdateResponse = OpenApiSchema<"BibleUpdateResponse"> & {
+  changed: boolean;
+};
 export type ConnectionTestResponse = OpenApiSchema<"ConnectionTestResponse">;
 
 export type SetupPayload = components["schemas"]["SetupRequest"];
 export type LoginPayload = components["schemas"]["LoginRequest"];
 export type ProjectPayload = components["schemas"]["ProjectCreate"];
-export type ProjectChapterUpdate = components["schemas"]["ProjectChapterUpdate"];
+export type ProjectChapterUpdate = Partial<components["schemas"]["ProjectChapterUpdate"]> &
+  Partial<ChapterMemorySyncSnapshot>;
 export type ProviderPayload = components["schemas"]["ProviderConfigCreate"];
 
 export type StyleProfileCreatePayload = components["schemas"]["StyleProfileCreate"];

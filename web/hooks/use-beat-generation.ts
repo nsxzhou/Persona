@@ -25,7 +25,7 @@ export function useBeatGeneration({
   previousChapterContext?: string;
   totalContentLength?: number;
   disabled?: boolean;
-  onGeneratedContent?: (generated: string) => void;
+  onGeneratedContent?: (generated: string) => Promise<void> | void;
 }) {
   const [beats, setBeats] = useState<string[]>([]);
   const [currentBeatIndex, setCurrentBeatIndex] = useState(-1);
@@ -108,7 +108,7 @@ export function useBeatGeneration({
     }
     setIsExpandingBeat(false);
     setCurrentBeatIndex(-1);
-    if (beatsProse.trim()) onGeneratedContent?.(beatsProse);
+    if (beatsProse.trim()) await onGeneratedContent?.(beatsProse);
   };
 
   return {

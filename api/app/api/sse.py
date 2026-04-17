@@ -15,11 +15,11 @@ def sse_response(
     error_log_message: str = "SSE streaming error",
 ) -> StreamingResponse:
     async def _sse():
-      try:
-          async for chunk in content_generator:
-              yield f"data: {json.dumps(chunk)}\n\n"
-      except Exception as exc:
-          logger.exception(error_log_message)
-          yield f"event: error\ndata: {json.dumps(str(exc))}\n\n"
+        try:
+            async for chunk in content_generator:
+                yield f"data: {json.dumps(chunk)}\n\n"
+        except Exception as exc:
+            logger.exception(error_log_message)
+            yield f"event: error\ndata: {json.dumps(str(exc))}\n\n"
 
     return StreamingResponse(_sse(), media_type="text/event-stream")

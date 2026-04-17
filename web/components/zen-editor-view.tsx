@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Project, ProjectChapter } from "@/lib/types";
+import type { MemorySyncSource, MemorySyncStatus, Project, ProjectChapter } from "@/lib/types";
 import {
   ArrowLeft,
   BookOpen,
@@ -22,8 +22,8 @@ import { BeatPanel } from "@/components/beat-panel";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { useEditorCompletion } from "@/hooks/use-editor-completion";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
+import { useChapterMemorySync } from "@/hooks/use-chapter-memory-sync";
 import { useProjectState } from "@/hooks/use-project-state";
-import { useRuntimeUpdateProposal } from "@/hooks/use-runtime-update-proposal";
 import { parseOutline } from "@/lib/outline-parser";
 import { NAV_ITEMS } from "@/components/app-shell";
 import {
@@ -48,6 +48,7 @@ export function ZenEditorView({
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [content, setContent] = useState("");
+  const contentRef = useRef("");
   const [savedChapterContent, setSavedChapterContent] = useState("");
   const [chapters, setChapters] = useState<ProjectChapter[]>([]);
   const [isLoadingChapters, setIsLoadingChapters] = useState(true);
@@ -122,26 +123,32 @@ export function ZenEditorView({
       .join("\n\n---\n\n");
   }, [chapters, currentChapter]);
 
-  const syncSelectedChapterContent = useCallback((chapterId: string, nextContent: string) => {
-    setChapters((prev) =>
-      prev.map((chapter) =>
-        chapter.id === chapterId
-          ? { ...chapter, content: nextContent, word_count: nextContent.length }
-          : chapter,
-      ),
-    );
-  }, []);
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
-  const {
-    bibleDiff,
-    proposeRuntimeUpdate,
-    acceptRuntimeUpdate,
-    dismissRuntimeUpdate,
-  } = useRuntimeUpdateProposal({
-    projectId: project.id,
-    project: projectData,
-    persistProjectUpdate,
-  });
+  const syncPersistedChapter = useCallback(
+    (updatedChapter: ProjectChapter) => {
+      setChapters((prev) =>
+        prev.map((chapter) =>
+          chapter.id === updatedChapter.id ? { ...chapter, ...updatedChapter } : chapter,
+        ),
+      );
+      if (selectedChapterRecord?.id === updatedChapter.id) {
+        setSavedChapterContent(updatedChapter.content);
+      }
+      return updatedChapter;
+    },
+    [selectedChapterRecord?.id],
+  );
+
+  const persistChapterUpdate = useCallback(
+    async (chapterId: string, payload: Parameters<typeof api.updateProjectChapter>[2]) => {
+      const updated = await api.updateProjectChapter(project.id, chapterId, payload);
+      return syncPersistedChapter(updated);
+    },
+    [project.id, syncPersistedChapter],
+  );
 
   const persistProjectField = useCallback(
     async (field: keyof Pick<Project, "runtime_state" | "runtime_threads" | "inspiration" | "world_building" | "characters" | "outline_master" | "outline_detail">, value: string) => {
@@ -153,12 +160,31 @@ export function ZenEditorView({
     [persistProjectUpdate],
   );
 
-  const { isGenerating, handleGenerate, handleStop } = useEditorCompletion({
+  const {
+    bibleDiff,
+    isChecking: isCheckingMemorySync,
+    chapterSyncSnapshot,
+    handleGeneratedContent,
+    handleManualSync,
+    markSyncFailed,
+    openStoredDiff,
+    acceptRuntimeUpdate,
+    dismissRuntimeUpdate,
+  } = useChapterMemorySync({
+    projectId: project.id,
+    project: projectData,
+    selectedChapter: selectedChapterRecord,
+    getCurrentContent: () => contentRef.current,
+    persistProjectUpdate,
+    persistChapterUpdate,
+  });
+
+  const { isGenerating: isStreamingCompletion, handleGenerate: handleContinueWrite, handleStop: handleStopWrite } = useEditorCompletion({
     project: projectData,
     content,
     setContent,
     textareaRef,
-    onGeneratedContent: proposeRuntimeUpdate,
+    onGeneratedContent: handleGeneratedContent,
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
@@ -166,33 +192,70 @@ export function ZenEditorView({
   });
 
   const {
-    beats,
-    setBeats,
-    currentBeatIndex,
-    isGeneratingBeats,
-    isExpandingBeat,
-    handleGenerateBeats,
-    handleStartBeatExpand,
+    beats: beatList,
+    setBeats: setBeatList,
+    currentBeatIndex: activeBeatIndex,
+    isGeneratingBeats: isGeneratingBeatPlan,
+    isExpandingBeat: isExpandingBeatProse,
+    handleGenerateBeats: handleGenerateBeatPlan,
+    handleStartBeatExpand: handleExpandBeats,
   } = useBeatGeneration({
     project: projectData,
     content,
     setContent,
     textareaRef,
-    isGenerating,
+    isGenerating: isStreamingCompletion,
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
     disabled: !selectedChapterRecord,
-    onGeneratedContent: proposeRuntimeUpdate,
+    onGeneratedContent: handleGeneratedContent,
   });
 
-  const { isSaving } = useEditorAutosave(
+  const { isSaving, saveNow, flushPendingSave } = useEditorAutosave(
     project.id,
     selectedChapterRecord?.id ?? null,
     content,
     savedChapterContent,
-    isGenerating || isExpandingBeat,
+    isStreamingCompletion || isExpandingBeatProse,
+    syncPersistedChapter,
   );
+
+  const handleManualMemorySync = useCallback(async () => {
+    if (!selectedChapterRecord) return;
+
+    const hasUnsavedChanges = content !== savedChapterContent;
+    if (
+      !hasUnsavedChanges &&
+      selectedChapterRecord.memory_sync_status === "pending_review" &&
+      (selectedChapterRecord.memory_sync_proposed_state !== null ||
+        selectedChapterRecord.memory_sync_proposed_threads !== null)
+    ) {
+      openStoredDiff();
+      return;
+    }
+
+    let checkedContent = content;
+    if (hasUnsavedChanges) {
+      try {
+        const savedChapter = await saveNow(content);
+        checkedContent = savedChapter.content;
+      } catch {
+        await markSyncFailed(content, "manual", "chapter_full", "保存失败，无法同步记忆");
+        return;
+      }
+    }
+
+    await handleManualSync(checkedContent);
+  }, [
+    content,
+    handleManualSync,
+    markSyncFailed,
+    openStoredDiff,
+    saveNow,
+    savedChapterContent,
+    selectedChapterRecord,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,11 +303,6 @@ export function ZenEditorView({
     setContent(selectedChapterRecord.content);
     setSavedChapterContent(selectedChapterRecord.content);
   }, [selectedChapterRecord?.id]);
-
-  useEffect(() => {
-    if (!selectedChapterRecord || content === selectedChapterRecord.content) return;
-    syncSelectedChapterContent(selectedChapterRecord.id, content);
-  }, [content, selectedChapterRecord, syncSelectedChapterContent]);
 
   useEffect(() => {
     if (selectedVolumeIndex === null) return;
@@ -299,17 +357,18 @@ export function ZenEditorView({
   const handleGenerateBeatsForChapter = useCallback(() => {
     if (!selectedChapterRecord) return;
     setIsRightExpanded(true);
-    setTimeout(() => handleGenerateBeats(), 100);
-  }, [handleGenerateBeats, selectedChapterRecord]);
+    setTimeout(() => handleGenerateBeatPlan(), 100);
+  }, [handleGenerateBeatPlan, selectedChapterRecord]);
 
-  const handleSelectChapter = useCallback((volumeIndex: number, chapterIndex: number) => {
+  const handleSelectChapter = useCallback(async (volumeIndex: number, chapterIndex: number) => {
+    await flushPendingSave();
     setSelectedVolumeIndex(volumeIndex);
     setCurrentChapter({ volumeIndex, chapterIndex });
     setChapterFocusMode("navigate");
     setIsLeftExpanded(true);
     setLeftPanelMode("navigation");
-    setBeats([]);
-  }, [setBeats]);
+    setBeatList([]);
+  }, [flushPendingSave, setBeatList]);
 
   const handleGoGenerateVolume = useCallback(
     (volumeIndex: number) => {
@@ -333,6 +392,7 @@ export function ZenEditorView({
       : "已定位章节"
     : "请从左侧创作导航选择章节";
   const missingOutlineStatus = selectedVolumeIndex !== null && !currentVolumeHasChapters;
+  const memorySyncStatus = getMemorySyncStatusDisplay(chapterSyncSnapshot, isCheckingMemorySync);
 
   const chapterBannerAction = missingOutlineStatus && selectedVolumeIndex !== null ? (
     <Button variant="outline" size="sm" onClick={() => handleGoGenerateVolume(selectedVolumeIndex)}>
@@ -356,9 +416,9 @@ export function ZenEditorView({
       : "max-w-[720px]";
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape" && isGenerating) {
+    if (e.key === "Escape" && isStreamingCompletion) {
       e.preventDefault();
-      handleStop();
+      handleStopWrite();
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
@@ -373,7 +433,7 @@ export function ZenEditorView({
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "j") {
       e.preventDefault();
-      handleGenerate();
+      handleContinueWrite();
     }
   };
 
@@ -484,11 +544,25 @@ export function ZenEditorView({
             </div>
 
             <div className="flex items-center gap-3">
-              {isGenerating ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualMemorySync}
+                disabled={!selectedChapterRecord || isCheckingMemorySync}
+                className="gap-2"
+              >
+                {isCheckingMemorySync ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                {chapterSyncSnapshot?.status === "failed" ? "重试同步" : "同步记忆"}
+              </Button>
+              {isStreamingCompletion ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleStop}
+                  onClick={handleStopWrite}
                   className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
                 >
                   <Square className="w-4 h-4" />
@@ -498,7 +572,7 @@ export function ZenEditorView({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleGenerate}
+                  onClick={handleContinueWrite}
                   disabled={!project.style_profile_id || !selectedChapterRecord}
                   className="gap-2"
                 >
@@ -538,7 +612,15 @@ export function ZenEditorView({
                   </>
                 )}
               </div>
-              <div className="shrink-0">{chapterBannerAction}</div>
+              <div className="flex shrink-0 flex-col gap-2 md:items-end">
+                {memorySyncStatus && (
+                  <div className="rounded-lg border border-border/70 bg-background/90 px-3 py-2 text-left md:max-w-[260px]">
+                    <p className="text-sm font-medium text-foreground">{memorySyncStatus.title}</p>
+                    <p className="text-xs text-muted-foreground">{memorySyncStatus.description}</p>
+                  </div>
+                )}
+                <div>{chapterBannerAction}</div>
+              </div>
             </div>
           </div>
         </header>
@@ -549,7 +631,7 @@ export function ZenEditorView({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!selectedChapterRecord || isGenerating || isExpandingBeat}
+            disabled={!selectedChapterRecord || isStreamingCompletion || isExpandingBeatProse}
             placeholder={selectedChapterRecord ? "开始创作... (按 ⌘J 进行 AI 续写)" : "请先选择章节..."}
             className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed`}
             style={{
@@ -565,13 +647,13 @@ export function ZenEditorView({
           style={{ width: 280 }}
         >
           <BeatPanel
-            beats={beats}
-            currentBeatIndex={currentBeatIndex}
-            isExpandingBeat={isExpandingBeat}
-            isGeneratingBeats={isGeneratingBeats}
-            onGenerateBeats={handleGenerateBeats}
-            onBeatsChange={setBeats}
-            onStartExpand={handleStartBeatExpand}
+            beats={beatList}
+            currentBeatIndex={activeBeatIndex}
+            isExpandingBeat={isExpandingBeatProse}
+            isGeneratingBeats={isGeneratingBeatPlan}
+            onGenerateBeats={handleGenerateBeatPlan}
+            onBeatsChange={setBeatList}
+            onStartExpand={handleExpandBeats}
             onClose={() => setIsRightExpanded(false)}
             disabled={!selectedChapterRecord}
           />
@@ -592,9 +674,9 @@ export function ZenEditorView({
             节拍写作
           </span>
           <div className="flex-1" />
-          {beats.length > 0 && (
+          {beatList.length > 0 && (
             <span className="text-[10px] text-primary font-semibold mb-3">
-              {Math.max(currentBeatIndex + 1, 1)}/{beats.length}
+              {Math.max(activeBeatIndex + 1, 1)}/{beatList.length}
             </span>
           )}
         </button>
@@ -615,4 +697,51 @@ export function ZenEditorView({
 
 function getVolumeTitle(title: string) {
   return title.trim() || "未分卷章节";
+}
+
+function getMemorySyncStatusDisplay(
+  snapshot:
+    | {
+        status: MemorySyncStatus | null;
+        source: MemorySyncSource | null;
+        errorMessage: string | null;
+      }
+    | null,
+  isChecking: boolean,
+) {
+  if (isChecking) {
+    return {
+      title: "正在检查记忆",
+      description: "正在分析当前章节与运行时记忆是否需要同步。",
+    };
+  }
+  if (!snapshot?.status) return null;
+
+  switch (snapshot.status) {
+    case "pending_review":
+      return {
+        title: "记忆待确认",
+        description: "发现运行时更新提议，点击“同步记忆”可重新打开对比。",
+      };
+    case "synced":
+      return {
+        title: snapshot.source === "manual" ? "本章已同步记忆" : "记忆已同步",
+        description: "最近一次检查结果已经确认并写入运行时记忆。",
+      };
+    case "no_change":
+      return {
+        title: snapshot.source === "manual" ? "本章无需更新" : "最近生成内容无需入记忆",
+        description:
+          snapshot.source === "manual"
+            ? "最近一次整章检查未发现需要写入记忆的新变化。"
+            : "自动检查完成，当前增量内容无需更新运行时记忆。",
+      };
+    case "failed":
+      return {
+        title: "同步失败",
+        description: snapshot.errorMessage ?? "同步记忆时发生错误，可直接重试。",
+      };
+    default:
+      return null;
+  }
 }

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.projects import ConceptGenerateRequest, ConceptGenerateResponse
+
+MemorySyncScope = Literal["generated_fragment", "chapter_full"]
 
 
 class EditorCompletionRequest(BaseModel):
@@ -26,12 +30,14 @@ class SectionGenerateRequest(BaseModel):
 class BibleUpdateRequest(BaseModel):
     current_runtime_state: str = ""
     current_runtime_threads: str = ""
-    new_content_context: str = Field(description="本次新生成的文本")
+    content_to_check: str = Field(description="待检查的正文内容")
+    sync_scope: MemorySyncScope = Field(description="本次检查的正文范围")
 
 
 class BibleUpdateResponse(BaseModel):
     proposed_runtime_state: str
     proposed_runtime_threads: str
+    changed: bool
 
 
 class BeatGenerateRequest(BaseModel):

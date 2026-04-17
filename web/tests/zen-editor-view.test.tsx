@@ -27,11 +27,18 @@ const beatGenerationMock = vi.hoisted(() => ({
   handleStartBeatExpand: vi.fn(),
 }));
 
+const autosaveMock = vi.hoisted(() => ({
+  isSaving: false,
+  saveNow: vi.fn(),
+  flushPendingSave: vi.fn().mockResolvedValue(null),
+}));
+
 const apiMock = vi.hoisted(() => ({
   getProjectChapters: vi.fn(),
   syncProjectChapters: vi.fn(),
   updateProjectChapter: vi.fn(),
   updateProject: vi.fn(),
+  proposeBibleUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -40,11 +47,12 @@ vi.mock("@/lib/api", () => ({
     syncProjectChapters: apiMock.syncProjectChapters,
     updateProjectChapter: apiMock.updateProjectChapter,
     updateProject: apiMock.updateProject,
+    proposeBibleUpdate: apiMock.proposeBibleUpdate,
   },
 }));
 
 vi.mock("@/hooks/use-editor-autosave", () => ({
-  useEditorAutosave: () => ({ isSaving: false }),
+  useEditorAutosave: () => autosaveMock,
 }));
 
 vi.mock("@/hooks/use-editor-completion", () => ({
@@ -113,6 +121,14 @@ const chapters = [
     title: "第1章 反派开局，短命名单",
     content: "第一章正文",
     word_count: 4,
+    memory_sync_status: null,
+    memory_sync_source: null,
+    memory_sync_scope: null,
+    memory_sync_checked_at: null,
+    memory_sync_checked_content_hash: null,
+    memory_sync_error_message: null,
+    memory_sync_proposed_state: null,
+    memory_sync_proposed_threads: null,
     created_at: "2026-04-10T00:00:00Z",
     updated_at: "2026-04-10T00:00:00Z",
   },
@@ -124,6 +140,14 @@ const chapters = [
     title: "第2章 纨绔是假装，天香楼才是入口",
     content: "",
     word_count: 0,
+    memory_sync_status: null,
+    memory_sync_source: null,
+    memory_sync_scope: null,
+    memory_sync_checked_at: null,
+    memory_sync_checked_content_hash: null,
+    memory_sync_error_message: null,
+    memory_sync_proposed_state: null,
+    memory_sync_proposed_threads: null,
     created_at: "2026-04-10T00:00:00Z",
     updated_at: "2026-04-10T00:00:00Z",
   },
@@ -141,17 +165,31 @@ describe("ZenEditorView", () => {
     beatGenerationMock.isExpandingBeat = false;
     beatGenerationMock.handleGenerateBeats.mockReset();
     beatGenerationMock.handleStartBeatExpand.mockReset();
+    autosaveMock.isSaving = false;
+    autosaveMock.saveNow.mockReset();
     apiMock.getProjectChapters.mockReset();
     apiMock.syncProjectChapters.mockReset();
     apiMock.updateProjectChapter.mockReset();
     apiMock.updateProject.mockReset();
+    apiMock.proposeBibleUpdate.mockReset();
     apiMock.getProjectChapters.mockResolvedValue(chapters);
     apiMock.syncProjectChapters.mockResolvedValue(chapters);
     apiMock.updateProjectChapter.mockImplementation(async (_projectId, chapterId, payload) => ({
       ...chapters.find((chapter) => chapter.id === chapterId),
-      content: payload.content,
-      word_count: payload.content.length,
+      ...payload,
+      content: payload.content ?? chapters.find((chapter) => chapter.id === chapterId)?.content ?? "",
+      word_count: (payload.content ?? chapters.find((chapter) => chapter.id === chapterId)?.content ?? "").length,
     }));
+    autosaveMock.saveNow.mockImplementation(async (nextContent: string) => ({
+      ...chapters[0],
+      content: nextContent,
+      word_count: nextContent.length,
+    }));
+    apiMock.proposeBibleUpdate.mockResolvedValue({
+      proposed_runtime_state: "",
+      proposed_runtime_threads: "",
+      changed: false,
+    });
   });
 
   test("selects the first unwritten chapter by default", async () => {
@@ -296,5 +334,62 @@ describe("ZenEditorView", () => {
 
     fireEvent.click(goGenerateButtons[0]);
     expect(navigationMock.push).toHaveBeenCalledWith("/projects/project-1?tab=outline_detail&volumeIndex=0");
+  });
+
+  test("renders a manual memory sync action and saves current chapter before checking", async () => {
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("第一章正文");
+    });
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "修订后的第一章正文" } });
+    fireEvent.click(screen.getByRole("button", { name: "同步记忆" }));
+
+    await waitFor(() => {
+      expect(autosaveMock.saveNow).toHaveBeenCalledWith("修订后的第一章正文");
+    });
+    expect(apiMock.proposeBibleUpdate).toHaveBeenCalledWith(
+      "project-1",
+      "",
+      "",
+      "修订后的第一章正文",
+      "chapter_full",
+    );
+  });
+
+  test("shows persisted memory sync status for the selected chapter", async () => {
+    apiMock.getProjectChapters.mockResolvedValue([
+      {
+        ...chapters[0],
+        memory_sync_status: "no_change",
+        memory_sync_source: "manual",
+        memory_sync_scope: "chapter_full",
+        memory_sync_checked_at: "2026-04-11T00:00:00Z",
+      },
+      chapters[1],
+    ]);
+
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("本章无需更新")).toBeInTheDocument();
+    });
   });
 });

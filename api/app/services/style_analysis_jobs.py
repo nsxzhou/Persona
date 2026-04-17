@@ -167,10 +167,7 @@ class StyleAnalysisJobService:
             user_id=user_id,
             include_payloads=False,
         )
-        from app.services.style_analysis_storage import StyleAnalysisStorageService
-
-        storage_service = StyleAnalysisStorageService()
-        content, next_offset, truncated = await storage_service.read_job_logs_incremental(
+        content, next_offset, truncated = await self.storage_service.read_job_logs_incremental(
             job_id,
             offset=offset,
         )

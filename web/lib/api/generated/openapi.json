@@ -2189,15 +2189,25 @@
             "title": "Current Runtime Threads",
             "default": ""
           },
-          "new_content_context": {
+          "content_to_check": {
             "type": "string",
-            "title": "New Content Context",
-            "description": "本次新生成的文本"
+            "title": "Content To Check",
+            "description": "待检查的正文内容"
+          },
+          "sync_scope": {
+            "type": "string",
+            "enum": [
+              "generated_fragment",
+              "chapter_full"
+            ],
+            "title": "Sync Scope",
+            "description": "本次检查的正文范围"
           }
         },
         "type": "object",
         "required": [
-          "new_content_context"
+          "content_to_check",
+          "sync_scope"
         ],
         "title": "BibleUpdateRequest"
       },
@@ -2210,12 +2220,17 @@
           "proposed_runtime_threads": {
             "type": "string",
             "title": "Proposed Runtime Threads"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
           }
         },
         "type": "object",
         "required": [
           "proposed_runtime_state",
-          "proposed_runtime_threads"
+          "proposed_runtime_threads",
+          "changed"
         ],
         "title": "BibleUpdateResponse"
       },
@@ -2442,6 +2457,110 @@
             "type": "integer",
             "title": "Word Count"
           },
+          "memory_sync_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "checking",
+                  "pending_review",
+                  "synced",
+                  "no_change",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Status"
+          },
+          "memory_sync_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Source"
+          },
+          "memory_sync_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "generated_fragment",
+                  "chapter_full"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Scope"
+          },
+          "memory_sync_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Checked At"
+          },
+          "memory_sync_checked_content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Checked Content Hash"
+          },
+          "memory_sync_error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Error Message"
+          },
+          "memory_sync_proposed_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed State"
+          },
+          "memory_sync_proposed_threads": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed Threads"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -2470,9 +2589,119 @@
       "ProjectChapterUpdate": {
         "properties": {
           "content": {
-            "type": "string",
-            "title": "Content",
-            "default": ""
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "memory_sync_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "checking",
+                  "pending_review",
+                  "synced",
+                  "no_change",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Status"
+          },
+          "memory_sync_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Source"
+          },
+          "memory_sync_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "generated_fragment",
+                  "chapter_full"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Scope"
+          },
+          "memory_sync_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Checked At"
+          },
+          "memory_sync_checked_content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Checked Content Hash"
+          },
+          "memory_sync_error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Error Message"
+          },
+          "memory_sync_proposed_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed State"
+          },
+          "memory_sync_proposed_threads": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed Threads"
           }
         },
         "type": "object",
