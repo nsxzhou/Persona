@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MemorySyncSource, MemorySyncStatus, Project, ProjectChapter } from "@/lib/types";
+import type { Project, ProjectChapter } from "@/lib/types";
 import {
   ArrowLeft,
   BookOpen,
@@ -11,7 +11,6 @@ import {
   Sparkles,
   Square,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -19,13 +18,14 @@ import { Button } from "@/components/ui/button";
 import { EditorSidePanel } from "@/components/editor-side-panel";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
 import { BeatPanel } from "@/components/beat-panel";
+import { EditorNovelMenu } from "@/components/editor-novel-menu";
+import { MemorySyncButton } from "@/components/memory-sync-button";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { useEditorCompletion } from "@/hooks/use-editor-completion";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
 import { useChapterMemorySync } from "@/hooks/use-chapter-memory-sync";
 import { useProjectState } from "@/hooks/use-project-state";
 import { parseOutline } from "@/lib/outline-parser";
-import { NAV_ITEMS } from "@/components/app-shell";
 import {
   Popover,
   PopoverContent,
@@ -392,7 +392,6 @@ export function ZenEditorView({
       : "已定位章节"
     : "请从左侧创作导航选择章节";
   const missingOutlineStatus = selectedVolumeIndex !== null && !currentVolumeHasChapters;
-  const memorySyncStatus = getMemorySyncStatusDisplay(chapterSyncSnapshot, isCheckingMemorySync);
 
   const chapterBannerAction = missingOutlineStatus && selectedVolumeIndex !== null ? (
     <Button variant="outline" size="sm" onClick={() => handleGoGenerateVolume(selectedVolumeIndex)}>
@@ -450,17 +449,8 @@ export function ZenEditorView({
               <span className="text-primary-foreground font-black text-sm">P</span>
             </button>
           </PopoverTrigger>
-          <PopoverContent side="right" align="start" className="w-48 p-1">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <Icon className="h-4 w-4" />
-                <span>{label}</span>
-              </Link>
-            ))}
+          <PopoverContent side="right" align="start" className="w-64 p-0">
+            <EditorNovelMenu projectId={project.id} projectName={project.name} />
           </PopoverContent>
         </Popover>
 
@@ -544,20 +534,21 @@ export function ZenEditorView({
             </div>
 
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
+              <MemorySyncButton
+                snapshot={
+                  chapterSyncSnapshot
+                    ? {
+                        status: chapterSyncSnapshot.status,
+                        source: chapterSyncSnapshot.source,
+                        checkedAt: chapterSyncSnapshot.checkedAt,
+                        errorMessage: chapterSyncSnapshot.errorMessage,
+                      }
+                    : null
+                }
+                isChecking={isCheckingMemorySync}
+                disabled={!selectedChapterRecord}
                 onClick={handleManualMemorySync}
-                disabled={!selectedChapterRecord || isCheckingMemorySync}
-                className="gap-2"
-              >
-                {isCheckingMemorySync ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                {chapterSyncSnapshot?.status === "failed" ? "重试同步" : "同步记忆"}
-              </Button>
+              />
               {isStreamingCompletion ? (
                 <Button
                   variant="outline"
@@ -613,12 +604,6 @@ export function ZenEditorView({
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-2 md:items-end">
-                {memorySyncStatus && (
-                  <div className="rounded-lg border border-border/70 bg-background/90 px-3 py-2 text-left md:max-w-[260px]">
-                    <p className="text-sm font-medium text-foreground">{memorySyncStatus.title}</p>
-                    <p className="text-xs text-muted-foreground">{memorySyncStatus.description}</p>
-                  </div>
-                )}
                 <div>{chapterBannerAction}</div>
               </div>
             </div>
@@ -688,6 +673,8 @@ export function ZenEditorView({
         proposedState={bibleDiff.proposedState}
         currentThreads={bibleDiff.currentThreads}
         proposedThreads={bibleDiff.proposedThreads}
+        chapterTitle={selectedChapterRecord?.title ?? currentChapterTitle ?? null}
+        source={chapterSyncSnapshot?.source ?? null}
         onAccept={acceptRuntimeUpdate}
         onDismiss={dismissRuntimeUpdate}
       />
@@ -697,51 +684,4 @@ export function ZenEditorView({
 
 function getVolumeTitle(title: string) {
   return title.trim() || "未分卷章节";
-}
-
-function getMemorySyncStatusDisplay(
-  snapshot:
-    | {
-        status: MemorySyncStatus | null;
-        source: MemorySyncSource | null;
-        errorMessage: string | null;
-      }
-    | null,
-  isChecking: boolean,
-) {
-  if (isChecking) {
-    return {
-      title: "正在检查记忆",
-      description: "正在分析当前章节与运行时记忆是否需要同步。",
-    };
-  }
-  if (!snapshot?.status) return null;
-
-  switch (snapshot.status) {
-    case "pending_review":
-      return {
-        title: "记忆待确认",
-        description: "发现运行时更新提议，点击“同步记忆”可重新打开对比。",
-      };
-    case "synced":
-      return {
-        title: snapshot.source === "manual" ? "本章已同步记忆" : "记忆已同步",
-        description: "最近一次检查结果已经确认并写入运行时记忆。",
-      };
-    case "no_change":
-      return {
-        title: snapshot.source === "manual" ? "本章无需更新" : "最近生成内容无需入记忆",
-        description:
-          snapshot.source === "manual"
-            ? "最近一次整章检查未发现需要写入记忆的新变化。"
-            : "自动检查完成，当前增量内容无需更新运行时记忆。",
-      };
-    case "failed":
-      return {
-        title: "同步失败",
-        description: snapshot.errorMessage ?? "同步记忆时发生错误，可直接重试。",
-      };
-    default:
-      return null;
-  }
 }

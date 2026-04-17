@@ -389,7 +389,7 @@ describe("ZenEditorView", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("本章无需更新")).toBeInTheDocument();
+      expect(screen.getByText("无更新")).toBeInTheDocument();
     });
   });
 });
