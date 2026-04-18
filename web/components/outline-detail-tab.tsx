@@ -20,6 +20,7 @@ import { MarkdownPreview } from "@/components/markdown-preview";
 import { api } from "@/lib/api";
 import { parseOutline, type ParsedOutline } from "@/lib/outline-parser";
 import { consumeTextEventStream } from "@/lib/sse";
+import { BIBLE_TEMPLATES } from "@/lib/bible-templates";
 import type { ProjectChapter } from "@/lib/types";
 
 type OutlineDetailMode = "edit" | "preview" | "generate";
@@ -45,6 +46,7 @@ export function OutlineDetailTab({
   const [generatingVolumeIndex, setGeneratingVolumeIndex] = useState<number | "all" | null>(null);
   const [expandedVolumes, setExpandedVolumes] = useState<Set<number>>(new Set());
   const [regenConfirmIndex, setRegenConfirmIndex] = useState<number | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"template" | "generate" | null>(null);
   const [isRawMode, setIsRawMode] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
@@ -151,6 +153,23 @@ export function OutlineDetailTab({
     setRegenConfirmIndex(volumeIndex);
   }, []);
 
+  const handleInsertTemplate = useCallback(() => {
+    if (value.trim()) {
+      setConfirmAction("template");
+    } else {
+      onChange(BIBLE_TEMPLATES["outline_detail"]);
+      setIsRawMode(true);
+    }
+  }, [value, onChange]);
+
+  const handleGenerateVolumesWithConfirm = useCallback(() => {
+    if (value.trim()) {
+      setConfirmAction("generate");
+    } else {
+      handleGenerateVolumes();
+    }
+  }, [value, handleGenerateVolumes]);
+
   const toolbar = (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -179,7 +198,7 @@ export function OutlineDetailTab({
           </button>
         </div>
 
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setMode("generate")}>
+        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleInsertTemplate}>
           <ClipboardList className="h-3.5 w-3.5" />
           模板
         </Button>
@@ -199,7 +218,7 @@ export function OutlineDetailTab({
             variant="outline"
             size="sm"
             className="gap-1.5 text-xs border-green-600/30 text-green-600 hover:bg-green-600/10"
-            onClick={() => setMode("generate")}
+            onClick={handleGenerateVolumesWithConfirm}
           >
             <Sparkles className="h-3.5 w-3.5" />
             AI 生成
@@ -241,7 +260,7 @@ export function OutlineDetailTab({
         <EmptyVolumesState
           outlineMaster={outlineMaster}
           isGenerating={generatingVolumeIndex === "all"}
-          onGenerateVolumes={handleGenerateVolumes}
+          onGenerateVolumes={handleGenerateVolumesWithConfirm}
         />
       </div>
     );
@@ -310,6 +329,37 @@ export function OutlineDetailTab({
                   handleGenerateVolumeChapters(regenConfirmIndex);
                   setRegenConfirmIndex(null);
                 }
+              }}
+            >
+              继续
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === "template" ? "确认插入模板？" : "确认覆盖内容？"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === "template"
+                ? "当前已有内容，插入模板将覆盖现有内容。该操作不可撤销。是否继续？"
+                : "当前已有内容，AI 生成将覆盖现有内容。该操作不可撤销。是否继续？"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAction === "template") {
+                  onChange(BIBLE_TEMPLATES["outline_detail"]);
+                  setIsRawMode(true);
+                } else if (confirmAction === "generate") {
+                  handleGenerateVolumes();
+                }
+                setConfirmAction(null);
               }}
             >
               继续
