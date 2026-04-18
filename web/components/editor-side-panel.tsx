@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ChapterTree } from "@/components/chapter-tree";
 import { getProgress, LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
 import type { ParsedOutline } from "@/lib/outline-parser";
@@ -21,6 +22,7 @@ export function EditorSidePanel({
   onCollapse,
   onFieldChange,
   onPersistField,
+  onToggleAutoSyncMemory,
   onGoGenerateVolume,
   mode = "navigation",
 }: {
@@ -34,6 +36,7 @@ export function EditorSidePanel({
   onCollapse: () => void;
   onFieldChange?: (field: BibleFieldKey, value: string) => void;
   onPersistField?: (field: BibleFieldKey, value: string) => Promise<void>;
+  onToggleAutoSyncMemory?: (value: boolean) => void | Promise<void>;
   onGoGenerateVolume?: (volumeIndex: number) => void;
   mode?: "navigation" | "settings";
 }) {
@@ -185,6 +188,20 @@ export function EditorSidePanel({
         </>
       ) : (
         <div className="flex-1 overflow-y-auto border-t border-border">
+          <div className="border-b border-border px-4 py-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium">自动同步记忆</span>
+              <Switch
+                checked={project.auto_sync_memory}
+                onCheckedChange={(value) => onToggleAutoSyncMemory?.(value)}
+                disabled={!onToggleAutoSyncMemory}
+                aria-label="自动同步记忆"
+              />
+            </div>
+            <p className="text-[10px] leading-relaxed text-muted-foreground">
+              开启后,逐拍写作完成时自动同步记忆,无需手动确认。
+            </p>
+          </div>
           {BIBLE_SECTION_META.map(({ key, title }) => {
             const isOpen = expandedFields.has(key);
             const text = fields[key];

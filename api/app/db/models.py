@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -152,6 +153,10 @@ class Project(TimestampMixin, Base):
     runtime_threads: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # short / medium / long
     length_preset: Mapped[str] = mapped_column(String(16), nullable=False, default="short")
+    # 逐拍写作完成时是否静默自动同步记忆
+    auto_sync_memory: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

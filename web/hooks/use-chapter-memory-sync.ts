@@ -220,6 +220,69 @@ export function useChapterMemorySync({
     [syncContent],
   );
 
+  const handleAutoChapterSync = useCallback(
+    async (content: string) => {
+      if (!selectedChapter) return;
+      setIsChecking(true);
+      try {
+        const result = await api.proposeBibleUpdate(
+          projectId,
+          project.runtime_state,
+          project.runtime_threads ?? "",
+          content,
+          "chapter_full",
+        );
+        if (result.changed) {
+          await persistProjectUpdate(
+            {
+              runtime_state: result.proposed_runtime_state,
+              runtime_threads: result.proposed_runtime_threads,
+            },
+            { errorMessage: "更新运行时状态失败" },
+          );
+          await persistMemorySnapshot(content, {
+            memory_sync_status: "synced",
+            memory_sync_source: "auto",
+            memory_sync_scope: "chapter_full",
+            memory_sync_error_message: null,
+            memory_sync_proposed_state: null,
+            memory_sync_proposed_threads: null,
+          });
+        } else {
+          await persistMemorySnapshot(content, {
+            memory_sync_status: "no_change",
+            memory_sync_source: "auto",
+            memory_sync_scope: "chapter_full",
+            memory_sync_error_message: null,
+            memory_sync_proposed_state: null,
+            memory_sync_proposed_threads: null,
+          });
+        }
+        setBibleDiff(EMPTY_DIFF_STATE);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "自动同步失败";
+        await persistMemorySnapshot(content, {
+          memory_sync_status: "failed",
+          memory_sync_source: "auto",
+          memory_sync_scope: "chapter_full",
+          memory_sync_error_message: message,
+          memory_sync_proposed_state: null,
+          memory_sync_proposed_threads: null,
+        }).catch(() => {});
+      } finally {
+        setIsChecking(false);
+      }
+    },
+    [
+      persistMemorySnapshot,
+      persistProjectUpdate,
+      project.runtime_state,
+      project.runtime_threads,
+      projectId,
+      selectedChapter,
+    ],
+  );
+
   const acceptRuntimeUpdate = useCallback(
     async (state: string, threads: string) => {
       if (!selectedChapter) return;
@@ -249,6 +312,7 @@ export function useChapterMemorySync({
     chapterSyncSnapshot,
     handleGeneratedContent,
     handleManualSync,
+    handleAutoChapterSync,
     markSyncFailed,
     openStoredDiff,
     acceptRuntimeUpdate,

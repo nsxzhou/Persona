@@ -86,6 +86,14 @@ export function createApiClient(request: Requester) {
       );
     },
     getProject: (id: string) => request<Project>(`/api/v1/projects/${id}`),
+    exportProject: async (id: string, format: "txt" | "epub") => {
+      const response = await request.raw(`/api/v1/projects/${id}/export?format=${format}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to export project");
+      }
+      return response.blob();
+    },
     createProject: (payload: ProjectPayload) =>
       request<Project>("/api/v1/projects", {
         method: "POST",

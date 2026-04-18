@@ -29,6 +29,7 @@ class ProjectCreate(BaseModel):
     runtime_state: str = ""
     runtime_threads: str = ""
     length_preset: LengthPreset = "short"
+    auto_sync_memory: bool = False
 
 
 class ProjectUpdate(BaseModel):
@@ -46,6 +47,7 @@ class ProjectUpdate(BaseModel):
     runtime_state: str | None = None
     runtime_threads: str | None = None
     length_preset: LengthPreset | None = None
+    auto_sync_memory: bool | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -66,6 +68,7 @@ class ProjectResponse(BaseModel):
     runtime_state: str
     runtime_threads: str
     length_preset: str
+    auto_sync_memory: bool
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime

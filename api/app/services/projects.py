@@ -137,6 +137,7 @@ class ProjectService:
             "inspiration", "world_building", "characters",
             "outline_master", "outline_detail",
             "runtime_state", "runtime_threads",
+            "auto_sync_memory",
         }
         for field, value in data.items():
             if field in _ASSIGNABLE_FIELDS:

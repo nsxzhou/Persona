@@ -82,6 +82,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
         runtime_state: "",
         runtime_threads: "",
         length_preset: lengthPreset,
+        auto_sync_memory: false,
       });
       router.replace(`/projects/${project.id}`);
     } catch (e: unknown) {

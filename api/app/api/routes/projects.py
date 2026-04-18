@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Query, status
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
     CurrentUserDep,
     DbSessionDep,
     ProjectServiceDep,
+    ProjectChapterServiceDep,
 )
 from app.schemas.projects import (
     ProjectCreate,
@@ -132,3 +134,31 @@ async def delete_project(
         project_id,
         user_id=current_user.id,
     )
+
+
+@router.get("/{project_id}/export")
+async def export_project(
+    project_id: str,
+    format: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    project_service: ProjectServiceDep,
+    project_chapter_service: ProjectChapterServiceDep,
+) -> StreamingResponse:
+    from app.services.export import ExportService
+
+    project = await project_service.get_or_404(
+        db_session,
+        project_id,
+        user_id=current_user.id,
+    )
+    chapters = await project_chapter_service.list(
+        db_session, project_id, user_id=current_user.id
+    )
+    
+    if format not in ("txt", "epub"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Unsupported export format")
+
+    return ExportService.build_export_response(project, chapters, format)
+

@@ -423,7 +423,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ProjectResponse"
+                    "$ref": "#/components/schemas/ProjectSummaryResponse"
                   },
                   "title": "Response List Projects Api V1 Projects Get"
                 }
@@ -465,47 +465,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProjectResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/generate-concepts": {
-      "post": {
-        "tags": [
-          "projects"
-        ],
-        "summary": "Generate Concepts",
-        "operationId": "generate_concepts_api_v1_projects_generate_concepts_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConceptGenerateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConceptGenerateResponse"
                 }
               }
             }
@@ -732,10 +691,59 @@
         }
       }
     },
-    "/api/v1/projects/{project_id}/chapters": {
+    "/api/v1/projects/{project_id}/export": {
       "get": {
         "tags": [
           "projects"
+        ],
+        "summary": "Export Project",
+        "operationId": "export_project_api_v1_projects__project_id__export_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/chapters": {
+      "get": {
+        "tags": [
+          "project-chapters"
         ],
         "summary": "List Project Chapters",
         "operationId": "list_project_chapters_api_v1_projects__project_id__chapters_get",
@@ -781,7 +789,7 @@
     "/api/v1/projects/{project_id}/chapters/sync-outline": {
       "post": {
         "tags": [
-          "projects"
+          "project-chapters"
         ],
         "summary": "Sync Project Chapters From Outline",
         "operationId": "sync_project_chapters_from_outline_api_v1_projects__project_id__chapters_sync_outline_post",
@@ -827,7 +835,7 @@
     "/api/v1/projects/{project_id}/chapters/{chapter_id}": {
       "patch": {
         "tags": [
-          "projects"
+          "project-chapters"
         ],
         "summary": "Update Project Chapter",
         "operationId": "update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch",
@@ -885,10 +893,51 @@
         }
       }
     },
+    "/api/v1/projects/generate-concepts": {
+      "post": {
+        "tags": [
+          "editor"
+        ],
+        "summary": "Generate Concepts",
+        "operationId": "generate_concepts_api_v1_projects_generate_concepts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConceptGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptGenerateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/editor/complete": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Editor Complete",
         "operationId": "editor_complete_api_v1_projects__project_id__editor_complete_post",
@@ -938,7 +987,7 @@
     "/api/v1/projects/{project_id}/editor/generate-section": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Generate Section",
         "operationId": "generate_section_api_v1_projects__project_id__editor_generate_section_post",
@@ -988,7 +1037,7 @@
     "/api/v1/projects/{project_id}/editor/propose-bible-update": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Propose Bible Update",
         "operationId": "propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post",
@@ -1040,7 +1089,7 @@
     "/api/v1/projects/{project_id}/editor/generate-beats": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Generate Beats",
         "operationId": "generate_beats_api_v1_projects__project_id__editor_generate_beats_post",
@@ -1092,7 +1141,7 @@
     "/api/v1/projects/{project_id}/editor/expand-beat": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Expand Beat",
         "operationId": "expand_beat_api_v1_projects__project_id__editor_expand_beat_post",
@@ -1142,7 +1191,7 @@
     "/api/v1/projects/{project_id}/editor/generate-volumes": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Generate Volumes",
         "operationId": "generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post",
@@ -1182,7 +1231,7 @@
     "/api/v1/projects/{project_id}/editor/generate-volume-chapters": {
       "post": {
         "tags": [
-          "projects"
+          "editor"
         ],
         "summary": "Generate Volume Chapters",
         "operationId": "generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post",
@@ -2801,6 +2850,11 @@
             ],
             "title": "Length Preset",
             "default": "short"
+          },
+          "auto_sync_memory": {
+            "type": "boolean",
+            "title": "Auto Sync Memory",
+            "default": false
           }
         },
         "type": "object",
@@ -2884,6 +2938,10 @@
             "type": "string",
             "title": "Length Preset"
           },
+          "auto_sync_memory": {
+            "type": "boolean",
+            "title": "Auto Sync Memory"
+          },
           "archived_at": {
             "anyOf": [
               {
@@ -2927,12 +2985,103 @@
           "runtime_state",
           "runtime_threads",
           "length_preset",
+          "auto_sync_memory",
           "archived_at",
           "created_at",
           "updated_at",
           "provider"
         ],
         "title": "ProjectResponse"
+      },
+      "ProjectSummaryResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "paused"
+            ],
+            "title": "Status"
+          },
+          "default_provider_id": {
+            "type": "string",
+            "title": "Default Provider Id"
+          },
+          "default_model": {
+            "type": "string",
+            "title": "Default Model"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          },
+          "length_preset": {
+            "type": "string",
+            "title": "Length Preset"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "default_provider_id",
+          "default_model",
+          "style_profile_id",
+          "length_preset",
+          "archived_at",
+          "created_at",
+          "updated_at",
+          "provider"
+        ],
+        "title": "ProjectSummaryResponse",
+        "description": "Lightweight project projection for list endpoints — excludes large Text fields."
       },
       "ProjectUpdate": {
         "properties": {
@@ -3102,6 +3251,17 @@
               }
             ],
             "title": "Length Preset"
+          },
+          "auto_sync_memory": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Sync Memory"
           }
         },
         "type": "object",

@@ -206,23 +206,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/generate-concepts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate Concepts */
-        post: operations["generate_concepts_api_v1_projects_generate_concepts_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/projects/{project_id}": {
         parameters: {
             query?: never;
@@ -270,6 +253,23 @@ export interface paths {
         put?: never;
         /** Restore Project */
         post: operations["restore_project_api_v1_projects__project_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Project */
+        get: operations["export_project_api_v1_projects__project_id__export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -325,6 +325,23 @@ export interface paths {
         head?: never;
         /** Update Project Chapter */
         patch: operations["update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/generate-concepts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Concepts */
+        post: operations["generate_concepts_api_v1_projects_generate_concepts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/projects/{project_id}/editor/complete": {
@@ -1047,6 +1064,11 @@ export interface components {
              * @enum {string}
              */
             length_preset: "short" | "medium" | "long";
+            /**
+             * Auto Sync Memory
+             * @default false
+             */
+            auto_sync_memory: boolean;
         };
         /** ProjectResponse */
         ProjectResponse: {
@@ -1081,6 +1103,46 @@ export interface components {
             runtime_state: string;
             /** Runtime Threads */
             runtime_threads: string;
+            /** Length Preset */
+            length_preset: string;
+            /** Auto Sync Memory */
+            auto_sync_memory: boolean;
+            /** Archived At */
+            archived_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            provider: components["schemas"]["ProviderSummary"];
+        };
+        /**
+         * ProjectSummaryResponse
+         * @description Lightweight project projection for list endpoints — excludes large Text fields.
+         */
+        ProjectSummaryResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "paused";
+            /** Default Provider Id */
+            default_provider_id: string;
+            /** Default Model */
+            default_model: string;
+            /** Style Profile Id */
+            style_profile_id: string | null;
             /** Length Preset */
             length_preset: string;
             /** Archived At */
@@ -1127,6 +1189,8 @@ export interface components {
             runtime_threads?: string | null;
             /** Length Preset */
             length_preset?: ("short" | "medium" | "long") | null;
+            /** Auto Sync Memory */
+            auto_sync_memory?: boolean | null;
         };
         /**
          * PromptPackMarkdown
@@ -1894,7 +1958,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectResponse"][];
+                    "application/json": components["schemas"]["ProjectSummaryResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -1928,39 +1992,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_concepts_api_v1_projects_generate_concepts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConceptGenerateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConceptGenerateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2131,6 +2162,39 @@ export interface operations {
             };
         };
     };
+    export_project_api_v1_projects__project_id__export_get: {
+        parameters: {
+            query: {
+                format: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_project_chapters_api_v1_projects__project_id__chapters_get: {
         parameters: {
             query?: never;
@@ -2216,6 +2280,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectChapterResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_concepts_api_v1_projects_generate_concepts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConceptGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConceptGenerateResponse"];
                 };
             };
             /** @description Validation Error */
