@@ -62,6 +62,34 @@ describe("MemorySyncButton", () => {
     expect(screen.getByRole("button", { name: /重试同步/ })).toBeInTheDocument();
   });
 
+  test("renders '查看提议' for pending review", () => {
+    renderButton({
+      snapshot: {
+        status: "pending_review",
+        source: "manual",
+        checkedAt: "2026-04-17T00:00:00Z",
+        errorMessage: null,
+      },
+    });
+    expect(screen.getByRole("button", { name: "查看提议" })).toBeInTheDocument();
+  });
+
+  test("renders '已是最新' and force rerun action for synced chapters", () => {
+    const onForceRerun = vi.fn();
+    renderButton({
+      snapshot: {
+        status: "synced",
+        source: "manual",
+        checkedAt: "2026-04-17T00:00:00Z",
+        errorMessage: null,
+      },
+      onForceRerun,
+    });
+    expect(screen.getByRole("button", { name: "已是最新" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "强制重跑" }));
+    expect(onForceRerun).toHaveBeenCalledTimes(1);
+  });
+
   test("does not fire onClick when disabled", () => {
     const onClick = vi.fn();
     renderButton({ disabled: true, onClick });

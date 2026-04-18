@@ -248,6 +248,20 @@ export function ZenEditorView({
     syncPersistedChapter,
   );
 
+  const saveCurrentChapterForSync = useCallback(async () => {
+    const hasUnsavedChanges = content !== savedChapterContent;
+    if (!hasUnsavedChanges) {
+      return content;
+    }
+    try {
+      const savedChapter = await saveNow(content);
+      return savedChapter.content;
+    } catch {
+      await markSyncFailed(content, "manual", "chapter_full", "保存失败，无法同步记忆");
+      return null;
+    }
+  }, [content, markSyncFailed, saveNow, savedChapterContent]);
+
   const handleManualMemorySync = useCallback(async () => {
     if (!selectedChapterRecord) return;
 
@@ -262,27 +276,40 @@ export function ZenEditorView({
       return;
     }
 
-    let checkedContent = content;
-    if (hasUnsavedChanges) {
-      try {
-        const savedChapter = await saveNow(content);
-        checkedContent = savedChapter.content;
-      } catch {
-        await markSyncFailed(content, "manual", "chapter_full", "保存失败，无法同步记忆");
-        return;
-      }
+    if (
+      !hasUnsavedChanges &&
+      (selectedChapterRecord.memory_sync_status === "synced" ||
+        selectedChapterRecord.memory_sync_status === "no_change")
+    ) {
+      toast.message("当前保存内容已检查，可使用“强制重跑”重新分析");
+      return;
     }
 
+    const checkedContent = await saveCurrentChapterForSync();
+    if (checkedContent === null) return;
     await handleManualSync(checkedContent);
   }, [
     content,
     handleManualSync,
-    markSyncFailed,
     openStoredDiff,
-    saveNow,
     savedChapterContent,
+    saveCurrentChapterForSync,
     selectedChapterRecord,
   ]);
+
+  const handleForceMemorySync = useCallback(async () => {
+    if (!selectedChapterRecord) return;
+    const checkedContent = await saveCurrentChapterForSync();
+    if (checkedContent === null) return;
+    await handleManualSync(checkedContent);
+  }, [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord]);
+
+  const handleRetryMemoryProposal = useCallback(async () => {
+    if (!selectedChapterRecord) return;
+    const checkedContent = await saveCurrentChapterForSync();
+    if (checkedContent === null) return;
+    await handleManualSync(checkedContent);
+  }, [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord]);
 
   useEffect(() => {
     let cancelled = false;
@@ -577,6 +604,7 @@ export function ZenEditorView({
                 isChecking={isCheckingMemorySync}
                 disabled={!selectedChapterRecord}
                 onClick={handleManualMemorySync}
+                onForceRerun={handleForceMemorySync}
               />
               {isStreamingCompletion ? (
                 <Button
@@ -705,6 +733,7 @@ export function ZenEditorView({
         chapterTitle={selectedChapterRecord?.title ?? currentChapterTitle ?? null}
         source={chapterSyncSnapshot?.source ?? null}
         onAccept={acceptRuntimeUpdate}
+        onRetry={handleRetryMemoryProposal}
         onDismiss={dismissRuntimeUpdate}
       />
     </div>

@@ -1,0 +1,45 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
+
+import { BibleDiffDialog } from "@/components/bible-diff-dialog";
+
+describe("BibleDiffDialog", () => {
+  function renderDialog() {
+    const onAccept = vi.fn();
+    const onDismiss = vi.fn();
+    const onRetry = vi.fn();
+
+    render(
+      <BibleDiffDialog
+        open
+        currentState={"旧状态\n保留"}
+        proposedState={"旧状态\n新状态"}
+        currentThreads={"旧线索\n保留"}
+        proposedThreads={"旧线索\n新线索"}
+        source="manual"
+        onAccept={onAccept}
+        onDismiss={onDismiss}
+        onRetry={onRetry}
+      />,
+    );
+
+    return { onAccept, onDismiss, onRetry };
+  }
+
+  test("offers retry action inside the diff dialog", () => {
+    const { onRetry } = renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  test("only changes mode hides unchanged lines instead of collapsing them", () => {
+    renderDialog();
+
+    expect(screen.getAllByText("旧状态").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("switch"));
+
+    expect(screen.queryByText("旧状态")).toBeNull();
+    expect(screen.queryByText(/展开 .* 行未变更/)).toBeNull();
+    expect(screen.getByText("新状态")).toBeInTheDocument();
+  });
+});

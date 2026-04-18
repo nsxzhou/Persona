@@ -34,6 +34,7 @@ interface BibleDiffDialogProps {
   chapterTitle?: string | null;
   source?: SourceLabel;
   onAccept: (state: string, threads: string) => void;
+  onRetry?: () => void;
   onDismiss: () => void;
 }
 
@@ -46,6 +47,7 @@ export function BibleDiffDialog({
   chapterTitle,
   source,
   onAccept,
+  onRetry,
   onDismiss,
 }: BibleDiffDialogProps) {
   const [editedState, setEditedState] = useState(proposedState);
@@ -91,7 +93,9 @@ export function BibleDiffDialog({
   const leftBlocks = useMemo(
     () =>
       groupDiffBlocks(
-        diff.filter((line) => line.type !== "added"),
+        diff.filter((line) =>
+          onlyChanges ? line.type === "removed" : line.type !== "added",
+        ),
         { collapseUnchanged: onlyChanges },
       ),
     [diff, onlyChanges],
@@ -99,7 +103,9 @@ export function BibleDiffDialog({
   const rightBlocks = useMemo(
     () =>
       groupDiffBlocks(
-        diff.filter((line) => line.type !== "removed"),
+        diff.filter((line) =>
+          onlyChanges ? line.type === "added" : line.type !== "removed",
+        ),
         { collapseUnchanged: onlyChanges },
       ),
     [diff, onlyChanges],
@@ -207,6 +213,11 @@ export function BibleDiffDialog({
             <Button variant="ghost" onClick={onDismiss}>
               忽略
             </Button>
+            {onRetry ? (
+              <Button variant="outline" onClick={onRetry}>
+                重新生成
+              </Button>
+            ) : null}
             <Button size="default" onClick={() => onAccept(editedState, editedThreads)}>
               接受更新
             </Button>

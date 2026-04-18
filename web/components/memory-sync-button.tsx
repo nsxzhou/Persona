@@ -84,9 +84,28 @@ function getTitleText(snapshot: Snapshot | null, isChecking: boolean): string {
 function getHintText(snapshot: Snapshot | null, isChecking: boolean, disabled: boolean): string {
   if (disabled) return "选择章节后可同步记忆";
   if (isChecking) return "请稍候，正在分析是否需要更新运行时记忆";
-  if (snapshot?.status === "pending_review") return "点击按钮重新打开差异对比";
+  if (snapshot?.status === "pending_review") return "点击按钮查看上次提议";
+  if (snapshot?.status === "synced" || snapshot?.status === "no_change") {
+    return "当前保存内容已检查，可强制重跑";
+  }
   if (snapshot?.status === "failed") return "点击按钮重试同步";
   return "点击按钮整章同步最新记忆";
+}
+
+function getButtonLabel(snapshot: Snapshot | null, isChecking: boolean): string {
+  if (isChecking) return "分析中";
+  switch (snapshot?.status) {
+    case "pending_review":
+      return "查看提议";
+    case "synced":
+      return "已是最新";
+    case "no_change":
+      return "无需更新";
+    case "failed":
+      return "重试同步";
+    default:
+      return "同步记忆";
+  }
 }
 
 function buildTooltipText(
@@ -112,45 +131,63 @@ export function MemorySyncButton({
   isChecking,
   disabled,
   onClick,
+  onForceRerun,
 }: {
   snapshot: Snapshot | null;
   isChecking: boolean;
   disabled: boolean;
   onClick: () => void;
+  onForceRerun?: () => void;
 }) {
   const pill = getPillSpec(snapshot, isChecking);
-  const buttonLabel = snapshot?.status === "failed" ? "重试同步" : "同步记忆";
+  const buttonLabel = getButtonLabel(snapshot, isChecking);
   const tooltip = buildTooltipText(snapshot, isChecking, disabled);
+  const showForceRerun = Boolean(
+    onForceRerun && !disabled && !isChecking && (snapshot?.status === "synced" || snapshot?.status === "no_change"),
+  );
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      disabled={disabled}
-      title={tooltip}
-      aria-label={buttonLabel}
-      className="gap-2 pl-3 pr-2 h-9"
-    >
-      {isChecking ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
-      ) : (
-        <Sparkles className="w-4 h-4" />
-      )}
-      <span className="text-sm font-medium">{buttonLabel}</span>
-      {pill && (
-        <span
-          className={cn(
-            "rounded-sm px-2 py-0.5 text-[10px] font-medium",
-            pill.className,
-            pill.pulse && "animate-pulse",
-          )}
-          data-testid="memory-sync-pill"
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onClick}
+        disabled={disabled}
+        title={tooltip}
+        aria-label={buttonLabel}
+        className="gap-2 pl-3 pr-2 h-9"
+      >
+        {isChecking ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Sparkles className="w-4 h-4" />
+        )}
+        <span className="text-sm font-medium">{buttonLabel}</span>
+        {pill && (
+          <span
+            className={cn(
+              "rounded-sm px-2 py-0.5 text-[10px] font-medium",
+              pill.className,
+              pill.pulse && "animate-pulse",
+            )}
+            data-testid="memory-sync-pill"
+          >
+            {pill.label}
+          </span>
+        )}
+      </Button>
+      {showForceRerun ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onForceRerun}
+          className="h-9 px-2 text-xs"
         >
-          {pill.label}
-        </span>
-      )}
-    </Button>
+          强制重跑
+        </Button>
+      ) : null}
+    </div>
   );
 }

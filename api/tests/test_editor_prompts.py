@@ -127,3 +127,14 @@ def test_bible_update_system_prompt_forbids_placeholder_references() -> None:
     assert "严禁使用“保留原有/同上/沿用旧内容/并追加以下/其余不变”等指代或占位语" in system_prompt
     assert "新增事件、角色、伏笔必须与旧信息合并后完整输出，不能只输出增量" in system_prompt
     assert "- 保留原有内容中仍然有效的信息" not in system_prompt
+
+
+def test_bible_update_system_prompt_prefers_minimal_persistent_memory() -> None:
+    system_prompt = build_bible_update_system_prompt()
+
+    assert "只保留会影响后续章节的持续性变化" in system_prompt
+    assert "稳定事实变化" in system_prompt
+    assert "关系变化" in system_prompt
+    assert "未回收线索或新风险" in system_prompt
+    assert "优先判断是否无需更新" in system_prompt
+    assert "不要把本章剧情改写成摘要" in system_prompt

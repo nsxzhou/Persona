@@ -8,6 +8,7 @@ vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    message: vi.fn(),
   },
 }));
 
@@ -391,6 +392,192 @@ describe("ZenEditorView", () => {
 
     await waitFor(() => {
       expect(screen.getByText("无更新")).toBeInTheDocument();
+    });
+  });
+
+  test("reopens pending review diff without requesting a fresh sync", async () => {
+    apiMock.getProjectChapters.mockResolvedValue([
+      {
+        ...chapters[0],
+        memory_sync_status: "pending_review",
+        memory_sync_source: "manual",
+        memory_sync_scope: "chapter_full",
+        memory_sync_checked_at: "2026-04-11T00:00:00Z",
+        memory_sync_proposed_state: "更新后的状态",
+        memory_sync_proposed_threads: "更新后的线索",
+      },
+      chapters[1],
+    ]);
+
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "查看提议" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "查看提议" }));
+
+    expect(apiMock.proposeBibleUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText("运行时记忆更新确认")).toBeInTheDocument();
+  });
+
+  test("does not rerun sync from the main button once chapter is already synced", async () => {
+    apiMock.getProjectChapters.mockResolvedValue([
+      {
+        ...chapters[0],
+        memory_sync_status: "synced",
+        memory_sync_source: "manual",
+        memory_sync_scope: "chapter_full",
+        memory_sync_checked_at: "2026-04-11T00:00:00Z",
+      },
+      chapters[1],
+    ]);
+
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "已是最新" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "已是最新" }));
+    expect(apiMock.proposeBibleUpdate).not.toHaveBeenCalled();
+  });
+
+  test("allows force rerun when chapter sync is already current", async () => {
+    apiMock.getProjectChapters.mockResolvedValue([
+      {
+        ...chapters[0],
+        memory_sync_status: "no_change",
+        memory_sync_source: "manual",
+        memory_sync_scope: "chapter_full",
+        memory_sync_checked_at: "2026-04-11T00:00:00Z",
+      },
+      chapters[1],
+    ]);
+
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "强制重跑" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "强制重跑" }));
+
+    await waitFor(() => {
+      expect(apiMock.proposeBibleUpdate).toHaveBeenCalledWith(
+        "project-1",
+        "",
+        "",
+        "第一章正文",
+        "chapter_full",
+      );
+    });
+  });
+
+  test("retries failed manual sync from the main button", async () => {
+    apiMock.getProjectChapters.mockResolvedValue([
+      {
+        ...chapters[0],
+        memory_sync_status: "failed",
+        memory_sync_source: "manual",
+        memory_sync_scope: "chapter_full",
+        memory_sync_checked_at: "2026-04-11T00:00:00Z",
+        memory_sync_error_message: "timeout",
+      },
+      chapters[1],
+    ]);
+
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "重试同步" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "重试同步" }));
+
+    await waitFor(() => {
+      expect(apiMock.proposeBibleUpdate).toHaveBeenCalledWith(
+        "project-1",
+        "",
+        "",
+        "第一章正文",
+        "chapter_full",
+      );
+    });
+  });
+
+  test("retries generation from inside the pending review dialog", async () => {
+    apiMock.getProjectChapters.mockResolvedValue([
+      {
+        ...chapters[0],
+        memory_sync_status: "pending_review",
+        memory_sync_source: "manual",
+        memory_sync_scope: "chapter_full",
+        memory_sync_checked_at: "2026-04-11T00:00:00Z",
+        memory_sync_proposed_state: "更新后的状态",
+        memory_sync_proposed_threads: "更新后的线索",
+      },
+      chapters[1],
+    ]);
+
+    render(
+      <ZenEditorView
+        project={project}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "查看提议" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "查看提议" }));
+    apiMock.proposeBibleUpdate.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+
+    await waitFor(() => {
+      expect(apiMock.proposeBibleUpdate).toHaveBeenCalledWith(
+        "project-1",
+        "",
+        "",
+        "第一章正文",
+        "chapter_full",
+      );
     });
   });
 });
