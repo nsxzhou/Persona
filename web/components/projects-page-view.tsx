@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/pagination";
 import { api } from "@/lib/api";
 import type { ProjectSummary } from "@/lib/types";
+import { ExportProjectDialog } from "./export-project-dialog";
 
 const PAGE_SIZE = 10;
 
@@ -224,6 +225,7 @@ export function ProjectsPageView({
                   </>
                 ) : (
                   <>
+                    <ExportProjectDialog projectId={project.id} projectName={project.name} />
                     <Button variant="outline" onClick={(e) => { e.stopPropagation(); onArchive?.(project.id); }}>
                       <Archive className="mr-2 h-4 w-4" />
                       归档

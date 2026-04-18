@@ -12,6 +12,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "chardet>=7.4.1",
     "cryptography>=46.0.6",
+    "ebooklib>=0.18",
     "fastapi>=0.135.3",
     "langchain>=1.2.15",
     "langchain-openai>=1.1.12",
