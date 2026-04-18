@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.services.editor_prompts import (
+    build_bible_update_system_prompt,
     build_bible_update_user_message,
     build_section_system_prompt,
     build_section_user_message,
@@ -117,3 +118,12 @@ def test_bible_update_prompt_uses_scope_aware_check_content_label() -> None:
     assert "## 当前伏笔与线索追踪\n\n旧伏笔" in user_message
     assert "## 待检查正文（整章）\n\n这是整章正文" in user_message
     assert "## 本次新生成的正文" not in user_message
+
+
+def test_bible_update_system_prompt_forbids_placeholder_references() -> None:
+    system_prompt = build_bible_update_system_prompt()
+
+    assert "输出两个区块的完整最终版本（可直接替换旧文档）" in system_prompt
+    assert "严禁使用“保留原有/同上/沿用旧内容/并追加以下/其余不变”等指代或占位语" in system_prompt
+    assert "新增事件、角色、伏笔必须与旧信息合并后完整输出，不能只输出增量" in system_prompt
+    assert "- 保留原有内容中仍然有效的信息" not in system_prompt
