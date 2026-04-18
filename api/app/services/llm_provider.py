@@ -30,13 +30,14 @@ class LLMProviderService:
         api_key_encrypted, default_model) and decrypts the API key.
         """
         settings = get_settings()
+        timeout_seconds = max(settings.llm_timeout_seconds, 600.0)
         return init_chat_model(
             model=model_name or provider_config.default_model,
             model_provider="openai",
             base_url=provider_config.base_url,
             api_key=decrypt_secret(provider_config.api_key_encrypted),
             temperature=temperature,
-            timeout=settings.llm_timeout_seconds,
+            timeout=timeout_seconds,
             max_retries=settings.llm_max_retries,
         )
 

@@ -106,6 +106,7 @@ const project: Project = {
   runtime_state: "",
   runtime_threads: "",
   length_preset: "short",
+  auto_sync_memory: false,
   archived_at: null,
   created_at: "2026-04-10T00:00:00Z",
   updated_at: "2026-04-10T00:00:00Z",

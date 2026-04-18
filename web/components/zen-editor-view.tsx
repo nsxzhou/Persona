@@ -31,6 +31,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ExportProjectDialog } from "@/components/export-project-dialog";
 
 type ChapterSelection = { volumeIndex: number; chapterIndex: number };
 
@@ -166,6 +167,7 @@ export function ZenEditorView({
     chapterSyncSnapshot,
     handleGeneratedContent,
     handleManualSync,
+    handleAutoChapterSync,
     markSyncFailed,
     openStoredDiff,
     acceptRuntimeUpdate,
@@ -178,6 +180,31 @@ export function ZenEditorView({
     persistProjectUpdate,
     persistChapterUpdate,
   });
+
+  const handleBeatExpandCompleted = useCallback(
+    async (beatsProse: string) => {
+      if (projectData.auto_sync_memory) {
+        await handleAutoChapterSync(beatsProse);
+      }
+    },
+    [handleAutoChapterSync, projectData.auto_sync_memory],
+  );
+
+  const handleToggleAutoSyncMemory = useCallback(
+    async (nextValue: boolean) => {
+      const previous = projectData.auto_sync_memory;
+      setProjectData((prev) => ({ ...prev, auto_sync_memory: nextValue }));
+      try {
+        await persistProjectUpdate(
+          { auto_sync_memory: nextValue },
+          { errorMessage: "保存自动同步设置失败" },
+        );
+      } catch {
+        setProjectData((prev) => ({ ...prev, auto_sync_memory: previous }));
+      }
+    },
+    [persistProjectUpdate, projectData.auto_sync_memory, setProjectData],
+  );
 
   const { isGenerating: isStreamingCompletion, handleGenerate: handleContinueWrite, handleStop: handleStopWrite } = useEditorCompletion({
     project: projectData,
@@ -209,7 +236,7 @@ export function ZenEditorView({
     previousChapterContext,
     totalContentLength,
     disabled: !selectedChapterRecord,
-    onGeneratedContent: handleGeneratedContent,
+    onBeatExpandCompleted: handleBeatExpandCompleted,
   });
 
   const { isSaving, saveNow, flushPendingSave } = useEditorAutosave(
@@ -505,6 +532,7 @@ export function ZenEditorView({
             onCollapse={() => setIsLeftExpanded(false)}
             onFieldChange={(field, value) => setProjectData((prev) => ({ ...prev, [field]: value }))}
             onPersistField={persistProjectField}
+            onToggleAutoSyncMemory={handleToggleAutoSyncMemory}
             mode={leftPanelMode}
           />
         )}
@@ -534,6 +562,7 @@ export function ZenEditorView({
             </div>
 
             <div className="flex items-center gap-3">
+              <ExportProjectDialog projectId={project.id} projectName={project.name} />
               <MemorySyncButton
                 snapshot={
                   chapterSyncSnapshot

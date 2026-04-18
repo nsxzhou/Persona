@@ -131,7 +131,7 @@ export function MemorySyncButton({
       disabled={disabled}
       title={tooltip}
       aria-label={buttonLabel}
-      className="gap-2 rounded-full pl-3 pr-2 h-9"
+      className="gap-2 pl-3 pr-2 h-9"
     >
       {isChecking ? (
         <Loader2 className="w-4 h-4 animate-spin" />
@@ -142,7 +142,7 @@ export function MemorySyncButton({
       {pill && (
         <span
           className={cn(
-            "rounded-full px-2 py-0.5 text-[10px] font-medium",
+            "rounded-sm px-2 py-0.5 text-[10px] font-medium",
             pill.className,
             pill.pulse && "animate-pulse",
           )}
