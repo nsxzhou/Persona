@@ -1,5 +1,7 @@
 # Persona
 
+完整开发者文档见 [wiki/](./wiki/README.md)。
+
 Persona 是一个前后端分离的单用户 AI 创作基础平台。
 
 ## 目录
