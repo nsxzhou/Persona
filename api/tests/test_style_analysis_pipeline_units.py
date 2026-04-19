@@ -14,6 +14,8 @@ from app.schemas.style_analysis_jobs import (
     MergedAnalysis,
     STYLE_ANALYSIS_REPORT_SECTIONS,
 )
+from app.services import llm_provider as llm_provider_module
+from app.services.llm_provider import LLMProviderService
 from app.services.style_analysis_llm import EmptyMarkdownResponseError, MarkdownLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import read_chunks_and_classification
@@ -94,6 +96,7 @@ async def test_structured_llm_client_extracts_markdown_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    monkeypatch.setenv("PERSONA_LLM_TIMEOUT_SECONDS", "12.5")
     get_settings.cache_clear()
 
     class FakeModel:
@@ -127,7 +130,50 @@ async def test_structured_llm_client_extracts_markdown_text(
             "base_url": "https://api.example.test/v1",
             "api_key": "decrypted:encrypted-key",
             "temperature": 0.0,
-            "timeout": 600.0,
+            "timeout": 12.5,
+            "max_retries": 2,
+        }
+    ]
+    get_settings.cache_clear()
+
+
+def test_llm_provider_service_uses_configured_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    monkeypatch.setenv("PERSONA_LLM_TIMEOUT_SECONDS", "7.5")
+    get_settings.cache_clear()
+
+    factory_calls: list[dict] = []
+
+    def fake_init_chat_model(**kwargs: object) -> object:
+        factory_calls.append(kwargs)
+        return object()
+
+    monkeypatch.setattr(llm_provider_module, "init_chat_model", fake_init_chat_model)
+    monkeypatch.setattr(
+        llm_provider_module,
+        "decrypt_secret",
+        lambda value: f"decrypted:{value}",
+    )
+
+    provider = SimpleNamespace(
+        base_url="https://api.example.test/v1",
+        api_key_encrypted="encrypted-key",
+        default_model="gpt-4.1-mini",
+    )
+
+    service = LLMProviderService()
+    service._build_model(provider)
+
+    assert factory_calls == [
+        {
+            "model": "gpt-4.1-mini",
+            "model_provider": "openai",
+            "base_url": "https://api.example.test/v1",
+            "api_key": "decrypted:encrypted-key",
+            "temperature": 0.7,
+            "timeout": 7.5,
             "max_retries": 2,
         }
     ]

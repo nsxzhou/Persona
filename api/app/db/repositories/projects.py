@@ -110,6 +110,8 @@ class ProjectRepository:
         outline_detail: str,
         runtime_state: str,
         runtime_threads: str,
+        length_preset: str,
+        auto_sync_memory: bool,
     ) -> Project:
         project = Project(
             name=name,
@@ -125,6 +127,8 @@ class ProjectRepository:
             outline_detail=outline_detail,
             runtime_state=runtime_state,
             runtime_threads=runtime_threads,
+            length_preset=length_preset,
+            auto_sync_memory=auto_sync_memory,
             user_id=user_id,
         )
         session.add(project)

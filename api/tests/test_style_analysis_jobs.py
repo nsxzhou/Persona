@@ -873,8 +873,9 @@ async def test_process_next_pending_job_cleans_chunk_artifacts_after_pipeline_fa
         style_name: str,
         source_filename: str,
         stage_callback,
+        should_pause=None,
     ):
-        del provider, model_name, style_name, source_filename, stage_callback
+        del provider, model_name, style_name, source_filename, stage_callback, should_pause
 
         class FakePipeline:
             async def run(
@@ -957,7 +958,9 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
         style_name: str,
         source_filename: str,
         stage_callback,
+        should_pause=None,
     ):
+        del should_pause
         return StyleAnalysisPipeline(
             provider=provider,
             model_name=model_name,
@@ -1050,7 +1053,9 @@ async def test_resume_endpoint_allows_continuing_from_failed_job_without_reinvok
         style_name: str,
         source_filename: str,
         stage_callback,
+        should_pause=None,
     ):
+        del should_pause
         return StyleAnalysisPipeline(
             provider=provider,
             model_name=model_name,

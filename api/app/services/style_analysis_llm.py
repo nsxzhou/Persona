@@ -96,7 +96,7 @@ class MarkdownLLMClient:
 
     def build_model(self, *, provider: ProviderConfig, model_name: str) -> Any:
         settings = get_settings()
-        timeout_seconds = max(settings.llm_timeout_seconds, 600.0)
+        timeout_seconds = settings.llm_timeout_seconds
         return self._model_factory(
             model=model_name,
             model_provider="openai",

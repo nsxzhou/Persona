@@ -234,6 +234,38 @@ async def test_project_auto_sync_memory_default_and_patch(
 
 
 @pytest.mark.asyncio
+async def test_project_create_persists_length_preset_and_auto_sync_memory(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    provider_id = str(initialized_provider["id"])
+
+    create_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Configured Project",
+            "description": "验证创建链路是否保留配置",
+            "status": "draft",
+            "default_provider_id": provider_id,
+            "default_model": "",
+            "style_profile_id": None,
+            "length_preset": "medium",
+            "auto_sync_memory": True,
+        },
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+    assert created["length_preset"] == "medium"
+    assert created["auto_sync_memory"] is True
+
+    get_response = await initialized_client.get(f"/api/v1/projects/{created['id']}")
+    assert get_response.status_code == 200
+    fetched = get_response.json()
+    assert fetched["length_preset"] == "medium"
+    assert fetched["auto_sync_memory"] is True
+
+
+@pytest.mark.asyncio
 async def test_export_project(
     initialized_client: AsyncClient,
     initialized_provider: dict[str, object],

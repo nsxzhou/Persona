@@ -91,6 +91,8 @@ class ProjectService:
             outline_detail=payload.outline_detail,
             runtime_state=payload.runtime_state,
             runtime_threads=payload.runtime_threads,
+            length_preset=payload.length_preset,
+            auto_sync_memory=payload.auto_sync_memory,
         )
         await self.repository.refresh_provider(session, project)
         return await self.get_or_404(session, project.id, user_id=resolved_user_id)

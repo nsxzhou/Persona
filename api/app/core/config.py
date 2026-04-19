@@ -58,7 +58,7 @@ class Settings(BaseSettings):
 
     # LLM调用超时时间 - 单位秒，调用大语言模型的超时时间
     llm_timeout_seconds: float = Field(
-        default=15.0, alias="PERSONA_LLM_TIMEOUT_SECONDS"
+        default=180.0, alias="PERSONA_LLM_TIMEOUT_SECONDS"
     )
 
     # LLM最大重试次数 - 调用失败时最多重试几次
