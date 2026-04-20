@@ -99,6 +99,14 @@ class ConceptGenerateRequest(BaseModel):
     provider_id: str = Field(description="AI 服务商 ID")
     model: str | None = Field(default=None, description="可选模型覆盖")
     count: int = Field(default=3, ge=1, le=5, description="生成候选数量")
+    previous_output: str | None = Field(
+        default=None,
+        description="上一版生成结果，用于旧稿修订式重生成（可选）",
+    )
+    user_feedback: str | None = Field(
+        default=None,
+        description="用户本次对生成的意见/期望（可选），作为高优先级要求",
+    )
 
 
 class ConceptItem(BaseModel):

@@ -16,6 +16,27 @@ BEAT_GENERATE_CONTEXT_CHARS = 2000
 BEAT_EXPAND_CONTEXT_CHARS = 1500
 
 
+_REGENERATION_GUIDANCE = (
+    "\n\n## 重新生成指令\n"
+    "用户不满意上一版，现要求重新生成。\n"
+    "- 以下方【上一版结果】为基础进行修订，不要完全推翻骨架；\n"
+    "- 【用户意见】是本次必须着重遵循的优先级最高的要求；若为空则只依据原上下文微调；\n"
+    "- 产出格式与首次生成保持一致。"
+)
+
+
+def _append_regeneration_context(
+    parts: list[str],
+    previous_output: str | None,
+    user_feedback: str | None,
+) -> None:
+    """Append "previous output" and "user feedback" sections to user message parts."""
+    if previous_output and previous_output.strip():
+        parts.append(f"## 上一版结果\n\n{previous_output.strip()}")
+    if user_feedback and user_feedback.strip():
+        parts.append(f"## 用户意见（本次必须遵循）\n\n{user_feedback.strip()}")
+
+
 def parse_concept_response(raw: str, expected_count: int) -> list[ConceptItem]:
     """Parse LLM concept-generation response ("### 标题\\n\\n摘要" blocks)."""
     text = raw.strip()
@@ -318,6 +339,7 @@ def build_section_system_prompt(
     section: str,
     style_prompt: str | None = None,
     length_preset: LengthPresetKey = "long",
+    regenerating: bool = False,
 ) -> str:
     """构建区块生成的系统提示词（篇幅感知）。"""
     meta = _SECTION_META[section]
@@ -358,23 +380,34 @@ def build_section_system_prompt(
         "- 内容丰富具体，避免空泛概括\n"
         "- 直接输出内容，不要添加任何解释性前言或总结"
     )
+    if regenerating:
+        parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
 
 
-def build_section_user_message(section: str, context: dict[str, str]) -> str:
+def build_section_user_message(
+    section: str,
+    context: dict[str, str],
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
+) -> str:
     """构建区块生成的用户消息，包含已有上下文。"""
-    parts: list[str] = []
+    context_parts: list[str] = []
     for key in BIBLE_FIELD_KEYS:
         if key == section:
             continue
         text = context.get(key, "").strip()
         if text:
             label = BIBLE_FIELD_LABELS[key]
-            parts.append(f"## {label}\n\n{text}")
+            context_parts.append(f"## {label}\n\n{text}")
 
-    if parts:
-        return "以下是当前已有的创作设定：\n\n" + "\n\n---\n\n".join(parts)
-    return "（暂无其他已有设定，请基于你的创意自由发挥）"
+    parts: list[str] = []
+    if context_parts:
+        parts.append("以下是当前已有的创作设定：\n\n" + "\n\n---\n\n".join(context_parts))
+    else:
+        parts.append("（暂无其他已有设定，请基于你的创意自由发挥）")
+    _append_regeneration_context(parts, previous_output, user_feedback)
+    return "\n\n---\n\n".join(parts)
 
 
 # --------------------------------------------------------------------------- #
@@ -415,6 +448,7 @@ _VOLUME_GENERATE_INSTRUCTIONS: dict[str, str] = {
 def build_volume_generate_system_prompt(
     length_preset: LengthPresetKey = "long",
     style_prompt: str | None = None,
+    regenerating: bool = False,
 ) -> str:
     """构建卷级结构生成的系统提示词。"""
     instruction = _VOLUME_GENERATE_INSTRUCTIONS.get(
@@ -432,14 +466,24 @@ def build_volume_generate_system_prompt(
         "- 只输出分卷结构，不要输出任何章节内容\n"
         "- 直接输出内容，不要添加解释性前言或总结"
     )
+    if regenerating:
+        parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
 
 
-def build_volume_generate_user_message(outline_master: str) -> str:
+def build_volume_generate_user_message(
+    outline_master: str,
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
+) -> str:
     """构建卷级结构生成的用户消息。"""
+    parts: list[str] = []
     if outline_master.strip():
-        return f"## 总纲\n\n{outline_master}"
-    return "（总纲尚未填写，请基于创意自由规划分卷）"
+        parts.append(f"## 总纲\n\n{outline_master}")
+    else:
+        parts.append("（总纲尚未填写，请基于创意自由规划分卷）")
+    _append_regeneration_context(parts, previous_output, user_feedback)
+    return "\n\n---\n\n".join(parts)
 
 
 _VOLUME_CHAPTERS_SYSTEM = (
@@ -457,13 +501,18 @@ _VOLUME_CHAPTERS_SYSTEM = (
 )
 
 
-def build_volume_chapters_system_prompt(style_prompt: str | None = None) -> str:
+def build_volume_chapters_system_prompt(
+    style_prompt: str | None = None,
+    regenerating: bool = False,
+) -> str:
     """构建单卷章节生成的系统提示词。"""
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     parts.append(_VOLUME_CHAPTERS_SYSTEM)
+    if regenerating:
+        parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
 
 
@@ -472,6 +521,8 @@ def build_volume_chapters_user_message(
     volume_title: str,
     volume_meta: str,
     preceding_chapters_summary: str,
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
 ) -> str:
     """构建单卷章节生成的用户消息。"""
     parts: list[str] = []
@@ -482,6 +533,7 @@ def build_volume_chapters_user_message(
         parts.append(
             f"## 前几卷已有章节（参考，保持连贯）\n\n{preceding_chapters_summary}"
         )
+    _append_regeneration_context(parts, previous_output, user_feedback)
     parts.append("请为当前卷设计章节细纲：")
     return "\n\n---\n\n".join(parts)
 
@@ -542,7 +594,9 @@ def parse_bible_update_response(raw: str) -> tuple[str, str]:
     return state_part, threads_part
 
 
-def build_bible_update_system_prompt() -> str:
+def build_bible_update_system_prompt(regenerating: bool = False) -> str:
+    if regenerating:
+        return _BIBLE_UPDATE_SYSTEM + _REGENERATION_GUIDANCE
     return _BIBLE_UPDATE_SYSTEM
 
 
@@ -551,6 +605,8 @@ def build_bible_update_user_message(
     current_runtime_threads: str,
     content_to_check: str,
     sync_scope: str,
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
 ) -> str:
     scope_label = {
         "generated_fragment": "## 待检查正文（新增片段）",
@@ -566,6 +622,7 @@ def build_bible_update_user_message(
     else:
         parts.append("## 当前伏笔与线索追踪\n\n（空，尚未建立）")
     parts.append(f"{scope_label}\n\n{content_to_check}")
+    _append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)
 
 
@@ -589,12 +646,17 @@ _BEAT_GENERATE_SYSTEM = (
 )
 
 
-def build_beat_generate_system_prompt(style_prompt: str | None = None) -> str:
+def build_beat_generate_system_prompt(
+    style_prompt: str | None = None,
+    regenerating: bool = False,
+) -> str:
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     parts.append(_BEAT_GENERATE_SYSTEM)
+    if regenerating:
+        parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
 
 
@@ -607,6 +669,8 @@ def build_beat_generate_user_message(
     length_context: str = "",
     current_chapter_context: str = "",
     previous_chapter_context: str = "",
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
 ) -> str:
     """构建节拍生成的用户消息，包含已有上下文。"""
     parts: list[str] = []
@@ -630,6 +694,7 @@ def build_beat_generate_user_message(
         parts.append(f"## 前文（最近部分）\n\n{recent}")
     if length_context:
         parts.append(length_context)
+    _append_regeneration_context(parts, previous_output, user_feedback)
     parts.append(f"\n请生成 {num_beats} 个节拍：")
     return "\n\n---\n\n".join(parts)
 
@@ -652,12 +717,15 @@ def _build_beat_expand_system(beat_expand_chars: int = 500) -> str:
 def build_beat_expand_system_prompt(
     style_prompt: str | None = None,
     beat_expand_chars: int = 500,
+    regenerating: bool = False,
 ) -> str:
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     parts.append(_build_beat_expand_system(beat_expand_chars))
+    if regenerating:
+        parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
 
 
@@ -672,6 +740,8 @@ def build_beat_expand_user_message(
     runtime_threads: str,
     current_chapter_context: str = "",
     previous_chapter_context: str = "",
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
 ) -> str:
     parts: list[str] = []
     if current_chapter_context.strip():
@@ -694,6 +764,7 @@ def build_beat_expand_user_message(
     if preceding_beats_prose.strip():
         parts.append(f"## 本轮已生成的内容\n\n{preceding_beats_prose}")
     parts.append(f"## 当前节拍（第 {beat_index + 1}/{total_beats} 拍）\n\n{beat}")
+    _append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)
 
 
@@ -778,9 +849,20 @@ _CONCEPT_GENERATE_SYSTEM = (
 )
 
 
-def build_concept_generate_system_prompt() -> str:
+def build_concept_generate_system_prompt(regenerating: bool = False) -> str:
+    if regenerating:
+        return _CONCEPT_GENERATE_SYSTEM + _REGENERATION_GUIDANCE
     return _CONCEPT_GENERATE_SYSTEM
 
 
-def build_concept_generate_user_message(inspiration: str, count: int) -> str:
-    return f"请根据以下灵感描述生成 {count} 个小说概念：\n\n{inspiration}"
+def build_concept_generate_user_message(
+    inspiration: str,
+    count: int,
+    previous_output: str | None = None,
+    user_feedback: str | None = None,
+) -> str:
+    parts: list[str] = [
+        f"请根据以下灵感描述生成 {count} 个小说概念：\n\n{inspiration}"
+    ]
+    _append_regeneration_context(parts, previous_output, user_feedback)
+    return "\n\n---\n\n".join(parts)

@@ -27,6 +27,7 @@ from app.schemas.editor import (
     EditorCompletionRequest,
     SectionGenerateRequest,
     VolumeChaptersRequest,
+    VolumeGenerateRequest,
 )
 from app.schemas.projects import ConceptItem
 from app.services.context_assembly import (
@@ -166,8 +167,12 @@ class WritingEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
+        regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_section_system_prompt(
-            payload.section, style_prompt, length_preset=project.length_preset,
+            payload.section,
+            style_prompt,
+            length_preset=project.length_preset,
+            regenerating=regenerating,
         )
         user_message = build_section_user_message(
             payload.section,
@@ -180,6 +185,8 @@ class WritingEditorService(_EditorServiceBase):
                 "runtime_state": payload.runtime_state,
                 "runtime_threads": payload.runtime_threads,
             },
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         messages = [
@@ -204,8 +211,11 @@ class WritingEditorService(_EditorServiceBase):
         style_prompt = await self._get_style_prompt(session, project, user_id)
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
 
+        regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_beat_expand_system_prompt(
-            style_prompt, beat_expand_chars=preset_cfg["beat_expand_chars"],
+            style_prompt,
+            beat_expand_chars=preset_cfg["beat_expand_chars"],
+            regenerating=regenerating,
         )
         user_message = build_beat_expand_user_message(
             payload.text_before_cursor,
@@ -218,6 +228,8 @@ class WritingEditorService(_EditorServiceBase):
             payload.runtime_threads,
             current_chapter_context=payload.current_chapter_context,
             previous_chapter_context=payload.previous_chapter_context,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         messages = [
@@ -241,12 +253,15 @@ class MemoryEditorService(_EditorServiceBase):
         if not project.provider:
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
-        system_prompt = build_bible_update_system_prompt()
+        regenerating = bool(payload.previous_output or payload.user_feedback)
+        system_prompt = build_bible_update_system_prompt(regenerating=regenerating)
         user_message = build_bible_update_user_message(
             payload.current_runtime_state,
             payload.current_runtime_threads,
             payload.content_to_check,
             payload.sync_scope,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -297,7 +312,10 @@ class PlanningEditorService(_EditorServiceBase):
             elif progress["phase"] == "over_target":
                 length_context += "\n【超限提醒】已超出目标篇幅，请立即规划结局节拍。"
 
-        system_prompt = build_beat_generate_system_prompt(style_prompt)
+        system_prompt = build_beat_generate_system_prompt(
+            style_prompt,
+            regenerating=bool(payload.previous_output or payload.user_feedback),
+        )
         user_message = build_beat_generate_user_message(
             payload.text_before_cursor,
             payload.outline_detail,
@@ -307,6 +325,8 @@ class PlanningEditorService(_EditorServiceBase):
             length_context=length_context,
             current_chapter_context=payload.current_chapter_context,
             previous_chapter_context=payload.previous_chapter_context,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -332,9 +352,13 @@ class PlanningEditorService(_EditorServiceBase):
             session, payload.provider_id, user_id=user_id,
         )
 
-        system_prompt = build_concept_generate_system_prompt()
+        regenerating = bool(payload.previous_output or payload.user_feedback)
+        system_prompt = build_concept_generate_system_prompt(regenerating=regenerating)
         user_message = build_concept_generate_user_message(
-            payload.inspiration, payload.count,
+            payload.inspiration,
+            payload.count,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -351,6 +375,7 @@ class PlanningEditorService(_EditorServiceBase):
         session: AsyncSession,
         project_id: str,
         user_id: str,
+        payload: VolumeGenerateRequest | None = None,
     ) -> AsyncGenerator[str, None]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
@@ -360,11 +385,20 @@ class PlanningEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
+        previous_output = payload.previous_output if payload else None
+        user_feedback = payload.user_feedback if payload else None
+        regenerating = bool(previous_output or user_feedback)
+
         system_prompt = build_volume_generate_system_prompt(
             length_preset=project.length_preset,
             style_prompt=style_prompt,
+            regenerating=regenerating,
         )
-        user_message = build_volume_generate_user_message(project.outline_master)
+        user_message = build_volume_generate_user_message(
+            project.outline_master,
+            previous_output=previous_output,
+            user_feedback=user_feedback,
+        )
 
         messages = [
             SystemMessage(content=system_prompt),
@@ -407,12 +441,18 @@ class PlanningEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
 
-        system_prompt = build_volume_chapters_system_prompt(style_prompt)
+        regenerating = bool(payload.previous_output or payload.user_feedback)
+        system_prompt = build_volume_chapters_system_prompt(
+            style_prompt,
+            regenerating=regenerating,
+        )
         user_message = build_volume_chapters_user_message(
             project.outline_master,
             target_vol["title"],
             target_vol["meta"],
             preceding_summary,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         messages = [

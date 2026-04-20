@@ -4,16 +4,29 @@ import pytest
 from pydantic import TypeAdapter
 from app.services.editor_prompts import (
     build_beat_expand_system_prompt,
+    build_beat_expand_user_message,
     build_beat_generate_system_prompt,
+    build_beat_generate_user_message,
     build_bible_update_system_prompt,
     build_bible_update_user_message,
     build_concept_generate_system_prompt,
+    build_concept_generate_user_message,
     build_section_system_prompt,
     build_section_user_message,
     build_volume_chapters_system_prompt,
+    build_volume_chapters_user_message,
     build_volume_generate_system_prompt,
+    build_volume_generate_user_message,
 )
-from app.schemas.editor import SectionGenerateRequest
+from app.schemas.editor import (
+    BeatExpandRequest,
+    BeatGenerateRequest,
+    BibleUpdateRequest,
+    SectionGenerateRequest,
+    VolumeChaptersRequest,
+    VolumeGenerateRequest,
+)
+from app.schemas.projects import ConceptGenerateRequest
 
 
 def test_world_building_prompt_uses_core_scaffold_and_conditional_modules() -> None:
@@ -261,3 +274,228 @@ def test_section_generate_request_accepts_description_and_legacy_inspiration_ali
 
     assert from_description.description == "新的简介"
     assert from_legacy.description == "旧字段"
+
+
+# --------------------------------------------------------------------------- #
+#  Regeneration with optional feedback                                         #
+# --------------------------------------------------------------------------- #
+
+
+_REGEN_MARKER = "## 重新生成指令"
+
+
+@pytest.mark.parametrize(
+    "system_builder,kwargs",
+    [
+        (build_concept_generate_system_prompt, {}),
+        (build_section_system_prompt, {"section": "world_building"}),
+        (build_volume_generate_system_prompt, {}),
+        (build_volume_chapters_system_prompt, {}),
+        (build_bible_update_system_prompt, {}),
+        (build_beat_generate_system_prompt, {}),
+        (build_beat_expand_system_prompt, {}),
+    ],
+)
+def test_system_prompts_include_regeneration_guidance_only_when_requested(
+    system_builder, kwargs,
+) -> None:
+    default_prompt = system_builder(**kwargs)
+    regen_prompt = system_builder(regenerating=True, **kwargs)
+
+    assert _REGEN_MARKER not in default_prompt
+    assert _REGEN_MARKER in regen_prompt
+    assert "【用户意见】" in regen_prompt
+    assert "以下方【上一版结果】为基础进行修订" in regen_prompt
+
+
+def test_section_user_message_appends_previous_output_and_user_feedback() -> None:
+    message = build_section_user_message(
+        "world_building",
+        {
+            "description": "简介文本",
+            "world_building": "",
+            "characters": "",
+            "outline_master": "",
+            "outline_detail": "",
+            "runtime_state": "",
+            "runtime_threads": "",
+        },
+        previous_output="旧世界观草稿",
+        user_feedback="更阴郁",
+    )
+
+    assert "## 上一版结果\n\n旧世界观草稿" in message
+    assert "## 用户意见（本次必须遵循）\n\n更阴郁" in message
+
+
+def test_concept_user_message_appends_regeneration_context() -> None:
+    message = build_concept_generate_user_message(
+        "灵感",
+        3,
+        previous_output="[{\"title\":\"A\"}]",
+        user_feedback="标题更短",
+    )
+
+    assert "请根据以下灵感描述生成 3 个小说概念" in message
+    assert "## 上一版结果" in message
+    assert "[{\"title\":\"A\"}]" in message
+    assert "## 用户意见（本次必须遵循）" in message
+    assert "标题更短" in message
+
+
+def test_volume_user_message_appends_regeneration_context() -> None:
+    message = build_volume_generate_user_message(
+        "## 总纲内容",
+        previous_output="旧分卷",
+        user_feedback="再多一卷",
+    )
+
+    assert "## 总纲内容" in message
+    assert "## 上一版结果\n\n旧分卷" in message
+    assert "## 用户意见（本次必须遵循）\n\n再多一卷" in message
+
+
+def test_volume_chapters_user_message_appends_regeneration_context() -> None:
+    message = build_volume_chapters_user_message(
+        "总纲",
+        "卷一",
+        "字数 0-10万",
+        "",
+        previous_output="旧章节列表",
+        user_feedback="减少支线",
+    )
+
+    assert "## 上一版结果\n\n旧章节列表" in message
+    assert "## 用户意见（本次必须遵循）\n\n减少支线" in message
+    assert "请为当前卷设计章节细纲：" in message
+
+
+def test_bible_update_user_message_appends_regeneration_context() -> None:
+    message = build_bible_update_user_message(
+        current_runtime_state="状态",
+        current_runtime_threads="伏笔",
+        content_to_check="正文",
+        sync_scope="chapter_full",
+        previous_output="旧建议",
+        user_feedback="保留更多关系线",
+    )
+
+    assert "## 上一版结果\n\n旧建议" in message
+    assert "## 用户意见（本次必须遵循）\n\n保留更多关系线" in message
+
+
+def test_beat_generate_user_message_appends_regeneration_context() -> None:
+    message = build_beat_generate_user_message(
+        text_before_cursor="前文",
+        outline_detail="",
+        runtime_state="",
+        runtime_threads="",
+        num_beats=5,
+        previous_output="[\"旧拍1\",\"旧拍2\"]",
+        user_feedback="节奏更快",
+    )
+
+    assert "## 上一版结果" in message
+    assert "旧拍1" in message
+    assert "## 用户意见（本次必须遵循）\n\n节奏更快" in message
+    assert message.index("## 上一版结果") < message.index("请生成 5 个节拍：")
+
+
+def test_beat_expand_user_message_appends_regeneration_context() -> None:
+    message = build_beat_expand_user_message(
+        text_before_cursor="前文",
+        beat="一拍",
+        beat_index=0,
+        total_beats=3,
+        preceding_beats_prose="",
+        outline_detail="",
+        runtime_state="",
+        runtime_threads="",
+        previous_output="旧正文段",
+        user_feedback="少对话多动作",
+    )
+
+    assert "## 上一版结果\n\n旧正文段" in message
+    assert "## 用户意见（本次必须遵循）\n\n少对话多动作" in message
+
+
+def test_user_messages_omit_regeneration_sections_when_fields_are_none() -> None:
+    concept_msg = build_concept_generate_user_message("灵感", 2)
+    section_msg = build_section_user_message(
+        "world_building",
+        {
+            "description": "",
+            "world_building": "",
+            "characters": "",
+            "outline_master": "",
+            "outline_detail": "",
+            "runtime_state": "",
+            "runtime_threads": "",
+        },
+    )
+    volume_msg = build_volume_generate_user_message("总纲")
+
+    for msg in (concept_msg, section_msg, volume_msg):
+        assert "## 上一版结果" not in msg
+        assert "## 用户意见" not in msg
+
+
+def test_user_messages_ignore_empty_whitespace_only_regeneration_fields() -> None:
+    message = build_concept_generate_user_message(
+        "灵感",
+        2,
+        previous_output="   ",
+        user_feedback="\n\t",
+    )
+
+    assert "## 上一版结果" not in message
+    assert "## 用户意见" not in message
+
+
+@pytest.mark.parametrize(
+    "model_cls,base_payload",
+    [
+        (
+            SectionGenerateRequest,
+            {"section": "world_building"},
+        ),
+        (
+            BibleUpdateRequest,
+            {"content_to_check": "正文", "sync_scope": "chapter_full"},
+        ),
+        (
+            BeatGenerateRequest,
+            {"text_before_cursor": "前文"},
+        ),
+        (
+            BeatExpandRequest,
+            {
+                "text_before_cursor": "前文",
+                "beat": "一拍",
+                "beat_index": 0,
+                "total_beats": 3,
+            },
+        ),
+        (VolumeChaptersRequest, {"volume_index": 0}),
+        (VolumeGenerateRequest, {}),
+        (
+            ConceptGenerateRequest,
+            {"inspiration": "灵感", "provider_id": "p-1"},
+        ),
+    ],
+)
+def test_request_schemas_default_regeneration_fields_to_none(
+    model_cls, base_payload,
+) -> None:
+    adapter = TypeAdapter(model_cls)
+    parsed = adapter.validate_python(base_payload)
+
+    assert parsed.previous_output is None
+    assert parsed.user_feedback is None
+
+    parsed_with_regen = adapter.validate_python(
+        {**base_payload, "previous_output": "旧稿", "user_feedback": "意见"},
+    )
+
+    assert parsed_with_regen.previous_output == "旧稿"
+    assert parsed_with_regen.user_feedback == "意见"

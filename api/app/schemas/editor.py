@@ -9,6 +9,19 @@ from app.schemas.projects import ConceptGenerateRequest, ConceptGenerateResponse
 MemorySyncScope = Literal["generated_fragment", "chapter_full"]
 
 
+class _RegenerationFields(BaseModel):
+    """Shared optional regeneration fields for "regenerate with optional feedback"."""
+
+    previous_output: str | None = Field(
+        default=None,
+        description="上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成",
+    )
+    user_feedback: str | None = Field(
+        default=None,
+        description="用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt",
+    )
+
+
 class EditorCompletionRequest(BaseModel):
     text_before_cursor: str
     current_chapter_context: str = ""
@@ -16,7 +29,7 @@ class EditorCompletionRequest(BaseModel):
     total_content_length: int = Field(default=0, ge=0)
 
 
-class SectionGenerateRequest(BaseModel):
+class SectionGenerateRequest(_RegenerationFields):
     section: str = Field(description="要生成的区块名称")
     description: str = Field(default="", validation_alias=AliasChoices("description", "inspiration"))
     world_building: str = ""
@@ -27,7 +40,7 @@ class SectionGenerateRequest(BaseModel):
     runtime_threads: str = ""
 
 
-class BibleUpdateRequest(BaseModel):
+class BibleUpdateRequest(_RegenerationFields):
     current_runtime_state: str = ""
     current_runtime_threads: str = ""
     content_to_check: str = Field(description="待检查的正文内容")
@@ -40,7 +53,7 @@ class BibleUpdateResponse(BaseModel):
     changed: bool
 
 
-class BeatGenerateRequest(BaseModel):
+class BeatGenerateRequest(_RegenerationFields):
     text_before_cursor: str
     runtime_state: str = ""
     runtime_threads: str = ""
@@ -55,7 +68,7 @@ class BeatGenerateResponse(BaseModel):
     beats: list[str]
 
 
-class BeatExpandRequest(BaseModel):
+class BeatExpandRequest(_RegenerationFields):
     text_before_cursor: str
     runtime_state: str = ""
     runtime_threads: str = ""
@@ -68,7 +81,11 @@ class BeatExpandRequest(BaseModel):
     previous_chapter_context: str = Field(default="", description="前序章节上下文")
 
 
-class VolumeChaptersRequest(BaseModel):
+class VolumeGenerateRequest(_RegenerationFields):
+    """Payload for volume structure generation (only used for regeneration)."""
+
+
+class VolumeChaptersRequest(_RegenerationFields):
     volume_index: int = Field(ge=0, description="要生成章节的卷索引（0-based）")
 
 
@@ -83,4 +100,5 @@ __all__ = [
     "EditorCompletionRequest",
     "SectionGenerateRequest",
     "VolumeChaptersRequest",
+    "VolumeGenerateRequest",
 ]

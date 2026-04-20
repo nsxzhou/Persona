@@ -24,6 +24,7 @@ from app.schemas.editor import (
     EditorCompletionRequest,
     SectionGenerateRequest,
     VolumeChaptersRequest,
+    VolumeGenerateRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,9 +134,10 @@ async def generate_volumes(
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
+    payload: VolumeGenerateRequest | None = None,
 ) -> StreamingResponse:
     gen = await editor_service.planning.stream_volume_generation(
-        db_session, project_id, current_user.id,
+        db_session, project_id, current_user.id, payload,
     )
     return sse_response(gen, error_log_message="分卷结构生成异常")
 
