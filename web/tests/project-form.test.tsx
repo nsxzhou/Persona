@@ -56,13 +56,22 @@ test("project form lets user select a style profile and submit it", async () => 
 test("new project page renders the concept gacha component", async () => {
   vi.resetModules();
   vi.doMock("@/components/concept-gacha-page", () => ({
-    ConceptGachaPage: ({ providers }: { providers: unknown[] }) => (
-      <div>concept-gacha-providers-{providers.length}</div>
+    ConceptGachaPage: ({
+      providers,
+      styleProfiles,
+    }: {
+      providers: unknown[];
+      styleProfiles: unknown[];
+    }) => (
+      <div>
+        concept-gacha-providers-{providers.length}-styles-{styleProfiles.length}
+      </div>
     ),
   }));
   vi.doMock("@/lib/server-api", () => ({
     getServerApi: vi.fn().mockResolvedValue({
       getProviderConfigs: vi.fn().mockResolvedValue([{ id: "p1" }]),
+      getStyleProfiles: vi.fn().mockResolvedValue([{ id: "s1" }]),
     }),
   }));
 
@@ -71,7 +80,7 @@ test("new project page renders the concept gacha component", async () => {
   const node = await NewProjectPage();
   render(node);
 
-  expect(screen.getByText("concept-gacha-providers-1")).toBeInTheDocument();
+  expect(screen.getByText("concept-gacha-providers-1-styles-1")).toBeInTheDocument();
 });
 
 test("project detail page is a server wrapper around the workbench", async () => {

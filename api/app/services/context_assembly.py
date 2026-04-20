@@ -37,7 +37,7 @@ _WRITING_RULES = """
 
 @dataclass(frozen=True)
 class WritingContextSections:
-    inspiration: str = ""
+    description: str = ""
     world_building: str = ""
     characters: str = ""
     outline_master: str = ""
@@ -56,7 +56,7 @@ def assemble_writing_context(
     """组装写作系统提示词：风格母Prompt + 各区块 + 写作规则 + 收束引导。"""
     resolved_sections = sections or WritingContextSections()
     values = {
-        "inspiration": resolved_sections.inspiration,
+        "description": resolved_sections.description,
         "world_building": resolved_sections.world_building,
         "characters": resolved_sections.characters,
         "outline_master": resolved_sections.outline_master,

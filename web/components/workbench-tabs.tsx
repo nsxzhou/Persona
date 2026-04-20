@@ -43,13 +43,13 @@ export function WorkbenchTabs({
   providers,
   styleProfiles,
   onNameChange,
-  activeTab = "inspiration",
+  activeTab = "description",
   onActiveTabChange,
   highlightedVolumeIndex = null,
 }: WorkbenchTabsProps) {
   // ---- Bible field state ----
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
-    inspiration: project.inspiration,
+    description: project.description,
     world_building: project.world_building,
     characters: project.characters,
     outline_master: project.outline_master,

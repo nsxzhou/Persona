@@ -76,13 +76,13 @@ export function BibleTabContent({
         )}
         <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border">
           <div className="text-4xl opacity-20">
-            {fieldKey === "inspiration" ? "💡" : fieldKey === "world_building" ? "🌍" : fieldKey === "characters" ? "👥" : fieldKey === "outline_master" ? "📋" : fieldKey === "outline_detail" ? "📝" : "📖"}
+            {fieldKey === "description" ? "💡" : fieldKey === "world_building" ? "🌍" : fieldKey === "characters" ? "👥" : fieldKey === "outline_master" ? "📋" : fieldKey === "outline_detail" ? "📝" : "📖"}
           </div>
           <p className="text-sm text-muted-foreground">
             还没有{title}内容
           </p>
           <p className="text-xs text-muted-foreground/70">
-            {aiEnabled ? "点击「AI 生成」让 AI 基于灵感创作，或点击「使用模板」手动填写" : "点击「使用模板」开始填写"}
+            {aiEnabled ? "点击「AI 生成」让 AI 基于简介创作，或点击「使用模板」手动填写" : "点击「使用模板」开始填写"}
           </p>
           <div className="flex gap-2 pt-2">
             {aiEnabled && (

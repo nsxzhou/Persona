@@ -115,7 +115,7 @@ class WritingEditorService(_EditorServiceBase):
         system_prompt = assemble_writing_context(
             style_profile.prompt_pack_payload,
             sections=WritingContextSections(
-                inspiration=project.inspiration,
+                description=project.description,
                 world_building=project.world_building,
                 characters=project.characters,
                 outline_master=project.outline_master,
@@ -172,7 +172,7 @@ class WritingEditorService(_EditorServiceBase):
         user_message = build_section_user_message(
             payload.section,
             {
-                "inspiration": payload.inspiration,
+                "description": payload.description,
                 "world_building": payload.world_building,
                 "characters": payload.characters,
                 "outline_master": payload.outline_master,

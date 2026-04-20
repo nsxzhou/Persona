@@ -152,7 +152,7 @@ export function ZenEditorView({
   );
 
   const persistProjectField = useCallback(
-    async (field: keyof Pick<Project, "runtime_state" | "runtime_threads" | "inspiration" | "world_building" | "characters" | "outline_master" | "outline_detail">, value: string) => {
+    async (field: keyof Pick<Project, "runtime_state" | "runtime_threads" | "description" | "world_building" | "characters" | "outline_master" | "outline_detail">, value: string) => {
       await persistProjectUpdate(
         { [field]: value },
         { errorMessage: "保存失败" },

@@ -19,18 +19,20 @@ import {
 import { api } from "@/lib/api";
 import { createProjectAction } from "@/app/(workspace)/projects/actions";
 import { LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
-import type { ConceptItem, ProviderConfig } from "@/lib/types";
+import type { ConceptItem, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 interface ConceptGachaPageProps {
   providers: ProviderConfig[];
+  styleProfiles: StyleProfileListItem[];
 }
 
-export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
+export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageProps) {
   const router = useRouter();
   const enabledProviders = providers.filter((p) => p.is_enabled);
 
   const [providerId, setProviderId] = useState(enabledProviders[0]?.id ?? "");
   const [model, setModel] = useState("");
+  const [styleProfileId, setStyleProfileId] = useState("__none__");
   const [inspiration, setInspiration] = useState("");
   const [concepts, setConcepts] = useState<ConceptItem[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -71,9 +73,10 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
       const project = await createProjectAction({
         name: selected.title,
         description: selected.synopsis,
-        inspiration: inspiration.trim(),
+        inspiration: "",
         default_provider_id: providerId,
         default_model: model.trim() || null,
+        style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
         status: "draft",
         world_building: "",
         characters: "",
@@ -102,8 +105,8 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
         <h1 className="text-lg font-semibold">新建小说</h1>
       </div>
 
-      {/* Provider + Model */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Provider + Model + Style */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="grid gap-2">
           <Label>AI 服务商</Label>
           <Select value={providerId} onValueChange={setProviderId}>
@@ -128,6 +131,22 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
             placeholder="留空使用默认"
           />
         </div>
+        <div className="grid gap-2">
+          <Label htmlFor="gacha-style-profile">风格档案</Label>
+          <Select value={styleProfileId} onValueChange={setStyleProfileId}>
+            <SelectTrigger id="gacha-style-profile" aria-label="风格档案" className="bg-background">
+              <SelectValue placeholder="选择风格档案" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">未挂载</SelectItem>
+              {styleProfiles.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.style_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Inspiration input */}
@@ -137,7 +156,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
           id="gacha-inspiration"
           value={inspiration}
           onChange={(e) => setInspiration(e.target.value)}
-          placeholder='在这里描述你的小说灵感、主题、世界观雏形、想要的故事走向...&#10;&#10;例："一个失忆的少年在末世废墟中醒来，发现自己手臂上刻着倒计时..."'
+          placeholder='在这里描述你的小说灵感、题材方向、主角处境、想写的冲突和核心看点，AI 会据此生成标题 + 几百字长简介。&#10;&#10;例："一个失忆的少年在末世废墟中醒来，发现自己手臂上刻着倒计时..."'
           className="w-full min-h-[120px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div className="flex justify-end">
@@ -151,7 +170,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
             ) : (
               <Sparkles className="h-4 w-4" />
             )}
-            {isGenerating ? "生成中..." : "生成灵感卡"}
+            {isGenerating ? "生成中..." : "生成标题和简介"}
           </Button>
         </div>
       </div>

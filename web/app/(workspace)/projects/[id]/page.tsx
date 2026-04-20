@@ -33,7 +33,7 @@ export default async function ProjectDetailPage({
       project={project}
       providers={providers}
       styleProfiles={styleProfiles}
-      initialTab={resolvedSearchParams?.tab ?? "inspiration"}
+      initialTab={resolvedSearchParams?.tab ?? "description"}
       highlightedVolumeIndex={parseVolumeIndex(resolvedSearchParams?.volumeIndex)}
     />
   );

@@ -7,7 +7,7 @@ a canonical list of bible field keys and their human-readable labels.
 from __future__ import annotations
 
 BLUEPRINT_SECTION_ORDER: list[tuple[str, str]] = [
-    ("灵感概述", "inspiration"),
+    ("简介", "description"),
     ("世界观设定", "world_building"),
     ("角色设定", "characters"),
     ("总纲", "outline_master"),

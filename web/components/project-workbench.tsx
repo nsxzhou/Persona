@@ -15,7 +15,7 @@ export function ProjectWorkbench({
   project: initialProject,
   providers,
   styleProfiles,
-  initialTab = "inspiration",
+  initialTab = "description",
   highlightedVolumeIndex = null,
 }: {
   project: Project;

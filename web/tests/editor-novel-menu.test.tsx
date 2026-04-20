@@ -10,7 +10,7 @@ describe("EditorNovelMenu", () => {
     expect(screen.getByText("血色长安")).toBeInTheDocument();
 
     const expected: Array<[string, string]> = [
-      ["灵感概述", "inspiration"],
+      ["简介", "description"],
       ["世界观设定", "world_building"],
       ["角色卡", "characters"],
       ["总纲", "outline_master"],
