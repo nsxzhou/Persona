@@ -346,12 +346,12 @@ def build_section_system_prompt(
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     role_prefix = (
-        "你是一位只保留必要设定的小说策划编辑"
+        "你是一位起点白金作家，正在为自己的新书只保留真正必要的设定"
         if section == "world_building"
-        else "你是一位资深的小说策划编辑"
+        else "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法"
     )
     parts.append(
-        f"{role_prefix}，正在帮助作者构建「{meta['label']}」。\n"
+        f"{role_prefix}，现在要完成「{meta['label']}」。\n"
         f"{instruction}\n\n"
         "输出要求：\n"
         "- 使用 Markdown 格式，标题层级清晰\n"
@@ -425,7 +425,7 @@ def build_volume_generate_system_prompt(
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     parts.append(
-        "你是一位资深的小说策划编辑，正在帮助作者规划分卷结构。\n\n"
+        "你是一位起点白金作家，正在为自己的长篇新书做分卷规划。\n\n"
         f"{instruction}\n\n"
         "输出要求：\n"
         "- 使用 Markdown 格式\n"
@@ -443,7 +443,7 @@ def build_volume_generate_user_message(outline_master: str) -> str:
 
 
 _VOLUME_CHAPTERS_SYSTEM = (
-    "你是一位资深的小说策划编辑，正在帮助作者展开某一卷的章节细纲。\n\n"
+    "你是一位起点白金作家，正在为自己的当前卷拆章节细纲，控制章节推进、情绪起伏和章末钩子。\n\n"
     "为指定的卷设计章节。每章用三级标题（### ），格式如下：\n\n"
     "### 第 N 章：章名\n"
     "- **核心事件**：一句话概括\n"
@@ -491,7 +491,7 @@ def build_volume_chapters_user_message(
 # --------------------------------------------------------------------------- #
 
 _BIBLE_UPDATE_SYSTEM = (
-    "你是一位小说项目的设定维护助手。\n"
+    "你是一位长期连载中的成熟作者，正在维护自己的角色状态、设定备忘与伏笔追踪。\n"
     "你的职责是根据最新生成的正文内容，更新两部分运行时追踪文档。\n"
     "这份文档是给后续章节创作用的短期运行时记忆，不是剧情摘要。\n\n"
     "你必须输出以下两个区块，用对应的二级标题分隔：\n\n"
@@ -574,7 +574,7 @@ def build_bible_update_user_message(
 # --------------------------------------------------------------------------- #
 
 _BEAT_GENERATE_SYSTEM = (
-    "你是一位资深的小说策划编辑，正在帮助作者规划接下来的写作节拍。\n\n"
+    "你是一位番茄金番作家，正在为接下来的正文安排场景节拍和情绪钩子。\n\n"
     "节拍（Beat）是一个场景或情节的最小叙事单元，每条节拍用一句话概括将要发生的事。\n\n"
     "要求：\n"
     "- 生成指定数量的节拍，每条节拍独占一行\n"
@@ -636,7 +636,7 @@ def build_beat_generate_user_message(
 
 def _build_beat_expand_system(beat_expand_chars: int = 500) -> str:
     return (
-        "你是一位小说执笔者，正在根据给定的节拍展开正文。\n\n"
+        "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
         "要求：\n"
         f"- 按照节拍描述展开约 {beat_expand_chars} 字的叙事段落\n"
         "- 保持与前文的语感和风格一致\n"
