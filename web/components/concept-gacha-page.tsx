@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
+import type { RegenerateOptions } from "@/lib/api-client";
 import { createProjectAction } from "@/app/(workspace)/projects/actions";
 import { LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
 import type { ConceptItem, ProviderConfig, StyleProfileListItem } from "@/lib/types";
@@ -40,28 +42,43 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lengthPreset, setLengthPreset] = useState<LengthPresetKey>("short");
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (options?: RegenerateOptions) => {
     if (!providerId || !inspiration.trim()) return;
     setIsGenerating(true);
     setError(null);
-    setConcepts(null);
-    setSelectedIndex(null);
+    if (!options) {
+      setConcepts(null);
+      setSelectedIndex(null);
+    }
 
     try {
-      const result = await api.generateConcepts({
-        inspiration: inspiration.trim(),
-        provider_id: providerId,
-        model: model.trim() || null,
-        count: 3,
-      });
+      const result = await api.generateConcepts(
+        {
+          inspiration: inspiration.trim(),
+          provider_id: providerId,
+          model: model.trim() || null,
+          count: 3,
+        },
+        options,
+      );
       setConcepts(result.concepts);
+      setSelectedIndex(null);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "生成失败，请重试";
       setError(message);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleRegenerateConfirm = async (feedback: string) => {
+    setShowRegenerateDialog(false);
+    await handleGenerate({
+      previousOutput: concepts ? JSON.stringify(concepts) : undefined,
+      userFeedback: feedback || undefined,
+    });
   };
 
   const handleConfirm = async () => {
@@ -161,7 +178,7 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
         />
         <div className="flex justify-end">
           <Button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={isGenerating || !providerId || !inspiration.trim()}
             className="gap-2"
           >
@@ -199,7 +216,7 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
       {error && (
         <div className="flex flex-col items-center gap-3 py-8">
           <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" size="sm" onClick={handleGenerate}>
+          <Button variant="outline" size="sm" onClick={() => handleGenerate()}>
             重试
           </Button>
         </div>
@@ -267,7 +284,7 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
             <Button
               variant="outline"
               size="sm"
-              onClick={handleGenerate}
+              onClick={() => setShowRegenerateDialog(true)}
               disabled={isGenerating}
               className="gap-1.5"
             >
@@ -285,6 +302,16 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
           </div>
         </>
       )}
+
+      <RegenerateDialog
+        open={showRegenerateDialog}
+        title="重新生成概念卡"
+        description="将基于当前卡片与你的意见重新生成 3 张概念。意见可填可不填。"
+        placeholder="例如：主角从旁白切换到第一人称；卖点更侧重悬疑；减少系统流…"
+        busy={isGenerating}
+        onCancel={() => setShowRegenerateDialog(false)}
+        onConfirm={handleRegenerateConfirm}
+      />
     </div>
   );
 }

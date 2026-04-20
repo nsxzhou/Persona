@@ -1206,6 +1206,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeGenerateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2099,6 +2116,30 @@
       },
       "BeatExpandRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "text_before_cursor": {
             "type": "string",
             "title": "Text Before Cursor"
@@ -2159,6 +2200,30 @@
       },
       "BeatGenerateRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "text_before_cursor": {
             "type": "string",
             "title": "Text Before Cursor"
@@ -2228,6 +2293,30 @@
       },
       "BibleUpdateRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "current_runtime_state": {
             "type": "string",
             "title": "Current Runtime State",
@@ -2351,6 +2440,30 @@
             "title": "Count",
             "description": "生成候选数量",
             "default": 3
+          },
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果，用于旧稿修订式重生成（可选）"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），作为高优先级要求"
           }
         },
         "type": "object",
@@ -3505,14 +3618,38 @@
       },
       "SectionGenerateRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "section": {
             "type": "string",
             "title": "Section",
             "description": "要生成的区块名称"
           },
-          "inspiration": {
+          "description": {
             "type": "string",
-            "title": "Inspiration",
+            "title": "Description",
             "default": ""
           },
           "world_building": {
@@ -4378,6 +4515,30 @@
       },
       "VolumeChaptersRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "volume_index": {
             "type": "integer",
             "minimum": 0.0,
@@ -4390,6 +4551,37 @@
           "volume_index"
         ],
         "title": "VolumeChaptersRequest"
+      },
+      "VolumeGenerateRequest": {
+        "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          }
+        },
+        "type": "object",
+        "title": "VolumeGenerateRequest",
+        "description": "Payload for volume structure generation (only used for regeneration)."
       }
     }
   }

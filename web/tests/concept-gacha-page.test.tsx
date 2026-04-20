@@ -83,12 +83,15 @@ describe("ConceptGachaPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "生成标题和简介" }));
 
-    expect(generateConceptsMock).toHaveBeenCalledWith({
-      inspiration: "一个被迫冒名顶替入局的寒门书生。",
-      provider_id: "provider-1",
-      model: null,
-      count: 3,
-    });
+    expect(generateConceptsMock).toHaveBeenCalledWith(
+      {
+        inspiration: "一个被迫冒名顶替入局的寒门书生。",
+        provider_id: "provider-1",
+        model: null,
+        count: 3,
+      },
+      undefined,
+    );
 
     await screen.findByRole("button", { name: /纸上王朝/ });
     fireEvent.click(screen.getByRole("button", { name: /纸上王朝/ }));

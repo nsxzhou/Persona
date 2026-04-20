@@ -731,6 +731,16 @@ export interface components {
         AnalysisReportMarkdown: string;
         /** BeatExpandRequest */
         BeatExpandRequest: {
+            /**
+             * Previous Output
+             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
+             */
+            user_feedback?: string | null;
             /** Text Before Cursor */
             text_before_cursor: string;
             /**
@@ -774,6 +784,16 @@ export interface components {
         };
         /** BeatGenerateRequest */
         BeatGenerateRequest: {
+            /**
+             * Previous Output
+             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
+             */
+            user_feedback?: string | null;
             /** Text Before Cursor */
             text_before_cursor: string;
             /**
@@ -821,6 +841,16 @@ export interface components {
         };
         /** BibleUpdateRequest */
         BibleUpdateRequest: {
+            /**
+             * Previous Output
+             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
+             */
+            user_feedback?: string | null;
             /**
              * Current Runtime State
              * @default
@@ -886,6 +916,16 @@ export interface components {
              * @default 3
              */
             count: number;
+            /**
+             * Previous Output
+             * @description 上一版生成结果，用于旧稿修订式重生成（可选）
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），作为高优先级要求
+             */
+            user_feedback?: string | null;
         };
         /** ConceptGenerateResponse */
         ConceptGenerateResponse: {
@@ -1273,15 +1313,25 @@ export interface components {
         /** SectionGenerateRequest */
         SectionGenerateRequest: {
             /**
+             * Previous Output
+             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
+             */
+            user_feedback?: string | null;
+            /**
              * Section
              * @description 要生成的区块名称
              */
             section: string;
             /**
-             * Inspiration
+             * Description
              * @default
              */
-            inspiration: string;
+            description: string;
             /**
              * World Building
              * @default
@@ -1613,10 +1663,36 @@ export interface components {
         /** VolumeChaptersRequest */
         VolumeChaptersRequest: {
             /**
+             * Previous Output
+             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
+             */
+            user_feedback?: string | null;
+            /**
              * Volume Index
              * @description 要生成章节的卷索引（0-based）
              */
             volume_index: number;
+        };
+        /**
+         * VolumeGenerateRequest
+         * @description Payload for volume structure generation (only used for regeneration).
+         */
+        VolumeGenerateRequest: {
+            /**
+             * Previous Output
+             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
+             */
+            previous_output?: string | null;
+            /**
+             * User Feedback
+             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
+             */
+            user_feedback?: string | null;
         };
     };
     responses: never;
@@ -2510,7 +2586,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VolumeGenerateRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

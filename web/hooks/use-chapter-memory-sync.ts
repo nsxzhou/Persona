@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
+import type { RegenerateOptions } from "@/lib/api-client";
 import type {
   MemorySyncScope,
   MemorySyncSource,
@@ -152,6 +153,7 @@ export function useChapterMemorySync({
       checkedChapterContent: string,
       source: MemorySyncSource,
       scope: MemorySyncScope,
+      options?: RegenerateOptions,
     ) => {
       if (!selectedChapter) return;
       if (scope === "generated_fragment" && contentToCheck.trim().length < MIN_LENGTH_FOR_AUTO_SYNC) {
@@ -166,6 +168,7 @@ export function useChapterMemorySync({
           project.runtime_threads ?? "",
           contentToCheck,
           scope,
+          options,
         );
 
         if (result.changed) {
@@ -214,8 +217,8 @@ export function useChapterMemorySync({
   );
 
   const handleManualSync = useCallback(
-    async (checkedContent: string) => {
-      await syncContent(checkedContent, checkedContent, "manual", "chapter_full");
+    async (checkedContent: string, options?: RegenerateOptions) => {
+      await syncContent(checkedContent, checkedContent, "manual", "chapter_full", options);
     },
     [syncContent],
   );

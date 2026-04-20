@@ -304,12 +304,25 @@ export function ZenEditorView({
     await handleManualSync(checkedContent);
   }, [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord]);
 
-  const handleRetryMemoryProposal = useCallback(async () => {
-    if (!selectedChapterRecord) return;
-    const checkedContent = await saveCurrentChapterForSync();
-    if (checkedContent === null) return;
-    await handleManualSync(checkedContent);
-  }, [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord]);
+  const handleRetryMemoryProposal = useCallback(
+    async (feedback: string) => {
+      if (!selectedChapterRecord) return;
+      const checkedContent = await saveCurrentChapterForSync();
+      if (checkedContent === null) return;
+      const previousOutput = selectedChapterRecord.memory_sync_proposed_state
+        || selectedChapterRecord.memory_sync_proposed_threads
+        ? JSON.stringify({
+            runtime_state: selectedChapterRecord.memory_sync_proposed_state ?? "",
+            runtime_threads: selectedChapterRecord.memory_sync_proposed_threads ?? "",
+          })
+        : undefined;
+      await handleManualSync(checkedContent, {
+        previousOutput,
+        userFeedback: feedback || undefined,
+      });
+    },
+    [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -694,10 +707,23 @@ export function ZenEditorView({
             isExpandingBeat={isExpandingBeatProse}
             isGeneratingBeats={isGeneratingBeatPlan}
             onGenerateBeats={handleGenerateBeatPlan}
+            onRegenerateBeats={(feedback) =>
+              handleGenerateBeatPlan({
+                previousOutput: beatList.length > 0 ? JSON.stringify(beatList) : undefined,
+                userFeedback: feedback || undefined,
+              })
+            }
+            onRegenerateExpansion={(feedback) =>
+              handleExpandBeats({
+                previousOutput: content || undefined,
+                userFeedback: feedback || undefined,
+              })
+            }
             onBeatsChange={setBeatList}
             onStartExpand={handleExpandBeats}
             onClose={() => setIsRightExpanded(false)}
             disabled={!selectedChapterRecord}
+            hasChapterContent={content.trim().length > 0}
           />
         </div>
       ) : (

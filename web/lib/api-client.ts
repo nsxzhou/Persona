@@ -36,6 +36,25 @@ type Requester = {
   raw: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
+type RegenerateOptions = {
+  previousOutput?: string;
+  userFeedback?: string;
+};
+
+export type { RegenerateOptions };
+
+function regenerateFields(options?: RegenerateOptions): Record<string, string> {
+  if (!options) return {};
+  const out: Record<string, string> = {};
+  if (options.previousOutput !== undefined && options.previousOutput !== null) {
+    out.previous_output = options.previousOutput;
+  }
+  if (options.userFeedback !== undefined && options.userFeedback !== null) {
+    out.user_feedback = options.userFeedback;
+  }
+  return out;
+}
+
 export function createApiClient(request: Requester) {
   return {
     getSetupStatus: () => request<SetupStatusResponse>("/api/v1/setup/status"),
@@ -131,10 +150,10 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/projects/${id}`, {
         method: "DELETE",
       }),
-    generateConcepts: (payload: ConceptGeneratePayload) =>
+    generateConcepts: (payload: ConceptGeneratePayload, options?: RegenerateOptions) =>
       request<ConceptGenerateResult>("/api/v1/projects/generate-concepts", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, ...regenerateFields(options) }),
       }),
     getStyleAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
       const offset = params?.offset ?? 0;
@@ -227,6 +246,7 @@ export function createApiClient(request: Requester) {
       currentRuntimeThreads: string,
       contentToCheck: string,
       syncScope: "generated_fragment" | "chapter_full",
+      options?: RegenerateOptions,
     ) =>
       request<BibleUpdateResponse>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
         method: "POST",
@@ -235,6 +255,7 @@ export function createApiClient(request: Requester) {
           current_runtime_threads: currentRuntimeThreads,
           content_to_check: contentToCheck,
           sync_scope: syncScope,
+          ...regenerateFields(options),
         }),
       }),
     generateBeats: (
@@ -246,6 +267,7 @@ export function createApiClient(request: Requester) {
       currentChapterContext?: string,
       previousChapterContext?: string,
       totalContentLength = 0,
+      options?: RegenerateOptions,
     ) =>
       request<BeatGenerateResponse>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
         method: "POST",
@@ -257,6 +279,7 @@ export function createApiClient(request: Requester) {
           ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
           ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
           total_content_length: totalContentLength,
+          ...regenerateFields(options),
         }),
       }),
     expandBeat: (
@@ -271,6 +294,7 @@ export function createApiClient(request: Requester) {
       precedingBeatsProse: string,
       currentChapterContext?: string,
       previousChapterContext?: string,
+      options?: RegenerateOptions,
     ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/expand-beat`, {
         method: "POST",
@@ -285,21 +309,31 @@ export function createApiClient(request: Requester) {
           preceding_beats_prose: precedingBeatsProse,
           ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
           ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
+          ...regenerateFields(options),
         }),
       }),
-    generateSection: (projectId: string, payload: Record<string, string>) =>
+    generateSection: (
+      projectId: string,
+      payload: Record<string, string>,
+      options?: RegenerateOptions,
+    ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-section`, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, ...regenerateFields(options) }),
       }),
-    generateVolumes: (projectId: string) =>
+    generateVolumes: (projectId: string, options?: RegenerateOptions) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-volumes`, {
         method: "POST",
+        body: JSON.stringify(regenerateFields(options)),
       }),
-    generateVolumeChapters: (projectId: string, volumeIndex: number) =>
+    generateVolumeChapters: (
+      projectId: string,
+      volumeIndex: number,
+      options?: RegenerateOptions,
+    ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-volume-chapters`, {
         method: "POST",
-        body: JSON.stringify({ volume_index: volumeIndex }),
+        body: JSON.stringify({ volume_index: volumeIndex, ...regenerateFields(options) }),
       }),
   };
 }

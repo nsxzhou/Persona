@@ -4,21 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BibleTabContent } from "@/components/bible-tab-content";
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
+import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { SettingsTab } from "@/components/settings-tab";
 import { api } from "@/lib/api";
+import type { RegenerateOptions } from "@/lib/api-client";
 import { consumeTextEventStream } from "@/lib/sse";
 import {
   AI_ENABLED_SECTIONS,
@@ -60,7 +52,7 @@ export function WorkbenchTabs({
 
   // ---- AI generation ----
   const [generatingSection, setGeneratingSection] = useState<BibleFieldKey | null>(null);
-  const [generateConfirmSection, setGenerateConfirmSection] = useState<BibleFieldKey | null>(null);
+  const [regenerateSection, setRegenerateSection] = useState<BibleFieldKey | null>(null);
   const [chapters, setChapters] = useState<ProjectChapter[]>([]);
   const generationReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
@@ -85,7 +77,7 @@ export function WorkbenchTabs({
   }, []);
 
   const executeGeneration = useCallback(
-    async (sectionKey: BibleFieldKey) => {
+    async (sectionKey: BibleFieldKey, options?: RegenerateOptions) => {
       if (generatingSection) return;
 
       // Prerequisite check (non-blocking)
@@ -101,10 +93,14 @@ export function WorkbenchTabs({
       setGeneratingSection(sectionKey);
 
       try {
-        const response = await api.generateSection(project.id, {
-          section: sectionKey,
-          ...fields,
-        });
+        const response = await api.generateSection(
+          project.id,
+          {
+            section: sectionKey,
+            ...fields,
+          },
+          options,
+        );
 
         if (!response.body) throw new Error("No response body");
 
@@ -142,12 +138,25 @@ export function WorkbenchTabs({
   const handleGenerate = useCallback(
     (sectionKey: BibleFieldKey) => {
       if (fields[sectionKey].trim()) {
-        setGenerateConfirmSection(sectionKey);
+        setRegenerateSection(sectionKey);
       } else {
         executeGeneration(sectionKey);
       }
     },
     [fields, executeGeneration]
+  );
+
+  const handleRegenerateConfirm = useCallback(
+    (feedback: string) => {
+      const section = regenerateSection;
+      if (!section) return;
+      setRegenerateSection(null);
+      executeGeneration(section, {
+        previousOutput: fields[section] || undefined,
+        userFeedback: feedback || undefined,
+      });
+    },
+    [regenerateSection, fields, executeGeneration],
   );
 
   // Global Escape key listener
@@ -269,34 +278,20 @@ export function WorkbenchTabs({
         />
       </TabsContent>
 
-      <AlertDialog
-        open={generateConfirmSection !== null}
-        onOpenChange={(open) => {
-          if (!open) setGenerateConfirmSection(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认覆盖内容？</AlertDialogTitle>
-            <AlertDialogDescription>
-              当前区块已有内容，AI 生成将覆盖现有内容。该操作不可撤销。是否继续？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (generateConfirmSection) {
-                  executeGeneration(generateConfirmSection);
-                  setGenerateConfirmSection(null);
-                }
-              }}
-            >
-              继续
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RegenerateDialog
+        open={regenerateSection !== null}
+        title={
+          regenerateSection
+            ? `重新生成「${
+                BIBLE_SECTION_META.find((s) => s.key === regenerateSection)?.title ?? regenerateSection
+              }」`
+            : ""
+        }
+        description="当前已有内容，将在其基础上按你的意见重新生成。意见可填可不填。"
+        busy={generatingSection !== null}
+        onCancel={() => setRegenerateSection(null)}
+        onConfirm={handleRegenerateConfirm}
+      />
     </Tabs>
   );
 }
