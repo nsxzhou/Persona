@@ -272,18 +272,28 @@ def test_build_skeleton_group_reduce_prompt_serialises_group_sketches() -> None:
 
 
 def test_build_chunk_analysis_prompt_without_skeleton_is_backward_compatible() -> None:
-    prompt = build_chunk_analysis_prompt(
+    prompt_default = build_chunk_analysis_prompt(
         chunk="片段",
         chunk_index=0,
         classification=CLASSIFICATION,
         chunk_count=1,
     )
+    prompt_none = build_chunk_analysis_prompt(
+        chunk="片段",
+        chunk_index=0,
+        classification=CLASSIFICATION,
+        chunk_count=1,
+        plot_skeleton=None,
+    )
 
-    assert _SKELETON_HEADER not in prompt
-    assert _SKELETON_CAVEAT not in prompt
+    # Byte-equality guards against a future `_format_skeleton_context` regression
+    # silently returning a non-empty spacer (e.g. "\n" or " ") for falsy inputs.
+    assert prompt_default == prompt_none
+    assert _SKELETON_HEADER not in prompt_default
+    assert _SKELETON_CAVEAT not in prompt_default
     # Baseline sections still present
-    assert "样本文本：\n片段" in prompt
-    assert "## 3.1 阶段划分与字数节奏" in prompt
+    assert "样本文本：\n片段" in prompt_default
+    assert "## 3.1 阶段划分与字数节奏" in prompt_default
 
 
 @pytest.mark.parametrize("skeleton", [None, "", "   \n\t  "])
@@ -321,13 +331,22 @@ def test_build_chunk_analysis_prompt_with_skeleton_injects_section_and_caveat() 
 
 
 def test_build_merge_prompt_without_skeleton_is_backward_compatible() -> None:
-    prompt = build_merge_prompt(
-        chunk_analyses=[{"chunk_index": 0, "chunk_count": 1, "markdown": "# X"}],
+    chunk_analyses = [{"chunk_index": 0, "chunk_count": 1, "markdown": "# X"}]
+    prompt_default = build_merge_prompt(
+        chunk_analyses=chunk_analyses,
         classification=CLASSIFICATION,
     )
+    prompt_none = build_merge_prompt(
+        chunk_analyses=chunk_analyses,
+        classification=CLASSIFICATION,
+        plot_skeleton=None,
+    )
 
-    assert _SKELETON_HEADER not in prompt
-    assert _SKELETON_CAVEAT not in prompt
+    # Byte-equality guards against a future `_format_skeleton_context` regression
+    # silently returning a non-empty spacer (e.g. "\n" or " ") for falsy inputs.
+    assert prompt_default == prompt_none
+    assert _SKELETON_HEADER not in prompt_default
+    assert _SKELETON_CAVEAT not in prompt_default
 
 
 def test_build_merge_prompt_with_skeleton_injects_before_merge_inputs() -> None:
@@ -354,13 +373,21 @@ _REPORT_SKELETON_HINT = (
 
 
 def test_build_report_prompt_without_skeleton_is_backward_compatible() -> None:
-    prompt = build_report_prompt(
+    prompt_default = build_report_prompt(
         merged_analysis_markdown="# 聚合草稿",
         classification=CLASSIFICATION,
     )
+    prompt_none = build_report_prompt(
+        merged_analysis_markdown="# 聚合草稿",
+        classification=CLASSIFICATION,
+        plot_skeleton=None,
+    )
 
-    assert _SKELETON_HEADER not in prompt
-    assert _REPORT_SKELETON_HINT not in prompt
+    # Byte-equality guards against a future `_format_skeleton_context` regression
+    # silently returning a non-empty spacer (e.g. "\n" or " ") for falsy inputs.
+    assert prompt_default == prompt_none
+    assert _SKELETON_HEADER not in prompt_default
+    assert _REPORT_SKELETON_HINT not in prompt_default
 
 
 def test_build_report_prompt_with_skeleton_injects_section_and_hint_before_inputs() -> None:
