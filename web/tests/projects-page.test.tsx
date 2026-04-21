@@ -21,6 +21,7 @@ test("projects page renders active projects and archive toggle", () => {
           default_provider_id: "provider-1",
           default_model: "gpt-4.1-mini",
           style_profile_id: null,
+          plot_profile_id: null,
           length_preset: "short",
           auto_sync_memory: false,
           archived_at: null,

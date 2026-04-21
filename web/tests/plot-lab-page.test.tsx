@@ -13,6 +13,7 @@ const apiMock = vi.hoisted(() => ({
   getPlotAnalysisJob: vi.fn(),
   getPlotAnalysisJobAnalysisReport: vi.fn(),
   getPlotAnalysisJobPlotSummary: vi.fn(),
+  getPlotAnalysisJobPlotSkeleton: vi.fn(),
   getPlotAnalysisJobPromptPack: vi.fn(),
   createPlotAnalysisJob: vi.fn(),
   getPlotProfiles: vi.fn(),
@@ -38,6 +39,10 @@ function buildReport() {
 
 function buildSummary(plotName = "旧名字") {
   return `# 剧情定位\n${plotName}\n\n# 读者追读抓手\n高压绑定 + 反派求生。\n`;
+}
+
+function buildSkeleton() {
+  return "# 全书骨架\n## 阶段划分（按 chunk 索引）\n- 开局铺垫\n";
 }
 
 function buildPromptPack(systemPrompt = "保持高压绑定开局，不要洗白主角。") {
@@ -115,6 +120,7 @@ beforeEach(() => {
   });
   apiMock.getPlotAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
   apiMock.getPlotAnalysisJobPlotSummary.mockResolvedValue(buildSummary());
+  apiMock.getPlotAnalysisJobPlotSkeleton.mockResolvedValue(buildSkeleton());
   apiMock.getPlotAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
 });
 
@@ -189,6 +195,7 @@ test("plot lab wizard saves profile and mounts project", async () => {
 
   renderWizard();
 
+  fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
   fireEvent.click(await screen.findByRole("button", { name: "确认摘要，下一步" }));
   fireEvent.change(screen.getByLabelText("Prompt Pack Markdown"), {

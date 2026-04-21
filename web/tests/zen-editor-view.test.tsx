@@ -92,6 +92,7 @@ const project: Project = {
   default_provider_id: "provider-1",
   default_model: "gpt-4.1-mini",
   style_profile_id: "style-1",
+  plot_profile_id: null,
   inspiration: "",
   world_building: "",
   characters: "",
