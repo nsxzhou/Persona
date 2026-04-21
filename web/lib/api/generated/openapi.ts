@@ -672,6 +672,232 @@ export interface paths {
         patch: operations["update_style_profile_api_v1_style_profiles__profile_id__patch"];
         trace?: never;
     };
+    "/api/v1/plot-analysis-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plot Analysis Jobs */
+        get: operations["list_plot_analysis_jobs_api_v1_plot_analysis_jobs_get"];
+        put?: never;
+        /** Create Plot Analysis Job */
+        post: operations["create_plot_analysis_job_api_v1_plot_analysis_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job */
+        get: operations["get_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Plot Analysis Job */
+        delete: operations["delete_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Status */
+        get: operations["get_plot_analysis_job_status_api_v1_plot_analysis_jobs__job_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Plot Analysis Job */
+        post: operations["resume_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause Plot Analysis Job */
+        post: operations["pause_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Logs */
+        get: operations["get_plot_analysis_job_logs_api_v1_plot_analysis_jobs__job_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/analysis-meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Analysis Meta */
+        get: operations["get_plot_analysis_job_analysis_meta_api_v1_plot_analysis_jobs__job_id__analysis_meta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/analysis-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Analysis Report */
+        get: operations["get_plot_analysis_job_analysis_report_api_v1_plot_analysis_jobs__job_id__analysis_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/plot-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Plot Summary */
+        get: operations["get_plot_analysis_job_plot_summary_api_v1_plot_analysis_jobs__job_id__plot_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/prompt-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Prompt Pack */
+        get: operations["get_plot_analysis_job_prompt_pack_api_v1_plot_analysis_jobs__job_id__prompt_pack_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-analysis-jobs/{job_id}/plot-skeleton": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Analysis Job Plot Skeleton */
+        get: operations["get_plot_analysis_job_plot_skeleton_api_v1_plot_analysis_jobs__job_id__plot_skeleton_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plot Profiles */
+        get: operations["list_plot_profiles_api_v1_plot_profiles_get"];
+        put?: never;
+        /** Create Plot Profile */
+        post: operations["create_plot_profile_api_v1_plot_profiles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plot-profiles/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plot Profile */
+        get: operations["get_plot_profile_api_v1_plot_profiles__profile_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Plot Profile */
+        delete: operations["delete_plot_profile_api_v1_plot_profiles__profile_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Plot Profile */
+        patch: operations["update_plot_profile_api_v1_plot_profiles__profile_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -882,6 +1108,17 @@ export interface components {
             /** Changed */
             changed: boolean;
         };
+        /** Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post */
+        Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post: {
+            /** Plot Name */
+            plot_name: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Model */
+            model?: string | null;
+            /** File */
+            file: string;
+        };
         /** Body_create_style_analysis_job_api_v1_style_analysis_jobs_post */
         Body_create_style_analysis_job_api_v1_style_analysis_jobs_post: {
             /** Style Name */
@@ -978,6 +1215,337 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** PlotAnalysisJobBaseResponse */
+        PlotAnalysisJobBaseResponse: {
+            /** Id */
+            id: string;
+            /** Plot Name */
+            plot_name: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Model Name */
+            model_name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
+            /** Stage */
+            stage: ("preparing_input" | "building_skeleton" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            provider: components["schemas"]["ProviderSummary"];
+            sample_file: components["schemas"]["PlotSampleFileResponse"];
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
+        };
+        /** PlotAnalysisJobLogsResponse */
+        PlotAnalysisJobLogsResponse: {
+            /**
+             * Content
+             * @description Incremental log content from the requested offset.
+             */
+            content: string;
+            /**
+             * Next Offset
+             * @description Next byte offset the client should request.
+             */
+            next_offset: number;
+            /**
+             * Truncated
+             * @description Whether the requested offset was reset because it exceeded the log length.
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** PlotAnalysisJobResponse */
+        PlotAnalysisJobResponse: {
+            /** Id */
+            id: string;
+            /** Plot Name */
+            plot_name: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Model Name */
+            model_name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
+            /** Stage */
+            stage: ("preparing_input" | "building_skeleton" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            provider: components["schemas"]["ProviderSummary"];
+            sample_file: components["schemas"]["PlotSampleFileResponse"];
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
+            plot_profile?: components["schemas"]["PlotProfileEmbeddedResponse"] | null;
+            /** Analysis Report Markdown */
+            analysis_report_markdown?: string | null;
+            /** Plot Summary Markdown */
+            plot_summary_markdown?: string | null;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown?: string | null;
+            /** Plot Skeleton Markdown */
+            plot_skeleton_markdown?: string | null;
+        };
+        /** PlotAnalysisJobStatusResponse */
+        PlotAnalysisJobStatusResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
+            /** Stage */
+            stage: ("preparing_input" | "building_skeleton" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
+        };
+        /** PlotAnalysisMeta */
+        PlotAnalysisMeta: {
+            /**
+             * Source Filename
+             * @description Original uploaded TXT filename.
+             */
+            source_filename: string;
+            /**
+             * Model Name
+             * @description LLM model used for analysis.
+             */
+            model_name: string;
+            /**
+             * Text Type
+             * @description Detected source text type.
+             */
+            text_type: string;
+            /**
+             * Has Timestamps
+             * @description Whether timestamp markers were detected.
+             */
+            has_timestamps: boolean;
+            /**
+             * Has Speaker Labels
+             * @description Whether speaker labels were detected.
+             */
+            has_speaker_labels: boolean;
+            /**
+             * Has Noise Markers
+             * @description Whether bracketed/noise markers were detected.
+             */
+            has_noise_markers: boolean;
+            /**
+             * Uses Batch Processing
+             * @description Whether chunked batch analysis was used.
+             */
+            uses_batch_processing: boolean;
+            /**
+             * Location Indexing
+             * @description Evidence location indexing strategy.
+             */
+            location_indexing: string;
+            /**
+             * Chunk Count
+             * @description Number of chunks analyzed.
+             */
+            chunk_count: number;
+        };
+        /**
+         * PlotAnalysisReportMarkdown
+         * @description Markdown analysis report for Plot Lab.
+         */
+        PlotAnalysisReportMarkdown: string;
+        /** PlotProfileCreate */
+        PlotProfileCreate: {
+            /** Job Id */
+            job_id: string;
+            /** Plot Name */
+            plot_name: string;
+            /** Mount Project Id */
+            mount_project_id?: string | null;
+            /** Plot Summary Markdown */
+            plot_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
+            /** Plot Skeleton Markdown */
+            plot_skeleton_markdown?: string | null;
+        };
+        /** PlotProfileEmbeddedResponse */
+        PlotProfileEmbeddedResponse: {
+            /** Id */
+            id: string;
+            /** Source Job Id */
+            source_job_id: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Model Name */
+            model_name: string;
+            /** Source Filename */
+            source_filename: string;
+            /** Plot Name */
+            plot_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PlotProfileListItemResponse */
+        PlotProfileListItemResponse: {
+            /** Id */
+            id: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Model Name */
+            model_name: string;
+            /** Source Filename */
+            source_filename: string;
+            /** Plot Name */
+            plot_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PlotProfileResponse */
+        PlotProfileResponse: {
+            /** Id */
+            id: string;
+            /** Source Job Id */
+            source_job_id: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Model Name */
+            model_name: string;
+            /** Source Filename */
+            source_filename: string;
+            /** Plot Name */
+            plot_name: string;
+            /** Analysis Report Markdown */
+            analysis_report_markdown: string;
+            /** Plot Summary Markdown */
+            plot_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
+            /** Plot Skeleton Markdown */
+            plot_skeleton_markdown?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PlotProfileUpdate */
+        PlotProfileUpdate: {
+            /** Plot Name */
+            plot_name: string;
+            /** Mount Project Id */
+            mount_project_id?: string | null;
+            /** Plot Summary Markdown */
+            plot_summary_markdown: string;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown: string;
+            /** Plot Skeleton Markdown */
+            plot_skeleton_markdown?: string | null;
+        };
+        /**
+         * PlotPromptPackMarkdown
+         * @description Reusable markdown plot prompt pack.
+         */
+        PlotPromptPackMarkdown: string;
+        /** PlotSampleFileResponse */
+        PlotSampleFileResponse: {
+            /** Id */
+            id: string;
+            /** Original Filename */
+            original_filename: string;
+            /** Content Type */
+            content_type: string | null;
+            /** Byte Size */
+            byte_size: number;
+            /** Character Count */
+            character_count: number | null;
+            /** Checksum Sha256 */
+            checksum_sha256: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * PlotSkeletonMarkdown
+         * @description Markdown plot skeleton providing whole-book context for chunk analysis.
+         */
+        PlotSkeletonMarkdown: string;
+        /**
+         * PlotSummaryMarkdown
+         * @description Editable markdown plot summary.
+         */
+        PlotSummaryMarkdown: string;
         /** ProjectChapterResponse */
         ProjectChapterResponse: {
             /** Id */
@@ -1063,6 +1631,8 @@ export interface components {
             default_model?: string | null;
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
             /**
              * Inspiration
              * @default
@@ -1129,6 +1699,8 @@ export interface components {
             default_model: string;
             /** Style Profile Id */
             style_profile_id: string | null;
+            /** Plot Profile Id */
+            plot_profile_id: string | null;
             /** Inspiration */
             inspiration: string;
             /** World Building */
@@ -1183,6 +1755,8 @@ export interface components {
             default_model: string;
             /** Style Profile Id */
             style_profile_id: string | null;
+            /** Plot Profile Id */
+            plot_profile_id: string | null;
             /** Length Preset */
             length_preset: string;
             /** Archived At */
@@ -1213,6 +1787,8 @@ export interface components {
             default_model?: string | null;
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
             /** Inspiration */
             inspiration?: string | null;
             /** World Building */
@@ -3169,6 +3745,572 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StyleProfileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plot_analysis_jobs_api_v1_plot_analysis_jobs_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobBaseResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_plot_analysis_job_api_v1_plot_analysis_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobBaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_status_api_v1_plot_analysis_jobs__job_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_logs_api_v1_plot_analysis_jobs__job_id__logs_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisJobLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_analysis_meta_api_v1_plot_analysis_jobs__job_id__analysis_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisMeta"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_analysis_report_api_v1_plot_analysis_jobs__job_id__analysis_report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotAnalysisReportMarkdown"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_plot_summary_api_v1_plot_analysis_jobs__job_id__plot_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotSummaryMarkdown"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_prompt_pack_api_v1_plot_analysis_jobs__job_id__prompt_pack_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotPromptPackMarkdown"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_analysis_job_plot_skeleton_api_v1_plot_analysis_jobs__job_id__plot_skeleton_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotSkeletonMarkdown"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plot_profiles_api_v1_plot_profiles_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotProfileListItemResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_plot_profile_api_v1_plot_profiles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlotProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotProfileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_profile_api_v1_plot_profiles__profile_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotProfileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_plot_profile_api_v1_plot_profiles__profile_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_plot_profile_api_v1_plot_profiles__profile_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlotProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlotProfileResponse"];
                 };
             };
             /** @description Validation Error */

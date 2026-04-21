@@ -10,6 +10,7 @@ export const plotLabQueryKeys = {
     logs: (jobId: string) => [...plotLabJobsRoot, "logs", jobId] as const,
     analysisReport: (jobId: string) => [...plotLabJobsRoot, "analysis-report", jobId] as const,
     plotSummary: (jobId: string) => [...plotLabJobsRoot, "plot-summary", jobId] as const,
+    plotSkeleton: (jobId: string) => [...plotLabJobsRoot, "plot-skeleton", jobId] as const,
     promptPack: (jobId: string) => [...plotLabJobsRoot, "prompt-pack", jobId] as const,
   },
 } as const;

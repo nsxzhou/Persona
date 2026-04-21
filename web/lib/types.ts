@@ -40,6 +40,7 @@ export type StyleAnalysisJobLogs = OpenApiSchema<"StyleAnalysisJobLogsResponse">
 export type PlotAnalysisMeta = OpenApiSchema<"PlotAnalysisMeta">;
 export type PlotAnalysisReportMarkdown = OpenApiSchema<"PlotAnalysisReportMarkdown">;
 export type PlotSummaryMarkdown = OpenApiSchema<"PlotSummaryMarkdown">;
+export type PlotSkeletonMarkdown = OpenApiSchema<"PlotSkeletonMarkdown">;
 export type PlotPromptPackMarkdown = OpenApiSchema<"PlotPromptPackMarkdown">;
 export type PlotAnalysisJobLogs = OpenApiSchema<"PlotAnalysisJobLogsResponse">;
 

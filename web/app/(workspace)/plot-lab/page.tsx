@@ -32,6 +32,7 @@ import {
 import { api } from "@/lib/api";
 import { plotLabQueryKeys } from "@/lib/plot-lab-query-keys";
 import { type PlotAnalysisJobListItem } from "@/lib/types";
+import { formatPlotStageLabel } from "@/hooks/use-plot-lab-wizard-logic";
 import { PlotLabNewTaskDialog } from "@/components/plot-lab-new-task-dialog";
 
 const PAGE_SIZE = 12; // 卡片布局适合 3x4 或者 4x3 的数量
@@ -173,7 +174,7 @@ export default function PlotLabPage() {
                     {job.stage ? (
                       <div className="flex justify-between">
                         <span>当前阶段</span>
-                        <strong className="font-medium text-foreground text-right">{job.stage}</strong>
+                        <strong className="font-medium text-foreground text-right">{formatPlotStageLabel(job.stage)}</strong>
                       </div>
                     ) : null}
                   </div>
