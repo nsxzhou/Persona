@@ -22,7 +22,42 @@ function WorldBuildingTemplateHarness() {
   );
 }
 
+function DescriptionTemplateHarness() {
+  const [value, setValue] = useState("");
+
+  return (
+    <BibleTabContent
+      fieldKey="description"
+      title="简介"
+      value={value}
+      onChange={setValue}
+      aiEnabled={false}
+      prerequisiteWarning={null}
+      isGenerating={false}
+      onGenerate={() => undefined}
+      onStopGenerate={() => undefined}
+    />
+  );
+}
+
 describe("BibleTabContent", () => {
+  test("inserts a project description scaffold instead of inspiration notes", () => {
+    render(<DescriptionTemplateHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "使用模板" }));
+
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+
+    expect(textarea.value).toContain("## 故事定位");
+    expect(textarea.value).toContain("## 开篇切口");
+    expect(textarea.value).toContain("## 主线冲突");
+    expect(textarea.value).toContain("## 核心看点");
+    expect(textarea.value).toContain("## 简介正文");
+    expect(textarea.value).not.toContain("## 主题");
+    expect(textarea.value).not.toContain("## 目标读者");
+    expect(textarea.value).not.toContain("一句话描述核心创意");
+  });
+
   test("inserts the de-templated world building scaffold from the empty state", () => {
     render(<WorldBuildingTemplateHarness />);
 

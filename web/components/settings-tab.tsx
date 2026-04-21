@@ -17,12 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type { PlotProfileListItem, Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 interface SettingsTabProps {
   project: Project;
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
   onNameChange?: (name: string) => void;
 }
 
@@ -30,6 +31,7 @@ export function SettingsTab({
   project,
   providers,
   styleProfiles,
+  plotProfiles,
   onNameChange,
 }: SettingsTabProps) {
   const [name, setName] = useState(project.name);
@@ -39,6 +41,9 @@ export function SettingsTab({
   const [model, setModel] = useState(project.default_model);
   const [styleProfileId, setStyleProfileId] = useState<string | null>(
     project.style_profile_id,
+  );
+  const [plotProfileId, setPlotProfileId] = useState<string | null>(
+    project.plot_profile_id,
   );
 
   const saveMutation = useMutation({
@@ -59,6 +64,7 @@ export function SettingsTab({
       default_provider_id: providerId,
       default_model: model,
       style_profile_id: styleProfileId,
+      plot_profile_id: plotProfileId,
     });
   };
 
@@ -155,6 +161,28 @@ export function SettingsTab({
             {styleProfiles.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.style_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-2">
+        <Label>情节档案</Label>
+        <Select
+          value={plotProfileId ?? "__none__"}
+          onValueChange={(val) =>
+            setPlotProfileId(val === "__none__" ? null : val)
+          }
+        >
+          <SelectTrigger className="bg-background">
+            <SelectValue placeholder="选择情节档案" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">未挂载</SelectItem>
+            {plotProfiles.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.plot_name}
               </SelectItem>
             ))}
           </SelectContent>

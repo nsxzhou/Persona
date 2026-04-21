@@ -41,7 +41,7 @@ export function EditorSidePanel({
   mode?: "navigation" | "settings";
 }) {
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
-    inspiration: project.inspiration,
+    description: project.description,
     world_building: project.world_building,
     characters: project.characters,
     outline_master: project.outline_master,
@@ -52,7 +52,7 @@ export function EditorSidePanel({
 
   useEffect(() => {
     setFields({
-      inspiration: project.inspiration,
+      description: project.description,
       world_building: project.world_building,
       characters: project.characters,
       outline_master: project.outline_master,
@@ -60,7 +60,7 @@ export function EditorSidePanel({
       runtime_state: project.runtime_state,
       runtime_threads: project.runtime_threads,
     });
-  }, [project.inspiration, project.world_building, project.characters, project.outline_master, project.outline_detail, project.runtime_state, project.runtime_threads]);
+  }, [project.description, project.world_building, project.characters, project.outline_master, project.outline_detail, project.runtime_state, project.runtime_threads]);
 
   const [expandedFields, setExpandedFields] = useState<Set<BibleFieldKey>>(new Set());
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});

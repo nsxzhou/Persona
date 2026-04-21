@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { cn } from "@/lib/utils";
 import {
   computeLineDiff,
@@ -34,7 +35,7 @@ interface BibleDiffDialogProps {
   chapterTitle?: string | null;
   source?: SourceLabel;
   onAccept: (state: string, threads: string) => void;
-  onRetry?: () => void;
+  onRetry?: (feedback: string) => void;
   onDismiss: () => void;
 }
 
@@ -55,6 +56,7 @@ export function BibleDiffDialog({
   const [activeTab, setActiveTab] = useState<TabKey>("state");
   const [onlyChanges, setOnlyChanges] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
   useEffect(() => {
     setEditedState(proposedState);
@@ -114,7 +116,8 @@ export function BibleDiffDialog({
   const sourceText = formatSource(source ?? null, chapterTitle);
 
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onDismiss()}>
+    <>
+      <Dialog open={open} onOpenChange={(value) => !value && onDismiss()}>
       <DialogContent
         className="flex flex-col w-[min(1280px,95vw)] h-[min(860px,92vh)] max-w-none gap-4 p-6"
       >
@@ -214,7 +217,7 @@ export function BibleDiffDialog({
               忽略
             </Button>
             {onRetry ? (
-              <Button variant="outline" onClick={onRetry}>
+              <Button variant="outline" onClick={() => setShowRegenerateDialog(true)}>
                 重新生成
               </Button>
             ) : null}
@@ -225,6 +228,18 @@ export function BibleDiffDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+      <RegenerateDialog
+        open={showRegenerateDialog}
+        title="重新生成圣经同步建议"
+        description="AI 会基于当前建议与你的意见重新生成。意见可填可不填。"
+        busy={false}
+        onCancel={() => setShowRegenerateDialog(false)}
+        onConfirm={(feedback) => {
+          setShowRegenerateDialog(false);
+          onRetry?.(feedback);
+        }}
+      />
+    </>
   );
 }
 

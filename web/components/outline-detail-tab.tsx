@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { MarkdownPreview } from "@/components/markdown-preview";
+import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
+import type { RegenerateOptions } from "@/lib/api-client";
 import { parseOutline, type ParsedOutline } from "@/lib/outline-parser";
 import { consumeTextEventStream } from "@/lib/sse";
 import { BIBLE_TEMPLATES } from "@/lib/bible-templates";
@@ -45,8 +47,9 @@ export function OutlineDetailTab({
   const [mode, setMode] = useState<OutlineDetailMode>("edit");
   const [generatingVolumeIndex, setGeneratingVolumeIndex] = useState<number | "all" | null>(null);
   const [expandedVolumes, setExpandedVolumes] = useState<Set<number>>(new Set());
-  const [regenConfirmIndex, setRegenConfirmIndex] = useState<number | null>(null);
-  const [confirmAction, setConfirmAction] = useState<"template" | "generate" | null>(null);
+  const [regenChaptersIndex, setRegenChaptersIndex] = useState<number | null>(null);
+  const [regenVolumesOpen, setRegenVolumesOpen] = useState(false);
+  const [templateConfirmOpen, setTemplateConfirmOpen] = useState(false);
   const [isRawMode, setIsRawMode] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
@@ -92,27 +95,30 @@ export function OutlineDetailTab({
     setGeneratingVolumeIndex(null);
   }, []);
 
-  const handleGenerateVolumes = useCallback(async () => {
-    if (generatingVolumeIndex !== null) return;
-    setGeneratingVolumeIndex("all");
-    try {
-      const generated = await streamSSE(
-        () => api.generateVolumes(projectId),
-        (text) => onChange(text),
-      );
-      if (generated) {
-        await api.updateProject(projectId, { outline_detail: generated });
+  const handleGenerateVolumes = useCallback(
+    async (options?: RegenerateOptions) => {
+      if (generatingVolumeIndex !== null) return;
+      setGeneratingVolumeIndex("all");
+      try {
+        const generated = await streamSSE(
+          () => api.generateVolumes(projectId, options),
+          (text) => onChange(text),
+        );
+        if (generated) {
+          await api.updateProject(projectId, { outline_detail: generated });
+        }
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "生成失败";
+        if (message !== "The operation was cancelled.") toast.error(message);
+      } finally {
+        setGeneratingVolumeIndex(null);
       }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "生成失败";
-      if (message !== "The operation was cancelled.") toast.error(message);
-    } finally {
-      setGeneratingVolumeIndex(null);
-    }
-  }, [generatingVolumeIndex, onChange, projectId, streamSSE]);
+    },
+    [generatingVolumeIndex, onChange, projectId, streamSSE],
+  );
 
   const handleGenerateVolumeChapters = useCallback(
-    async (volumeIndex: number) => {
+    async (volumeIndex: number, options?: RegenerateOptions) => {
       if (generatingVolumeIndex !== null) return;
       setGeneratingVolumeIndex(volumeIndex);
       setExpandedVolumes(new Set([volumeIndex]));
@@ -120,7 +126,7 @@ export function OutlineDetailTab({
 
       try {
         const generated = await streamSSE(
-          () => api.generateVolumeChapters(projectId, volumeIndex),
+          () => api.generateVolumeChapters(projectId, volumeIndex, options),
           (chaptersText) => {
             const nextValue = replaceVolumeChapters(value, volumeIndex, chaptersText);
             onChange(nextValue);
@@ -149,13 +155,13 @@ export function OutlineDetailTab({
     });
   }, []);
 
-  const handleOpenRegenerateDialog = useCallback((volumeIndex: number) => {
-    setRegenConfirmIndex(volumeIndex);
+  const handleOpenRegenerateChaptersDialog = useCallback((volumeIndex: number) => {
+    setRegenChaptersIndex(volumeIndex);
   }, []);
 
   const handleInsertTemplate = useCallback(() => {
     if (value.trim()) {
-      setConfirmAction("template");
+      setTemplateConfirmOpen(true);
     } else {
       onChange(BIBLE_TEMPLATES["outline_detail"]);
       setIsRawMode(true);
@@ -164,11 +170,35 @@ export function OutlineDetailTab({
 
   const handleGenerateVolumesWithConfirm = useCallback(() => {
     if (value.trim()) {
-      setConfirmAction("generate");
+      setRegenVolumesOpen(true);
     } else {
       handleGenerateVolumes();
     }
   }, [value, handleGenerateVolumes]);
+
+  const handleRegenerateVolumesConfirm = useCallback(
+    (feedback: string) => {
+      setRegenVolumesOpen(false);
+      handleGenerateVolumes({
+        previousOutput: value || undefined,
+        userFeedback: feedback || undefined,
+      });
+    },
+    [handleGenerateVolumes, value],
+  );
+
+  const handleRegenerateChaptersConfirm = useCallback(
+    (feedback: string) => {
+      const index = regenChaptersIndex;
+      if (index === null) return;
+      setRegenChaptersIndex(null);
+      handleGenerateVolumeChapters(index, {
+        previousOutput: value || undefined,
+        userFeedback: feedback || undefined,
+      });
+    },
+    [regenChaptersIndex, handleGenerateVolumeChapters, value],
+  );
 
   const toolbar = (
     <div className="flex items-center justify-between">
@@ -301,7 +331,7 @@ export function OutlineDetailTab({
               highlighted={highlightedVolumeIndex === vi}
               onToggleExpand={() => toggleVolume(vi)}
               onGenerate={() => handleGenerateVolumeChapters(vi)}
-              onRegenerate={() => handleOpenRegenerateDialog(vi)}
+              onRegenerate={() => handleOpenRegenerateChaptersDialog(vi)}
             />
           ))}
         </div>
@@ -313,53 +343,43 @@ export function OutlineDetailTab({
         </p>
       )}
 
-      <AlertDialog open={regenConfirmIndex !== null} onOpenChange={(open) => !open && setRegenConfirmIndex(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认重新生成章节细纲？</AlertDialogTitle>
-            <AlertDialogDescription>
-              当前卷下已生成的章节细纲将被覆盖，但不会影响其他分卷。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (regenConfirmIndex !== null) {
-                  handleGenerateVolumeChapters(regenConfirmIndex);
-                  setRegenConfirmIndex(null);
-                }
-              }}
-            >
-              继续
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RegenerateDialog
+        open={regenChaptersIndex !== null}
+        title={
+          regenChaptersIndex !== null
+            ? `重新生成第 ${regenChaptersIndex + 1} 卷章节细纲`
+            : ""
+        }
+        description="当前卷下已生成的章节细纲将被覆盖。你可以填写意见指导生成方向（可选）。"
+        busy={generatingVolumeIndex !== null}
+        onCancel={() => setRegenChaptersIndex(null)}
+        onConfirm={handleRegenerateChaptersConfirm}
+      />
 
-      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+      <RegenerateDialog
+        open={regenVolumesOpen}
+        title="重新生成分卷结构"
+        description="当前已有分卷/章节细纲，将基于现有结构重写。你可以填写意见指导生成方向（可选）。"
+        busy={generatingVolumeIndex !== null}
+        onCancel={() => setRegenVolumesOpen(false)}
+        onConfirm={handleRegenerateVolumesConfirm}
+      />
+
+      <AlertDialog open={templateConfirmOpen} onOpenChange={(open) => !open && setTemplateConfirmOpen(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction === "template" ? "确认插入模板？" : "确认覆盖内容？"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>确认插入模板？</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction === "template"
-                ? "当前已有内容，插入模板将覆盖现有内容。该操作不可撤销。是否继续？"
-                : "当前已有内容，AI 生成将覆盖现有内容。该操作不可撤销。是否继续？"}
+              当前已有内容，插入模板将覆盖现有内容。该操作不可撤销。是否继续？
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmAction === "template") {
-                  onChange(BIBLE_TEMPLATES["outline_detail"]);
-                  setIsRawMode(true);
-                } else if (confirmAction === "generate") {
-                  handleGenerateVolumes();
-                }
-                setConfirmAction(null);
+                onChange(BIBLE_TEMPLATES["outline_detail"]);
+                setIsRawMode(true);
+                setTemplateConfirmOpen(false);
               }}
             >
               继续

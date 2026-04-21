@@ -96,7 +96,9 @@ describe("OutlineDetailTab", () => {
     expect(screen.getByRole("button", { name: "重新生成章节细纲" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "重新生成章节细纲" }));
-    expect(screen.getByText("确认重新生成章节细纲？")).toBeInTheDocument();
-    expect(screen.getByText("当前卷下已生成的章节细纲将被覆盖，但不会影响其他分卷。")).toBeInTheDocument();
+    expect(screen.getByText("重新生成第 2 卷章节细纲")).toBeInTheDocument();
+    expect(
+      screen.getByText("当前卷下已生成的章节细纲将被覆盖。你可以填写意见指导生成方向（可选）。"),
+    ).toBeInTheDocument();
   });
 });

@@ -8,11 +8,13 @@ import {
   Loader2,
   Play,
   Plus,
+  RefreshCw,
   Sparkles,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RegenerateDialog } from "@/components/regenerate-dialog";
 
 export function BeatPanel({
   beats,
@@ -20,22 +22,29 @@ export function BeatPanel({
   isExpandingBeat,
   isGeneratingBeats,
   onGenerateBeats,
+  onRegenerateBeats,
+  onRegenerateExpansion,
   onBeatsChange,
   onStartExpand,
   onClose,
   disabled = false,
+  hasChapterContent = false,
 }: {
   beats: string[];
   currentBeatIndex: number;
   isExpandingBeat: boolean;
   isGeneratingBeats: boolean;
   onGenerateBeats: () => void;
+  onRegenerateBeats?: (feedback: string) => void;
+  onRegenerateExpansion?: (feedback: string) => void;
   onBeatsChange: (beats: string[]) => void;
   onStartExpand: () => void;
   onClose: () => void;
   disabled?: boolean;
+  hasChapterContent?: boolean;
 }) {
   const [newBeat, setNewBeat] = useState("");
+  const [regenerateMode, setRegenerateMode] = useState<"beats" | "expansion" | null>(null);
 
   const moveBeat = (index: number, dir: -1 | 1) => {
     const target = index + dir;
@@ -59,6 +68,23 @@ export function BeatPanel({
     if (!newBeat.trim()) return;
     onBeatsChange([...beats, newBeat.trim()]);
     setNewBeat("");
+  };
+
+  const handleRegenerateConfirm = (feedback: string) => {
+    if (regenerateMode === "beats") {
+      onRegenerateBeats?.(feedback);
+    } else if (regenerateMode === "expansion") {
+      onRegenerateExpansion?.(feedback);
+    }
+    setRegenerateMode(null);
+  };
+
+  const handlePrimaryBeatClick = () => {
+    if (beats.length > 0 && onRegenerateBeats) {
+      setRegenerateMode("beats");
+      return;
+    }
+    onGenerateBeats();
   };
 
   return (
@@ -163,7 +189,7 @@ export function BeatPanel({
           <Button
             className="w-full gap-2"
             size="sm"
-            onClick={onGenerateBeats}
+            onClick={handlePrimaryBeatClick}
             disabled={disabled || isGeneratingBeats}
           >
             {isGeneratingBeats ? (
@@ -186,12 +212,40 @@ export function BeatPanel({
             开始逐拍写作
           </Button>
         )}
+        {beats.length > 0
+          && hasChapterContent
+          && !isExpandingBeat
+          && onRegenerateExpansion && (
+          <Button
+            className="w-full gap-2"
+            size="sm"
+            variant="outline"
+            onClick={() => setRegenerateMode("expansion")}
+            disabled={disabled}
+          >
+            <RefreshCw className="h-4 w-4" />
+            带意见重写本章正文
+          </Button>
+        )}
         {isExpandingBeat && (
           <p className="text-xs text-center text-muted-foreground">
             正在展开第 {currentBeatIndex + 1}/{beats.length} 拍...
           </p>
         )}
       </div>
+
+      <RegenerateDialog
+        open={regenerateMode !== null}
+        title={regenerateMode === "expansion" ? "重写本章正文" : "重新生成节拍"}
+        description={
+          regenerateMode === "expansion"
+            ? "将在保留现有节拍的基础上，按你的意见重写本章正文。意见可填可不填。"
+            : "将基于当前节拍列表重新生成。你可以填写意见指导生成方向（可选）。"
+        }
+        busy={isGeneratingBeats || isExpandingBeat}
+        onCancel={() => setRegenerateMode(null)}
+        onConfirm={handleRegenerateConfirm}
+      />
     </aside>
   );
 }

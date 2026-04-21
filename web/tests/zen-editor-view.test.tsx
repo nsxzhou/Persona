@@ -365,6 +365,7 @@ describe("ZenEditorView", () => {
       "",
       "修订后的第一章正文",
       "chapter_full",
+      undefined,
     );
   });
 
@@ -494,6 +495,7 @@ describe("ZenEditorView", () => {
         "",
         "第一章正文",
         "chapter_full",
+        undefined,
       );
     });
   });
@@ -534,6 +536,7 @@ describe("ZenEditorView", () => {
         "",
         "第一章正文",
         "chapter_full",
+        undefined,
       );
     });
   });
@@ -570,6 +573,11 @@ describe("ZenEditorView", () => {
     apiMock.proposeBibleUpdate.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
 
+    const textarea = await screen.findByLabelText("本次生成的意见（可选）");
+    fireEvent.change(textarea, { target: { value: "保留更多关系" } });
+    const regenerateButtons = screen.getAllByRole("button", { name: "重新生成" });
+    fireEvent.click(regenerateButtons[regenerateButtons.length - 1]);
+
     await waitFor(() => {
       expect(apiMock.proposeBibleUpdate).toHaveBeenCalledWith(
         "project-1",
@@ -577,6 +585,13 @@ describe("ZenEditorView", () => {
         "",
         "第一章正文",
         "chapter_full",
+        {
+          previousOutput: JSON.stringify({
+            runtime_state: "更新后的状态",
+            runtime_threads: "更新后的线索",
+          }),
+          userFeedback: "保留更多关系",
+        },
       );
     });
   });

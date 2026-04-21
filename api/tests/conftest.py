@@ -167,3 +167,66 @@ def run_live_style_analysis_job(
         }
 
     return _run
+
+
+@pytest.fixture
+def run_live_plot_analysis_job(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    initialized_provider: dict[str, Any],
+    live_style_analysis_sample_text: str,
+) -> Callable[..., Awaitable[dict[str, Any]]]:
+    from app.services.plot_analysis_worker import PlotAnalysisWorkerService
+    from app.core.config import get_settings
+
+    async def _run(
+        *,
+        plot_name: str,
+        sample_text: str | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        payload = {
+            "plot_name": plot_name,
+            "provider_id": initialized_provider["id"],
+        }
+        if model:
+            payload["model"] = model
+        create_response = await initialized_client.post(
+            "/api/v1/plot-analysis-jobs",
+            data=payload,
+            files={
+                "file": (
+                    "sample.txt",
+                    (sample_text or live_style_analysis_sample_text).encode("utf-8"),
+                    "text/plain",
+                )
+            },
+        )
+        assert create_response.status_code == 201
+        job = create_response.json()
+        service = PlotAnalysisWorkerService()
+        settings = get_settings()
+        attempts = max(1, int(settings.style_analysis_max_attempts))
+        detail = None
+        for _ in range(attempts):
+            processed = await service.process_next_pending(app_with_db.state.session_factory)
+            assert processed is True
+            detail_response = await initialized_client.get(
+                f"/api/v1/plot-analysis-jobs/{job['id']}"
+            )
+            assert detail_response.status_code == 200
+            detail = detail_response.json()
+            if detail["status"] in ("succeeded", "failed"):
+                break
+        if detail and detail["status"] != "succeeded":
+            logs_response = await initialized_client.get(
+                f"/api/v1/plot-analysis-jobs/{job['id']}/logs"
+            )
+            print("PLOT_JOB_DETAIL", detail)
+            print("PLOT_JOB_LOGS", logs_response.text)
+        return {
+            "job": job,
+            "detail": detail,
+        }
+
+    return _run

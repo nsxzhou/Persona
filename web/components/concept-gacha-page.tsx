@@ -16,21 +16,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
+import type { RegenerateOptions } from "@/lib/api-client";
 import { createProjectAction } from "@/app/(workspace)/projects/actions";
 import { LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
-import type { ConceptItem, ProviderConfig } from "@/lib/types";
+import type {
+  ConceptItem,
+  PlotProfileListItem,
+  ProviderConfig,
+  StyleProfileListItem,
+} from "@/lib/types";
 
 interface ConceptGachaPageProps {
   providers: ProviderConfig[];
+  styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
 }
 
-export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
+export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: ConceptGachaPageProps) {
   const router = useRouter();
   const enabledProviders = providers.filter((p) => p.is_enabled);
 
   const [providerId, setProviderId] = useState(enabledProviders[0]?.id ?? "");
   const [model, setModel] = useState("");
+  const [styleProfileId, setStyleProfileId] = useState("__none__");
+  const [plotProfileId, setPlotProfileId] = useState("__none__");
   const [inspiration, setInspiration] = useState("");
   const [concepts, setConcepts] = useState<ConceptItem[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -38,28 +49,43 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lengthPreset, setLengthPreset] = useState<LengthPresetKey>("short");
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (options?: RegenerateOptions) => {
     if (!providerId || !inspiration.trim()) return;
     setIsGenerating(true);
     setError(null);
-    setConcepts(null);
-    setSelectedIndex(null);
+    if (!options) {
+      setConcepts(null);
+      setSelectedIndex(null);
+    }
 
     try {
-      const result = await api.generateConcepts({
-        inspiration: inspiration.trim(),
-        provider_id: providerId,
-        model: model.trim() || null,
-        count: 3,
-      });
+      const result = await api.generateConcepts(
+        {
+          inspiration: inspiration.trim(),
+          provider_id: providerId,
+          model: model.trim() || null,
+          count: 3,
+        },
+        options,
+      );
       setConcepts(result.concepts);
+      setSelectedIndex(null);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "生成失败，请重试";
       setError(message);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleRegenerateConfirm = async (feedback: string) => {
+    setShowRegenerateDialog(false);
+    await handleGenerate({
+      previousOutput: concepts ? JSON.stringify(concepts) : undefined,
+      userFeedback: feedback || undefined,
+    });
   };
 
   const handleConfirm = async () => {
@@ -71,9 +97,11 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
       const project = await createProjectAction({
         name: selected.title,
         description: selected.synopsis,
-        inspiration: inspiration.trim(),
+        inspiration: "",
         default_provider_id: providerId,
         default_model: model.trim() || null,
+        style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
+        plot_profile_id: plotProfileId === "__none__" ? null : plotProfileId,
         status: "draft",
         world_building: "",
         characters: "",
@@ -102,8 +130,8 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
         <h1 className="text-lg font-semibold">新建小说</h1>
       </div>
 
-      {/* Provider + Model */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Provider + Model + Profiles */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="grid gap-2">
           <Label>AI 服务商</Label>
           <Select value={providerId} onValueChange={setProviderId}>
@@ -128,6 +156,38 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
             placeholder="留空使用默认"
           />
         </div>
+        <div className="grid gap-2">
+          <Label htmlFor="gacha-style-profile">风格档案</Label>
+          <Select value={styleProfileId} onValueChange={setStyleProfileId}>
+            <SelectTrigger id="gacha-style-profile" aria-label="风格档案" className="bg-background">
+              <SelectValue placeholder="选择风格档案" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">未挂载</SelectItem>
+              {styleProfiles.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.style_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="gacha-plot-profile">情节档案</Label>
+          <Select value={plotProfileId} onValueChange={setPlotProfileId}>
+            <SelectTrigger id="gacha-plot-profile" aria-label="情节档案" className="bg-background">
+              <SelectValue placeholder="选择情节档案" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">未挂载</SelectItem>
+              {plotProfiles.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.plot_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Inspiration input */}
@@ -137,12 +197,12 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
           id="gacha-inspiration"
           value={inspiration}
           onChange={(e) => setInspiration(e.target.value)}
-          placeholder='在这里描述你的小说灵感、主题、世界观雏形、想要的故事走向...&#10;&#10;例："一个失忆的少年在末世废墟中醒来，发现自己手臂上刻着倒计时..."'
+          placeholder='在这里描述你的小说灵感、题材方向、主角处境、想写的冲突和核心看点，AI 会据此生成标题 + 几百字长简介。&#10;&#10;例："一个失忆的少年在末世废墟中醒来，发现自己手臂上刻着倒计时..."'
           className="w-full min-h-[120px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div className="flex justify-end">
           <Button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={isGenerating || !providerId || !inspiration.trim()}
             className="gap-2"
           >
@@ -151,7 +211,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
             ) : (
               <Sparkles className="h-4 w-4" />
             )}
-            {isGenerating ? "生成中..." : "生成灵感卡"}
+            {isGenerating ? "生成中..." : "生成标题和简介"}
           </Button>
         </div>
       </div>
@@ -180,7 +240,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
       {error && (
         <div className="flex flex-col items-center gap-3 py-8">
           <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" size="sm" onClick={handleGenerate}>
+          <Button variant="outline" size="sm" onClick={() => handleGenerate()}>
             重试
           </Button>
         </div>
@@ -248,7 +308,7 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleGenerate}
+              onClick={() => setShowRegenerateDialog(true)}
               disabled={isGenerating}
               className="gap-1.5"
             >
@@ -266,6 +326,16 @@ export function ConceptGachaPage({ providers }: ConceptGachaPageProps) {
           </div>
         </>
       )}
+
+      <RegenerateDialog
+        open={showRegenerateDialog}
+        title="重新生成概念卡"
+        description="将基于当前卡片与你的意见重新生成 3 张概念。意见可填可不填。"
+        placeholder="例如：主角从旁白切换到第一人称；卖点更侧重悬疑；减少系统流…"
+        busy={isGenerating}
+        onCancel={() => setShowRegenerateDialog(false)}
+        onConfirm={handleRegenerateConfirm}
+      />
     </div>
   );
 }

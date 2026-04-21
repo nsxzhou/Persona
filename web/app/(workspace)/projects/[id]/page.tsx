@@ -23,9 +23,10 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const [providers, styleProfiles] = await Promise.all([
+  const [providers, styleProfiles, plotProfiles] = await Promise.all([
     api.getProviderConfigs(),
     api.getStyleProfiles({ limit: 100 }),
+    api.getPlotProfiles({ limit: 100 }),
   ]);
 
   return (
@@ -33,7 +34,8 @@ export default async function ProjectDetailPage({
       project={project}
       providers={providers}
       styleProfiles={styleProfiles}
-      initialTab={resolvedSearchParams?.tab ?? "inspiration"}
+      plotProfiles={plotProfiles}
+      initialTab={resolvedSearchParams?.tab ?? "description"}
       highlightedVolumeIndex={parseVolumeIndex(resolvedSearchParams?.volumeIndex)}
     />
   );

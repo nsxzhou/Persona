@@ -15,6 +15,19 @@ import type {
   ProjectChapterUpdate,
   ProjectPayload,
   ProjectSummary,
+  PlotAnalysisJob,
+  PlotAnalysisJobCreatePayload,
+  PlotAnalysisJobListItem,
+  PlotAnalysisJobLogs,
+  PlotAnalysisJobStatusSnapshot,
+  PlotAnalysisMeta,
+  PlotAnalysisReportMarkdown,
+  PlotProfile,
+  PlotProfileCreatePayload,
+  PlotProfileListItem,
+  PlotProfileUpdatePayload,
+  PlotPromptPackMarkdown,
+  PlotSummaryMarkdown,
   ProviderConfig,
   ProviderPayload,
   SetupPayload,
@@ -35,6 +48,25 @@ type Requester = {
   <T>(path: string, init?: RequestInit): Promise<T>;
   raw: (path: string, init?: RequestInit) => Promise<Response>;
 };
+
+type RegenerateOptions = {
+  previousOutput?: string;
+  userFeedback?: string;
+};
+
+export type { RegenerateOptions };
+
+function regenerateFields(options?: RegenerateOptions): Record<string, string> {
+  if (!options) return {};
+  const out: Record<string, string> = {};
+  if (options.previousOutput !== undefined && options.previousOutput !== null) {
+    out.previous_output = options.previousOutput;
+  }
+  if (options.userFeedback !== undefined && options.userFeedback !== null) {
+    out.user_feedback = options.userFeedback;
+  }
+  return out;
+}
 
 export function createApiClient(request: Requester) {
   return {
@@ -131,10 +163,10 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/projects/${id}`, {
         method: "DELETE",
       }),
-    generateConcepts: (payload: ConceptGeneratePayload) =>
+    generateConcepts: (payload: ConceptGeneratePayload, options?: RegenerateOptions) =>
       request<ConceptGenerateResult>("/api/v1/projects/generate-concepts", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, ...regenerateFields(options) }),
       }),
     getStyleAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
       const offset = params?.offset ?? 0;
@@ -205,6 +237,75 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/style-profiles/${id}`, {
         method: "DELETE",
       }),
+    getPlotAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
+      const offset = params?.offset ?? 0;
+      const limit = params?.limit ?? 50;
+      return request<PlotAnalysisJobListItem[]>(
+        `/api/v1/plot-analysis-jobs?offset=${offset}&limit=${limit}`
+      );
+    },
+    getPlotAnalysisJobStatus: (id: string) =>
+      request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/status`),
+    getPlotAnalysisJob: (id: string) =>
+      request<PlotAnalysisJob>(`/api/v1/plot-analysis-jobs/${id}`),
+    getPlotAnalysisJobLogs: (id: string, offset = 0) =>
+      request<PlotAnalysisJobLogs>(`/api/v1/plot-analysis-jobs/${id}/logs?offset=${offset}`),
+    getPlotAnalysisJobAnalysisMeta: (id: string) =>
+      request<PlotAnalysisMeta>(`/api/v1/plot-analysis-jobs/${id}/analysis-meta`),
+    getPlotAnalysisJobAnalysisReport: (id: string) =>
+      request<PlotAnalysisReportMarkdown>(`/api/v1/plot-analysis-jobs/${id}/analysis-report`),
+    getPlotAnalysisJobPlotSummary: (id: string) =>
+      request<PlotSummaryMarkdown>(`/api/v1/plot-analysis-jobs/${id}/plot-summary`),
+    getPlotAnalysisJobPromptPack: (id: string) =>
+      request<PlotPromptPackMarkdown>(`/api/v1/plot-analysis-jobs/${id}/prompt-pack`),
+    resumePlotAnalysisJob: (id: string) =>
+      request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/resume`, {
+        method: "POST",
+      }),
+    pausePlotAnalysisJob: (id: string) =>
+      request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/pause`, {
+        method: "POST",
+      }),
+    deletePlotAnalysisJob: (id: string) =>
+      request<void>(`/api/v1/plot-analysis-jobs/${id}`, {
+        method: "DELETE",
+      }),
+    createPlotAnalysisJob: (payload: PlotAnalysisJobCreatePayload & { file: File }) => {
+      const formData = new FormData();
+      formData.append("plot_name", payload.plot_name);
+      formData.append("provider_id", payload.provider_id);
+      if (payload.model) {
+        formData.append("model", payload.model);
+      }
+      formData.append("file", payload.file);
+
+      return request<PlotAnalysisJobListItem>("/api/v1/plot-analysis-jobs", {
+        method: "POST",
+        body: formData,
+      });
+    },
+    getPlotProfiles: (params?: { offset?: number; limit?: number }) => {
+      const offset = params?.offset ?? 0;
+      const limit = params?.limit ?? 50;
+      return request<PlotProfileListItem[]>(
+        `/api/v1/plot-profiles?offset=${offset}&limit=${limit}`
+      );
+    },
+    getPlotProfile: (id: string) => request<PlotProfile>(`/api/v1/plot-profiles/${id}`),
+    createPlotProfile: (payload: PlotProfileCreatePayload) =>
+      request<PlotProfileListItem>("/api/v1/plot-profiles", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updatePlotProfile: (id: string, payload: PlotProfileUpdatePayload) =>
+      request<PlotProfileListItem>(`/api/v1/plot-profiles/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    deletePlotProfile: (id: string) =>
+      request<void>(`/api/v1/plot-profiles/${id}`, {
+        method: "DELETE",
+      }),
     completeEditor: (
       projectId: string,
       textBeforeCursor: string,
@@ -227,6 +328,7 @@ export function createApiClient(request: Requester) {
       currentRuntimeThreads: string,
       contentToCheck: string,
       syncScope: "generated_fragment" | "chapter_full",
+      options?: RegenerateOptions,
     ) =>
       request<BibleUpdateResponse>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
         method: "POST",
@@ -235,6 +337,7 @@ export function createApiClient(request: Requester) {
           current_runtime_threads: currentRuntimeThreads,
           content_to_check: contentToCheck,
           sync_scope: syncScope,
+          ...regenerateFields(options),
         }),
       }),
     generateBeats: (
@@ -246,6 +349,7 @@ export function createApiClient(request: Requester) {
       currentChapterContext?: string,
       previousChapterContext?: string,
       totalContentLength = 0,
+      options?: RegenerateOptions,
     ) =>
       request<BeatGenerateResponse>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
         method: "POST",
@@ -257,6 +361,7 @@ export function createApiClient(request: Requester) {
           ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
           ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
           total_content_length: totalContentLength,
+          ...regenerateFields(options),
         }),
       }),
     expandBeat: (
@@ -271,6 +376,7 @@ export function createApiClient(request: Requester) {
       precedingBeatsProse: string,
       currentChapterContext?: string,
       previousChapterContext?: string,
+      options?: RegenerateOptions,
     ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/expand-beat`, {
         method: "POST",
@@ -285,21 +391,31 @@ export function createApiClient(request: Requester) {
           preceding_beats_prose: precedingBeatsProse,
           ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
           ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
+          ...regenerateFields(options),
         }),
       }),
-    generateSection: (projectId: string, payload: Record<string, string>) =>
+    generateSection: (
+      projectId: string,
+      payload: Record<string, string>,
+      options?: RegenerateOptions,
+    ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-section`, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, ...regenerateFields(options) }),
       }),
-    generateVolumes: (projectId: string) =>
+    generateVolumes: (projectId: string, options?: RegenerateOptions) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-volumes`, {
         method: "POST",
+        body: JSON.stringify(regenerateFields(options)),
       }),
-    generateVolumeChapters: (projectId: string, volumeIndex: number) =>
+    generateVolumeChapters: (
+      projectId: string,
+      volumeIndex: number,
+      options?: RegenerateOptions,
+    ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-volume-chapters`, {
         method: "POST",
-        body: JSON.stringify({ volume_index: volumeIndex }),
+        body: JSON.stringify({ volume_index: volumeIndex, ...regenerateFields(options) }),
       }),
   };
 }

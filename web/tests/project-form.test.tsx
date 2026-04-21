@@ -35,6 +35,17 @@ test("project form lets user select a style profile and submit it", async () => 
           updated_at: "2026-04-09T00:00:00Z",
         },
       ]}
+      plotProfiles={[
+        {
+          id: "plot-1",
+          provider_id: "provider-1",
+          model_name: "gpt-4.1-mini",
+          source_filename: "sample.txt",
+          plot_name: "反派修罗场模板",
+          created_at: "2026-04-09T00:00:00Z",
+          updated_at: "2026-04-09T00:00:00Z",
+        },
+      ]}
       submitting={false}
       onSubmit={onSubmit}
     />,
@@ -45,24 +56,37 @@ test("project form lets user select a style profile and submit it", async () => 
   });
   fireEvent.click(screen.getByRole("combobox", { name: "风格档案" }));
   fireEvent.click(await screen.findByRole("option", { name: "午夜霓虹档案" }));
+  fireEvent.click(screen.getByRole("combobox", { name: "情节档案" }));
+  fireEvent.click(await screen.findByRole("option", { name: "反派修罗场模板" }));
   fireEvent.click(screen.getByRole("button", { name: "保存项目" }));
 
   await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
     name: "新项目",
     style_profile_id: "profile-1",
+    plot_profile_id: "plot-1",
   })));
 });
 
 test("new project page renders the concept gacha component", async () => {
   vi.resetModules();
   vi.doMock("@/components/concept-gacha-page", () => ({
-    ConceptGachaPage: ({ providers }: { providers: unknown[] }) => (
-      <div>concept-gacha-providers-{providers.length}</div>
+    ConceptGachaPage: ({
+      providers,
+      styleProfiles,
+    }: {
+      providers: unknown[];
+      styleProfiles: unknown[];
+    }) => (
+      <div>
+        concept-gacha-providers-{providers.length}-styles-{styleProfiles.length}
+      </div>
     ),
   }));
   vi.doMock("@/lib/server-api", () => ({
     getServerApi: vi.fn().mockResolvedValue({
       getProviderConfigs: vi.fn().mockResolvedValue([{ id: "p1" }]),
+      getStyleProfiles: vi.fn().mockResolvedValue([{ id: "s1" }]),
+      getPlotProfiles: vi.fn().mockResolvedValue([{ id: "pplot1" }]),
     }),
   }));
 
@@ -71,7 +95,7 @@ test("new project page renders the concept gacha component", async () => {
   const node = await NewProjectPage();
   render(node);
 
-  expect(screen.getByText("concept-gacha-providers-1")).toBeInTheDocument();
+  expect(screen.getByText("concept-gacha-providers-1-styles-1")).toBeInTheDocument();
 });
 
 test("project detail page is a server wrapper around the workbench", async () => {
@@ -89,6 +113,7 @@ test("project detail page is a server wrapper around the workbench", async () =>
       }),
       getProviderConfigs: vi.fn().mockResolvedValue([]),
       getStyleProfiles: vi.fn().mockResolvedValue([]),
+      getPlotProfiles: vi.fn().mockResolvedValue([]),
     }),
   }));
 

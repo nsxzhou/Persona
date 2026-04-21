@@ -1206,6 +1206,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/VolumeGenerateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2020,6 +2037,749 @@
           }
         }
       }
+    },
+    "/api/v1/plot-analysis-jobs": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "List Plot Analysis Jobs",
+        "operationId": "list_plot_analysis_jobs_api_v1_plot_analysis_jobs_get",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlotAnalysisJobBaseResponse"
+                  },
+                  "title": "Response List Plot Analysis Jobs Api V1 Plot Analysis Jobs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Create Plot Analysis Job",
+        "operationId": "create_plot_analysis_job_api_v1_plot_analysis_jobs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisJobBaseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job",
+        "operationId": "get_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Delete Plot Analysis Job",
+        "operationId": "delete_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/status": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Status",
+        "operationId": "get_plot_analysis_job_status_api_v1_plot_analysis_jobs__job_id__status_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/resume": {
+      "post": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Resume Plot Analysis Job",
+        "operationId": "resume_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__resume_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/pause": {
+      "post": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Pause Plot Analysis Job",
+        "operationId": "pause_plot_analysis_job_api_v1_plot_analysis_jobs__job_id__pause_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisJobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/logs": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Logs",
+        "operationId": "get_plot_analysis_job_logs_api_v1_plot_analysis_jobs__job_id__logs_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisJobLogsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/analysis-meta": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Analysis Meta",
+        "operationId": "get_plot_analysis_job_analysis_meta_api_v1_plot_analysis_jobs__job_id__analysis_meta_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisMeta"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/analysis-report": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Analysis Report",
+        "operationId": "get_plot_analysis_job_analysis_report_api_v1_plot_analysis_jobs__job_id__analysis_report_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotAnalysisReportMarkdown"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/plot-summary": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Plot Summary",
+        "operationId": "get_plot_analysis_job_plot_summary_api_v1_plot_analysis_jobs__job_id__plot_summary_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotSummaryMarkdown"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-analysis-jobs/{job_id}/prompt-pack": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Prompt Pack",
+        "operationId": "get_plot_analysis_job_prompt_pack_api_v1_plot_analysis_jobs__job_id__prompt_pack_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotPromptPackMarkdown"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-profiles": {
+      "get": {
+        "tags": [
+          "plot-profiles"
+        ],
+        "summary": "List Plot Profiles",
+        "operationId": "list_plot_profiles_api_v1_plot_profiles_get",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlotProfileListItemResponse"
+                  },
+                  "title": "Response List Plot Profiles Api V1 Plot Profiles Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "plot-profiles"
+        ],
+        "summary": "Create Plot Profile",
+        "operationId": "create_plot_profile_api_v1_plot_profiles_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlotProfileCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plot-profiles/{profile_id}": {
+      "get": {
+        "tags": [
+          "plot-profiles"
+        ],
+        "summary": "Get Plot Profile",
+        "operationId": "get_plot_profile_api_v1_plot_profiles__profile_id__get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "plot-profiles"
+        ],
+        "summary": "Update Plot Profile",
+        "operationId": "update_plot_profile_api_v1_plot_profiles__profile_id__patch",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlotProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "plot-profiles"
+        ],
+        "summary": "Delete Plot Profile",
+        "operationId": "delete_plot_profile_api_v1_plot_profiles__profile_id__delete",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2099,6 +2859,30 @@
       },
       "BeatExpandRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "text_before_cursor": {
             "type": "string",
             "title": "Text Before Cursor"
@@ -2159,6 +2943,30 @@
       },
       "BeatGenerateRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "text_before_cursor": {
             "type": "string",
             "title": "Text Before Cursor"
@@ -2228,6 +3036,30 @@
       },
       "BibleUpdateRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "current_runtime_state": {
             "type": "string",
             "title": "Current Runtime State",
@@ -2282,6 +3114,41 @@
           "changed"
         ],
         "title": "BibleUpdateResponse"
+      },
+      "Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post": {
+        "properties": {
+          "plot_name": {
+            "type": "string",
+            "title": "Plot Name"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plot_name",
+          "provider_id",
+          "file"
+        ],
+        "title": "Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post"
       },
       "Body_create_style_analysis_job_api_v1_style_analysis_jobs_post": {
         "properties": {
@@ -2351,6 +3218,30 @@
             "title": "Count",
             "description": "生成候选数量",
             "default": 3
+          },
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果，用于旧稿修订式重生成（可选）"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），作为高优先级要求"
           }
         },
         "type": "object",
@@ -2475,6 +3366,823 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "PlotAnalysisJobBaseResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "plot_name": {
+            "type": "string",
+            "title": "Plot Name"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing_input",
+                  "analyzing_chunks",
+                  "aggregating",
+                  "reporting",
+                  "summarizing",
+                  "composing_prompt_pack"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderSummary"
+          },
+          "sample_file": {
+            "$ref": "#/components/schemas/PlotSampleFileResponse"
+          },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "plot_name",
+          "provider_id",
+          "model_name",
+          "status",
+          "stage",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at",
+          "provider",
+          "sample_file"
+        ],
+        "title": "PlotAnalysisJobBaseResponse"
+      },
+      "PlotAnalysisJobLogsResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "Incremental log content from the requested offset."
+          },
+          "next_offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Next Offset",
+            "description": "Next byte offset the client should request."
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "description": "Whether the requested offset was reset because it exceeded the log length.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "next_offset"
+        ],
+        "title": "PlotAnalysisJobLogsResponse"
+      },
+      "PlotAnalysisJobResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "plot_name": {
+            "type": "string",
+            "title": "Plot Name"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing_input",
+                  "analyzing_chunks",
+                  "aggregating",
+                  "reporting",
+                  "summarizing",
+                  "composing_prompt_pack"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderSummary"
+          },
+          "sample_file": {
+            "$ref": "#/components/schemas/PlotSampleFileResponse"
+          },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
+          },
+          "plot_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlotProfileEmbeddedResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_report_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Report Markdown"
+          },
+          "plot_summary_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Summary Markdown"
+          },
+          "prompt_pack_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Pack Markdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "plot_name",
+          "provider_id",
+          "model_name",
+          "status",
+          "stage",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at",
+          "provider",
+          "sample_file"
+        ],
+        "title": "PlotAnalysisJobResponse"
+      },
+      "PlotAnalysisJobStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing_input",
+                  "analyzing_chunks",
+                  "aggregating",
+                  "reporting",
+                  "summarizing",
+                  "composing_prompt_pack"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "stage",
+          "error_message",
+          "updated_at"
+        ],
+        "title": "PlotAnalysisJobStatusResponse"
+      },
+      "PlotAnalysisMeta": {
+        "properties": {
+          "source_filename": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Filename",
+            "description": "Original uploaded TXT filename."
+          },
+          "model_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Model Name",
+            "description": "LLM model used for analysis."
+          },
+          "text_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text Type",
+            "description": "Detected source text type."
+          },
+          "has_timestamps": {
+            "type": "boolean",
+            "title": "Has Timestamps",
+            "description": "Whether timestamp markers were detected."
+          },
+          "has_speaker_labels": {
+            "type": "boolean",
+            "title": "Has Speaker Labels",
+            "description": "Whether speaker labels were detected."
+          },
+          "has_noise_markers": {
+            "type": "boolean",
+            "title": "Has Noise Markers",
+            "description": "Whether bracketed/noise markers were detected."
+          },
+          "uses_batch_processing": {
+            "type": "boolean",
+            "title": "Uses Batch Processing",
+            "description": "Whether chunked batch analysis was used."
+          },
+          "location_indexing": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Location Indexing",
+            "description": "Evidence location indexing strategy."
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Chunk Count",
+            "description": "Number of chunks analyzed."
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_filename",
+          "model_name",
+          "text_type",
+          "has_timestamps",
+          "has_speaker_labels",
+          "has_noise_markers",
+          "uses_batch_processing",
+          "location_indexing",
+          "chunk_count"
+        ],
+        "title": "PlotAnalysisMeta"
+      },
+      "PlotAnalysisReportMarkdown": {
+        "type": "string",
+        "minLength": 1,
+        "title": "PlotAnalysisReportMarkdown",
+        "description": "Markdown analysis report for Plot Lab."
+      },
+      "PlotProfileCreate": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "plot_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Plot Name"
+          },
+          "mount_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Project Id"
+          },
+          "plot_summary_markdown": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Plot Summary Markdown"
+          },
+          "prompt_pack_markdown": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Prompt Pack Markdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "plot_name",
+          "plot_summary_markdown",
+          "prompt_pack_markdown"
+        ],
+        "title": "PlotProfileCreate"
+      },
+      "PlotProfileEmbeddedResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_job_id": {
+            "type": "string",
+            "title": "Source Job Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "plot_name": {
+            "type": "string",
+            "title": "Plot Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_job_id",
+          "provider_id",
+          "model_name",
+          "source_filename",
+          "plot_name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlotProfileEmbeddedResponse"
+      },
+      "PlotProfileListItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "plot_name": {
+            "type": "string",
+            "title": "Plot Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider_id",
+          "model_name",
+          "source_filename",
+          "plot_name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlotProfileListItemResponse"
+      },
+      "PlotProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_job_id": {
+            "type": "string",
+            "title": "Source Job Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "plot_name": {
+            "type": "string",
+            "title": "Plot Name"
+          },
+          "analysis_report_markdown": {
+            "type": "string",
+            "title": "Analysis Report Markdown"
+          },
+          "plot_summary_markdown": {
+            "type": "string",
+            "title": "Plot Summary Markdown"
+          },
+          "prompt_pack_markdown": {
+            "type": "string",
+            "title": "Prompt Pack Markdown"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_job_id",
+          "provider_id",
+          "model_name",
+          "source_filename",
+          "plot_name",
+          "analysis_report_markdown",
+          "plot_summary_markdown",
+          "prompt_pack_markdown",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlotProfileResponse"
+      },
+      "PlotProfileUpdate": {
+        "properties": {
+          "plot_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Plot Name"
+          },
+          "mount_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Project Id"
+          },
+          "plot_summary_markdown": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Plot Summary Markdown"
+          },
+          "prompt_pack_markdown": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Prompt Pack Markdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plot_name",
+          "plot_summary_markdown",
+          "prompt_pack_markdown"
+        ],
+        "title": "PlotProfileUpdate"
+      },
+      "PlotPromptPackMarkdown": {
+        "type": "string",
+        "minLength": 1,
+        "title": "PlotPromptPackMarkdown",
+        "description": "Reusable markdown plot prompt pack."
+      },
+      "PlotSampleFileResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "original_filename": {
+            "type": "string",
+            "title": "Original Filename"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "byte_size": {
+            "type": "integer",
+            "title": "Byte Size"
+          },
+          "character_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Count"
+          },
+          "checksum_sha256": {
+            "type": "string",
+            "title": "Checksum Sha256"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "original_filename",
+          "content_type",
+          "byte_size",
+          "character_count",
+          "checksum_sha256",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlotSampleFileResponse"
+      },
+      "PlotSummaryMarkdown": {
+        "type": "string",
+        "minLength": 1,
+        "title": "PlotSummaryMarkdown",
+        "description": "Editable markdown plot summary."
       },
       "ProjectChapterResponse": {
         "properties": {
@@ -2806,6 +4514,17 @@
             ],
             "title": "Style Profile Id"
           },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
+          },
           "inspiration": {
             "type": "string",
             "title": "Inspiration",
@@ -2906,6 +4625,17 @@
             ],
             "title": "Style Profile Id"
           },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
+          },
           "inspiration": {
             "type": "string",
             "title": "Inspiration"
@@ -2977,6 +4707,7 @@
           "default_provider_id",
           "default_model",
           "style_profile_id",
+          "plot_profile_id",
           "inspiration",
           "world_building",
           "characters",
@@ -3035,6 +4766,17 @@
             ],
             "title": "Style Profile Id"
           },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
+          },
           "length_preset": {
             "type": "string",
             "title": "Length Preset"
@@ -3074,6 +4816,7 @@
           "default_provider_id",
           "default_model",
           "style_profile_id",
+          "plot_profile_id",
           "length_preset",
           "archived_at",
           "created_at",
@@ -3158,6 +4901,17 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
           },
           "inspiration": {
             "anyOf": [
@@ -3505,14 +5259,38 @@
       },
       "SectionGenerateRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "section": {
             "type": "string",
             "title": "Section",
             "description": "要生成的区块名称"
           },
-          "inspiration": {
+          "description": {
             "type": "string",
-            "title": "Inspiration",
+            "title": "Description",
             "default": ""
           },
           "world_building": {
@@ -4378,6 +6156,30 @@
       },
       "VolumeChaptersRequest": {
         "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          },
           "volume_index": {
             "type": "integer",
             "minimum": 0.0,
@@ -4390,6 +6192,37 @@
           "volume_index"
         ],
         "title": "VolumeChaptersRequest"
+      },
+      "VolumeGenerateRequest": {
+        "properties": {
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output",
+            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
+          },
+          "user_feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Feedback",
+            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
+          }
+        },
+        "type": "object",
+        "title": "VolumeGenerateRequest",
+        "description": "Payload for volume structure generation (only used for regeneration)."
       }
     }
   }

@@ -4,6 +4,8 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+import httpx
+from openai import PermissionDeniedError
 from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import ValidationError
 
@@ -264,6 +266,48 @@ async def test_structured_llm_client_retries_empty_response_until_markdown_arriv
                         "finish_reason": "stop",
                         "token_usage": {"completion_tokens": 128},
                     },
+                )
+            return AIMessage(content="# 最终成功\n正文")
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+    result = await client.ainvoke_markdown(model=model, prompt="生成报告")
+
+    assert result == "# 最终成功\n正文"
+    assert model.calls == 3
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_structured_llm_client_retries_retryable_forbidden_gateway_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            self.calls += 1
+            assert len(messages) == 1
+            if self.calls < 3:
+                request = httpx.Request("POST", "https://api.example.test/v1/chat/completions")
+                response = httpx.Response(
+                    403,
+                    request=request,
+                    json={"error": {"message": "Forbidden", "type": "api_error"}},
+                )
+                raise PermissionDeniedError(
+                    "Error code: 403 - {'error': {'message': 'Forbidden', 'type': 'api_error'}}",
+                    response=response,
+                    body=response.json(),
                 )
             return AIMessage(content="# 最终成功\n正文")
 

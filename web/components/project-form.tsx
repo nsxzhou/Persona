@@ -22,7 +22,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { Project, ProjectPayload, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type {
+  PlotProfileListItem,
+  Project,
+  ProjectPayload,
+  ProviderConfig,
+  StyleProfileListItem,
+} from "@/lib/types";
 
 import { createProjectAction, updateProjectAction } from "@/app/(workspace)/projects/actions";
 
@@ -33,6 +39,7 @@ const schema = z.object({
   default_provider_id: z.string().min(1, { message: "必须选择一个可用的默认 Provider" }),
   default_model: z.string().optional(),
   style_profile_id: z.string().nullable(),
+  plot_profile_id: z.string().nullable(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -41,12 +48,14 @@ type FormValues = z.infer<typeof schema>;
 export function ProjectForm({
   providers,
   styleProfiles,
+  plotProfiles,
   project,
   submitting,
   onSubmit,
 }: {
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
   project?: Project;
   submitting: boolean;
   onSubmit: (values: ProjectPayload | Partial<ProjectPayload>) => Promise<void>;
@@ -63,6 +72,7 @@ export function ProjectForm({
       default_provider_id: "",
       default_model: "",
       style_profile_id: null,
+      plot_profile_id: null,
     },
   });
 
@@ -74,12 +84,14 @@ export function ProjectForm({
       default_provider_id: project?.provider?.id ?? enabledProviders[0]?.id ?? "",
       default_model: project?.default_model ?? "",
       style_profile_id: project?.style_profile_id ?? null,
+      plot_profile_id: project?.plot_profile_id ?? null,
     });
   }, [form, project, enabledProviders]);
 
   const selectedStatus = useWatch({ control: form.control, name: "status" });
   const selectedProviderId = useWatch({ control: form.control, name: "default_provider_id" });
   const selectedStyleProfileId = useWatch({ control: form.control, name: "style_profile_id" });
+  const selectedPlotProfileId = useWatch({ control: form.control, name: "plot_profile_id" });
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === selectedProviderId),
     [providers, selectedProviderId],
@@ -200,6 +212,25 @@ export function ProjectForm({
               </SelectContent>
             </Select>
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="project-plot-profile">情节档案</Label>
+            <Select
+              value={selectedPlotProfileId ?? "__none__"}
+              onValueChange={(val) => form.setValue("plot_profile_id", val === "__none__" ? null : val)}
+            >
+              <SelectTrigger id="project-plot-profile" aria-label="情节档案" className="bg-background">
+                <SelectValue placeholder="选择情节档案" />
+              </SelectTrigger>
+              <SelectContent className="border shadow-md rounded-md bg-popover text-popover-foreground">
+                <SelectItem value="__none__" className="cursor-pointer">未挂载</SelectItem>
+                {plotProfiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id} className="cursor-pointer">
+                    {profile.plot_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -223,12 +254,14 @@ export function ProjectPageClient({
   initialProject,
   initialProviders,
   initialStyleProfiles,
+  initialPlotProfiles,
 }: {
   mode: ProjectPageMode;
   projectId?: string;
   initialProject?: Project;
   initialProviders: ProviderConfig[];
   initialStyleProfiles: StyleProfileListItem[];
+  initialPlotProfiles: PlotProfileListItem[];
 }) {
   const router = useRouter();
   const isDetailMode = mode === "detail";
@@ -280,6 +313,7 @@ export function ProjectPageClient({
         project={initialProject}
         providers={initialProviders}
         styleProfiles={initialStyleProfiles}
+        plotProfiles={initialPlotProfiles}
         submitting={mutation.isPending}
         onSubmit={async (values) => {
           await mutation.mutateAsync(values as ProjectPayload | Partial<ProjectPayload>);

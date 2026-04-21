@@ -27,6 +27,7 @@ from app.schemas.editor import (
     EditorCompletionRequest,
     SectionGenerateRequest,
     VolumeChaptersRequest,
+    VolumeGenerateRequest,
 )
 from app.schemas.projects import ConceptItem
 from app.services.context_assembly import (
@@ -54,6 +55,7 @@ from app.services.editor_prompts import (
 )
 from app.services.llm_provider import LLMProviderService
 from app.services.outline_parser import parse_outline
+from app.services.plot_profiles import PlotProfileService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_profiles import StyleProfileService
@@ -69,11 +71,13 @@ class _EditorServiceBase:
         llm_service: LLMProviderService | None = None,
         project_service: ProjectService | None = None,
         style_profile_service: StyleProfileService | None = None,
+        plot_profile_service: PlotProfileService | None = None,
         provider_config_service: ProviderConfigService | None = None,
     ) -> None:
         self.llm_service = llm_service or LLMProviderService()
         self.project_service = project_service or ProjectService()
         self.style_profile_service = style_profile_service or StyleProfileService()
+        self.plot_profile_service = plot_profile_service or PlotProfileService()
         self.provider_config_service = provider_config_service or ProviderConfigService()
 
     async def _get_style_prompt(
@@ -91,6 +95,21 @@ class _EditorServiceBase:
             user_id=user_id,
         )
         return style_profile.prompt_pack_payload
+
+    async def _get_plot_prompt(
+        self,
+        session: AsyncSession,
+        project,
+        user_id: str,
+    ) -> str | None:
+        if not project.plot_profile_id:
+            return None
+        plot_profile = await self.plot_profile_service.get_or_404(
+            session,
+            project.plot_profile_id,
+            user_id=user_id,
+        )
+        return plot_profile.prompt_pack_payload
 
 
 class WritingEditorService(_EditorServiceBase):
@@ -115,7 +134,7 @@ class WritingEditorService(_EditorServiceBase):
         system_prompt = assemble_writing_context(
             style_profile.prompt_pack_payload,
             sections=WritingContextSections(
-                inspiration=project.inspiration,
+                description=project.description,
                 world_building=project.world_building,
                 characters=project.characters,
                 outline_master=project.outline_master,
@@ -165,14 +184,20 @@ class WritingEditorService(_EditorServiceBase):
         )
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
+        plot_prompt = await self._get_plot_prompt(session, project, user_id)
 
+        regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_section_system_prompt(
-            payload.section, style_prompt, length_preset=project.length_preset,
+            payload.section,
+            style_prompt,
+            plot_prompt,
+            length_preset=project.length_preset,
+            regenerating=regenerating,
         )
         user_message = build_section_user_message(
             payload.section,
             {
-                "inspiration": payload.inspiration,
+                "description": payload.description,
                 "world_building": payload.world_building,
                 "characters": payload.characters,
                 "outline_master": payload.outline_master,
@@ -180,6 +205,8 @@ class WritingEditorService(_EditorServiceBase):
                 "runtime_state": payload.runtime_state,
                 "runtime_threads": payload.runtime_threads,
             },
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         messages = [
@@ -204,8 +231,11 @@ class WritingEditorService(_EditorServiceBase):
         style_prompt = await self._get_style_prompt(session, project, user_id)
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
 
+        regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_beat_expand_system_prompt(
-            style_prompt, beat_expand_chars=preset_cfg["beat_expand_chars"],
+            style_prompt,
+            beat_expand_chars=preset_cfg["beat_expand_chars"],
+            regenerating=regenerating,
         )
         user_message = build_beat_expand_user_message(
             payload.text_before_cursor,
@@ -218,6 +248,8 @@ class WritingEditorService(_EditorServiceBase):
             payload.runtime_threads,
             current_chapter_context=payload.current_chapter_context,
             previous_chapter_context=payload.previous_chapter_context,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         messages = [
@@ -241,12 +273,15 @@ class MemoryEditorService(_EditorServiceBase):
         if not project.provider:
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
-        system_prompt = build_bible_update_system_prompt()
+        regenerating = bool(payload.previous_output or payload.user_feedback)
+        system_prompt = build_bible_update_system_prompt(regenerating=regenerating)
         user_message = build_bible_update_user_message(
             payload.current_runtime_state,
             payload.current_runtime_threads,
             payload.content_to_check,
             payload.sync_scope,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -297,7 +332,10 @@ class PlanningEditorService(_EditorServiceBase):
             elif progress["phase"] == "over_target":
                 length_context += "\n【超限提醒】已超出目标篇幅，请立即规划结局节拍。"
 
-        system_prompt = build_beat_generate_system_prompt(style_prompt)
+        system_prompt = build_beat_generate_system_prompt(
+            style_prompt,
+            regenerating=bool(payload.previous_output or payload.user_feedback),
+        )
         user_message = build_beat_generate_user_message(
             payload.text_before_cursor,
             payload.outline_detail,
@@ -307,6 +345,8 @@ class PlanningEditorService(_EditorServiceBase):
             length_context=length_context,
             current_chapter_context=payload.current_chapter_context,
             previous_chapter_context=payload.previous_chapter_context,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -332,9 +372,13 @@ class PlanningEditorService(_EditorServiceBase):
             session, payload.provider_id, user_id=user_id,
         )
 
-        system_prompt = build_concept_generate_system_prompt()
+        regenerating = bool(payload.previous_output or payload.user_feedback)
+        system_prompt = build_concept_generate_system_prompt(regenerating=regenerating)
         user_message = build_concept_generate_user_message(
-            payload.inspiration, payload.count,
+            payload.inspiration,
+            payload.count,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         raw = await self.llm_service.invoke_completion(
@@ -351,6 +395,7 @@ class PlanningEditorService(_EditorServiceBase):
         session: AsyncSession,
         project_id: str,
         user_id: str,
+        payload: VolumeGenerateRequest | None = None,
     ) -> AsyncGenerator[str, None]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
@@ -359,12 +404,23 @@ class PlanningEditorService(_EditorServiceBase):
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
+        plot_prompt = await self._get_plot_prompt(session, project, user_id)
+
+        previous_output = payload.previous_output if payload else None
+        user_feedback = payload.user_feedback if payload else None
+        regenerating = bool(previous_output or user_feedback)
 
         system_prompt = build_volume_generate_system_prompt(
             length_preset=project.length_preset,
             style_prompt=style_prompt,
+            plot_prompt=plot_prompt,
+            regenerating=regenerating,
         )
-        user_message = build_volume_generate_user_message(project.outline_master)
+        user_message = build_volume_generate_user_message(
+            project.outline_master,
+            previous_output=previous_output,
+            user_feedback=user_feedback,
+        )
 
         messages = [
             SystemMessage(content=system_prompt),
@@ -406,13 +462,21 @@ class PlanningEditorService(_EditorServiceBase):
         preceding_summary = "\n".join(preceding_parts)
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
+        plot_prompt = await self._get_plot_prompt(session, project, user_id)
 
-        system_prompt = build_volume_chapters_system_prompt(style_prompt)
+        regenerating = bool(payload.previous_output or payload.user_feedback)
+        system_prompt = build_volume_chapters_system_prompt(
+            style_prompt,
+            plot_prompt,
+            regenerating=regenerating,
+        )
         user_message = build_volume_chapters_user_message(
             project.outline_master,
             target_vol["title"],
             target_vol["meta"],
             preceding_summary,
+            previous_output=payload.previous_output,
+            user_feedback=payload.user_feedback,
         )
 
         messages = [
@@ -434,12 +498,14 @@ class EditorService:
         llm_service: LLMProviderService | None = None,
         project_service: ProjectService | None = None,
         style_profile_service: StyleProfileService | None = None,
+        plot_profile_service: PlotProfileService | None = None,
         provider_config_service: ProviderConfigService | None = None,
     ) -> None:
         shared_kwargs = {
             "llm_service": llm_service,
             "project_service": project_service,
             "style_profile_service": style_profile_service,
+            "plot_profile_service": plot_profile_service,
             "provider_config_service": provider_config_service,
         }
         self.writing = WritingEditorService(**shared_kwargs)

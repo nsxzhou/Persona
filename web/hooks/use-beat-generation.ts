@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Project } from "@/lib/types";
 import { api } from "@/lib/api";
+import type { RegenerateOptions } from "@/lib/api-client";
 import { useStreamingText } from "@/hooks/use-streaming-text";
 
 export function useBeatGeneration({
@@ -33,7 +34,7 @@ export function useBeatGeneration({
   const [isExpandingBeat, setIsExpandingBeat] = useState(false);
   const { consumeResponse } = useStreamingText();
 
-  const handleGenerateBeats = async () => {
+  const handleGenerateBeats = async (options?: RegenerateOptions) => {
     if (isGeneratingBeats || disabled) return;
     setIsGeneratingBeats(true);
     try {
@@ -51,6 +52,7 @@ export function useBeatGeneration({
         currentChapterContext,
         previousChapterContext,
         totalContentLength,
+        options,
       );
 
       setBeats(data.beats);
@@ -62,9 +64,11 @@ export function useBeatGeneration({
     }
   };
 
-  const handleStartBeatExpand = async () => {
+  const handleStartBeatExpand = async (options?: RegenerateOptions) => {
     if (beats.length === 0 || isExpandingBeat || isGenerating || disabled) return;
-    if (content.trim() && !window.confirm("当前章节已有正文，继续将替换本章正文。")) return;
+    if (!options && content.trim() && !window.confirm("当前章节已有正文，继续将替换本章正文。")) {
+      return;
+    }
 
     const textBeforeCursor = "";
     const textAfterCursor = "";
@@ -87,6 +91,7 @@ export function useBeatGeneration({
           beatsProse,
           currentChapterContext,
           previousChapterContext,
+          options,
         );
 
         const beatGenerated = await consumeResponse({

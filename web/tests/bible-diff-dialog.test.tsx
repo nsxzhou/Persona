@@ -26,10 +26,17 @@ describe("BibleDiffDialog", () => {
     return { onAccept, onDismiss, onRetry };
   }
 
-  test("offers retry action inside the diff dialog", () => {
+  test("opens regenerate feedback dialog and forwards feedback to onRetry", async () => {
     const { onRetry } = renderDialog();
     fireEvent.click(screen.getByRole("button", { name: "重新生成" }));
+
+    const textarea = await screen.findByLabelText("本次生成的意见（可选）");
+    fireEvent.change(textarea, { target: { value: "  更精简  " } });
+
+    const regenerateButtons = screen.getAllByRole("button", { name: "重新生成" });
+    fireEvent.click(regenerateButtons[regenerateButtons.length - 1]);
     expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledWith("更精简");
   });
 
   test("only changes mode hides unchanged lines instead of collapsing them", () => {

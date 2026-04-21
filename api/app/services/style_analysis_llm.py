@@ -5,6 +5,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from openai import PermissionDeniedError
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 _TEXT_RESPONSE_KEYS = ("content", "output_text", "text")
 _EMPTY_RESPONSE_BACKOFF_SECONDS = (0.5, 1.0)
+_TRANSIENT_PERMISSION_BACKOFF_SECONDS = (1.0, 2.0)
 
 
 def _extract_from_mapping(mapping: dict) -> str:
@@ -113,11 +115,32 @@ class MarkdownLLMClient:
         model: Any,
         prompt: str,
     ) -> str:
-        total_attempts = len(_EMPTY_RESPONSE_BACKOFF_SECONDS) + 1
+        total_attempts = max(
+            len(_EMPTY_RESPONSE_BACKOFF_SECONDS),
+            len(_TRANSIENT_PERMISSION_BACKOFF_SECONDS),
+        ) + 1
         last_diagnostics: dict[str, Any] | None = None
 
         for attempt in range(1, total_attempts + 1):
-            result = await model.ainvoke([HumanMessage(content=prompt)])
+            try:
+                result = await model.ainvoke([HumanMessage(content=prompt)])
+            except PermissionDeniedError as exc:
+                if (
+                    attempt < total_attempts
+                    and self._is_retryable_permission_error(exc)
+                    and attempt <= len(_TRANSIENT_PERMISSION_BACKOFF_SECONDS)
+                ):
+                    logger.warning(
+                        "LLM gateway returned retryable permission error; retrying",
+                        extra={
+                            "attempt": attempt,
+                            "total_attempts": total_attempts,
+                            "error": str(exc),
+                        },
+                    )
+                    await asyncio.sleep(_TRANSIENT_PERMISSION_BACKOFF_SECONDS[attempt - 1])
+                    continue
+                raise
             text, source, diagnostics = self._extract_markdown_text(result)
             last_diagnostics = diagnostics
 
@@ -174,6 +197,19 @@ class MarkdownLLMClient:
             },
         )
         raise EmptyMarkdownResponseError(message)
+
+    def _is_retryable_permission_error(self, exc: PermissionDeniedError) -> bool:
+        message = str(exc).lower()
+        if "forbidden" in message:
+            return True
+        body = getattr(exc, "body", None)
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict):
+                error_message = str(error.get("message", "")).lower()
+                if "forbidden" in error_message:
+                    return True
+        return False
 
     def _extract_markdown_text(self, result: Any) -> tuple[str, str, dict[str, Any]]:
         additional_kwargs = getattr(result, "additional_kwargs", {}) or {}

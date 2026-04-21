@@ -25,6 +25,7 @@ vi.mock("@/lib/server-api", () => ({
     }),
     getProviderConfigs: vi.fn().mockResolvedValue([]),
     getStyleProfiles: vi.fn().mockResolvedValue([]),
+    getPlotProfiles: vi.fn().mockResolvedValue([]),
   }),
 }));
 

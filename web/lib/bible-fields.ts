@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 export type BlueprintFieldKey =
-  | "inspiration"
+  | "description"
   | "world_building"
   | "characters"
   | "outline_master"
@@ -33,7 +33,7 @@ export interface BibleSectionMeta {
 
 /** Ordered metadata for all story bible sections (blueprint + runtime). */
 export const BIBLE_SECTION_META: BibleSectionMeta[] = [
-  { key: "inspiration", title: "灵感概述", icon: BookOpen, group: "blueprint" },
+  { key: "description", title: "简介", icon: BookOpen, group: "blueprint" },
   { key: "world_building", title: "世界观设定", icon: Globe, group: "blueprint" },
   { key: "characters", title: "角色卡", icon: Users, group: "blueprint" },
   { key: "outline_master", title: "总纲", icon: ScrollText, group: "blueprint" },
@@ -46,7 +46,7 @@ export const BIBLE_FIELD_KEYS: readonly BibleFieldKey[] = BIBLE_SECTION_META.map
   (s) => s.key,
 );
 
-/** Bible sections that support AI generation (everything except inspiration). */
+/** Bible sections that support AI generation (everything except description). */
 export const AI_ENABLED_SECTIONS: ReadonlySet<BibleFieldKey> = new Set([
   "world_building",
   "characters",
@@ -64,9 +64,9 @@ export const RUNTIME_FIELD_KEYS: readonly RuntimeFieldKey[] = [
 
 /** Recommended prerequisite sections for AI generation quality. */
 export const RECOMMENDED_PREREQUISITES: Partial<Record<BibleFieldKey, BibleFieldKey[]>> = {
-  world_building: ["inspiration"],
-  characters: ["inspiration", "world_building"],
-  outline_master: ["inspiration", "world_building", "characters"],
+  world_building: ["description"],
+  characters: ["description", "world_building"],
+  outline_master: ["description", "world_building", "characters"],
   outline_detail: ["outline_master"],
   runtime_state: ["outline_master"],
   runtime_threads: ["outline_master"],

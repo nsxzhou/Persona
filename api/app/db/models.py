@@ -67,6 +67,15 @@ class User(TimestampMixin, Base):
     style_profiles: Mapped[list["StyleProfile"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    plot_sample_files: Mapped[list["PlotSampleFile"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    plot_analysis_jobs: Mapped[list["PlotAnalysisJob"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    plot_profiles: Mapped[list["PlotProfile"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Session(TimestampMixin, Base):
@@ -117,6 +126,12 @@ class ProviderConfig(TimestampMixin, Base):
     style_profiles: Mapped[list["StyleProfile"]] = relationship(
         back_populates="provider"
     )
+    plot_analysis_jobs: Mapped[list["PlotAnalysisJob"]] = relationship(
+        back_populates="provider"
+    )
+    plot_profiles: Mapped[list["PlotProfile"]] = relationship(
+        back_populates="provider"
+    )
     user: Mapped["User"] = relationship(back_populates="provider_configs")
 
     @property
@@ -142,6 +157,9 @@ class Project(TimestampMixin, Base):
     style_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("style_profiles.id"), nullable=True, index=True
     )
+    plot_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("plot_profiles.id"), nullable=True, index=True
+    )
     # 蓝图层：作者手动编辑的创作规划资产
     inspiration: Mapped[str] = mapped_column(Text, nullable=False, default="")
     world_building: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -163,6 +181,9 @@ class Project(TimestampMixin, Base):
 
     provider: Mapped["ProviderConfig"] = relationship(back_populates="projects")
     style_profile: Mapped["StyleProfile | None"] = relationship(
+        back_populates="projects"
+    )
+    plot_profile: Mapped["PlotProfile | None"] = relationship(
         back_populates="projects"
     )
     user: Mapped["User"] = relationship(back_populates="projects")
@@ -335,3 +356,130 @@ class StyleProfile(TimestampMixin, Base):
     provider: Mapped["ProviderConfig"] = relationship(back_populates="style_profiles")
     projects: Mapped[list["Project"]] = relationship(back_populates="style_profile")
     user: Mapped["User"] = relationship(back_populates="style_profiles")
+
+
+class PlotSampleFile(TimestampMixin, Base):
+    __tablename__ = "plot_sample_files"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    character_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    job: Mapped["PlotAnalysisJob"] = relationship(back_populates="sample_file")
+    user: Mapped["User"] = relationship(back_populates="plot_sample_files")
+
+
+class PlotAnalysisJob(TimestampMixin, Base):
+    __tablename__ = "plot_analysis_jobs"
+    __table_args__ = (
+        Index(
+            "ix_plot_analysis_jobs_status_created_at",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_plot_analysis_jobs_status_attempt_count_created_at",
+            "status",
+            "attempt_count",
+            "created_at",
+        ),
+        Index(
+            "ix_plot_analysis_jobs_status_last_heartbeat_at",
+            "status",
+            "last_heartbeat_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    plot_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    provider_id: Mapped[str] = mapped_column(
+        ForeignKey("provider_configs.id"), nullable=False
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    sample_file_id: Mapped[str] = mapped_column(
+        ForeignKey("plot_sample_files.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", index=True
+    )
+    stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analysis_meta_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    analysis_report_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plot_summary_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prompt_pack_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    pause_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    provider: Mapped["ProviderConfig"] = relationship(
+        back_populates="plot_analysis_jobs"
+    )
+    sample_file: Mapped["PlotSampleFile"] = relationship(
+        back_populates="job", single_parent=True
+    )
+    plot_profile: Mapped["PlotProfile | None"] = relationship(
+        back_populates="source_job"
+    )
+    user: Mapped["User"] = relationship(back_populates="plot_analysis_jobs")
+
+    @property
+    def plot_profile_id(self) -> str | None:
+        if self.plot_profile is not None:
+            return self.plot_profile.id
+        return None
+
+
+class PlotProfile(TimestampMixin, Base):
+    __tablename__ = "plot_profiles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_job_id: Mapped[str] = mapped_column(
+        ForeignKey("plot_analysis_jobs.id"), nullable=False, unique=True
+    )
+    provider_id: Mapped[str] = mapped_column(
+        ForeignKey("provider_configs.id"), nullable=False, index=True
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    plot_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    analysis_report_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    plot_summary_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_pack_payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+    source_job: Mapped["PlotAnalysisJob"] = relationship(
+        back_populates="plot_profile"
+    )
+    provider: Mapped["ProviderConfig"] = relationship(back_populates="plot_profiles")
+    projects: Mapped[list["Project"]] = relationship(back_populates="plot_profile")
+    user: Mapped["User"] = relationship(back_populates="plot_profiles")

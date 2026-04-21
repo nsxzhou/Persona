@@ -99,6 +99,75 @@ async def test_project_service_can_update_style_profile_id(
 
 
 @pytest.mark.asyncio
+async def test_project_service_can_update_plot_profile_id(
+    app_with_db: FastAPI,
+) -> None:
+    from app.core.security import hash_password
+    from app.core.domain_errors import NotFoundError
+    from app.db.repositories.auth import AuthRepository
+    from app.schemas.projects import ProjectCreate, ProjectUpdate
+    from app.schemas.provider_configs import ProviderConfigCreate
+    from app.services.projects import ProjectService
+    from app.services.provider_configs import ProviderConfigService
+
+    async with app_with_db.state.session_factory() as session:
+        user = await AuthRepository().create_user(
+            session,
+            username="plot-project-owner",
+            password_hash=hash_password("password123"),
+        )
+        provider = await ProviderConfigService().create(
+            session,
+            ProviderConfigCreate(
+                label="Primary Gateway",
+                base_url="https://api.openai.com/v1",
+                api_key="sk-test-8888",
+                default_model="gpt-4.1-mini",
+                is_enabled=True,
+            ),
+            user_id=user.id,
+        )
+        project = await ProjectService().create(
+            session,
+            ProjectCreate(
+                name="Plot Bind Target",
+                description="用于测试 plot_profile 绑定",
+                status="draft",
+                default_provider_id=provider.id,
+                default_model="gpt-4.1-mini",
+                style_profile_id=None,
+                plot_profile_id=None,
+            ),
+            user_id=user.id,
+        )
+
+        updated = await ProjectService().update(
+            session,
+            project.id,
+            ProjectUpdate(plot_profile_id=None),
+            user_id=user.id,
+        )
+        assert updated.id == project.id
+        assert updated.plot_profile_id is None
+
+        with pytest.raises(NotFoundError):
+            await ProjectService().update(
+                session,
+                project.id,
+                ProjectUpdate(plot_profile_id="11111111-1111-1111-1111-111111111111"),
+                user_id=user.id,
+            )
+
+        with pytest.raises(NotFoundError):
+            await ProjectService().update(
+                session,
+                "non-existent-project-id",
+                ProjectUpdate(plot_profile_id=None),
+                user_id=user.id,
+            )
+
+
+@pytest.mark.asyncio
 async def test_project_crud_archive_restore_and_filtering(
     initialized_client: AsyncClient,
     initialized_provider: dict[str, object],
@@ -309,4 +378,3 @@ async def test_export_project(
     # Test invalid format
     export_invalid = await initialized_client.get(f"/api/v1/projects/{project_id}/export?format=pdf")
     assert export_invalid.status_code == 400
-
