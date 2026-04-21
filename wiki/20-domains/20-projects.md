@@ -101,4 +101,4 @@ Repository 层在 `api/app/db/repositories/projects.py`：
 - [21 章节树](./21-chapter-tree.md) — 项目与章节的关系
 - [22 Zen Editor](./22-zen-editor.md) — 项目在编辑器中的使用方式
 - [26 Style Lab](./26-style-lab.md) — Style Profile 如何保存并回挂到项目
-- [29 项目导出](./29-export.md) — 项目级导出入口
+- [31 项目导出](./31-export.md) — 项目级导出入口

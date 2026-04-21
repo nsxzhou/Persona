@@ -87,5 +87,5 @@ Bible 是 Prompt 组装的主燃料：
 - [20 项目](./20-projects.md) — Bible 字段都挂在 `projects` 上
 - [22 Zen Editor](./22-zen-editor.md) — 编辑器如何消费这些字段
 - [24 大纲与节拍](./24-outline-and-beats.md) — `outline_master` / `outline_detail` 的专门链路
-- [28 记忆同步](./28-memory-sync.md) — 活态字段如何由正文回写
+- [30 记忆同步](./30-memory-sync.md) — 活态字段如何由正文回写
 - [31 Prompt ↔ Schema 强绑定](../30-prompt-engineering/31-prompt-schema-coupling.md) — Prompt 模板与结构化契约

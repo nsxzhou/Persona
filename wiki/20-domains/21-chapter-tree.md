@@ -75,4 +75,4 @@ Service 在 `api/app/services/project_chapters.py`：
 - [20 项目](./20-projects.md) — 章节树依附于项目
 - [22 Zen Editor](./22-zen-editor.md) — 章节树如何驱动正文编辑
 - [24 大纲与节拍](./24-outline-and-beats.md) — `outline_detail` 如何变成章节结构
-- [28 记忆同步](./28-memory-sync.md) — 章节级别的 `memory_sync_*` 字段含义
+- [30 记忆同步](./30-memory-sync.md) — 章节级别的 `memory_sync_*` 字段含义

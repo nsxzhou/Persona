@@ -65,5 +65,5 @@
 - [16 SSE 与流式响应](../10-architecture/16-sse-and-streaming.md)
 - [26 Style Lab](../20-domains/26-style-lab.md)
 - [27 Style Analysis 管道](../20-domains/27-style-analysis-pipeline.md)
-- [28 记忆同步](../20-domains/28-memory-sync.md)
+- [30 记忆同步](../20-domains/30-memory-sync.md)
 - [51 测试策略](../50-standards/51-testing-strategy.md)

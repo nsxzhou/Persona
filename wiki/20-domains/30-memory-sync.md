@@ -1,4 +1,4 @@
-# 28 记忆同步（Memory Sync）
+# 30 记忆同步（Memory Sync）
 
 ## 一句话定义 + 价值
 

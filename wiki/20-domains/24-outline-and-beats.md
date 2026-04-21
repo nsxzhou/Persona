@@ -93,5 +93,5 @@
 - [21 章节树](./21-chapter-tree.md) — 细纲如何投影为章节记录
 - [22 Zen Editor](./22-zen-editor.md) — 节拍面板在编辑器中的位置
 - [23 圣经与世界观](./23-bible-worldbuilding.md) — 大纲生成时依赖的蓝图字段
-- [28 记忆同步](./28-memory-sync.md) — 节拍展开结束后如何触发活态层同步
+- [30 记忆同步](./30-memory-sync.md) — 节拍展开结束后如何触发活态层同步
 - [16 SSE 与流式响应](../10-architecture/16-sse-and-streaming.md) — 卷结构与逐拍展开都走流式通道

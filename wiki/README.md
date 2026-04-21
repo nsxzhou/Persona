@@ -40,8 +40,10 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 - [25 概念抽卡（Concept Gacha）](./20-domains/25-concept-gacha.md)
 - [26 Style Lab：文风实验室](./20-domains/26-style-lab.md)
 - [27 Style Analysis 管道（LangGraph）](./20-domains/27-style-analysis-pipeline.md)
-- [28 记忆同步（Memory Sync）](./20-domains/28-memory-sync.md)
-- [29 项目导出（txt / epub）](./20-domains/29-export.md)
+- [28 Plot Lab：情节实验室](./20-domains/28-plot-lab.md)
+- [29 Plot Analysis 管道（LangGraph）](./20-domains/29-plot-analysis-pipeline.md)
+- [30 记忆同步（Memory Sync）](./20-domains/30-memory-sync.md)
+- [31 项目导出（txt / epub）](./20-domains/31-export.md)
 
 ### 30 Prompt 工程
 
@@ -78,7 +80,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 2. `10-architecture/10-high-level-architecture.md` → `11-backend-layering.md` → `12-frontend-architecture.md` — 三张关键图先看
 3. `10-architecture/13-data-model.md` — 所有领域都靠这些表
 4. `20-domains/20-projects.md` → `21-chapter-tree.md` → `22-zen-editor.md` — 最简纵切链路
-5. `20-domains/26-style-lab.md` → `27-style-analysis-pipeline.md` — 项目里最复杂的子系统，吃透它就吃透了本项目的 LangGraph 用法
+5. `20-domains/26-style-lab.md` → `27-style-analysis-pipeline.md` — 项目里最复杂的子系统，吃透它就吃透了本项目的 LangGraph 用法；想进一步看带骨架预览的变体，接着看 `28-plot-lab.md` → `29-plot-analysis-pipeline.md`
 6. `30-prompt-engineering/` 三篇 + `50-standards/50-coding-standards.md` — 约束规则与落地范式
 7. `40-operations/` 全部 — 确保你能本地跑起来并调试
 

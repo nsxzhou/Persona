@@ -99,5 +99,5 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 - [21 章节树](./21-chapter-tree.md) — 编辑器如何切章
 - [23 圣经与世界观](./23-bible-worldbuilding.md) — 左侧菜单跳回的蓝图与活态字段
 - [24 大纲与节拍](./24-outline-and-beats.md) — 逐拍写作的上游
-- [28 记忆同步](./28-memory-sync.md) — 自动同步与 Diff 确认
-- [29 项目导出](./29-export.md) — 编辑器中的导出按钮
+- [30 记忆同步](./30-memory-sync.md) — 自动同步与 Diff 确认
+- [31 项目导出](./31-export.md) — 编辑器中的导出按钮
