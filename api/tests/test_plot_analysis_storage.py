@@ -47,6 +47,8 @@ async def test_write_sketch_artifact_creates_file_and_exists_returns_true() -> N
     raw = sketch_path.read_text(encoding="utf-8")
     assert "主角" in raw
     assert json.loads(raw) == payload
+    # Atomic write must not leave a .tmp sibling behind on success.
+    assert list(sketch_path.parent.glob("*.tmp")) == []
 
 
 @pytest.mark.asyncio
@@ -77,6 +79,9 @@ async def test_count_sketch_artifacts_tracks_written_count() -> None:
         await service.write_sketch_artifact(job_id, index, _make_sketch(index))
 
     assert service.count_sketch_artifacts(job_id) == 3
+    # Atomic write must not leave .tmp siblings behind across multiple writes.
+    sketch_dir = service._sketch_artifact_path(job_id, 0).parent
+    assert list(sketch_dir.glob("*.tmp")) == []
 
 
 @pytest.mark.asyncio
@@ -103,7 +108,7 @@ async def test_read_all_sketches_returns_empty_list_when_directory_missing() -> 
 
 
 @pytest.mark.asyncio
-async def test_read_sketches_batches_yields_expected_batch_sizes() -> None:
+async def test_read_sketch_batches_yields_expected_batch_sizes() -> None:
     service = PlotAnalysisStorageService()
     job_id = "job-batches"
 
@@ -112,7 +117,7 @@ async def test_read_sketches_batches_yields_expected_batch_sizes() -> None:
 
     batches = [
         batch
-        async for batch in service.read_sketches_batches(job_id, batch_size=2)
+        async for batch in service.read_sketch_batches(job_id, batch_size=2)
     ]
 
     assert [[item["chunk_index"] for item in batch] for batch in batches] == [
@@ -123,10 +128,10 @@ async def test_read_sketches_batches_yields_expected_batch_sizes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_read_sketches_batches_no_yield_when_directory_missing() -> None:
+async def test_read_sketch_batches_no_yield_when_directory_missing() -> None:
     service = PlotAnalysisStorageService()
     batches = [
         batch
-        async for batch in service.read_sketches_batches("never-written-job", batch_size=2)
+        async for batch in service.read_sketch_batches("never-written-job", batch_size=2)
     ]
     assert batches == []

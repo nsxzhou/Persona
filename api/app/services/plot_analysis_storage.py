@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import shutil
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -136,15 +137,21 @@ class PlotAnalysisStorageService:
         chunk_index: int,
         payload: dict,
     ) -> None:
-        path = self._sketch_artifact_path(job_id, chunk_index)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(path, "w", encoding="utf-8") as handle:
-            await handle.write(json.dumps(payload, ensure_ascii=False))
+        final_path = self._sketch_artifact_path(job_id, chunk_index)
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = final_path.with_suffix(final_path.suffix + ".tmp")
+        try:
+            async with aiofiles.open(tmp_path, "w", encoding="utf-8") as handle:
+                await handle.write(json.dumps(payload, ensure_ascii=False))
+            os.replace(tmp_path, final_path)
+        except BaseException:
+            tmp_path.unlink(missing_ok=True)
+            raise
 
     def sketch_artifact_exists(self, job_id: str, chunk_index: int) -> bool:
         return self._sketch_artifact_path(job_id, chunk_index).exists()
 
-    async def read_sketches_batches(
+    async def read_sketch_batches(
         self,
         job_id: str,
         *,
