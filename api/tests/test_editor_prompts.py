@@ -90,6 +90,8 @@ def test_world_building_prompt_explicitly_blocks_over_generation() -> None:
     assert "资源争夺并非主线时，不要专门发明货币、修炼材料、交易媒介" in prompt
     assert "不要为了显得完整而补完世界" in prompt
     assert "不要发明暂时不会进入剧情的设定" in prompt
+    assert "若某条设定不会改变主角选择、冲突强度或后续兑现路径，就不要展开" in prompt
+    assert "不要拿设定规模、世界分层或古老秘闻数量冒充故事深度或爽点" in prompt
 
 
 def test_adjacent_prompts_preserve_grounded_reading() -> None:
@@ -98,6 +100,50 @@ def test_adjacent_prompts_preserve_grounded_reading() -> None:
 
     assert "沿用世界观已确定的题材解释，不得把现实权谋误写为超自然机制或秘密体系" in characters_prompt
     assert "沿用世界观已确定的题材解释，不得把现实权谋误写为超自然机制或秘密体系" in outline_prompt
+
+
+def test_creative_planning_sections_prefer_useful_detail_over_maximal_fill() -> None:
+    prompts = [
+        build_section_system_prompt("world_building", length_preset="long"),
+        build_section_system_prompt("characters", length_preset="long"),
+        build_section_system_prompt("outline_master", length_preset="long"),
+        build_section_system_prompt("outline_detail", length_preset="long"),
+    ]
+
+    for prompt in prompts:
+        assert "具体且有用" in prompt
+        assert "内容丰富具体" not in prompt
+
+
+def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None:
+    prompt = build_section_system_prompt("characters", length_preset="long")
+
+    assert "角色信息优先回答以下问题" in prompt
+    assert "他是谁，为什么此刻会入局" in prompt
+    assert "他如何卡住主角，或为什么能帮主角破局" in prompt
+    assert "主角能利用、交换、规避或反制他的点是什么" in prompt
+    assert "角色弧光" not in prompt
+    assert "反差设计" not in prompt
+    assert "阶段性反派（至少 1 个）" not in prompt
+
+
+def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() -> None:
+    prompt = build_section_system_prompt("outline_master", length_preset="long")
+
+    assert "先判断这本书当前真正靠什么让人继续看下去" in prompt
+    assert "围绕同一条主爽点主线组织推进" in prompt
+    assert "不要为了拉大规模而额外铺地图、体系、势力层级" in prompt
+    assert "地图换挡" not in prompt
+    assert "阶段 Boss/核心对手" not in prompt
+
+
+def test_outline_detail_prompt_prefers_driving_endings_over_forced_hooks() -> None:
+    prompt = build_section_system_prompt("outline_detail", length_preset="long")
+
+    assert "章节末推动点" in prompt
+    assert "可以是悬念、反转、新压力、关系变化或阶段性兑现" in prompt
+    assert "不必每章硬凹爆点" in prompt
+    assert "每章结尾必须有一个让读者想翻下一章的悬念或爆点" not in prompt
 
 
 def test_identity_swap_description_regression_is_passed_with_grounded_guardrails() -> None:
@@ -159,13 +205,14 @@ def test_bible_update_system_prompt_prefers_minimal_persistent_memory() -> None:
     assert "不要把本章剧情改写成摘要" in system_prompt
 
 
-def test_concept_generate_prompt_requires_several_hundred_character_synopsis() -> None:
+def test_concept_generate_prompt_prefers_compact_project_intro_over_long_packaging() -> None:
     prompt = build_concept_generate_system_prompt()
 
-    assert "每个概念包含标题和一段可直接用作项目简介的长简介" in prompt
-    assert "字数控制在 250-400 字左右" in prompt
-    assert "按 2-4 个自然段组织" in prompt
-    assert "不写成一句话梗概" in prompt
+    assert "每个概念包含标题和一段可直接用作项目简介的简介" in prompt
+    assert "字数控制在 150-260 字左右" in prompt
+    assert "按 1-3 个自然段组织" in prompt
+    assert "宁可短而抓人，也不要为了显得厚重而写成长简介" in prompt
+    assert "一段可直接用作项目简介的长简介" not in prompt
 
 
 def test_concept_generate_prompt_uses_shared_story_spine_strategy() -> None:
@@ -173,7 +220,9 @@ def test_concept_generate_prompt_uses_shared_story_spine_strategy() -> None:
 
     assert "共享同一故事主轴" in prompt
     assert "不能写成三本完全不同的小说" in prompt
-    assert "每张卡至少拉开 2 个维度" in prompt
+    assert "差异优先体现在主角切口、局势压力、关系张力、破局手段或兑现方式" in prompt
+    assert "不要为了拉开差异，硬把同一主轴写成更大的体系、更多的势力或更高的世界层级" in prompt
+    assert "世界展开规模" not in prompt
 
 
 def test_concept_generate_prompt_removes_fixed_three_lane_labels() -> None:
