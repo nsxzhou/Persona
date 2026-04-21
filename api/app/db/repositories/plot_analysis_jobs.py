@@ -37,6 +37,7 @@ class PlotAnalysisJobRepository:
                 defer(PlotAnalysisJob.analysis_report_payload),
                 defer(PlotAnalysisJob.plot_summary_payload),
                 defer(PlotAnalysisJob.prompt_pack_payload),
+                defer(PlotAnalysisJob.plot_skeleton_payload),
             )
         result = await session.stream_scalars(stmt)
         return [job async for job in result]
@@ -63,6 +64,7 @@ class PlotAnalysisJobRepository:
                 defer(PlotAnalysisJob.analysis_report_payload),
                 defer(PlotAnalysisJob.plot_summary_payload),
                 defer(PlotAnalysisJob.prompt_pack_payload),
+                defer(PlotAnalysisJob.plot_skeleton_payload),
             )
         stmt = stmt.where(PlotAnalysisJob.id == job_id)
         if user_id is not None:

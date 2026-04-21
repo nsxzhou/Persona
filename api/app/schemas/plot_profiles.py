@@ -11,6 +11,7 @@ class PlotProfileCreate(BaseModel):
     mount_project_id: str | None = None
     plot_summary_markdown: str = Field(min_length=1)
     prompt_pack_markdown: str = Field(min_length=1)
+    plot_skeleton_markdown: str | None = None
 
 
 class PlotProfileUpdate(BaseModel):
@@ -18,6 +19,7 @@ class PlotProfileUpdate(BaseModel):
     mount_project_id: str | None = None
     plot_summary_markdown: str = Field(min_length=1)
     prompt_pack_markdown: str = Field(min_length=1)
+    plot_skeleton_markdown: str | None = None
 
 
 class PlotProfileResponse(BaseModel):
@@ -32,6 +34,7 @@ class PlotProfileResponse(BaseModel):
     analysis_report_markdown: str
     plot_summary_markdown: str
     prompt_pack_markdown: str
+    plot_skeleton_markdown: str | None = None
     created_at: datetime
     updated_at: datetime
 
