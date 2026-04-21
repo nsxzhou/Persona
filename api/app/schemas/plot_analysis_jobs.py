@@ -81,7 +81,7 @@ class PlotChunkSketch(BaseModel):
     advancement: Literal["setup", "payoff", "transition", "interlude"] = Field(
         description="Narrative advancement role played by this chunk in the overall arc."
     )
-    time_markers: Literal["linear", "flashback", "unclear"] = Field(
+    time_marker: Literal["linear", "flashback", "unclear"] = Field(
         description="Detected temporal ordering cue for this chunk."
     )
 
