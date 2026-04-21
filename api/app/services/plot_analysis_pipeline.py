@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -109,7 +107,6 @@ class PlotAnalysisPipeline:
         self.stage_callback = stage_callback
         self.should_pause = should_pause
         self.storage_service = PlotAnalysisStorageService()
-        self._chunk_llm_semaphore = asyncio.Semaphore(1)
         self.graph = self._build_graph()
 
     async def run(
@@ -217,11 +214,10 @@ class PlotAnalysisPipeline:
             chunk_count=state["chunk_count"],
         )
 
-        async with self._chunk_llm_semaphore:
-            markdown = await self.llm_client.ainvoke_markdown(
-                model=self.chat_model,
-                prompt=prompt,
-            )
+        markdown = await self.llm_client.ainvoke_markdown(
+            model=self.chat_model,
+            prompt=prompt,
+        )
 
         await self.storage_service.write_chunk_analysis_artifact(
             state["job_id"],

@@ -112,13 +112,9 @@ class PlotAnalysisJobExecutor:
                 stage_callback=stage_callback,
                 should_pause=pause_event.is_set,
             )
-            # Plot analysis prompts are materially heavier than style analysis and
-            # some compatible OpenAI-style gateways reject even low-level bursty
-            # parallel calls with intermittent 403 responses. Run Plot Lab chunk
-            # analysis sequentially to keep live analysis stable.
             max_concurrency = max(
                 1,
-                min(get_settings().style_analysis_chunk_max_concurrency, 1, 32),
+                min(get_settings().style_analysis_chunk_max_concurrency, 32),
             )
             result = await pipeline.run(
                 job_id=job_id,

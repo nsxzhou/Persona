@@ -10,7 +10,7 @@ from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 
 
 @pytest.mark.asyncio
-async def test_plot_worker_caps_chunk_concurrency_to_one(
+async def test_plot_worker_uses_configured_chunk_concurrency(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
@@ -84,6 +84,6 @@ async def test_plot_worker_caps_chunk_concurrency_to_one(
 
     processed = await service.process_next_pending(app_with_db.state.session_factory)
     assert processed is True
-    assert observed["max_concurrency"] == 1
+    assert observed["max_concurrency"] == 5
 
     get_settings.cache_clear()
