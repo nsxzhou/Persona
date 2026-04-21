@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.db.models import (
+    PlotAnalysisJob,
+    PlotProfile,
+    PlotSampleFile,
     Project,
     ProviderConfig,
     Session,
@@ -87,12 +90,12 @@ class AuthRepository:
     ) -> None:
         await session.execute(delete(Session).where(Session.token_hash == token_hash))
 
-    async def list_style_lab_cleanup_targets(
+    async def list_lab_cleanup_targets(
         self,
         session: AsyncSession,
         *,
         user_id: str | None = None,
-    ) -> tuple[list[str], list[str]]:
+    ) -> tuple[list[str], list[str], list[str], list[str]]:
         # 为了避免全量加载造成内存爆炸，此处仍使用 stream_scalars，但需要注意如果数据量极大，
         # 在上层调用时应该考虑分页或批处理。这里保留列表返回以适配上层接口，
         # 实际更优的做法是直接在数据库中进行级联删除，或者在此处引入 yield 分批返回。
@@ -112,13 +115,32 @@ class AuthRepository:
             job_stmt.execution_options(yield_per=1000)
         )
         
+        plot_sample_stmt = select(PlotSampleFile.storage_path)
+        if user_id is not None:
+            plot_sample_stmt = plot_sample_stmt.where(PlotSampleFile.user_id == user_id)
+        plot_sample_paths = await session.stream_scalars(
+            plot_sample_stmt.execution_options(yield_per=1000)
+        )
+
+        plot_job_stmt = select(PlotAnalysisJob.id)
+        if user_id is not None:
+            plot_job_stmt = plot_job_stmt.where(PlotAnalysisJob.user_id == user_id)
+        plot_job_ids = await session.stream_scalars(
+            plot_job_stmt.execution_options(yield_per=1000)
+        )
+
         return (
             [path async for path in sample_paths if path],
             [job_id async for job_id in job_ids if job_id],
+            [path async for path in plot_sample_paths if path],
+            [job_id async for job_id in plot_job_ids if job_id],
         )
 
     async def delete_all_account_data(self, session: AsyncSession, *, user_id: str) -> None:
         await session.execute(delete(Project).where(Project.user_id == user_id))
+        await session.execute(delete(PlotProfile).where(PlotProfile.user_id == user_id))
+        await session.execute(delete(PlotAnalysisJob).where(PlotAnalysisJob.user_id == user_id))
+        await session.execute(delete(PlotSampleFile).where(PlotSampleFile.user_id == user_id))
         await session.execute(delete(StyleProfile).where(StyleProfile.user_id == user_id))
         await session.execute(delete(StyleAnalysisJob).where(StyleAnalysisJob.user_id == user_id))
         await session.execute(delete(StyleSampleFile).where(StyleSampleFile.user_id == user_id))

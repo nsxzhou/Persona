@@ -8,6 +8,7 @@ from app.core.domain_errors import NotFoundError
 from app.db.models import Project
 from app.db.repositories.projects import ProjectRepository
 from app.schemas.projects import ProjectCreate, ProjectUpdate
+from app.services.plot_profiles import PlotProfileService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_profiles import StyleProfileService
 
@@ -18,10 +19,12 @@ class ProjectService:
         repository: ProjectRepository | None = None,
         provider_service: ProviderConfigService | None = None,
         style_profile_service: StyleProfileService | None = None,
+        plot_profile_service: PlotProfileService | None = None,
     ) -> None:
         self.repository = repository or ProjectRepository()
         self.provider_service = provider_service or ProviderConfigService()
         self.style_profile_service = style_profile_service or StyleProfileService()
+        self.plot_profile_service = plot_profile_service or PlotProfileService()
 
     async def list(
         self,
@@ -71,6 +74,12 @@ class ProjectService:
                 payload.style_profile_id,
                 user_id=resolved_user_id,
             )
+        if payload.plot_profile_id is not None:
+            await self.plot_profile_service.get_or_404(
+                session,
+                payload.plot_profile_id,
+                user_id=resolved_user_id,
+            )
         default_model = payload.default_model.strip() if payload.default_model else ""
         payload.default_provider_id = provider.id
         payload.default_model = default_model or provider.default_model
@@ -84,6 +93,7 @@ class ProjectService:
             default_provider_id=payload.default_provider_id,
             default_model=payload.default_model,
             style_profile_id=payload.style_profile_id,
+            plot_profile_id=payload.plot_profile_id,
             inspiration=payload.inspiration,
             world_building=payload.world_building,
             characters=payload.characters,
@@ -129,6 +139,16 @@ class ProjectService:
                     user_id=user_id,
                 )
             project.style_profile_id = style_profile_id
+
+        if "plot_profile_id" in data:
+            plot_profile_id = data.pop("plot_profile_id")
+            if plot_profile_id is not None:
+                await self.plot_profile_service.get_or_404(
+                    session,
+                    plot_profile_id,
+                    user_id=user_id,
+                )
+            project.plot_profile_id = plot_profile_id
 
         if "default_model" in data:
             default_model = (data.pop("default_model") or "").strip()

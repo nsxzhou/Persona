@@ -9,18 +9,20 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { WorkbenchTabs } from "@/components/workbench-tabs";
-import type { Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type { PlotProfileListItem, Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 export function ProjectWorkbench({
   project: initialProject,
   providers,
   styleProfiles,
+  plotProfiles,
   initialTab = "description",
   highlightedVolumeIndex = null,
 }: {
   project: Project;
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
   initialTab?: string;
   highlightedVolumeIndex?: number | null;
 }) {
@@ -63,6 +65,7 @@ export function ProjectWorkbench({
         project={initialProject}
         providers={providers}
         styleProfiles={styleProfiles}
+        plotProfiles={plotProfiles}
         onNameChange={setDisplayName}
         activeTab={activeTab}
         onActiveTabChange={setActiveTab}

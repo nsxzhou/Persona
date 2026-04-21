@@ -19,6 +19,7 @@ class ProjectCreate(BaseModel):
     default_provider_id: str
     default_model: str | None = None
     style_profile_id: str | None = None
+    plot_profile_id: str | None = None
     # Blueprint layer
     inspiration: str = ""
     world_building: str = ""
@@ -39,6 +40,7 @@ class ProjectUpdate(BaseModel):
     default_provider_id: str | None = None
     default_model: str | None = None
     style_profile_id: str | None = None
+    plot_profile_id: str | None = None
     inspiration: str | None = None
     world_building: str | None = None
     characters: str | None = None
@@ -60,6 +62,7 @@ class ProjectResponse(BaseModel):
     default_provider_id: str
     default_model: str
     style_profile_id: str | None
+    plot_profile_id: str | None
     inspiration: str
     world_building: str
     characters: str
@@ -87,6 +90,7 @@ class ProjectSummaryResponse(BaseModel):
     default_provider_id: str
     default_model: str
     style_profile_id: str | None
+    plot_profile_id: str | None
     length_preset: str
     archived_at: datetime | None
     created_at: datetime

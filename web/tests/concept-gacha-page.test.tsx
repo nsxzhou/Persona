@@ -75,6 +75,17 @@ describe("ConceptGachaPage", () => {
             updated_at: "2026-04-09T00:00:00Z",
           },
         ]}
+        plotProfiles={[
+          {
+            id: "plot-1",
+            provider_id: "provider-1",
+            model_name: "gpt-4.1-mini",
+            source_filename: "sample.txt",
+            plot_name: "反派修罗场模板",
+            created_at: "2026-04-09T00:00:00Z",
+            updated_at: "2026-04-09T00:00:00Z",
+          },
+        ]}
       />,
     );
 
@@ -98,6 +109,8 @@ describe("ConceptGachaPage", () => {
 
     fireEvent.click(screen.getByRole("combobox", { name: "风格档案" }));
     fireEvent.click(await screen.findByRole("option", { name: "午夜霓虹档案" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "情节档案" }));
+    fireEvent.click(await screen.findByRole("option", { name: "反派修罗场模板" }));
 
     fireEvent.click(screen.getByRole("button", { name: "确认选择" }));
 
@@ -107,6 +120,7 @@ describe("ConceptGachaPage", () => {
           name: "纸上王朝",
           description: "一段足够长的项目简介，用于创建项目。",
           style_profile_id: "profile-1",
+          plot_profile_id: "plot-1",
         }),
       ),
     );

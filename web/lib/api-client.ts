@@ -15,6 +15,19 @@ import type {
   ProjectChapterUpdate,
   ProjectPayload,
   ProjectSummary,
+  PlotAnalysisJob,
+  PlotAnalysisJobCreatePayload,
+  PlotAnalysisJobListItem,
+  PlotAnalysisJobLogs,
+  PlotAnalysisJobStatusSnapshot,
+  PlotAnalysisMeta,
+  PlotAnalysisReportMarkdown,
+  PlotProfile,
+  PlotProfileCreatePayload,
+  PlotProfileListItem,
+  PlotProfileUpdatePayload,
+  PlotPromptPackMarkdown,
+  PlotSummaryMarkdown,
   ProviderConfig,
   ProviderPayload,
   SetupPayload,
@@ -222,6 +235,75 @@ export function createApiClient(request: Requester) {
       }),
     deleteStyleProfile: (id: string) =>
       request<void>(`/api/v1/style-profiles/${id}`, {
+        method: "DELETE",
+      }),
+    getPlotAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
+      const offset = params?.offset ?? 0;
+      const limit = params?.limit ?? 50;
+      return request<PlotAnalysisJobListItem[]>(
+        `/api/v1/plot-analysis-jobs?offset=${offset}&limit=${limit}`
+      );
+    },
+    getPlotAnalysisJobStatus: (id: string) =>
+      request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/status`),
+    getPlotAnalysisJob: (id: string) =>
+      request<PlotAnalysisJob>(`/api/v1/plot-analysis-jobs/${id}`),
+    getPlotAnalysisJobLogs: (id: string, offset = 0) =>
+      request<PlotAnalysisJobLogs>(`/api/v1/plot-analysis-jobs/${id}/logs?offset=${offset}`),
+    getPlotAnalysisJobAnalysisMeta: (id: string) =>
+      request<PlotAnalysisMeta>(`/api/v1/plot-analysis-jobs/${id}/analysis-meta`),
+    getPlotAnalysisJobAnalysisReport: (id: string) =>
+      request<PlotAnalysisReportMarkdown>(`/api/v1/plot-analysis-jobs/${id}/analysis-report`),
+    getPlotAnalysisJobPlotSummary: (id: string) =>
+      request<PlotSummaryMarkdown>(`/api/v1/plot-analysis-jobs/${id}/plot-summary`),
+    getPlotAnalysisJobPromptPack: (id: string) =>
+      request<PlotPromptPackMarkdown>(`/api/v1/plot-analysis-jobs/${id}/prompt-pack`),
+    resumePlotAnalysisJob: (id: string) =>
+      request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/resume`, {
+        method: "POST",
+      }),
+    pausePlotAnalysisJob: (id: string) =>
+      request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/pause`, {
+        method: "POST",
+      }),
+    deletePlotAnalysisJob: (id: string) =>
+      request<void>(`/api/v1/plot-analysis-jobs/${id}`, {
+        method: "DELETE",
+      }),
+    createPlotAnalysisJob: (payload: PlotAnalysisJobCreatePayload & { file: File }) => {
+      const formData = new FormData();
+      formData.append("plot_name", payload.plot_name);
+      formData.append("provider_id", payload.provider_id);
+      if (payload.model) {
+        formData.append("model", payload.model);
+      }
+      formData.append("file", payload.file);
+
+      return request<PlotAnalysisJobListItem>("/api/v1/plot-analysis-jobs", {
+        method: "POST",
+        body: formData,
+      });
+    },
+    getPlotProfiles: (params?: { offset?: number; limit?: number }) => {
+      const offset = params?.offset ?? 0;
+      const limit = params?.limit ?? 50;
+      return request<PlotProfileListItem[]>(
+        `/api/v1/plot-profiles?offset=${offset}&limit=${limit}`
+      );
+    },
+    getPlotProfile: (id: string) => request<PlotProfile>(`/api/v1/plot-profiles/${id}`),
+    createPlotProfile: (payload: PlotProfileCreatePayload) =>
+      request<PlotProfileListItem>("/api/v1/plot-profiles", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updatePlotProfile: (id: string, payload: PlotProfileUpdatePayload) =>
+      request<PlotProfileListItem>(`/api/v1/plot-profiles/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    deletePlotProfile: (id: string) =>
+      request<void>(`/api/v1/plot-profiles/${id}`, {
         method: "DELETE",
       }),
     completeEditor: (

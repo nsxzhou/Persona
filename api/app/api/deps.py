@@ -12,6 +12,8 @@ from app.db.session import get_db_session
 from app.services.auth import AuthService
 from app.services.editor import EditorService
 from app.services.llm_provider import LLMProviderService
+from app.services.plot_analysis_jobs import PlotAnalysisJobService
+from app.services.plot_profiles import PlotProfileService
 from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
@@ -107,6 +109,26 @@ StyleProfileServiceDep = Annotated[
 ]
 
 
+def get_plot_analysis_job_service() -> PlotAnalysisJobService:
+    return PlotAnalysisJobService()
+
+
+PlotAnalysisJobServiceDep = Annotated[
+    PlotAnalysisJobService,
+    Depends(get_plot_analysis_job_service),
+]
+
+
+def get_plot_profile_service() -> PlotProfileService:
+    return PlotProfileService()
+
+
+PlotProfileServiceDep = Annotated[
+    PlotProfileService,
+    Depends(get_plot_profile_service),
+]
+
+
 def get_llm_provider_service() -> LLMProviderService:
     return LLMProviderService()
 
@@ -121,12 +143,14 @@ def get_editor_service(
     llm_service: LLMProviderServiceDep,
     project_service: ProjectServiceDep,
     style_profile_service: StyleProfileServiceDep,
+    plot_profile_service: PlotProfileServiceDep,
     provider_config_service: ProviderConfigServiceDep,
 ) -> EditorService:
     return EditorService(
         llm_service=llm_service,
         project_service=project_service,
         style_profile_service=style_profile_service,
+        plot_profile_service=plot_profile_service,
         provider_config_service=provider_config_service,
     )
 

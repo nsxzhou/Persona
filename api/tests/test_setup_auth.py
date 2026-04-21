@@ -232,6 +232,8 @@ async def test_delete_account_cleans_style_lab_rows_and_sample_files(
 ) -> None:
     from app.core.config import get_settings
     from app.db.models import (
+        PlotAnalysisJob,
+        PlotSampleFile,
         Project,
         ProviderConfig,
         StyleAnalysisJob,
@@ -239,6 +241,7 @@ async def test_delete_account_cleans_style_lab_rows_and_sample_files(
         StyleSampleFile,
         User,
     )
+    from app.services.plot_analysis_storage import PlotAnalysisStorageService
     from app.services.style_analysis_storage import StyleAnalysisStorageService
 
     provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
@@ -257,10 +260,31 @@ async def test_delete_account_cleans_style_lab_rows_and_sample_files(
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / create_job_response.json()["id"]
     assert artifact_dir.exists() is True
 
+    create_plot_job_response = await initialized_client.post(
+        "/api/v1/plot-analysis-jobs",
+        data={"plot_name": "删除账号 Plot 验证", "provider_id": provider_id},
+        files={"file": ("sample.txt", "夜雨。".encode("utf-8"), "text/plain")},
+    )
+    assert create_plot_job_response.status_code == 201
+    plot_job = create_plot_job_response.json()
+    plot_sample_file_id = plot_job["sample_file"]["id"]
+    plot_sample_file_path = (
+        Path(get_settings().storage_dir) / "plot-samples" / f"{plot_sample_file_id}.txt"
+    )
+    assert plot_sample_file_path.exists() is True
+    plot_storage_service = PlotAnalysisStorageService()
+    await plot_storage_service.write_chunk_artifact(plot_job["id"], 0, "Plot 中间产物")
+    plot_artifact_dir = (
+        Path(get_settings().storage_dir) / "plot-analysis-artifacts" / plot_job["id"]
+    )
+    assert plot_artifact_dir.exists() is True
+
     delete_response = await initialized_client.delete("/api/v1/account")
     assert delete_response.status_code == 204
     assert sample_file_path.exists() is False
     assert artifact_dir.exists() is False
+    assert plot_sample_file_path.exists() is False
+    assert plot_artifact_dir.exists() is False
 
     setup_status_response = await initialized_client.get("/api/v1/setup/status")
     assert setup_status_response.status_code == 200
@@ -273,10 +297,12 @@ async def test_delete_account_cleans_style_lab_rows_and_sample_files(
         assert await session.scalar(select(func.count()).select_from(StyleAnalysisJob)) == 0
         assert await session.scalar(select(func.count()).select_from(StyleProfile)) == 0
         assert await session.scalar(select(func.count()).select_from(StyleSampleFile)) == 0
+        assert await session.scalar(select(func.count()).select_from(PlotAnalysisJob)) == 0
+        assert await session.scalar(select(func.count()).select_from(PlotSampleFile)) == 0
 
 
 @pytest.mark.asyncio
-async def test_list_style_lab_cleanup_targets_uses_stream_scalars() -> None:
+async def test_list_lab_cleanup_targets_uses_stream_scalars() -> None:
     from app.db.repositories.auth import AuthRepository
 
     class StreamResult:
@@ -302,10 +328,18 @@ async def test_list_style_lab_cleanup_targets_uses_stream_scalars() -> None:
             self.calls += 1
             if self.calls == 1:
                 return StreamResult(["/tmp/a.txt", "", None, "/tmp/b.txt"])
-            return StreamResult(["job-1", None, "job-2"])
+            if self.calls == 2:
+                return StreamResult(["job-1", None, "job-2"])
+            if self.calls == 3:
+                return StreamResult(["/tmp/plot-a.txt", "", None, "/tmp/plot-b.txt"])
+            return StreamResult(["plot-job-1", None, "plot-job-2"])
 
     repository = AuthRepository()
-    sample_paths, job_ids = await repository.list_style_lab_cleanup_targets(SessionStub())
+    sample_paths, job_ids, plot_sample_paths, plot_job_ids = await repository.list_lab_cleanup_targets(
+        SessionStub()
+    )
 
     assert sample_paths == ["/tmp/a.txt", "/tmp/b.txt"]
     assert job_ids == ["job-1", "job-2"]
+    assert plot_sample_paths == ["/tmp/plot-a.txt", "/tmp/plot-b.txt"]
+    assert plot_job_ids == ["plot-job-1", "plot-job-2"]

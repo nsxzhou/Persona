@@ -15,6 +15,7 @@ from app.core.security import (
 from app.core.domain_errors import ConflictError, ForbiddenError, UnauthorizedError
 from app.db.models import Session, User
 from app.db.repositories.auth import AuthRepository
+from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 
 
@@ -118,19 +119,25 @@ class AuthService:
         )
 
     async def delete_account(self, session: AsyncSession, *, user_id: str) -> None:
-        sample_storage_paths, artifact_job_ids = (
-            await self.repository.list_style_lab_cleanup_targets(
-                session,
-                user_id=user_id,
-            )
-        )
+        (
+            sample_storage_paths,
+            artifact_job_ids,
+            plot_sample_storage_paths,
+            plot_artifact_job_ids,
+        ) = await self.repository.list_lab_cleanup_targets(session, user_id=user_id)
         await self.repository.delete_all_account_data(session, user_id=user_id)
         storage_service = StyleAnalysisStorageService()
+        plot_storage_service = PlotAnalysisStorageService()
         for storage_path in sample_storage_paths:
             try:
                 Path(storage_path).unlink(missing_ok=True)
             except OSError:
                 # File cleanup failures should not block DB commit.
+                continue
+        for storage_path in plot_sample_storage_paths:
+            try:
+                Path(storage_path).unlink(missing_ok=True)
+            except OSError:
                 continue
 
         if artifact_job_ids:
@@ -145,3 +152,16 @@ class AuthService:
             async with asyncio.TaskGroup() as tg:
                 for job_id in artifact_job_ids:
                     tg.create_task(_cleanup(job_id))
+
+        if plot_artifact_job_ids:
+            import asyncio
+
+            sem = asyncio.Semaphore(20)
+
+            async def _cleanup_plot(job_id: str) -> None:
+                async with sem:
+                    await plot_storage_service.cleanup_job_artifacts(job_id)
+
+            async with asyncio.TaskGroup() as tg:
+                for job_id in plot_artifact_job_ids:
+                    tg.create_task(_cleanup_plot(job_id))

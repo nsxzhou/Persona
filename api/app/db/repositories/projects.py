@@ -16,6 +16,7 @@ _SUMMARY_COLUMNS = (
     Project.default_provider_id,
     Project.default_model,
     Project.style_profile_id,
+    Project.plot_profile_id,
     Project.length_preset,
     Project.archived_at,
     Project.created_at,
@@ -103,6 +104,7 @@ class ProjectRepository:
         default_provider_id: str,
         default_model: str,
         style_profile_id: str | None,
+        plot_profile_id: str | None,
         inspiration: str,
         world_building: str,
         characters: str,
@@ -120,6 +122,7 @@ class ProjectRepository:
             default_provider_id=default_provider_id,
             default_model=default_model,
             style_profile_id=style_profile_id,
+            plot_profile_id=plot_profile_id,
             inspiration=inspiration,
             world_building=world_building,
             characters=characters,
@@ -150,6 +153,21 @@ class ProjectRepository:
         if project is None:
             return None
         project.style_profile_id = style_profile_id
+        await session.flush()
+        return project
+
+    async def set_plot_profile_id_by_project_id(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        plot_profile_id: str | None,
+        *,
+        user_id: str | None = None,
+    ) -> Project | None:
+        project = await self.get_by_id(session, project_id, user_id=user_id)
+        if project is None:
+            return None
+        project.plot_profile_id = plot_profile_id
         await session.flush()
         return project
 

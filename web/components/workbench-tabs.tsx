@@ -18,12 +18,19 @@ import {
   RECOMMENDED_PREREQUISITES,
   type BibleFieldKey,
 } from "@/lib/bible-fields";
-import type { Project, ProjectChapter, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type {
+  PlotProfileListItem,
+  Project,
+  ProjectChapter,
+  ProviderConfig,
+  StyleProfileListItem,
+} from "@/lib/types";
 
 interface WorkbenchTabsProps {
   project: Project;
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
   onNameChange?: (name: string) => void;
   activeTab?: string;
   onActiveTabChange?: (value: string) => void;
@@ -34,6 +41,7 @@ export function WorkbenchTabs({
   project,
   providers,
   styleProfiles,
+  plotProfiles,
   onNameChange,
   activeTab = "description",
   onActiveTabChange,
@@ -274,6 +282,7 @@ export function WorkbenchTabs({
           project={project}
           providers={providers}
           styleProfiles={styleProfiles}
+          plotProfiles={plotProfiles}
           onNameChange={onNameChange}
         />
       </TabsContent>

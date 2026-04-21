@@ -4,7 +4,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import ProviderConfig, StyleAnalysisJob, StyleProfile
+from app.db.models import (
+    PlotAnalysisJob,
+    PlotProfile,
+    ProviderConfig,
+    StyleAnalysisJob,
+    StyleProfile,
+)
 
 
 class ProviderConfigRepository:
@@ -98,7 +104,25 @@ class ProviderConfigRepository:
         if user_id is not None:
             style_profile_stmt = style_profile_stmt.where(StyleProfile.user_id == user_id)
         style_profile_ref = await session.scalar(style_profile_stmt.limit(1))
-        return style_profile_ref is not None
+        if style_profile_ref is not None:
+            return True
+
+        plot_job_stmt = select(PlotAnalysisJob.id).where(
+            PlotAnalysisJob.provider_id == provider_id
+        )
+        if user_id is not None:
+            plot_job_stmt = plot_job_stmt.where(PlotAnalysisJob.user_id == user_id)
+        plot_job_ref = await session.scalar(plot_job_stmt.limit(1))
+        if plot_job_ref is not None:
+            return True
+
+        plot_profile_stmt = select(PlotProfile.id).where(
+            PlotProfile.provider_id == provider_id
+        )
+        if user_id is not None:
+            plot_profile_stmt = plot_profile_stmt.where(PlotProfile.user_id == user_id)
+        plot_profile_ref = await session.scalar(plot_profile_stmt.limit(1))
+        return plot_profile_ref is not None
 
     async def delete(self, session: AsyncSession, provider: ProviderConfig) -> None:
         await session.delete(provider)

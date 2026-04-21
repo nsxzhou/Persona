@@ -21,20 +21,27 @@ import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
 import { createProjectAction } from "@/app/(workspace)/projects/actions";
 import { LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
-import type { ConceptItem, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type {
+  ConceptItem,
+  PlotProfileListItem,
+  ProviderConfig,
+  StyleProfileListItem,
+} from "@/lib/types";
 
 interface ConceptGachaPageProps {
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
 }
 
-export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageProps) {
+export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: ConceptGachaPageProps) {
   const router = useRouter();
   const enabledProviders = providers.filter((p) => p.is_enabled);
 
   const [providerId, setProviderId] = useState(enabledProviders[0]?.id ?? "");
   const [model, setModel] = useState("");
   const [styleProfileId, setStyleProfileId] = useState("__none__");
+  const [plotProfileId, setPlotProfileId] = useState("__none__");
   const [inspiration, setInspiration] = useState("");
   const [concepts, setConcepts] = useState<ConceptItem[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -94,6 +101,7 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
         default_provider_id: providerId,
         default_model: model.trim() || null,
         style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
+        plot_profile_id: plotProfileId === "__none__" ? null : plotProfileId,
         status: "draft",
         world_building: "",
         characters: "",
@@ -122,8 +130,8 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
         <h1 className="text-lg font-semibold">新建小说</h1>
       </div>
 
-      {/* Provider + Model + Style */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Provider + Model + Profiles */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="grid gap-2">
           <Label>AI 服务商</Label>
           <Select value={providerId} onValueChange={setProviderId}>
@@ -159,6 +167,22 @@ export function ConceptGachaPage({ providers, styleProfiles }: ConceptGachaPageP
               {styleProfiles.map((profile) => (
                 <SelectItem key={profile.id} value={profile.id}>
                   {profile.style_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="gacha-plot-profile">情节档案</Label>
+          <Select value={plotProfileId} onValueChange={setPlotProfileId}>
+            <SelectTrigger id="gacha-plot-profile" aria-label="情节档案" className="bg-background">
+              <SelectValue placeholder="选择情节档案" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">未挂载</SelectItem>
+              {plotProfiles.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.plot_name}
                 </SelectItem>
               ))}
             </SelectContent>

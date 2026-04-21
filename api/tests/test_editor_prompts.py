@@ -115,6 +115,18 @@ def test_creative_planning_sections_prefer_useful_detail_over_maximal_fill() -> 
         assert "内容丰富具体" not in prompt
 
 
+def test_non_planning_sections_ignore_plot_prompt() -> None:
+    prompt = build_section_system_prompt(
+        "world_building",
+        style_prompt="# Style Prompt\n风格约束\n",
+        plot_prompt="# Plot Prompt\n情节约束\n",
+        length_preset="long",
+    )
+
+    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Plot Prompt\n情节约束" not in prompt
+
+
 def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None:
     prompt = build_section_system_prompt("characters", length_preset="long")
 
@@ -137,6 +149,20 @@ def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() ->
     assert "阶段 Boss/核心对手" not in prompt
 
 
+def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
+    prompt = build_section_system_prompt(
+        "outline_master",
+        style_prompt="# Style Prompt\n风格约束\n",
+        plot_prompt="# Plot Prompt\n情节约束\n",
+        length_preset="long",
+    )
+
+    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Plot Prompt\n情节约束" in prompt
+    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
+    assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
+
+
 def test_outline_detail_prompt_prefers_driving_endings_over_forced_hooks() -> None:
     prompt = build_section_system_prompt("outline_detail", length_preset="long")
 
@@ -144,6 +170,45 @@ def test_outline_detail_prompt_prefers_driving_endings_over_forced_hooks() -> No
     assert "可以是悬念、反转、新压力、关系变化或阶段性兑现" in prompt
     assert "不必每章硬凹爆点" in prompt
     assert "每章结尾必须有一个让读者想翻下一章的悬念或爆点" not in prompt
+
+
+def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None:
+    prompt = build_volume_generate_system_prompt(
+        length_preset="long",
+        style_prompt="# Style Prompt\n风格约束\n",
+        plot_prompt="# Plot Prompt\n情节约束\n",
+    )
+
+    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Plot Prompt\n情节约束" in prompt
+    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
+    assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
+
+
+def test_volume_chapters_prompt_injects_plot_prompt_after_style_prompt() -> None:
+    prompt = build_volume_chapters_system_prompt(
+        style_prompt="# Style Prompt\n风格约束\n",
+        plot_prompt="# Plot Prompt\n情节约束\n",
+    )
+
+    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Plot Prompt\n情节约束" in prompt
+    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
+    assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
+
+
+def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
+    prompt = build_section_system_prompt(
+        "outline_detail",
+        style_prompt="# Style Prompt\n风格约束\n",
+        plot_prompt="# Plot Prompt\n情节约束\n",
+        length_preset="long",
+    )
+
+    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Plot Prompt\n情节约束" in prompt
+    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
+    assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
 
 
 def test_identity_swap_description_regression_is_passed_with_grounded_guardrails() -> None:

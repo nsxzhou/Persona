@@ -332,6 +332,7 @@ VALID_SECTIONS = frozenset(_SECTION_META.keys())
 def build_section_system_prompt(
     section: str,
     style_prompt: str | None = None,
+    plot_prompt: str | None = None,
     length_preset: LengthPresetKey = "long",
     regenerating: bool = False,
 ) -> str:
@@ -360,6 +361,9 @@ def build_section_system_prompt(
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
+        parts.append("\n\n---\n")
+    if plot_prompt and section in {"outline_master", "outline_detail"}:
+        parts.append(plot_prompt)
         parts.append("\n\n---\n")
     role_prefix = (
         "你是一位起点白金作家，正在为自己的新书只保留真正必要的设定"
@@ -442,6 +446,7 @@ _VOLUME_GENERATE_INSTRUCTIONS: dict[str, str] = {
 def build_volume_generate_system_prompt(
     length_preset: LengthPresetKey = "long",
     style_prompt: str | None = None,
+    plot_prompt: str | None = None,
     regenerating: bool = False,
 ) -> str:
     """构建卷级结构生成的系统提示词。"""
@@ -451,6 +456,9 @@ def build_volume_generate_system_prompt(
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
+        parts.append("\n\n---\n")
+    if plot_prompt:
+        parts.append(plot_prompt)
         parts.append("\n\n---\n")
     parts.append(
         "你是一位起点白金作家，正在为自己的长篇新书做分卷规划。\n\n"
@@ -497,12 +505,16 @@ _VOLUME_CHAPTERS_SYSTEM = (
 
 def build_volume_chapters_system_prompt(
     style_prompt: str | None = None,
+    plot_prompt: str | None = None,
     regenerating: bool = False,
 ) -> str:
     """构建单卷章节生成的系统提示词。"""
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
+        parts.append("\n\n---\n")
+    if plot_prompt:
+        parts.append(plot_prompt)
         parts.append("\n\n---\n")
     parts.append(_VOLUME_CHAPTERS_SYSTEM)
     if regenerating:

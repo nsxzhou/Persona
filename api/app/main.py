@@ -18,6 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (
     auth,
     editor,
+    plot_analysis_jobs,
+    plot_profiles,
     project_chapters,
     projects,
     provider_configs,
@@ -35,6 +37,7 @@ from app.core.domain_errors import DomainError
 # create_session_factory: 创建数据库会话工厂
 from app.db.session import create_engine, create_session_factory
 from app.services.style_analysis_worker import StyleAnalysisWorkerService
+from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 from fastapi.responses import JSONResponse
 
 
@@ -50,7 +53,12 @@ def create_app(*, session_factory=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         worker_service = StyleAnalysisWorkerService()
+        plot_worker_service = PlotAnalysisWorkerService()
         await worker_service.fail_stale_running_jobs(
+            app.state.session_factory,
+            stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
+        )
+        await plot_worker_service.fail_stale_running_jobs(
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
         )
@@ -58,6 +66,7 @@ def create_app(*, session_factory=None) -> FastAPI:
             yield
         finally:
             await worker_service.aclose()
+            await plot_worker_service.aclose()
             if getattr(app.state, "owns_engine", False):
                 await app.state.engine.dispose()
 
@@ -119,6 +128,8 @@ def create_app(*, session_factory=None) -> FastAPI:
     app.include_router(editor.router, prefix="/api/v1")
     app.include_router(style_analysis_jobs.router, prefix="/api/v1")
     app.include_router(style_profiles.router, prefix="/api/v1")
+    app.include_router(plot_analysis_jobs.router, prefix="/api/v1")
+    app.include_router(plot_profiles.router, prefix="/api/v1")
 
     # 返回配置好的FastAPI应用实例
     return app
