@@ -10,6 +10,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.core.config import get_settings
 from app.schemas.plot_analysis_jobs import PlotAnalysisMeta
+from app.services import plot_analysis_pipeline as pipeline_module
 from app.services.plot_analysis_pipeline import PlotAnalysisPipeline
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 
@@ -37,6 +38,17 @@ def _sketch_json(chunk_index: int, chunk_count: int) -> str:
     )
 
 
+def _sketch_payload(chunk_index: int, chunk_count: int) -> dict:
+    return {
+        "chunk_index": chunk_index,
+        "chunk_count": chunk_count,
+        "characters_present": ["主角"],
+        "events": [f"chunk {chunk_index} 事件"],
+        "advancement": "setup",
+        "time_marker": "linear",
+    }
+
+
 class PipelineLLMStub:
     """Routes LLM calls to canned outputs based on prompt signatures.
 
@@ -47,6 +59,7 @@ class PipelineLLMStub:
     def __init__(self) -> None:
         self.sketch_prompts: list[str] = []
         self.skeleton_reduce_prompts: list[str] = []
+        self.skeleton_group_reduce_prompts: list[str] = []
         self.chunk_analysis_prompts: list[str] = []
         self.merge_prompts: list[str] = []
         self.report_prompts: list[str] = []
@@ -63,6 +76,10 @@ class PipelineLLMStub:
             assert match is not None, "sketch prompt must expose chunk_index/chunk_count"
             self.sketch_prompts.append(prompt)
             return _sketch_json(int(match.group(1)), int(match.group(2)))
+        if "Plot Lab 的骨架分组归并阶段" in prompt:
+            self.skeleton_group_reduce_prompts.append(prompt)
+            # Return a minimal sub-skeleton markdown that the final reducer will merge.
+            return "# 全书骨架\n## 阶段划分（按 chunk 索引）\n子骨架段落\n"
         if "Plot Lab 的全书骨架聚合阶段" in prompt:
             self.skeleton_reduce_prompts.append(prompt)
             return _SKELETON_MARKDOWN
@@ -252,4 +269,186 @@ async def test_pipeline_graph_tracks_stage_transitions_from_prepare_to_prompt_pa
         assert stage in observed_unique
     # Final call clears the stage.
     assert seen_stages[-1] is None
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_graph_builds_skeleton_via_hierarchical_reduce_when_above_threshold(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Force the hierarchical-reduce path by lowering the token threshold and
+    group size so a modest 5-chunk job splits into multiple groups + a final
+    reduce call.
+    """
+
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    # Thresholds exposed as module-level constants so we can force the path
+    # without constructing a gigantic sketch payload.
+    monkeypatch.setattr(pipeline_module, "SKELETON_HIERARCHICAL_TOKEN_THRESHOLD", 0)
+    monkeypatch.setattr(pipeline_module, "SKELETON_GROUP_SIZE", 2)
+
+    storage_service = PlotAnalysisStorageService()
+    job_id = "job-hierarchical"
+    chunk_count = 5
+    for index in range(chunk_count):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index} text")
+
+    client = PipelineLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+
+    result = await pipeline.run(
+        job_id=job_id,
+        chunk_count=chunk_count,
+        classification=_CLASSIFICATION,
+        max_concurrency=3,
+    )
+
+    # Five sketches at group_size=2 → ceil(5/2) = 3 sub-skeletons + 1 final reduce.
+    assert len(client.sketch_prompts) == chunk_count
+    expected_group_calls = -(-chunk_count // 2)  # ceil division
+    assert len(client.skeleton_group_reduce_prompts) == expected_group_calls
+    # Final reduce runs exactly once over the wrapped sub-skeletons.
+    assert len(client.skeleton_reduce_prompts) == 1
+    # Final reduce payload contains the sub_skeleton_index wrapper keys.
+    assert "sub_skeleton_index" in client.skeleton_reduce_prompts[0]
+
+    # Skeleton artifact written and threaded through the pipeline.
+    assert storage_service.stage_markdown_artifact_exists(job_id, name="plot-skeleton")
+    skeleton_md = await storage_service.read_stage_markdown_artifact(
+        job_id, name="plot-skeleton"
+    )
+    assert result.plot_skeleton_markdown == skeleton_md
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_graph_hierarchical_reduce_collapses_to_single_call_when_one_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the hierarchy would produce a single group, the short-circuit
+    must emit just one reduce call (no group-reduce, no double work).
+    """
+
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    monkeypatch.setattr(pipeline_module, "SKELETON_HIERARCHICAL_TOKEN_THRESHOLD", 0)
+    monkeypatch.setattr(pipeline_module, "SKELETON_GROUP_SIZE", 100)  # > chunk_count
+
+    storage_service = PlotAnalysisStorageService()
+    job_id = "job-hierarchical-single-group"
+    chunk_count = 3
+    for index in range(chunk_count):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index} text")
+
+    client = PipelineLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+
+    await pipeline.run(
+        job_id=job_id,
+        chunk_count=chunk_count,
+        classification=_CLASSIFICATION,
+        max_concurrency=3,
+    )
+
+    # Single-group hierarchy collapses: one reduce, no group-reduce calls.
+    assert len(client.skeleton_group_reduce_prompts) == 0
+    assert len(client.skeleton_reduce_prompts) == 1
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_graph_resumes_from_existing_sketch_artifacts_without_calling_sketch_llm(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Resume semantics: if sketch artifacts already exist on disk, the
+    sketch_chunk node must short-circuit and never hit the LLM sketch branch.
+    """
+
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    storage_service = PlotAnalysisStorageService()
+    job_id = "job-resume-sketches"
+    chunk_count = 3
+    for index in range(chunk_count):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index} text")
+        # Pre-populate all sketch artifacts so sketch_chunk resumes.
+        await storage_service.write_sketch_artifact(
+            job_id, index, _sketch_payload(index, chunk_count)
+        )
+
+    client = PipelineLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+
+    result = await pipeline.run(
+        job_id=job_id,
+        chunk_count=chunk_count,
+        classification=_CLASSIFICATION,
+        max_concurrency=3,
+    )
+
+    # Sketch LLM branch is never hit when artifacts pre-exist.
+    assert client.sketch_prompts == []
+    # Skeleton reduce still runs over the pre-existing sketches.
+    assert len(client.skeleton_reduce_prompts) == 1
+    # Downstream stages still execute normally.
+    assert len(client.chunk_analysis_prompts) == chunk_count
+    assert len(client.report_prompts) == 1
+    assert result.plot_skeleton_markdown == _SKELETON_MARKDOWN
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_graph_resumes_from_existing_skeleton_artifact_without_calling_reduce_llm(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Resume semantics: if ``plot-skeleton.md`` already exists on disk, the
+    build_skeleton node must short-circuit and never hit the reduce prompt.
+    """
+
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    storage_service = PlotAnalysisStorageService()
+    job_id = "job-resume-skeleton"
+    chunk_count = 2
+    for index in range(chunk_count):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index} text")
+        await storage_service.write_sketch_artifact(
+            job_id, index, _sketch_payload(index, chunk_count)
+        )
+    prebuilt_skeleton = (
+        "# 全书骨架\n"
+        f"## 阶段划分（按 chunk 索引）\n{_SKELETON_SIGNATURE} 预置骨架内容\n"
+    )
+    await storage_service.write_stage_markdown_artifact(
+        job_id, name="plot-skeleton", markdown=prebuilt_skeleton
+    )
+
+    client = PipelineLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+
+    result = await pipeline.run(
+        job_id=job_id,
+        chunk_count=chunk_count,
+        classification=_CLASSIFICATION,
+        max_concurrency=2,
+    )
+
+    # With both sketches and skeleton pre-populated, neither sketch nor
+    # skeleton-reduce LLM branches should fire.
+    assert client.sketch_prompts == []
+    assert client.skeleton_reduce_prompts == []
+    assert client.skeleton_group_reduce_prompts == []
+    # The pre-populated skeleton is threaded downstream verbatim.
+    assert result.plot_skeleton_markdown == prebuilt_skeleton
+    for chunk_prompt in client.chunk_analysis_prompts:
+        assert _SKELETON_SIGNATURE in chunk_prompt
     get_settings.cache_clear()

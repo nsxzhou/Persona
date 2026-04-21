@@ -8,6 +8,7 @@ from typing import Any, NotRequired, TypedDict
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
+from pydantic import ValidationError
 
 from app.db.models import ProviderConfig
 from app.schemas.plot_analysis_jobs import (
@@ -37,6 +38,16 @@ from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
 
 logger = logging.getLogger(__name__)
+
+
+# Hierarchical skeleton reduce triggers when the rough token estimate
+# of sketches exceeds this threshold. Tuned for a ~100K context budget
+# leaving headroom for prompt scaffolding. Module-level so tests can
+# monkeypatch it without synthesising gigantic sketch payloads.
+SKELETON_HIERARCHICAL_TOKEN_THRESHOLD = 80_000
+
+# Group size for the hierarchical group-reduce step. Also monkeypatch-able.
+SKELETON_GROUP_SIZE = 40
 
 
 class PlotAnalysisPauseRequested(Exception):
@@ -254,7 +265,16 @@ class PlotAnalysisPipeline:
         data["chunk_index"] = state["chunk_index"]
         data["chunk_count"] = state["chunk_count"]
 
-        sketch = PlotChunkSketch.model_validate(data)
+        try:
+            sketch = PlotChunkSketch.model_validate(data)
+        except ValidationError as exc:
+            await self.storage_service.append_job_log(
+                state["job_id"],
+                f"[LLM] sketch {state['chunk_index']+1}/{state['chunk_count']} 形状校验失败: {exc}"
+            )
+            raise RuntimeError(
+                f"Sketch chunk {state['chunk_index']} shape invalid"
+            ) from exc
         await self.storage_service.write_sketch_artifact(
             state["job_id"],
             state["chunk_index"],
@@ -286,7 +306,7 @@ class PlotAnalysisPipeline:
 
         # Hierarchical fallback heuristic: rough tokens ≈ sum(len(json.dumps(s))) / 3.
         rough_tokens = sum(len(json.dumps(s, ensure_ascii=False)) for s in sketches) // 3
-        if rough_tokens > 80_000:
+        if rough_tokens > SKELETON_HIERARCHICAL_TOKEN_THRESHOLD:
             await self.storage_service.append_job_log(
                 state["job_id"],
                 f"[System] sketch 规模过大 (~{rough_tokens} tokens)，启用分层归约 ..."
@@ -318,10 +338,20 @@ class PlotAnalysisPipeline:
         sketches: list[dict[str, Any]],
     ) -> str:
         # Group sketches into batches, reduce each into a sub-skeleton, then reduce all sub-skeletons.
-        group_size = 40
+        group_size = SKELETON_GROUP_SIZE
         groups: list[list[dict[str, Any]]] = [
             sketches[i:i + group_size] for i in range(0, len(sketches), group_size)
         ]
+        if len(groups) == 1:
+            # Only one group — degenerate hierarchy. Fall back to the single-call reduce.
+            return await self.llm_client.ainvoke_markdown(
+                model=self.chat_model,
+                prompt=build_skeleton_reduce_prompt(
+                    sketches=sketches,
+                    classification=state["classification"],
+                    chunk_count=state["chunk_count"],
+                ),
+            )
         sub_skeletons: list[str] = []
         for idx, group in enumerate(groups):
             self._raise_if_paused()
@@ -360,7 +390,12 @@ class PlotAnalysisPipeline:
         max_chunks = 1000
         if state["chunk_count"] > max_chunks:
             raise ValueError(f"切片数量超过上限 ({max_chunks})，请更换较小样本或增加切分阈值。")
-        plot_skeleton_markdown = state.get("plot_skeleton_markdown", "")
+        skeleton = state.get("plot_skeleton_markdown")
+        if not skeleton:
+            raise RuntimeError(
+                "plot_skeleton_markdown is required before routing chunks; "
+                "build_skeleton must run first."
+            )
         return [
             Send(
                 "analyze_chunk",
@@ -371,7 +406,7 @@ class PlotAnalysisPipeline:
                     "chunk_index": index,
                     "chunk_count": state["chunk_count"],
                     "classification": state["classification"],
-                    "plot_skeleton_markdown": plot_skeleton_markdown,
+                    "plot_skeleton_markdown": skeleton,
                 },
             )
             for index in range(state["chunk_count"])
