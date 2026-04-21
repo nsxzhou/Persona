@@ -299,6 +299,22 @@ class PlotAnalysisJobService:
             not_ready_detail="分析任务尚未完成，暂无法读取分析报告",
         )
 
+    async def get_plot_skeleton_or_409(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> str:
+        return await self._get_payload_or_409(
+            session,
+            job_id,
+            user_id=user_id,
+            payload_column=PlotAnalysisJob.plot_skeleton_payload,
+            parser=str,
+            not_ready_detail="分析任务尚未完成，暂无法读取全书骨架",
+        )
+
     async def get_plot_summary_or_409(
         self,
         session: AsyncSession,
@@ -387,12 +403,14 @@ class PlotAnalysisJobService:
         analysis_report_payload: str,
         plot_summary_payload: str,
         prompt_pack_payload: str,
+        plot_skeleton_payload: str,
     ) -> None:
         job = await self.get_or_404(session, job_id)
         job.analysis_meta_payload = analysis_meta_payload
         job.analysis_report_payload = analysis_report_payload
         job.plot_summary_payload = plot_summary_payload
         job.prompt_pack_payload = prompt_pack_payload
+        job.plot_skeleton_payload = plot_skeleton_payload
         job.status = PLOT_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None
         job.error_message = None

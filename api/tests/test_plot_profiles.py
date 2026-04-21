@@ -30,6 +30,14 @@ def build_fake_plot_prompt_pack() -> str:
     )
 
 
+def build_fake_plot_skeleton() -> str:
+    return (
+        "# 全书骨架\n\n"
+        "## 主角线\n高压绑定 → 反截胡 → 关系失衡收束。\n\n"
+        "## 阶段节奏\n开局-推进-反转-收束。\n"
+    )
+
+
 async def create_succeeded_plot_job(
     *,
     initialized_client: AsyncClient,
@@ -50,6 +58,7 @@ async def create_succeeded_plot_job(
         "analysis_report_markdown": build_fake_plot_report(),
         "plot_summary_markdown": build_fake_plot_summary(plot_name),
         "prompt_pack_markdown": build_fake_plot_prompt_pack(),
+        "plot_skeleton_markdown": build_fake_plot_skeleton(),
     }
 
     async with app_with_db.state.session_factory() as session:
@@ -70,6 +79,7 @@ async def create_succeeded_plot_job(
             analysis_report_payload=detail["analysis_report_markdown"],
             plot_summary_payload=detail["plot_summary_markdown"],
             prompt_pack_payload=detail["prompt_pack_markdown"],
+            plot_skeleton_payload=detail["plot_skeleton_markdown"],
         )
         await session.commit()
 
@@ -348,3 +358,123 @@ def test_build_plot_profile_result_bundle_only_depends_on_new_payload_fields() -
     assert result_report == analysis_report
     assert result_summary == plot_summary
     assert result_prompt_pack == prompt_pack
+
+
+def test_build_plot_profile_response_payload_includes_skeleton_markdown() -> None:
+    from datetime import datetime
+
+    from app.api.assemblers import build_plot_profile_response_payload
+
+    now = datetime.now()
+    skeleton = build_fake_plot_skeleton()
+    profile = SimpleNamespace(
+        id="profile-1",
+        source_job_id="job-1",
+        provider_id="provider-1",
+        model_name="gpt-4.1-mini",
+        source_filename="sample.txt",
+        plot_name="反派修罗场推进模板",
+        analysis_report_payload=build_fake_plot_report(),
+        plot_summary_payload=build_fake_plot_summary("反派修罗场推进模板"),
+        prompt_pack_payload=build_fake_plot_prompt_pack(),
+        plot_skeleton_payload=skeleton,
+        created_at=now,
+        updated_at=now,
+    )
+    payload = build_plot_profile_response_payload(profile)
+    assert payload["plot_skeleton_markdown"] == skeleton
+
+
+def test_build_plot_job_detail_response_includes_skeleton_markdown() -> None:
+    from datetime import datetime
+
+    from app.api.assemblers import build_plot_job_detail_response
+
+    now = datetime.now()
+    skeleton = build_fake_plot_skeleton()
+    provider = SimpleNamespace(
+        id="provider-1",
+        label="provider",
+        default_model="gpt-4.1-mini",
+        base_url="https://api.example.test/v1",
+        is_enabled=True,
+    )
+    sample_file = SimpleNamespace(
+        id="sample-1",
+        original_filename="sample.txt",
+        content_type="text/plain",
+        byte_size=42,
+        character_count=100,
+        checksum_sha256="abc",
+        created_at=now,
+        updated_at=now,
+    )
+    job = SimpleNamespace(
+        id="job-1",
+        plot_name="反派修罗场推进模板",
+        provider_id="provider-1",
+        model_name="gpt-4.1-mini",
+        status="succeeded",
+        stage=None,
+        error_message=None,
+        started_at=now,
+        completed_at=now,
+        created_at=now,
+        updated_at=now,
+        pause_requested_at=None,
+        provider=provider,
+        sample_file=sample_file,
+        plot_profile_id=None,
+        plot_profile=None,
+        analysis_report_payload=build_fake_plot_report(),
+        plot_summary_payload=build_fake_plot_summary("反派修罗场推进模板"),
+        prompt_pack_payload=build_fake_plot_prompt_pack(),
+        plot_skeleton_payload=skeleton,
+    )
+    response = build_plot_job_detail_response(job)
+    assert response.plot_skeleton_markdown == skeleton
+
+
+@pytest.mark.asyncio
+async def test_get_plot_skeleton_or_409_returns_payload_when_succeeded(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    initialized_provider: dict[str, object],
+) -> None:
+    job_id, detail = await create_succeeded_plot_job(
+        initialized_client=initialized_client,
+        app_with_db=app_with_db,
+        plot_name="骨架读取成功",
+        provider_id=str(initialized_provider["id"]),
+        model_name=str(initialized_provider["default_model"]),
+    )
+
+    async with app_with_db.state.session_factory() as session:
+        skeleton = await PlotAnalysisJobService().get_plot_skeleton_or_409(
+            session, job_id
+        )
+    assert skeleton == detail["plot_skeleton_markdown"]
+
+
+@pytest.mark.asyncio
+async def test_get_plot_skeleton_or_409_raises_conflict_when_not_ready(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    initialized_provider: dict[str, object],
+) -> None:
+    from app.core.domain_errors import ConflictError
+
+    create_job_response = await initialized_client.post(
+        "/api/v1/plot-analysis-jobs",
+        data={
+            "plot_name": "骨架未就绪",
+            "provider_id": str(initialized_provider["id"]),
+        },
+        files={"file": ("sample.txt", "第一章 风雪夜归人".encode("utf-8"), "text/plain")},
+    )
+    assert create_job_response.status_code == 201
+    job_id = create_job_response.json()["id"]
+
+    async with app_with_db.state.session_factory() as session:
+        with pytest.raises(ConflictError):
+            await PlotAnalysisJobService().get_plot_skeleton_or_409(session, job_id)

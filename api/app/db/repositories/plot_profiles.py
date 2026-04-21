@@ -20,6 +20,7 @@ class PlotProfileCreateData:
     plot_summary_payload: str
     prompt_pack_payload: str
     user_id: str
+    plot_skeleton_payload: str | None = None
 
 
 class PlotProfileRepository:
@@ -37,6 +38,7 @@ class PlotProfileRepository:
                 defer(PlotProfile.analysis_report_payload),
                 defer(PlotProfile.plot_summary_payload),
                 defer(PlotProfile.prompt_pack_payload),
+                defer(PlotProfile.plot_skeleton_payload),
             )
             .order_by(PlotProfile.created_at.desc())
             .offset(offset)
@@ -122,6 +124,7 @@ class PlotProfileRepository:
             analysis_report_payload=data.analysis_report_payload,
             plot_summary_payload=data.plot_summary_payload,
             prompt_pack_payload=data.prompt_pack_payload,
+            plot_skeleton_payload=data.plot_skeleton_payload,
             user_id=data.user_id,
         )
         session.add(profile)

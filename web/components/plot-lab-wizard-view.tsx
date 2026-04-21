@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PlotLabWizardPromptPackStep } from "@/components/plot-lab-wizard-prompt-pack-step";
 import { PlotLabWizardReportStep } from "@/components/plot-lab-wizard-report-step";
+import { PlotLabWizardSkeletonStep } from "@/components/plot-lab-wizard-skeleton-step";
 import { PlotLabWizardSummaryStep } from "@/components/plot-lab-wizard-summary-step";
 import { PlotLabProfileView } from "@/components/plot-lab-profile-view";
 import { usePlotLabWizardLogic, isProcessingStatus } from "@/hooks/use-plot-lab-wizard-logic";
@@ -27,11 +28,12 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
     existingProfile,
     reportResource,
     summaryResource,
+    skeletonResource,
     promptPackResource,
     saveProfileMutation,
     resumeJobMutation,
     pauseJobMutation,
-    handleStep2Next,
+    handleStep3Next,
     handleSave,
     handleResume,
     handlePause,
@@ -101,14 +103,21 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
           <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
             {step > 2 ? <CheckCircle2 className="w-5 h-5" /> : 2}
           </div>
-          <span className={cn("text-sm font-medium", step >= 2 ? "text-foreground" : "text-muted-foreground")}>剧情摘要</span>
+          <span className={cn("text-sm font-medium", step >= 2 ? "text-foreground" : "text-muted-foreground")}>全书骨架</span>
         </div>
         <div className={cn("w-16 h-1 mx-2 rounded-full", step >= 3 ? "bg-primary" : "bg-muted")} />
         <div className="flex items-center gap-2">
           <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            3
+            {step > 3 ? <CheckCircle2 className="w-5 h-5" /> : 3}
           </div>
-          <span className={cn("text-sm font-medium", step >= 3 ? "text-foreground" : "text-muted-foreground")}>Plot Prompt</span>
+          <span className={cn("text-sm font-medium", step >= 3 ? "text-foreground" : "text-muted-foreground")}>剧情摘要</span>
+        </div>
+        <div className={cn("w-16 h-1 mx-2 rounded-full", step >= 4 ? "bg-primary" : "bg-muted")} />
+        <div className="flex items-center gap-2">
+          <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 4 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+            4
+          </div>
+          <span className={cn("text-sm font-medium", step >= 4 ? "text-foreground" : "text-muted-foreground")}>Plot Prompt</span>
         </div>
       </div>
 
@@ -129,6 +138,19 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
       ) : null}
 
       {step === 2 ? (
+        <PlotLabWizardSkeletonStep
+          job={job}
+          existingProfile={existingProfile}
+          skeletonMarkdown={skeletonResource.data}
+          isLoading={skeletonResource.isLoading}
+          isError={skeletonResource.isError}
+          errorMessage={skeletonResource.error?.message}
+          onBack={() => setStep(1)}
+          onNext={() => setStep(3)}
+        />
+      ) : null}
+
+      {step === 3 ? (
         <PlotLabWizardSummaryStep
           job={job}
           existingProfile={existingProfile}
@@ -137,12 +159,12 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
           isError={summaryResource.isError}
           errorMessage={summaryResource.error?.message}
           form={form}
-          onBack={() => setStep(1)}
-          onNext={handleStep2Next}
+          onBack={() => setStep(2)}
+          onNext={handleStep3Next}
         />
       ) : null}
 
-      {step === 3 ? (
+      {step === 4 ? (
         <PlotLabWizardPromptPackStep
           job={job}
           existingProfile={existingProfile}
@@ -154,7 +176,7 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
           mountProjectId={mountProjectId}
           setMountProjectId={setMountProjectId}
           form={form}
-          onBack={() => setStep(2)}
+          onBack={() => setStep(3)}
           onSave={handleSave}
           saving={saveProfileMutation.isPending}
         />

@@ -5,6 +5,7 @@ import * as React from "react";
 import { type PlotAnalysisJob, type PlotProfile } from "@/lib/types";
 
 import {
+  formatPlotStageLabel,
   isProcessingStatus,
   usePlotLabJobLogsQuery,
 } from "@/hooks/use-plot-lab-wizard-logic";
@@ -68,7 +69,7 @@ export const PlotLabWizardReportStep = React.memo(function PlotLabWizardReportSt
                 {pausing || job.pause_requested_at ? "暂停中..." : "暂停"}
               </Button>
             </div>
-            <CardDescription>当前阶段: {job.stage || "初始化"}</CardDescription>
+            <CardDescription>当前阶段: {formatPlotStageLabel(job.stage)}</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-hidden bg-[#1e1e1e] text-[#d4d4d4] font-mono text-sm">
             <ScrollArea ref={scrollAreaRef} className="h-full w-full">
@@ -88,7 +89,7 @@ export const PlotLabWizardReportStep = React.memo(function PlotLabWizardReportSt
       ) : job.status === "paused" ? (
         <Card className="border-muted-foreground/30 bg-muted/10">
           <CardContent className="pt-6 text-center">
-            <p>任务已暂停{job.stage ? `（停在阶段: ${job.stage}）` : ""}</p>
+            <p>任务已暂停{job.stage ? `（停在阶段: ${formatPlotStageLabel(job.stage)}）` : ""}</p>
             <div className="mt-4 flex justify-center">
               <Button onClick={onResume} disabled={resuming}>
                 {resuming ? "继续中..." : "继续任务"}

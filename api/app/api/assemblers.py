@@ -108,6 +108,7 @@ def build_plot_profile_response_payload(profile: PlotProfile) -> dict[str, Any]:
         "analysis_report_markdown": analysis_report_markdown,
         "plot_summary_markdown": plot_summary_markdown,
         "prompt_pack_markdown": prompt_pack_markdown,
+        "plot_skeleton_markdown": profile.plot_skeleton_payload,
         "created_at": profile.created_at,
         "updated_at": profile.updated_at,
     }
@@ -173,4 +174,5 @@ def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobRespo
         analysis_report_markdown=job.analysis_report_payload,
         plot_summary_markdown=job.plot_summary_payload,
         prompt_pack_markdown=job.prompt_pack_payload,
+        plot_skeleton_markdown=job.plot_skeleton_payload,
     )

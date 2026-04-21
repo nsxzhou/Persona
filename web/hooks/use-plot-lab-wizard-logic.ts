@@ -11,11 +11,29 @@ import { formSchema, makeEmptyFormValues, type FormValues } from "@/lib/validati
 import {
   type PlotAnalysisJobLogs,
   type PlotAnalysisJob,
+  type PlotAnalysisJobStage,
   type PlotProfile,
   type PlotAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 
-type WizardStep = 1 | 2 | 3;
+type WizardStep = 1 | 2 | 3 | 4;
+
+export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
+  preparing_input: "正在准备输入",
+  building_skeleton: "正在构建全书骨架",
+  analyzing_chunks: "正在分析章节",
+  aggregating: "正在聚合结果",
+  reporting: "正在生成报告",
+  summarizing: "正在生成摘要",
+  composing_prompt_pack: "正在组装 Prompt Pack",
+};
+
+export function formatPlotStageLabel(
+  stage: PlotAnalysisJobStage | string | null | undefined,
+): string {
+  if (!stage) return "初始化";
+  return PLOT_STAGE_LABELS[stage as PlotAnalysisJobStage] ?? stage;
+}
 
 type DetailResource<T> = {
   data: T | null;
@@ -118,6 +136,7 @@ function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) 
   const isCompletedAndNoProfile = Boolean(job && job.status === "succeeded" && !job.plot_profile_id);
   const needsReport = isCompletedAndNoProfile;
   const needsSummary = isCompletedAndNoProfile;
+  const needsSkeleton = isCompletedAndNoProfile;
   const needsPromptPack = isCompletedAndNoProfile;
 
   const reportQuery = useQuery({
@@ -132,24 +151,31 @@ function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) 
     enabled: needsSummary,
   });
 
+  const skeletonQuery = useQuery({
+    queryKey: plotLabQueryKeys.jobs.plotSkeleton(jobId),
+    queryFn: () => api.getPlotAnalysisJobPlotSkeleton(jobId),
+    enabled: needsSkeleton,
+  });
+
   const promptPackQuery = useQuery({
     queryKey: plotLabQueryKeys.jobs.promptPack(jobId),
     queryFn: () => api.getPlotAnalysisJobPromptPack(jobId),
     enabled: needsPromptPack,
   });
 
-  return { existingProfileQuery, reportQuery, summaryQuery, promptPackQuery };
+  return { existingProfileQuery, reportQuery, summaryQuery, skeletonQuery, promptPackQuery };
 }
 
 function mergeJobResources(
   job: PlotAnalysisJob | null,
   queries: ReturnType<typeof usePlotLabResourcesQueries>
 ) {
-  const { existingProfileQuery, reportQuery, summaryQuery, promptPackQuery } = queries;
+  const { existingProfileQuery, reportQuery, summaryQuery, skeletonQuery, promptPackQuery } = queries;
   const existingProfile = existingProfileQuery.data ?? null;
 
   const report = existingProfile?.analysis_report_markdown ?? reportQuery.data ?? null;
   const summary = existingProfile?.plot_summary_markdown ?? summaryQuery.data ?? null;
+  const skeleton = existingProfile?.plot_skeleton_markdown ?? skeletonQuery.data ?? null;
   const promptPack = existingProfile?.prompt_pack_markdown ?? promptPackQuery.data ?? null;
 
   const makeRes = (val: string | null, q: ReturnType<typeof useQuery>) => makeDetailResource<string>(val, {
@@ -162,6 +188,7 @@ function mergeJobResources(
     existingProfile,
     reportResource: makeRes(report, reportQuery),
     summaryResource: makeRes(summary, summaryQuery),
+    skeletonResource: makeRes(skeleton, skeletonQuery),
     promptPackResource: makeRes(promptPack, promptPackQuery),
   };
 }
@@ -274,7 +301,7 @@ function usePlotLabWizardState({
     mountProjectId,
     setMountProjectId,
     form,
-    handleStep2Next: () => setStep(3),
+    handleStep3Next: () => setStep(4),
   };
 }
 
@@ -375,7 +402,7 @@ export function usePlotLabWizardLogic(jobId: string) {
     summaryMarkdown: detail.summaryResource.data,
     promptPackMarkdown: detail.promptPackResource.data,
   });
-  const shouldLoadProjects = wizardState.step === 3 && !detail.existingProfile;
+  const shouldLoadProjects = wizardState.step === 4 && !detail.existingProfile;
   const { projects } = useMountableProjects(shouldLoadProjects);
   const saveProfileMutation = useSavePlotProfileMutation({
     job: detail.job,
@@ -394,6 +421,7 @@ export function usePlotLabWizardLogic(jobId: string) {
     existingProfile: detail.existingProfile,
     reportResource: detail.reportResource,
     summaryResource: detail.summaryResource,
+    skeletonResource: detail.skeletonResource,
     promptPackResource: detail.promptPackResource,
     projects,
     saveProfileMutation,

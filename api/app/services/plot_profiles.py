@@ -87,6 +87,12 @@ class PlotProfileService:
             raise ConflictError("仅已成功完成的分析任务可以保存为情节档案")
         resolved_user_id = user_id or job.user_id
 
+        skeleton_payload = (
+            payload.plot_skeleton_markdown
+            if payload.plot_skeleton_markdown is not None
+            else job.plot_skeleton_payload
+        )
+
         profile = await self.repository.create(
             session,
             data=PlotProfileCreateData(
@@ -98,6 +104,7 @@ class PlotProfileService:
                 analysis_report_payload=analysis_report,
                 plot_summary_payload=payload.plot_summary_markdown,
                 prompt_pack_payload=payload.prompt_pack_markdown,
+                plot_skeleton_payload=skeleton_payload,
                 user_id=resolved_user_id,
             ),
         )
@@ -121,6 +128,8 @@ class PlotProfileService:
         profile.plot_name = payload.plot_name
         profile.plot_summary_payload = payload.plot_summary_markdown
         profile.prompt_pack_payload = payload.prompt_pack_markdown
+        if payload.plot_skeleton_markdown is not None:
+            profile.plot_skeleton_payload = payload.plot_skeleton_markdown
         await self.repository.flush(session)
         await self._mount_project(
             session,

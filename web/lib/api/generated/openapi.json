@@ -2558,6 +2558,48 @@
         }
       }
     },
+    "/api/v1/plot-analysis-jobs/{job_id}/plot-skeleton": {
+      "get": {
+        "tags": [
+          "plot-analysis-jobs"
+        ],
+        "summary": "Get Plot Analysis Job Plot Skeleton",
+        "operationId": "get_plot_analysis_job_plot_skeleton_api_v1_plot_analysis_jobs__job_id__plot_skeleton_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotSkeletonMarkdown"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/plot-profiles": {
       "get": {
         "tags": [
@@ -3402,6 +3444,7 @@
                 "type": "string",
                 "enum": [
                   "preparing_input",
+                  "building_skeleton",
                   "analyzing_chunks",
                   "aggregating",
                   "reporting",
@@ -3570,6 +3613,7 @@
                 "type": "string",
                 "enum": [
                   "preparing_input",
+                  "building_skeleton",
                   "analyzing_chunks",
                   "aggregating",
                   "reporting",
@@ -3699,6 +3743,17 @@
               }
             ],
             "title": "Prompt Pack Markdown"
+          },
+          "plot_skeleton_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Skeleton Markdown"
           }
         },
         "type": "object",
@@ -3742,6 +3797,7 @@
                 "type": "string",
                 "enum": [
                   "preparing_input",
+                  "building_skeleton",
                   "analyzing_chunks",
                   "aggregating",
                   "reporting",
@@ -3899,6 +3955,17 @@
             "type": "string",
             "minLength": 1,
             "title": "Prompt Pack Markdown"
+          },
+          "plot_skeleton_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Skeleton Markdown"
           }
         },
         "type": "object",
@@ -4043,6 +4110,17 @@
             "type": "string",
             "title": "Prompt Pack Markdown"
           },
+          "plot_skeleton_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Skeleton Markdown"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4098,6 +4176,17 @@
             "type": "string",
             "minLength": 1,
             "title": "Prompt Pack Markdown"
+          },
+          "plot_skeleton_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Skeleton Markdown"
           }
         },
         "type": "object",
@@ -4177,6 +4266,12 @@
           "updated_at"
         ],
         "title": "PlotSampleFileResponse"
+      },
+      "PlotSkeletonMarkdown": {
+        "type": "string",
+        "minLength": 1,
+        "title": "PlotSkeletonMarkdown",
+        "description": "Markdown plot skeleton providing whole-book context for chunk analysis."
       },
       "PlotSummaryMarkdown": {
         "type": "string",

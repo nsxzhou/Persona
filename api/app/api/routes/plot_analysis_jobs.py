@@ -14,6 +14,7 @@ from app.schemas.plot_analysis_jobs import (
     PlotAnalysisMeta,
     PlotAnalysisReportMarkdown,
     PlotPromptPackMarkdown,
+    PlotSkeletonMarkdown,
     PlotSummaryMarkdown,
 )
 from app.services.style_analysis_text import clean_and_decode_upload
@@ -191,6 +192,20 @@ async def get_plot_analysis_job_prompt_pack(
     job_service: PlotAnalysisJobServiceDep,
 ) -> str:
     return await job_service.get_prompt_pack_or_409(
+        db_session,
+        job_id,
+        user_id=current_user.id,
+    )
+
+
+@router.get("/{job_id}/plot-skeleton", response_model=PlotSkeletonMarkdown)
+async def get_plot_analysis_job_plot_skeleton(
+    job_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    job_service: PlotAnalysisJobServiceDep,
+) -> str:
+    return await job_service.get_plot_skeleton_or_409(
         db_session,
         job_id,
         user_id=current_user.id,

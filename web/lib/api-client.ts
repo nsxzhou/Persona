@@ -27,6 +27,7 @@ import type {
   PlotProfileListItem,
   PlotProfileUpdatePayload,
   PlotPromptPackMarkdown,
+  PlotSkeletonMarkdown,
   PlotSummaryMarkdown,
   ProviderConfig,
   ProviderPayload,
@@ -256,6 +257,8 @@ export function createApiClient(request: Requester) {
       request<PlotAnalysisReportMarkdown>(`/api/v1/plot-analysis-jobs/${id}/analysis-report`),
     getPlotAnalysisJobPlotSummary: (id: string) =>
       request<PlotSummaryMarkdown>(`/api/v1/plot-analysis-jobs/${id}/plot-summary`),
+    getPlotAnalysisJobPlotSkeleton: (id: string) =>
+      request<PlotSkeletonMarkdown>(`/api/v1/plot-analysis-jobs/${id}/plot-skeleton`),
     getPlotAnalysisJobPromptPack: (id: string) =>
       request<PlotPromptPackMarkdown>(`/api/v1/plot-analysis-jobs/${id}/prompt-pack`),
     resumePlotAnalysisJob: (id: string) =>

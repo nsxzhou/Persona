@@ -304,6 +304,7 @@ class PlotAnalysisJobExecutor:
                 analysis_report_payload=result.analysis_report_markdown,
                 plot_summary_payload=result.plot_summary_markdown,
                 prompt_pack_payload=result.prompt_pack_markdown,
+                plot_skeleton_payload=result.plot_skeleton_markdown,
             )
             await session.commit()
 

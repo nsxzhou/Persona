@@ -31,6 +31,13 @@ class PlotAnalysisReportMarkdown(RootModel[str]):
     )
 
 
+class PlotSkeletonMarkdown(RootModel[str]):
+    root: str = Field(
+        min_length=1,
+        description="Markdown plot skeleton providing whole-book context for chunk analysis.",
+    )
+
+
 class PlotSummaryMarkdown(RootModel[str]):
     root: str = Field(
         min_length=1,
@@ -58,6 +65,25 @@ class PlotChunkAnalysis(BaseModel):
     chunk_index: int = Field(ge=0, description="Zero-based chunk index.")
     chunk_count: int = Field(ge=1, description="Total number of chunks in this analysis job.")
     markdown: str = Field(min_length=1, description="Markdown chunk analysis.")
+
+
+class PlotChunkSketch(BaseModel):
+    """Lightweight sketch of a single chunk produced by the pre-pass used to build the plot skeleton."""
+
+    chunk_index: int = Field(ge=0, description="Zero-based chunk index.")
+    chunk_count: int = Field(ge=1, description="Total number of chunks in this analysis job.")
+    characters_present: list[str] = Field(
+        description="Names of characters present or mentioned in the chunk."
+    )
+    events: list[str] = Field(
+        description="Short event descriptions capturing what happens in the chunk."
+    )
+    advancement: Literal["setup", "payoff", "transition", "interlude"] = Field(
+        description="Narrative advancement role played by this chunk in the overall arc."
+    )
+    time_marker: Literal["linear", "flashback", "unclear"] = Field(
+        description="Detected temporal ordering cue for this chunk."
+    )
 
 
 class PlotMergedAnalysis(BaseModel):
@@ -97,6 +123,7 @@ PLOT_ANALYSIS_JOB_STATUS_SUCCEEDED = "succeeded"
 PLOT_ANALYSIS_JOB_STATUS_FAILED = "failed"
 
 PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT = "preparing_input"
+PLOT_ANALYSIS_JOB_STAGE_BUILDING_SKELETON = "building_skeleton"
 PLOT_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS = "analyzing_chunks"
 PLOT_ANALYSIS_JOB_STAGE_AGGREGATING = "aggregating"
 PLOT_ANALYSIS_JOB_STAGE_REPORTING = "reporting"
@@ -106,6 +133,7 @@ PLOT_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK = "composing_prompt_pack"
 PlotAnalysisJobStatus: TypeAlias = Literal["pending", "running", "paused", "succeeded", "failed"]
 PlotAnalysisJobStage: TypeAlias = Literal[
     "preparing_input",
+    "building_skeleton",
     "analyzing_chunks",
     "aggregating",
     "reporting",
@@ -152,6 +180,7 @@ class PlotAnalysisJobResponse(PlotAnalysisJobBaseResponse):
     analysis_report_markdown: str | None = None
     plot_summary_markdown: str | None = None
     prompt_pack_markdown: str | None = None
+    plot_skeleton_markdown: str | None = None
 
 
 class PlotAnalysisJobStatusResponse(BaseModel):

@@ -420,6 +420,7 @@ class PlotAnalysisJob(TimestampMixin, Base):
     analysis_report_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     plot_summary_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt_pack_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plot_skeleton_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     locked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -476,6 +477,7 @@ class PlotProfile(TimestampMixin, Base):
     analysis_report_payload: Mapped[str] = mapped_column(Text, nullable=False)
     plot_summary_payload: Mapped[str] = mapped_column(Text, nullable=False)
     prompt_pack_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    plot_skeleton_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     source_job: Mapped["PlotAnalysisJob"] = relationship(
         back_populates="plot_profile"
