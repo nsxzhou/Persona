@@ -105,7 +105,7 @@ export function OutlineDetailTab({
           (text) => onChange(text),
         );
         if (generated) {
-          await api.updateProject(projectId, { outline_detail: generated });
+          await api.updateProjectBible(projectId, { outline_detail: generated });
         }
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "生成失败";
@@ -136,7 +136,7 @@ export function OutlineDetailTab({
         if (generated) {
           const finalValue = replaceVolumeChapters(value, volumeIndex, generated);
           onChange(finalValue);
-          await api.updateProject(projectId, { outline_detail: finalValue });
+          await api.updateProjectBible(projectId, { outline_detail: finalValue });
         }
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "生成失败";

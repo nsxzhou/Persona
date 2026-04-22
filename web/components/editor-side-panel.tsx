@@ -8,11 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { ChapterTree } from "@/components/chapter-tree";
 import { getProgress, LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
 import type { ParsedOutline } from "@/lib/outline-parser";
-import type { Project } from "@/lib/types";
+import type { Project, ProjectBible } from "@/lib/types";
 import { BIBLE_SECTION_META, type BibleFieldKey } from "@/lib/bible-fields";
 
 export function EditorSidePanel({
   project,
+  projectBible,
   contentLength,
   parsedOutline,
   currentChapter,
@@ -27,6 +28,7 @@ export function EditorSidePanel({
   mode = "navigation",
 }: {
   project: Project;
+  projectBible: ProjectBible;
   contentLength: number;
   parsedOutline: ParsedOutline;
   currentChapter: { volumeIndex: number; chapterIndex: number } | null;
@@ -42,25 +44,25 @@ export function EditorSidePanel({
 }) {
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     description: project.description,
-    world_building: project.world_building,
-    characters: project.characters,
-    outline_master: project.outline_master,
-    outline_detail: project.outline_detail,
-    runtime_state: project.runtime_state,
-    runtime_threads: project.runtime_threads,
+    world_building: projectBible.world_building,
+    characters: projectBible.characters,
+    outline_master: projectBible.outline_master,
+    outline_detail: projectBible.outline_detail,
+    runtime_state: projectBible.runtime_state,
+    runtime_threads: projectBible.runtime_threads,
   }));
 
   useEffect(() => {
     setFields({
       description: project.description,
-      world_building: project.world_building,
-      characters: project.characters,
-      outline_master: project.outline_master,
-      outline_detail: project.outline_detail,
-      runtime_state: project.runtime_state,
-      runtime_threads: project.runtime_threads,
+      world_building: projectBible.world_building,
+      characters: projectBible.characters,
+      outline_master: projectBible.outline_master,
+      outline_detail: projectBible.outline_detail,
+      runtime_state: projectBible.runtime_state,
+      runtime_threads: projectBible.runtime_threads,
     });
-  }, [project.description, project.world_building, project.characters, project.outline_master, project.outline_detail, project.runtime_state, project.runtime_threads]);
+  }, [project.description, projectBible.world_building, projectBible.characters, projectBible.outline_master, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads]);
 
   const [expandedFields, setExpandedFields] = useState<Set<BibleFieldKey>>(new Set());
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});

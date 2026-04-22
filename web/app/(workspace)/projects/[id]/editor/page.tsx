@@ -18,8 +18,14 @@ export default async function ZenEditorPage({
   const api = await getServerApi();
 
   let project;
+  let projectBible;
   try {
-    project = await api.getProject(id);
+    const [p, pb] = await Promise.all([
+      api.getProject(id),
+      api.getProjectBible(id)
+    ]);
+    project = p;
+    projectBible = pb;
   } catch {
     notFound();
   }
@@ -48,6 +54,7 @@ export default async function ZenEditorPage({
   return (
     <ZenEditorView 
       project={project} 
+      projectBible={projectBible}
       activeProfileName={activeProfileName} 
       initialChapterSelection={initialChapterSelection}
       initialIntent={initialIntent}

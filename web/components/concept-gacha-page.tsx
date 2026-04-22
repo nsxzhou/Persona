@@ -97,20 +97,13 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
       const project = await createProjectAction({
         name: selected.title,
         description: selected.synopsis,
-        inspiration: "",
         default_provider_id: providerId,
         default_model: model.trim() || null,
         style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
         plot_profile_id: plotProfileId === "__none__" ? null : plotProfileId,
         status: "draft",
-        world_building: "",
-        characters: "",
-        outline_master: "",
-        outline_detail: "",
-        runtime_state: "",
-        runtime_threads: "",
-        length_preset: lengthPreset,
         auto_sync_memory: false,
+        length_preset: lengthPreset,
       });
       router.replace(`/projects/${project.id}`);
     } catch (e: unknown) {

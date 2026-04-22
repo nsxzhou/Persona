@@ -17,8 +17,14 @@ export default async function ProjectDetailPage({
   const api = await getServerApi();
 
   let project;
+  let projectBible;
   try {
-    project = await api.getProject(id);
+    const [p, pb] = await Promise.all([
+      api.getProject(id),
+      api.getProjectBible(id),
+    ]);
+    project = p;
+    projectBible = pb;
   } catch {
     notFound();
   }
@@ -32,6 +38,7 @@ export default async function ProjectDetailPage({
   return (
     <ProjectWorkbench
       project={project}
+      projectBible={projectBible}
       providers={providers}
       styleProfiles={styleProfiles}
       plotProfiles={plotProfiles}

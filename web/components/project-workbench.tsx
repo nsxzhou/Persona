@@ -9,10 +9,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { WorkbenchTabs } from "@/components/workbench-tabs";
-import type { PlotProfileListItem, Project, ProviderConfig, StyleProfileListItem } from "@/lib/types";
+import type { PlotProfileListItem, Project, ProjectBible, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 export function ProjectWorkbench({
   project: initialProject,
+  projectBible: initialProjectBible,
   providers,
   styleProfiles,
   plotProfiles,
@@ -20,6 +21,7 @@ export function ProjectWorkbench({
   highlightedVolumeIndex = null,
 }: {
   project: Project;
+  projectBible: ProjectBible;
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
   plotProfiles: PlotProfileListItem[];
@@ -63,6 +65,7 @@ export function ProjectWorkbench({
       {/* Tab-based workbench */}
       <WorkbenchTabs
         project={initialProject}
+        projectBible={initialProjectBible}
         providers={providers}
         styleProfiles={styleProfiles}
         plotProfiles={plotProfiles}

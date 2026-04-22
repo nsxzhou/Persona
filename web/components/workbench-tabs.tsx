@@ -21,6 +21,7 @@ import {
 import type {
   PlotProfileListItem,
   Project,
+  ProjectBible,
   ProjectChapter,
   ProviderConfig,
   StyleProfileListItem,
@@ -28,6 +29,7 @@ import type {
 
 interface WorkbenchTabsProps {
   project: Project;
+  projectBible: ProjectBible;
   providers: ProviderConfig[];
   styleProfiles: StyleProfileListItem[];
   plotProfiles: PlotProfileListItem[];
@@ -39,6 +41,7 @@ interface WorkbenchTabsProps {
 
 export function WorkbenchTabs({
   project,
+  projectBible,
   providers,
   styleProfiles,
   plotProfiles,
@@ -50,12 +53,12 @@ export function WorkbenchTabs({
   // ---- Bible field state ----
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     description: project.description,
-    world_building: project.world_building,
-    characters: project.characters,
-    outline_master: project.outline_master,
-    outline_detail: project.outline_detail,
-    runtime_state: project.runtime_state,
-    runtime_threads: project.runtime_threads,
+    world_building: projectBible.world_building,
+    characters: projectBible.characters,
+    outline_master: projectBible.outline_master,
+    outline_detail: projectBible.outline_detail,
+    runtime_state: projectBible.runtime_state,
+    runtime_threads: projectBible.runtime_threads,
   }));
 
   // ---- AI generation ----
@@ -141,7 +144,11 @@ export function WorkbenchTabs({
         // Auto-save after generation
         if (generated) {
           try {
-            await api.updateProject(project.id, { [sectionKey]: generated });
+            if (sectionKey === "description") {
+              await api.updateProject(project.id, { [sectionKey]: generated });
+            } else {
+              await api.updateProjectBible(project.id, { [sectionKey]: generated });
+            }
           } catch {
             toast.error("自动保存失败");
           }
@@ -204,7 +211,11 @@ export function WorkbenchTabs({
       }
       saveTimers.current[field] = setTimeout(async () => {
         try {
-          await api.updateProject(project.id, { [field]: value });
+          if (field === "description") {
+            await api.updateProject(project.id, { [field]: value });
+          } else {
+            await api.updateProjectBible(project.id, { [field]: value });
+          }
         } catch {
           toast.error(`保存 ${field} 失败`);
         }
