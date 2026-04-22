@@ -228,7 +228,7 @@ test("plot lab wizard log polling carries next offset forward", async () => {
   apiMock.getPlotAnalysisJobStatus.mockResolvedValue({
     id: "job-1",
     status: "running",
-    stage: "analyzing_chunks",
+    stage: "analyzing_focus_chunks",
     error_message: null,
     updated_at: "2026-04-09T00:01:00Z",
   });

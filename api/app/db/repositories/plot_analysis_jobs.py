@@ -322,6 +322,78 @@ class PlotAnalysisJobRepository:
             )
         )
 
+    async def reconcile_stale_job(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        cutoff: datetime,
+        max_attempts: int,
+        running_status: str,
+        paused_status: str,
+        failed_status: str,
+        pending_status: str,
+        now: datetime,
+    ) -> bool:
+        stale_condition = (
+            (PlotAnalysisJob.id == job_id)
+            & (PlotAnalysisJob.status == running_status)
+            & (
+                func.coalesce(
+                    PlotAnalysisJob.last_heartbeat_at,
+                    PlotAnalysisJob.started_at,
+                )
+                < cutoff
+            )
+        )
+        pause_condition = stale_condition & (PlotAnalysisJob.pause_requested_at.is_not(None))
+
+        affected_rows = 0
+
+        result = await session.execute(
+            update(PlotAnalysisJob)
+            .where(pause_condition)
+            .values(
+                status=paused_status,
+                paused_at=now,
+                pause_requested_at=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+                attempt_count=case(
+                    (PlotAnalysisJob.attempt_count > 0, PlotAnalysisJob.attempt_count - 1),
+                    else_=0,
+                ),
+            )
+        )
+        affected_rows += result.rowcount or 0
+
+        result = await session.execute(
+            update(PlotAnalysisJob)
+            .where(
+                stale_condition,
+                PlotAnalysisJob.pause_requested_at.is_(None),
+            )
+            .values(
+                status=case(
+                    (PlotAnalysisJob.attempt_count >= max_attempts, failed_status),
+                    else_=pending_status,
+                ),
+                stage=None,
+                error_message=None,
+                started_at=None,
+                completed_at=case(
+                    (PlotAnalysisJob.attempt_count >= max_attempts, now),
+                    else_=None,
+                ),
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+            )
+        )
+        affected_rows += result.rowcount or 0
+        return affected_rows > 0
+
     async def create_sample_file(
         self,
         session: AsyncSession,

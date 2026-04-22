@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.redaction import redact_sensitive_text
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import PlotAnalysisJob
@@ -60,6 +61,14 @@ def _reset_job_to_pending(
     job.paused_at = paused_at
     if reset_attempts:
         job.attempt_count = 0
+
+
+def _normalize_utc_datetime(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 class PlotAnalysisJobService:
@@ -149,6 +158,13 @@ class PlotAnalysisJobService:
             user_id=user_id,
             include_payloads=False,
         )
+        if await self._reconcile_stale_job_if_needed(session, job):
+            job = await self.get_or_404(
+                session,
+                job_id,
+                user_id=user_id,
+                include_payloads=False,
+            )
         return PlotAnalysisJobStatusResponse(
             id=job.id,
             status=job.status,
@@ -241,7 +257,43 @@ class PlotAnalysisJobService:
             now=datetime.now(UTC),
         )
         await session.flush()
+        refreshed = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        await self._reconcile_stale_job_if_needed(session, refreshed)
         return await self.get_status_or_404(session, job_id, user_id=user_id)
+
+    async def _reconcile_stale_job_if_needed(
+        self,
+        session: AsyncSession,
+        job: PlotAnalysisJob,
+    ) -> bool:
+        if job.status != PLOT_ANALYSIS_JOB_STATUS_RUNNING:
+            return False
+        last_activity_at = _normalize_utc_datetime(job.last_heartbeat_at or job.started_at)
+        if last_activity_at is None:
+            return False
+        settings = get_settings()
+        cutoff = datetime.now(UTC) - timedelta(seconds=settings.style_analysis_stale_timeout_seconds)
+        if last_activity_at >= cutoff:
+            return False
+        reconciled = await self.repository.reconcile_stale_job(
+            session,
+            job.id,
+            cutoff=cutoff,
+            max_attempts=settings.style_analysis_max_attempts,
+            running_status=PLOT_ANALYSIS_JOB_STATUS_RUNNING,
+            paused_status=PLOT_ANALYSIS_JOB_STATUS_PAUSED,
+            failed_status=PLOT_ANALYSIS_JOB_STATUS_FAILED,
+            pending_status=PLOT_ANALYSIS_JOB_STATUS_PENDING,
+            now=datetime.now(UTC),
+        )
+        if reconciled:
+            await session.flush()
+        return reconciled
 
     async def _resolve_payload_result_or_409(
         self,

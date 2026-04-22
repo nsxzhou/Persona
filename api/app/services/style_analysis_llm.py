@@ -84,6 +84,17 @@ class EmptyMarkdownResponseError(ValueError):
     pass
 
 
+def _is_retryable_malformed_response_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    if isinstance(exc, AttributeError):
+        return "model_dump" in message
+    if isinstance(exc, TypeError):
+        return "null value for 'choices'" in message or "choices is null" in message
+    if isinstance(exc, KeyError):
+        return "choices" in message
+    return False
+
+
 class MarkdownLLMClient:
     def __init__(
         self,
@@ -112,12 +123,15 @@ class MarkdownLLMClient:
         *,
         model: Any,
         prompt: str,
+        provider: ProviderConfig | Any | None = None,
+        model_name: str | None = None,
     ) -> str:
         total_attempts = max(
             len(_EMPTY_RESPONSE_BACKOFF_SECONDS),
             len(_TRANSIENT_PERMISSION_BACKOFF_SECONDS),
         ) + 1
         last_diagnostics: dict[str, Any] | None = None
+        provider_base_url = getattr(provider, "base_url", None)
 
         for attempt in range(1, total_attempts + 1):
             try:
@@ -138,6 +152,38 @@ class MarkdownLLMClient:
                     )
                     await asyncio.sleep(_TRANSIENT_PERMISSION_BACKOFF_SECONDS[attempt - 1])
                     continue
+                raise
+            except (AttributeError, TypeError, KeyError) as exc:
+                if attempt < total_attempts and _is_retryable_malformed_response_error(exc):
+                    last_diagnostics = {
+                        "finish_reason": "malformed_response",
+                        "completion_tokens": None,
+                        "additional_keys": [],
+                        "response_metadata_keys": [],
+                        "error_type": type(exc).__name__,
+                    }
+                    logger.warning(
+                        "LLM gateway returned malformed response; retrying",
+                        extra={
+                            "attempt": attempt,
+                            "total_attempts": total_attempts,
+                            "provider_base_url": provider_base_url,
+                            "model_name": model_name,
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        },
+                    )
+                    await asyncio.sleep(_EMPTY_RESPONSE_BACKOFF_SECONDS[attempt - 1])
+                    continue
+                if _is_retryable_malformed_response_error(exc):
+                    last_diagnostics = {
+                        "finish_reason": "malformed_response",
+                        "completion_tokens": None,
+                        "additional_keys": [],
+                        "response_metadata_keys": [],
+                        "error_type": type(exc).__name__,
+                    }
+                    break
                 raise
             text, source, diagnostics = self._extract_markdown_text(result)
             last_diagnostics = diagnostics
@@ -188,10 +234,13 @@ class MarkdownLLMClient:
             extra={
                 "attempt": total_attempts,
                 "total_attempts": total_attempts,
+                "provider_base_url": provider_base_url,
+                "model_name": model_name,
                 "finish_reason": last_diagnostics["finish_reason"],
                 "completion_tokens": last_diagnostics["completion_tokens"],
                 "additional_keys": last_diagnostics["additional_keys"],
                 "response_metadata_keys": last_diagnostics["response_metadata_keys"],
+                "error_type": last_diagnostics.get("error_type"),
             },
         )
         raise EmptyMarkdownResponseError(message)
@@ -268,5 +317,6 @@ class MarkdownLLMClient:
             f"finish_reason={diagnostics['finish_reason']}, "
             f"completion_tokens={diagnostics['completion_tokens']}, "
             f"additional_keys={diagnostics['additional_keys']}, "
-            f"response_metadata_keys={diagnostics['response_metadata_keys']})"
+            f"response_metadata_keys={diagnostics['response_metadata_keys']}, "
+            f"error_type={diagnostics.get('error_type')})"
         )

@@ -287,6 +287,90 @@ class StyleAnalysisJobRepository:
             )
         )
 
+    async def reconcile_stale_job(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        cutoff: datetime,
+        max_attempts: int,
+        running_status: str,
+        paused_status: str,
+        failed_status: str,
+        pending_status: str,
+        now: datetime,
+    ) -> bool:
+        stale_condition = (
+            (StyleAnalysisJob.id == job_id)
+            & (StyleAnalysisJob.status == running_status)
+            & (
+                func.coalesce(
+                    StyleAnalysisJob.last_heartbeat_at,
+                    StyleAnalysisJob.started_at,
+                )
+                < cutoff
+            )
+        )
+        pause_condition = stale_condition & (StyleAnalysisJob.pause_requested_at.is_not(None))
+
+        affected_rows = 0
+
+        result = await session.execute(
+            update(StyleAnalysisJob)
+            .where(pause_condition)
+            .values(
+                status=paused_status,
+                paused_at=now,
+                pause_requested_at=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+                attempt_count=case(
+                    (StyleAnalysisJob.attempt_count > 0, StyleAnalysisJob.attempt_count - 1),
+                    else_=0,
+                ),
+            )
+        )
+        affected_rows += result.rowcount or 0
+
+        result = await session.execute(
+            update(StyleAnalysisJob)
+            .where(
+                stale_condition,
+                StyleAnalysisJob.pause_requested_at.is_(None),
+                StyleAnalysisJob.attempt_count >= max_attempts,
+            )
+            .values(
+                status=failed_status,
+                error_message="分析任务重试次数已用尽，请重新提交",
+                completed_at=now,
+                stage=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+            )
+        )
+        affected_rows += result.rowcount or 0
+
+        result = await session.execute(
+            update(StyleAnalysisJob)
+            .where(
+                stale_condition,
+                StyleAnalysisJob.pause_requested_at.is_(None),
+                StyleAnalysisJob.attempt_count < max_attempts,
+            )
+            .values(
+                status=pending_status,
+                stage=None,
+                error_message=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+            )
+        )
+        affected_rows += result.rowcount or 0
+        return affected_rows > 0
+
     async def create_sample_file(
         self,
         session: AsyncSession,

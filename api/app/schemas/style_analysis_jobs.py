@@ -101,8 +101,7 @@ STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT = "preparing_input"
 STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS = "analyzing_chunks"
 STYLE_ANALYSIS_JOB_STAGE_AGGREGATING = "aggregating"
 STYLE_ANALYSIS_JOB_STAGE_REPORTING = "reporting"
-STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING = "summarizing"
-STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK = "composing_prompt_pack"
+STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING = "postprocessing"
 
 StyleAnalysisJobStatus: TypeAlias = Literal["pending", "running", "paused", "succeeded", "failed"]
 StyleAnalysisJobStage: TypeAlias = Literal[
@@ -110,8 +109,7 @@ StyleAnalysisJobStage: TypeAlias = Literal[
     "analyzing_chunks",
     "aggregating",
     "reporting",
-    "summarizing",
-    "composing_prompt_pack",
+    "postprocessing",
 ]
 
 
@@ -150,6 +148,10 @@ class StyleAnalysisJobBaseResponse(BaseModel):
 
 class StyleAnalysisJobResponse(StyleAnalysisJobBaseResponse):
     style_profile: StyleProfileEmbeddedResponse | None = None
+    analysis_meta: AnalysisMeta | None = None
+    analysis_report_markdown: str | None = None
+    style_summary_markdown: str | None = None
+    prompt_pack_markdown: str | None = None
 
 
 class StyleAnalysisJobStatusResponse(BaseModel):

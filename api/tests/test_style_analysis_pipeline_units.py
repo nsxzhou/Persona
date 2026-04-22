@@ -375,6 +375,96 @@ async def test_structured_llm_client_retries_retryable_forbidden_gateway_errors(
 
 
 @pytest.mark.asyncio
+async def test_structured_llm_client_retries_malformed_responses_until_markdown_arrives(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            self.calls += 1
+            assert len(messages) == 1
+            if self.calls == 1:
+                raise AttributeError("'NoneType' object has no attribute 'model_dump'")
+            if self.calls == 2:
+                raise TypeError("Received response with null value for 'choices'.")
+            return AIMessage(content="# 最终成功\n正文")
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    model = FakeModel()
+    provider = SimpleNamespace(
+        base_url="https://api.example.test/v1",
+        api_key_encrypted="encrypted-key",
+    )
+    client = MarkdownLLMClient(
+        model_factory=lambda **_: model,
+        secret_decrypter=lambda value: value,
+    )
+
+    with caplog.at_level("WARNING", logger="app.services.style_analysis_llm"):
+        result = await client.ainvoke_markdown(
+            model=model,
+            prompt="生成报告",
+            provider=provider,
+            model_name="gpt-4.1-mini",
+        )
+
+    assert result == "# 最终成功\n正文"
+    assert model.calls == 3
+    assert "malformed response" in caplog.text.lower()
+    assert caplog.text.lower().count("malformed response") == 2
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_structured_llm_client_raises_empty_markdown_error_after_exhausting_malformed_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            self.calls += 1
+            assert len(messages) == 1
+            raise AttributeError("'NoneType' object has no attribute 'model_dump'")
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+
+    with pytest.raises(EmptyMarkdownResponseError) as exc_info:
+        await client.ainvoke_markdown(
+            model=model,
+            prompt="生成报告",
+            provider=SimpleNamespace(base_url="https://api.example.test/v1"),
+            model_name="gpt-4.1-mini",
+        )
+
+    message = str(exc_info.value)
+    assert "malformed_response" in message
+    assert "attempt=3/3" in message
+    assert model.calls == 3
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
 async def test_structured_llm_client_raises_diagnostic_error_when_all_attempts_are_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -544,8 +634,15 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
         def build_model(self, *, provider: object, model_name: str) -> object:
             return SimpleNamespace(provider=provider, model_name=model_name)
 
-        async def ainvoke_markdown(self, *, model: object, prompt: str) -> str:
-            del model, prompt
+        async def ainvoke_markdown(
+            self,
+            *,
+            model: object,
+            prompt: str,
+            provider: object | None = None,
+            model_name: str | None = None,
+        ) -> str:
+            del model, prompt, provider, model_name
             self.merge_calls += 1
             return build_chunk_markdown(f"merge-{self.merge_calls}")
 
@@ -580,3 +677,62 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
 
     assert client.merge_calls == 2
     assert merged["merged_analysis_markdown"].startswith("# 执行摘要")
+
+
+@pytest.mark.asyncio
+async def test_style_pipeline_sets_postprocessing_stage_for_summary_and_prompt_pack() -> None:
+    seen_stages: list[str | None] = []
+
+    class FakeClient:
+        def build_model(self, *, provider: object, model_name: str) -> object:
+            return SimpleNamespace(provider=provider, model_name=model_name)
+
+        async def ainvoke_markdown(
+            self,
+            *,
+            model: object,
+            prompt: str,
+            provider: object | None = None,
+            model_name: str | None = None,
+        ) -> str:
+            del model, provider, model_name
+            if "可编辑风格摘要" in prompt:
+                return "# 风格名称\n古龙风格实验\n"
+            if "全局可复用的 Markdown 风格母 prompt 包" in prompt:
+                return "# System Prompt\n保持冷峻克制\n"
+            raise AssertionError(f"unexpected prompt: {prompt[:80]}")
+
+    pipeline = StyleAnalysisPipeline(
+        provider=SimpleNamespace(base_url="https://api.example.test/v1", api_key_encrypted="encrypted"),
+        model_name="gpt-4.1-mini",
+        style_name="古龙风格实验",
+        source_filename="sample.txt",
+        llm_client=FakeClient(),
+        stage_callback=lambda stage: seen_stages.append(stage) or asyncio.sleep(0),
+    )
+
+    state = {
+        "job_id": "job-style-post",
+        "style_name": "古龙风格实验",
+        "source_filename": "sample.txt",
+        "model_name": "gpt-4.1-mini",
+        "chunk_count": 2,
+        "classification": {
+            "text_type": "章节正文",
+            "has_timestamps": False,
+            "has_speaker_labels": False,
+            "has_noise_markers": False,
+            "uses_batch_processing": True,
+            "location_indexing": "章节或段落位置",
+            "noise_notes": "未发现显著噪声。",
+        },
+        "analysis_report_markdown": "# 执行摘要\n报告\n",
+        "style_summary_markdown": "# 风格名称\n旧值\n",
+    }
+
+    summary_result = await pipeline._build_summary(state)
+    prompt_result = await pipeline._build_prompt_pack({**state, **summary_result})
+
+    assert summary_result["style_summary_markdown"].startswith("# 风格名称")
+    assert prompt_result["prompt_pack_markdown"].startswith("# System Prompt")
+    assert seen_stages == ["postprocessing", "postprocessing"]

@@ -125,21 +125,21 @@ PLOT_ANALYSIS_JOB_STATUS_FAILED = "failed"
 
 PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT = "preparing_input"
 PLOT_ANALYSIS_JOB_STAGE_BUILDING_SKELETON = "building_skeleton"
-PLOT_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS = "analyzing_chunks"
+PLOT_ANALYSIS_JOB_STAGE_SELECTING_FOCUS_CHUNKS = "selecting_focus_chunks"
+PLOT_ANALYSIS_JOB_STAGE_ANALYZING_FOCUS_CHUNKS = "analyzing_focus_chunks"
 PLOT_ANALYSIS_JOB_STAGE_AGGREGATING = "aggregating"
 PLOT_ANALYSIS_JOB_STAGE_REPORTING = "reporting"
-PLOT_ANALYSIS_JOB_STAGE_SUMMARIZING = "summarizing"
-PLOT_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK = "composing_prompt_pack"
+PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING = "postprocessing"
 
 PlotAnalysisJobStatus: TypeAlias = Literal["pending", "running", "paused", "succeeded", "failed"]
 PlotAnalysisJobStage: TypeAlias = Literal[
     "preparing_input",
     "building_skeleton",
-    "analyzing_chunks",
+    "selecting_focus_chunks",
+    "analyzing_focus_chunks",
     "aggregating",
     "reporting",
-    "summarizing",
-    "composing_prompt_pack",
+    "postprocessing",
 ]
 
 

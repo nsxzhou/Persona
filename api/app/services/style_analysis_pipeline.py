@@ -16,9 +16,8 @@ from app.schemas.style_analysis_jobs import (
     MergedAnalysis,
     STYLE_ANALYSIS_JOB_STAGE_AGGREGATING,
     STYLE_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS,
-    STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK,
+    STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING,
     STYLE_ANALYSIS_JOB_STAGE_REPORTING,
-    STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING,
 )
 from app.services.style_analysis_llm import MarkdownLLMClient
 from app.services.style_analysis_prompts import (
@@ -277,6 +276,8 @@ class StyleAnalysisPipeline:
         markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
             prompt=prompt,
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         # 将分析结果写入存储，供后续 merge 阶段读取
@@ -361,6 +362,8 @@ class StyleAnalysisPipeline:
                     chunk_analyses=merge_inputs,
                     classification=state["classification"],
                 ),
+                provider=self.provider,
+                model_name=self.model_name,
             )
             merged = MergedAnalysis(
                 classification=state["classification"],
@@ -404,6 +407,8 @@ class StyleAnalysisPipeline:
                 merged_analysis_markdown=state["merged_analysis_markdown"],
                 classification=state["classification"],
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -414,7 +419,7 @@ class StyleAnalysisPipeline:
     async def _build_summary(self, state: StyleAnalysisState) -> dict[str, Any]:
         """Distill the style summary (精简的风格特征) from the report."""
         self._raise_if_paused()
-        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_SUMMARIZING)
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING)
         await self.storage_service.append_job_log(
             state["job_id"],
             "[System] 正在提炼风格特征，生成摘要..."
@@ -434,6 +439,8 @@ class StyleAnalysisPipeline:
                 report_markdown=state["analysis_report_markdown"],
                 style_name=state["style_name"],
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         stripped = summary_markdown.lstrip()
@@ -455,7 +462,7 @@ class StyleAnalysisPipeline:
     async def _build_prompt_pack(self, state: StyleAnalysisState) -> dict[str, Any]:
         """Compose the final prompt pack combining report and summary."""
         self._raise_if_paused()
-        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK)
+        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING)
         await self.storage_service.append_job_log(
             state["job_id"],
             "[System] 正在构建最终的母 Prompt 包..."
@@ -475,6 +482,8 @@ class StyleAnalysisPipeline:
                 report_markdown=state["analysis_report_markdown"],
                 style_summary_markdown=state["style_summary_markdown"],
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         await self.storage_service.write_stage_markdown_artifact(

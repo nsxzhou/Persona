@@ -21,11 +21,11 @@ type WizardStep = 1 | 2 | 3 | 4;
 export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   preparing_input: "正在准备输入",
   building_skeleton: "正在构建全书骨架",
-  analyzing_chunks: "正在分析章节",
+  selecting_focus_chunks: "正在选择重点章节",
+  analyzing_focus_chunks: "正在分析重点章节",
   aggregating: "正在聚合结果",
   reporting: "正在生成报告",
-  summarizing: "正在生成摘要",
-  composing_prompt_pack: "正在组装 Prompt Pack",
+  postprocessing: "正在生成摘要与 Prompt Pack",
 };
 
 export function formatPlotStageLabel(

@@ -69,8 +69,15 @@ class PipelineLLMStub:
     def build_model(self, *, provider: object, model_name: str) -> object:
         return SimpleNamespace(provider=provider, model_name=model_name)
 
-    async def ainvoke_markdown(self, *, model: object, prompt: str) -> str:
-        del model
+    async def ainvoke_markdown(
+        self,
+        *,
+        model: object,
+        prompt: str,
+        provider: object | None = None,
+        model_name: str | None = None,
+    ) -> str:
+        del model, provider, model_name
         if "Plot Lab 的分块速写阶段" in prompt:
             match = re.search(r"chunk_index=(\d+), chunk_count=(\d+)", prompt)
             assert match is not None, "sketch prompt must expose chunk_index/chunk_count"
@@ -102,8 +109,16 @@ class PipelineLLMStub:
 
 
 class NoisyPromptPackLLMStub(PipelineLLMStub):
-    async def ainvoke_markdown(self, *, model: object, prompt: str) -> str:
+    async def ainvoke_markdown(
+        self,
+        *,
+        model: object,
+        prompt: str,
+        provider: object | None = None,
+        model_name: str | None = None,
+    ) -> str:
         if "Markdown 情节 prompt 包" in prompt:
+            del model, provider, model_name
             self.pack_prompts.append(prompt)
             return (
                 "好的，遵照您的要求。作为小说情节 prompt 编排器，我已基于您提供的完整 Plot Lab 分析报告和当前剧情摘要，"
@@ -130,7 +145,12 @@ class NoisyPromptPackLLMStub(PipelineLLMStub):
                 "# 无关说明\n"
                 "- 这部分不应被保留\n"
             )
-        return await super().ainvoke_markdown(model=model, prompt=prompt)
+        return await super().ainvoke_markdown(
+            model=model,
+            prompt=prompt,
+            provider=provider,
+            model_name=model_name,
+        )
 
 
 def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> PlotAnalysisPipeline:
@@ -318,26 +338,88 @@ async def test_pipeline_graph_tracks_stage_transitions_from_prepare_to_prompt_pa
     )
 
     # The skeleton stage is set by _prepare_input (first) and re-asserted by
-    # _build_skeleton. Then analyzing_chunks appears once per chunk (idempotent),
-    # followed by aggregating, reporting, summarizing, composing_prompt_pack.
+    # _build_skeleton. Then selecting_focus_chunks appears before chunk analysis,
+    # followed by aggregating, reporting, postprocessing.
     assert seen_stages[0] == "building_skeleton"
-    assert "analyzing_chunks" in seen_stages
+    assert "selecting_focus_chunks" in seen_stages
+    assert "analyzing_focus_chunks" in seen_stages
     # Stages are emitted in forward-progressing order — no stage that has
     # been seen may reappear after a later stage has shown up (idempotent same-stage
     # repetition is allowed).
     expected_order = [
         "building_skeleton",
-        "analyzing_chunks",
+        "selecting_focus_chunks",
+        "analyzing_focus_chunks",
         "aggregating",
         "reporting",
-        "summarizing",
-        "composing_prompt_pack",
+        "postprocessing",
     ]
     observed_unique = [s for s in seen_stages if s is not None]
     for stage in expected_order:
         assert stage in observed_unique
     # Final call clears the stage.
     assert seen_stages[-1] is None
+    get_settings.cache_clear()
+
+
+def test_select_focus_chunks_keeps_boundaries_and_payoffs() -> None:
+    pipeline = build_pipeline(PipelineLLMStub(), InMemorySaver())
+
+    selected = pipeline._select_focus_chunk_indexes(  # noqa: SLF001
+        chunk_count=8,
+        sketches=[
+            _sketch_payload(0, 8),
+            _sketch_payload(1, 8),
+            {**_sketch_payload(2, 8), "advancement": "transition"},
+            _sketch_payload(3, 8),
+            {**_sketch_payload(4, 8), "advancement": "payoff"},
+            _sketch_payload(5, 8),
+            _sketch_payload(6, 8),
+            _sketch_payload(7, 8),
+        ],
+        plot_skeleton_markdown=(
+            "# 全书骨架\n"
+            "## 阶段划分（按 chunk 索引）\n"
+            "- 启动期 chunk 0-1\n"
+            "- 拉升期 chunk 2-4\n"
+            "- 收束期 chunk 6-7\n\n"
+            "## 主线推进链\n"
+            "- 设伏 @chunk2 -> 兑现 @chunk4\n"
+        ),
+    )
+
+    assert 0 in selected
+    assert 7 in selected
+    assert 2 in selected
+    assert 4 in selected
+    assert len(selected) >= 5
+
+
+@pytest.mark.asyncio
+async def test_plot_pipeline_short_inputs_fall_back_to_full_chunk_analysis(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    storage_service = PlotAnalysisStorageService()
+    job_id = "job-short-fallback"
+    chunk_count = 2
+    for index in range(chunk_count):
+        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index} text")
+
+    client = PipelineLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+
+    await pipeline.run(
+        job_id=job_id,
+        chunk_count=chunk_count,
+        classification=_CLASSIFICATION,
+        max_concurrency=2,
+    )
+
+    assert len(client.chunk_analysis_prompts) == chunk_count
     get_settings.cache_clear()
 
 

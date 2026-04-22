@@ -18,11 +18,11 @@ from app.schemas.plot_analysis_jobs import (
     PlotChunkSketch,
     PlotMergedAnalysis,
     PLOT_ANALYSIS_JOB_STAGE_AGGREGATING,
-    PLOT_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS,
+    PLOT_ANALYSIS_JOB_STAGE_ANALYZING_FOCUS_CHUNKS,
     PLOT_ANALYSIS_JOB_STAGE_BUILDING_SKELETON,
-    PLOT_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK,
+    PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING,
     PLOT_ANALYSIS_JOB_STAGE_REPORTING,
-    PLOT_ANALYSIS_JOB_STAGE_SUMMARIZING,
+    PLOT_ANALYSIS_JOB_STAGE_SELECTING_FOCUS_CHUNKS,
 )
 from app.services.style_analysis_llm import MarkdownLLMClient
 from app.services.plot_analysis_prompts import (
@@ -73,6 +73,7 @@ class PlotAnalysisState(TypedDict):
     chunk_count: int
     classification: InputClassification
 
+    focus_chunk_indexes: NotRequired[list[int]]
     plot_skeleton_markdown: NotRequired[str]
     merged_analysis_markdown: NotRequired[str]
     analysis_report_markdown: NotRequired[str]
@@ -220,6 +221,7 @@ class PlotAnalysisPipeline:
         builder.add_node("prepare_input", self._prepare_input)
         builder.add_node("sketch_chunk", self._sketch_chunk)
         builder.add_node("build_skeleton", self._build_skeleton)
+        builder.add_node("select_focus_chunks", self._select_focus_chunks)
         builder.add_node("analyze_chunk", self._analyze_chunk)
         builder.add_node("merge_chunks", self._merge_chunks)
         builder.add_node("build_report", self._build_report)
@@ -230,7 +232,8 @@ class PlotAnalysisPipeline:
         builder.add_edge(START, "prepare_input")
         builder.add_conditional_edges("prepare_input", self._route_sketches, ["sketch_chunk"])
         builder.add_edge("sketch_chunk", "build_skeleton")
-        builder.add_conditional_edges("build_skeleton", self._route_chunks, ["analyze_chunk"])
+        builder.add_edge("build_skeleton", "select_focus_chunks")
+        builder.add_conditional_edges("select_focus_chunks", self._route_chunks, ["analyze_chunk"])
         builder.add_edge("analyze_chunk", "merge_chunks")
         builder.add_edge("merge_chunks", "build_report")
         builder.add_edge("build_report", "build_summary")
@@ -289,7 +292,12 @@ class PlotAnalysisPipeline:
             classification=state["classification"],
         )
 
-        raw = await self.llm_client.ainvoke_markdown(model=self.chat_model, prompt=prompt)
+        raw = await self.llm_client.ainvoke_markdown(
+            model=self.chat_model,
+            prompt=prompt,
+            provider=self.provider,
+            model_name=self.model_name,
+        )
 
         try:
             data = json.loads(raw)
@@ -364,6 +372,8 @@ class PlotAnalysisPipeline:
                     classification=state["classification"],
                     chunk_count=state["chunk_count"],
                 ),
+                provider=self.provider,
+                model_name=self.model_name,
             )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -392,6 +402,8 @@ class PlotAnalysisPipeline:
                     classification=state["classification"],
                     chunk_count=state["chunk_count"],
                 ),
+                provider=self.provider,
+                model_name=self.model_name,
             )
         sub_skeletons: list[str] = []
         for idx, group in enumerate(groups):
@@ -408,6 +420,8 @@ class PlotAnalysisPipeline:
                     group_count=len(groups),
                     classification=state["classification"],
                 ),
+                provider=self.provider,
+                model_name=self.model_name,
             )
             sub_skeletons.append(sub_md)
 
@@ -423,6 +437,8 @@ class PlotAnalysisPipeline:
                 classification=state["classification"],
                 chunk_count=state["chunk_count"],
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
         return final_md
 
@@ -438,6 +454,7 @@ class PlotAnalysisPipeline:
                 "build_skeleton must run first."
             )
         self._plot_skeleton_cache = skeleton
+        focus_chunk_indexes = set(state.get("focus_chunk_indexes", range(state["chunk_count"])))
         return [
             Send(
                 "analyze_chunk",
@@ -451,7 +468,64 @@ class PlotAnalysisPipeline:
                 },
             )
             for index in range(state["chunk_count"])
+            if index in focus_chunk_indexes
         ]
+
+    async def _select_focus_chunks(self, state: PlotAnalysisState) -> dict[str, Any]:
+        self._raise_if_paused()
+        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_SELECTING_FOCUS_CHUNKS)
+        sketches = await self.storage_service.read_all_sketches(state["job_id"])
+        focus_chunk_indexes = self._select_focus_chunk_indexes(
+            chunk_count=state["chunk_count"],
+            sketches=sketches,
+            plot_skeleton_markdown=state.get("plot_skeleton_markdown"),
+        )
+        await self.storage_service.append_job_log(
+            state["job_id"],
+            f"[System] 已选择 {len(focus_chunk_indexes)}/{state['chunk_count']} 个重点分块进行深分析..."
+        )
+        return {"focus_chunk_indexes": focus_chunk_indexes}
+
+    def _select_focus_chunk_indexes(
+        self,
+        *,
+        chunk_count: int,
+        sketches: list[dict[str, Any]],
+        plot_skeleton_markdown: str | None,
+    ) -> list[int]:
+        if chunk_count <= 3:
+            return list(range(chunk_count))
+
+        selected: set[int] = {0, max(0, chunk_count - 1)}
+
+        for sketch in sketches:
+            index = sketch.get("chunk_index")
+            if not isinstance(index, int):
+                continue
+            advancement = sketch.get("advancement")
+            if advancement in {"payoff", "transition"}:
+                selected.add(index)
+
+        if plot_skeleton_markdown:
+            for match in re.finditer(r"chunk\s*(\d+)(?:\s*-\s*(\d+))?|@chunk(\d+)", plot_skeleton_markdown):
+                start = match.group(1)
+                end = match.group(2)
+                single = match.group(3)
+                if single is not None:
+                    selected.add(int(single))
+                    continue
+                if start is None:
+                    continue
+                start_index = int(start)
+                end_index = int(end) if end is not None else start_index
+                selected.add(start_index)
+                selected.add(end_index)
+
+        if chunk_count > 4:
+            selected.add(chunk_count // 2)
+
+        clamped = sorted(index for index in selected if 0 <= index < chunk_count)
+        return clamped or list(range(chunk_count))
 
     async def _get_plot_skeleton_markdown(self, job_id: str) -> str:
         if self._plot_skeleton_cache is None:
@@ -463,7 +537,7 @@ class PlotAnalysisPipeline:
 
     async def _analyze_chunk(self, state: ChunkMapState) -> dict[str, Any]:
         self._raise_if_paused()
-        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_ANALYZING_CHUNKS)
+        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_ANALYZING_FOCUS_CHUNKS)
         await self.storage_service.append_job_log(
             state["job_id"],
             f"[LLM] 正在并行处理 分块 {state['chunk_index'] + 1}/{state['chunk_count']} ..."
@@ -484,6 +558,8 @@ class PlotAnalysisPipeline:
         markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
             prompt=prompt,
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         await self.storage_service.write_chunk_analysis_artifact(
@@ -549,6 +625,8 @@ class PlotAnalysisPipeline:
                     classification=state["classification"],
                     plot_skeleton=state.get("plot_skeleton_markdown"),
                 ),
+                provider=self.provider,
+                model_name=self.model_name,
             )
             merged = PlotMergedAnalysis(
                 classification=state["classification"],
@@ -584,6 +662,8 @@ class PlotAnalysisPipeline:
                 classification=state["classification"],
                 plot_skeleton=state.get("plot_skeleton_markdown"),
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -593,7 +673,7 @@ class PlotAnalysisPipeline:
 
     async def _build_summary(self, state: PlotAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()
-        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_SUMMARIZING)
+        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING)
         await self.storage_service.append_job_log(state["job_id"], "[System] 正在提炼情节特征，生成摘要...")
 
         if self.storage_service.stage_markdown_artifact_exists(state["job_id"], name="plot-summary"):
@@ -606,6 +686,8 @@ class PlotAnalysisPipeline:
                 report_markdown=state["analysis_report_markdown"],
                 plot_name=state["plot_name"],
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -615,7 +697,7 @@ class PlotAnalysisPipeline:
 
     async def _build_prompt_pack(self, state: PlotAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()
-        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_COMPOSING_PROMPT_PACK)
+        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING)
         await self.storage_service.append_job_log(state["job_id"], "[System] 正在构建最终的 Plot Prompt 包...")
 
         if self.storage_service.stage_markdown_artifact_exists(state["job_id"], name="prompt-pack"):
@@ -628,6 +710,8 @@ class PlotAnalysisPipeline:
                 report_markdown=state["analysis_report_markdown"],
                 plot_summary_markdown=state["plot_summary_markdown"],
             ),
+            provider=self.provider,
+            model_name=self.model_name,
         )
         prompt_pack_markdown = self._normalize_prompt_pack_markdown(prompt_pack_markdown)
 
