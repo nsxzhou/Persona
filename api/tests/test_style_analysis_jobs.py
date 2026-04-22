@@ -858,6 +858,78 @@ async def test_pause_running_stale_job_transitions_to_paused_immediately(
 
 
 @pytest.mark.asyncio
+async def test_get_status_confirms_unacknowledged_pause_after_timeout(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ANALYSIS_PAUSE_CONFIRM_TIMEOUT_SECONDS", "1")
+    get_settings.cache_clear()
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "暂停确认", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    pause_requested_at = datetime.now(UTC) - timedelta(seconds=5)
+    async with app_with_db.state.session_factory() as session:
+        job = await StyleAnalysisJobService().get_or_404(session, job_id)
+        job.status = "running"
+        job.stage = "analyzing_chunks"
+        job.locked_by = "dead-worker"
+        job.locked_at = pause_requested_at - timedelta(seconds=10)
+        job.last_heartbeat_at = pause_requested_at - timedelta(seconds=1)
+        job.pause_requested_at = pause_requested_at
+        job.attempt_count = 1
+        await session.commit()
+
+    status_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "paused"
+    assert status_response.json()["pause_requested_at"] is None
+
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_get_status_keeps_running_when_worker_heartbeats_after_pause_request(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ANALYSIS_PAUSE_CONFIRM_TIMEOUT_SECONDS", "1")
+    get_settings.cache_clear()
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": "活跃暂停确认", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    pause_requested_at = datetime.now(UTC) - timedelta(seconds=5)
+    async with app_with_db.state.session_factory() as session:
+        job = await StyleAnalysisJobService().get_or_404(session, job_id)
+        job.status = "running"
+        job.stage = "analyzing_chunks"
+        job.locked_by = "worker-a"
+        job.locked_at = pause_requested_at - timedelta(seconds=10)
+        job.last_heartbeat_at = pause_requested_at + timedelta(seconds=1)
+        job.pause_requested_at = pause_requested_at
+        job.attempt_count = 1
+        await session.commit()
+
+    status_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "running"
+    assert status_response.json()["pause_requested_at"] is not None
+
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
 async def test_get_status_reconciles_stale_running_job_back_to_pending(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,

@@ -90,6 +90,14 @@ class Settings(BaseSettings):
         default=300, alias="PERSONA_STYLE_ANALYSIS_STALE_TIMEOUT_SECONDS"
     )
 
+    # 用户请求暂停后，若 worker 没有继续 heartbeat，多久后自动确认暂停
+    analysis_pause_confirm_timeout_seconds: int = Field(
+        default=10,
+        ge=1,
+        le=120,
+        alias="PERSONA_ANALYSIS_PAUSE_CONFIRM_TIMEOUT_SECONDS",
+    )
+
     # Style Lab chunk 并发上限
     style_analysis_chunk_max_concurrency: int = Field(
         default=5,

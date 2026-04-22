@@ -66,7 +66,7 @@ export const PlotLabWizardReportStep = React.memo(function PlotLabWizardReportSt
                 正在分析中...
               </CardTitle>
               <Button variant="secondary" onClick={onPause} disabled={pausing || !!job.pause_requested_at}>
-                {pausing || job.pause_requested_at ? "暂停中..." : "暂停"}
+                {pausing || job.pause_requested_at ? "等待后台确认暂停..." : "暂停"}
               </Button>
             </div>
             <CardDescription>当前阶段: {formatPlotStageLabel(job.stage)}</CardDescription>

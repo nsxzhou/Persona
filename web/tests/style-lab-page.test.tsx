@@ -330,6 +330,27 @@ test("style lab wizard shows running stage feedback", async () => {
   expect(await screen.findByText("当前阶段: preparing_input")).toBeInTheDocument();
 });
 
+test("style lab wizard shows pause confirmation wording", async () => {
+  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
+    id: "job-1",
+    status: "running",
+    stage: "analyzing_chunks",
+    error_message: null,
+    updated_at: "2026-04-09T00:00:30Z",
+    pause_requested_at: "2026-04-09T00:00:31Z",
+  });
+  apiMock.getStyleAnalysisJob.mockResolvedValueOnce({
+    ...buildSucceededJob(),
+    status: "running",
+    stage: "analyzing_chunks",
+    pause_requested_at: "2026-04-09T00:00:31Z",
+  });
+
+  renderWizard();
+
+  expect(await screen.findByRole("button", { name: "等待后台确认暂停..." })).toBeDisabled();
+});
+
 test("style lab wizard shows backend failure message on terminal failed status", async () => {
   apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
     id: "job-1",

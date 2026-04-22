@@ -158,6 +158,13 @@ class PlotAnalysisJobService:
             user_id=user_id,
             include_payloads=False,
         )
+        if await self._reconcile_pause_request_if_unacknowledged(session, job):
+            job = await self.get_or_404(
+                session,
+                job_id,
+                user_id=user_id,
+                include_payloads=False,
+            )
         if await self._reconcile_stale_job_if_needed(session, job):
             job = await self.get_or_404(
                 session,
@@ -263,8 +270,38 @@ class PlotAnalysisJobService:
             user_id=user_id,
             include_payloads=False,
         )
+        await self._reconcile_pause_request_if_unacknowledged(session, refreshed)
         await self._reconcile_stale_job_if_needed(session, refreshed)
         return await self.get_status_or_404(session, job_id, user_id=user_id)
+
+    async def _reconcile_pause_request_if_unacknowledged(
+        self,
+        session: AsyncSession,
+        job: PlotAnalysisJob,
+    ) -> bool:
+        if job.status != PLOT_ANALYSIS_JOB_STATUS_RUNNING:
+            return False
+        pause_requested_at = _normalize_utc_datetime(job.pause_requested_at)
+        if pause_requested_at is None:
+            return False
+        settings = get_settings()
+        now = datetime.now(UTC)
+        if now - pause_requested_at < timedelta(
+            seconds=settings.analysis_pause_confirm_timeout_seconds
+        ):
+            return False
+        last_heartbeat_at = _normalize_utc_datetime(job.last_heartbeat_at)
+        if last_heartbeat_at is not None and last_heartbeat_at > pause_requested_at:
+            return False
+        await self.repository.mark_paused(
+            session,
+            job.id,
+            paused_status=PLOT_ANALYSIS_JOB_STATUS_PAUSED,
+            now=now,
+            stage=job.stage,
+        )
+        await session.flush()
+        return True
 
     async def _reconcile_stale_job_if_needed(
         self,

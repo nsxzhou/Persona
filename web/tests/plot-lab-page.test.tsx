@@ -263,6 +263,29 @@ test("plot lab wizard log polling carries next offset forward", async () => {
   }, { timeout: 4000 });
 });
 
+test("plot lab wizard shows pause confirmation wording", async () => {
+  apiMock.getPlotAnalysisJobStatus.mockResolvedValue({
+    id: "job-1",
+    status: "running",
+    stage: "analyzing_focus_chunks",
+    error_message: null,
+    updated_at: "2026-04-09T00:01:00Z",
+    pause_requested_at: "2026-04-09T00:01:01Z",
+  });
+  apiMock.getPlotAnalysisJob.mockResolvedValue({
+    ...buildSucceededJob({
+      status: "running",
+      completed_at: null,
+      updated_at: "2026-04-09T00:00:30Z",
+      pause_requested_at: "2026-04-09T00:01:01Z",
+    }),
+  });
+
+  renderWizard();
+
+  expect(await screen.findByRole("button", { name: "等待后台确认暂停..." })).toBeDisabled();
+});
+
 test("plot lab wizard keeps succeeded artifact queries stable across rerenders", async () => {
   apiMock.getPlotAnalysisJob.mockResolvedValue(buildSucceededJob());
 
