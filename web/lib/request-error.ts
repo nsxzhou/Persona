@@ -4,6 +4,18 @@ interface FastApiValidationItem {
   type?: string;
 }
 
+export class RequestError extends Error {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
+    super(detail);
+    this.name = "RequestError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 export function parseApiErrorDetail(text: string, fallback: string): string {
   if (!text) {
     return fallback;

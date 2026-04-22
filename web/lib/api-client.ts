@@ -225,12 +225,12 @@ export function createApiClient(request: Requester) {
     },
     getStyleProfile: (id: string) => request<StyleProfile>(`/api/v1/style-profiles/${id}`),
     createStyleProfile: (payload: StyleProfileCreatePayload) =>
-      request<StyleProfileListItem>("/api/v1/style-profiles", {
+      request<StyleProfile>("/api/v1/style-profiles", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
     updateStyleProfile: (id: string, payload: StyleProfileUpdatePayload) =>
-      request<StyleProfileListItem>(`/api/v1/style-profiles/${id}`, {
+      request<StyleProfile>(`/api/v1/style-profiles/${id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
@@ -296,12 +296,12 @@ export function createApiClient(request: Requester) {
     },
     getPlotProfile: (id: string) => request<PlotProfile>(`/api/v1/plot-profiles/${id}`),
     createPlotProfile: (payload: PlotProfileCreatePayload) =>
-      request<PlotProfileListItem>("/api/v1/plot-profiles", {
+      request<PlotProfile>("/api/v1/plot-profiles", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
     updatePlotProfile: (id: string, payload: PlotProfileUpdatePayload) =>
-      request<PlotProfileListItem>(`/api/v1/plot-profiles/${id}`, {
+      request<PlotProfile>(`/api/v1/plot-profiles/${id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),

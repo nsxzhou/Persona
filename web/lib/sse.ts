@@ -50,7 +50,7 @@ export async function consumeTextEventStream(
           generated += chunk;
           options.onData?.(chunk, generated);
         } catch {
-          // Ignore malformed partial payloads and continue consuming the stream.
+          throw new Error("SSE payload parse failed");
         }
       }
     }

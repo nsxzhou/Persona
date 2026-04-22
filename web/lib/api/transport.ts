@@ -1,4 +1,4 @@
-import { parseApiErrorDetail } from "@/lib/request-error";
+import { parseApiErrorDetail, RequestError } from "@/lib/request-error";
 
 type RequesterOptions = {
   baseUrl: string;
@@ -40,7 +40,10 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(parseApiErrorDetail(text, response.statusText || "请求失败"));
+      throw new RequestError(
+        response.status,
+        parseApiErrorDetail(text, response.statusText || "请求失败"),
+      );
     }
 
     if (response.status === 204) {
@@ -61,7 +64,10 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
     
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(parseApiErrorDetail(text, response.statusText || "请求失败"));
+      throw new RequestError(
+        response.status,
+        parseApiErrorDetail(text, response.statusText || "请求失败"),
+      );
     }
     
     return response;

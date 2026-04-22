@@ -30,12 +30,11 @@ export async function getServerCurrentUser(): Promise<User | null> {
   try {
     return await api.getCurrentUser();
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
     if (
-      message.includes("401") ||
-      message.includes("未登录") ||
-      message.includes("登录状态已失效") ||
-      message.includes("Unauthorized")
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      (error as { status?: unknown }).status === 401
     ) {
       return null;
     }
