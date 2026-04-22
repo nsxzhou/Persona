@@ -1,14 +1,13 @@
 "use client";
 
-import { useController, type UseFormReturn } from "react-hook-form";
 import * as React from "react";
+import { type UseFormReturn } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditorField } from "@/components/markdown-editor-field";
 import { type PlotAnalysisJob, type PlotProfile } from "@/lib/types";
 import type { FormValues } from "@/lib/validations/plot-lab";
 
@@ -33,33 +32,6 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
   onBack: () => void;
   onNext: () => void;
 }) {
-  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
-  const { field } = useController({
-    name: "plotSummaryMarkdown",
-    control: form.control,
-  });
-
-  const handleRef = React.useCallback(
-    (e: HTMLTextAreaElement | null) => {
-      field.ref(e);
-      textareaRef.current = e;
-    },
-    [field]
-  );
-
-  const handleInput = React.useCallback(() => {
-    const target = textareaRef.current;
-    if (target) {
-      target.style.height = "auto";
-      const nextHeight = Math.max(360, target.scrollHeight);
-      target.style.height = `${nextHeight}px`;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    handleInput();
-  }, [summaryMarkdown, handleInput]);
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
@@ -76,22 +48,13 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
                 <Label htmlFor="plot-name">情节档案名称</Label>
                 <Input id="plot-name" {...form.register("plotName")} />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="plot-summary-markdown">剧情摘要 Markdown</Label>
-                <ScrollArea className="h-[360px] w-full rounded-md border border-input bg-background" type="auto">
-                  <Textarea
-                    id="plot-summary-markdown"
-                    className="min-h-[360px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
-                    {...field}
-                    value={field.value ?? ""}
-                    ref={handleRef}
-                    onInput={(e) => {
-                      field.onChange(e);
-                      handleInput();
-                    }}
-                  />
-                </ScrollArea>
-              </div>
+              <MarkdownEditorField<FormValues>
+                control={form.control}
+                name="plotSummaryMarkdown"
+                id="plot-summary-markdown"
+                label="剧情摘要 Markdown"
+                minHeight={360}
+              />
             </>
           ) : (
             <p>摘要数据尚未准备好。</p>

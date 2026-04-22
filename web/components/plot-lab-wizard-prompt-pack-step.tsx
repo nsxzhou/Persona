@@ -1,14 +1,13 @@
 "use client";
 
-import { useController, type UseFormReturn } from "react-hook-form";
 import * as React from "react";
+import { type UseFormReturn } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditorField } from "@/components/markdown-editor-field";
 import { type ProjectSummary, type PlotAnalysisJob, type PlotProfile } from "@/lib/types";
 import type { FormValues } from "@/lib/validations/plot-lab";
 
@@ -43,33 +42,6 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
   onSave: () => void;
   saving: boolean;
 }) {
-  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
-  const { field } = useController({
-    name: "promptPackMarkdown",
-    control: form.control,
-  });
-
-  const handleRef = React.useCallback(
-    (e: HTMLTextAreaElement | null) => {
-      field.ref(e);
-      textareaRef.current = e;
-    },
-    [field]
-  );
-
-  const handleInput = React.useCallback(() => {
-    const target = textareaRef.current;
-    if (target) {
-      target.style.height = "auto";
-      const nextHeight = Math.max(420, target.scrollHeight);
-      target.style.height = `${nextHeight}px`;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    handleInput();
-  }, [promptPackMarkdown, handleInput]);
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
@@ -82,23 +54,14 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
           {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
           {job.status === "succeeded" ? (
             <>
-              <div className="grid gap-2">
-                <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
-                <ScrollArea className="h-[420px] w-full rounded-md border border-input bg-background" type="auto">
-                  <Textarea
-                    id="prompt-pack-markdown"
-                    aria-label="Prompt Pack Markdown"
-                    className="min-h-[480px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
-                    {...field}
-                    value={field.value ?? ""}
-                    ref={handleRef}
-                    onInput={(e) => {
-                      field.onChange(e);
-                      handleInput();
-                    }}
-                  />
-                </ScrollArea>
-              </div>
+              <MarkdownEditorField<FormValues>
+                control={form.control}
+                name="promptPackMarkdown"
+                id="prompt-pack-markdown"
+                label="Prompt Pack Markdown"
+                ariaLabel="Prompt Pack Markdown"
+                minHeight={420}
+              />
 
               {!existingProfile ? (
                 <div className="grid gap-2 p-4 bg-muted/50 rounded-lg border">

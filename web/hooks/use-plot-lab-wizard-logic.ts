@@ -49,6 +49,10 @@ type DetailQueryLike = {
 };
 
 const LOG_WINDOW_SIZE = 64 * 1024;
+const IMMUTABLE_ARTIFACT_QUERY = {
+  staleTime: Infinity,
+  gcTime: 30 * 60 * 1000,
+} as const;
 
 export function isProcessingStatus(status: PlotAnalysisJob["status"] | undefined) {
   return status === "pending" || status === "running";
@@ -96,18 +100,20 @@ function usePlotLabJobDetailQuery(jobId: string) {
 }
 
 export function usePlotLabJobLogsQuery(jobId: string, isProcessing: boolean) {
-  const [offset, setOffset] = React.useState(0);
+  const offsetRef = React.useRef(0);
   const [logs, setLogs] = React.useState("");
 
   React.useEffect(() => {
-    setOffset(0);
+    offsetRef.current = 0;
     setLogs("");
   }, [jobId]);
 
   const query = useQuery<PlotAnalysisJobLogs>({
     queryKey: plotLabQueryKeys.jobs.logs(jobId),
-    queryFn: () => api.getPlotAnalysisJobLogs(jobId, offset),
+    queryFn: () => api.getPlotAnalysisJobLogs(jobId, offsetRef.current),
     refetchInterval: isProcessing ? 1000 : false,
+    refetchOnWindowFocus: false,
+    staleTime: 1000,
   });
 
   React.useEffect(() => {
@@ -117,7 +123,7 @@ export function usePlotLabJobLogsQuery(jobId: string, isProcessing: boolean) {
       const next = payload.truncated ? payload.content : prev + payload.content;
       return next.slice(-LOG_WINDOW_SIZE);
     });
-    setOffset((prev) => (prev === payload.next_offset ? prev : payload.next_offset));
+    offsetRef.current = payload.next_offset;
   }, [query.data]);
 
   return {
@@ -143,24 +149,28 @@ function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) 
     queryKey: plotLabQueryKeys.jobs.analysisReport(jobId),
     queryFn: () => api.getPlotAnalysisJobAnalysisReport(jobId),
     enabled: needsReport,
+    ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
   const summaryQuery = useQuery({
     queryKey: plotLabQueryKeys.jobs.plotSummary(jobId),
     queryFn: () => api.getPlotAnalysisJobPlotSummary(jobId),
     enabled: needsSummary,
+    ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
   const skeletonQuery = useQuery({
     queryKey: plotLabQueryKeys.jobs.plotSkeleton(jobId),
     queryFn: () => api.getPlotAnalysisJobPlotSkeleton(jobId),
     enabled: needsSkeleton,
+    ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
   const promptPackQuery = useQuery({
     queryKey: plotLabQueryKeys.jobs.promptPack(jobId),
     queryFn: () => api.getPlotAnalysisJobPromptPack(jobId),
     enabled: needsPromptPack,
+    ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
   return { existingProfileQuery, reportQuery, summaryQuery, skeletonQuery, promptPackQuery };
@@ -196,13 +206,20 @@ function mergeJobResources(
 function usePlotLabJobDetail(jobId: string) {
   const statusQuery = usePlotLabJobStatusQuery(jobId);
   const jobQuery = usePlotLabJobDetailQuery(jobId);
+  const hasRequestedFinalDetailRef = React.useRef(false);
 
   React.useEffect(() => {
+    if (statusQuery.data?.status !== "succeeded") {
+      hasRequestedFinalDetailRef.current = false;
+      return;
+    }
     if (
       statusQuery.data?.status === "succeeded" &&
       jobQuery.data?.status !== "succeeded" &&
-      !jobQuery.isFetching
+      !jobQuery.isFetching &&
+      !hasRequestedFinalDetailRef.current
     ) {
+      hasRequestedFinalDetailRef.current = true;
       void jobQuery.refetch();
     }
   }, [jobQuery.data?.status, jobQuery.isFetching, jobQuery.refetch, statusQuery.data?.status]);
@@ -228,6 +245,10 @@ function usePlotLabJobDetail(jobId: string) {
     isLoading: jobQuery.isLoading && !jobQuery.data,
     errorState,
   };
+}
+
+function usePlotLabJobQueries(jobId: string) {
+  return usePlotLabJobDetail(jobId);
 }
 
 function useMountableProjects(enabled: boolean) {
@@ -392,9 +413,44 @@ function usePausePlotAnalysisJobMutation(jobId: string) {
   });
 }
 
+function usePlotLabWizardMutations(
+  jobId: string,
+  {
+    job,
+    form,
+    mountProjectId,
+    isEditing,
+    setIsEditing,
+  }: {
+    job: PlotAnalysisJob | null;
+    form: UseFormReturn<FormValues>;
+    mountProjectId: string | null;
+    isEditing: boolean;
+    setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
+  },
+) {
+  const saveProfileMutation = useSavePlotProfileMutation({
+    job,
+    form,
+    mountProjectId,
+    onSuccessCallback: isEditing ? () => setIsEditing(false) : undefined,
+  });
+  const resumeJobMutation = useResumePlotAnalysisJobMutation(jobId);
+  const pauseJobMutation = usePausePlotAnalysisJobMutation(jobId);
+
+  return {
+    saveProfileMutation,
+    resumeJobMutation,
+    pauseJobMutation,
+    handleSave: () => void saveProfileMutation.mutateAsync(),
+    handleResume: () => void resumeJobMutation.mutateAsync(),
+    handlePause: () => void pauseJobMutation.mutateAsync(),
+  };
+}
+
 export function usePlotLabWizardLogic(jobId: string) {
   const [isEditing, setIsEditing] = React.useState(false);
-  const detail = usePlotLabJobDetail(jobId);
+  const detail = usePlotLabJobQueries(jobId);
   const wizardState = usePlotLabWizardState({
     jobId,
     job: detail.job,
@@ -404,14 +460,13 @@ export function usePlotLabWizardLogic(jobId: string) {
   });
   const shouldLoadProjects = wizardState.step === 4 && !detail.existingProfile;
   const { projects } = useMountableProjects(shouldLoadProjects);
-  const saveProfileMutation = useSavePlotProfileMutation({
+  const mutations = usePlotLabWizardMutations(jobId, {
     job: detail.job,
     form: wizardState.form,
     mountProjectId: wizardState.mountProjectId,
-    onSuccessCallback: isEditing ? () => setIsEditing(false) : undefined,
+    isEditing,
+    setIsEditing,
   });
-  const resumeJobMutation = useResumePlotAnalysisJobMutation(jobId);
-  const pauseJobMutation = usePausePlotAnalysisJobMutation(jobId);
 
   return {
     ...wizardState,
@@ -424,12 +479,12 @@ export function usePlotLabWizardLogic(jobId: string) {
     skeletonResource: detail.skeletonResource,
     promptPackResource: detail.promptPackResource,
     projects,
-    saveProfileMutation,
-    resumeJobMutation,
-    pauseJobMutation,
-    handleSave: () => void saveProfileMutation.mutateAsync(),
-    handleResume: () => void resumeJobMutation.mutateAsync(),
-    handlePause: () => void pauseJobMutation.mutateAsync(),
+    saveProfileMutation: mutations.saveProfileMutation,
+    resumeJobMutation: mutations.resumeJobMutation,
+    pauseJobMutation: mutations.pauseJobMutation,
+    handleSave: mutations.handleSave,
+    handleResume: mutations.handleResume,
+    handlePause: mutations.handlePause,
     isLoading: detail.isLoading,
     errorState: detail.errorState,
   };
