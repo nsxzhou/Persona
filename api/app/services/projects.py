@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.domain_errors import NotFoundError
 from app.db.models import Project
 from app.db.repositories.projects import ProjectRepository
-from app.schemas.projects import ProjectCreate, ProjectUpdate
+from app.schemas.projects import ProjectCreate, ProjectUpdate, ProjectBibleUpdate
 from app.services.plot_profiles import PlotProfileService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_profiles import StyleProfileService
@@ -35,7 +35,7 @@ class ProjectService:
         offset: int = 0,
         limit: int = 50,
     ) -> list[Project]:
-        return await self.repository.list_summaries(
+        return await self.repository.list(
             session,
             user_id=user_id,
             include_archived=include_archived,
@@ -94,13 +94,6 @@ class ProjectService:
             default_model=payload.default_model,
             style_profile_id=payload.style_profile_id,
             plot_profile_id=payload.plot_profile_id,
-            inspiration=payload.inspiration,
-            world_building=payload.world_building,
-            characters=payload.characters,
-            outline_master=payload.outline_master,
-            outline_detail=payload.outline_detail,
-            runtime_state=payload.runtime_state,
-            runtime_threads=payload.runtime_threads,
             length_preset=payload.length_preset,
             auto_sync_memory=payload.auto_sync_memory,
         )
@@ -156,9 +149,6 @@ class ProjectService:
 
         _ASSIGNABLE_FIELDS = {
             "name", "description", "status", "length_preset",
-            "inspiration", "world_building", "characters",
-            "outline_master", "outline_detail",
-            "runtime_state", "runtime_threads",
             "auto_sync_memory",
         }
         for field, value in data.items():
@@ -167,6 +157,43 @@ class ProjectService:
 
         await self.repository.flush(session)
         return await self.get_or_404(session, project.id, user_id=user_id)
+
+    async def get_bible_or_404(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        *,
+        user_id: str | None = None,
+    ):
+        # ensure user owns the project
+        await self.get_or_404(session, project_id, user_id=user_id)
+        bible = await self.repository.get_bible_by_project_id(session, project_id)
+        if bible is None:
+            raise NotFoundError("项目 Bible 不存在")
+        return bible
+
+    async def update_bible(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        payload: ProjectBibleUpdate,
+        *,
+        user_id: str | None = None,
+    ):
+        bible = await self.get_bible_or_404(session, project_id, user_id=user_id)
+        data = payload.model_dump(exclude_unset=True)
+
+        _BIBLE_ASSIGNABLE_FIELDS = {
+            "inspiration", "world_building", "characters",
+            "outline_master", "outline_detail",
+            "runtime_state", "runtime_threads",
+        }
+        for field, value in data.items():
+            if field in _BIBLE_ASSIGNABLE_FIELDS:
+                setattr(bible, field, value)
+
+        await self.repository.flush(session)
+        return bible
 
     async def archive(
         self,

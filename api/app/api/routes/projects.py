@@ -17,6 +17,8 @@ from app.schemas.projects import (
     ProjectResponse,
     ProjectSummaryResponse,
     ProjectUpdate,
+    ProjectBibleResponse,
+    ProjectBibleUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,6 +93,38 @@ async def update_project(
         user_id=current_user.id,
     )
     return ProjectResponse.model_validate(project)
+
+
+@router.get("/{project_id}/bible", response_model=ProjectBibleResponse)
+async def get_project_bible(
+    project_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    project_service: ProjectServiceDep,
+) -> ProjectBibleResponse:
+    bible = await project_service.get_bible_or_404(
+        db_session,
+        project_id,
+        user_id=current_user.id,
+    )
+    return ProjectBibleResponse.model_validate(bible)
+
+
+@router.patch("/{project_id}/bible", response_model=ProjectBibleResponse)
+async def update_project_bible(
+    project_id: str,
+    payload: ProjectBibleUpdate,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    project_service: ProjectServiceDep,
+) -> ProjectBibleResponse:
+    bible = await project_service.update_bible(
+        db_session,
+        project_id,
+        payload,
+        user_id=current_user.id,
+    )
+    return ProjectBibleResponse.model_validate(bible)
 
 
 @router.post("/{project_id}/archive", response_model=ProjectResponse)

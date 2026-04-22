@@ -20,15 +20,6 @@ class ProjectCreate(BaseModel):
     default_model: str | None = None
     style_profile_id: str | None = None
     plot_profile_id: str | None = None
-    # Blueprint layer
-    inspiration: str = ""
-    world_building: str = ""
-    characters: str = ""
-    outline_master: str = ""
-    outline_detail: str = ""
-    # Runtime layer
-    runtime_state: str = ""
-    runtime_threads: str = ""
     length_preset: LengthPreset = "short"
     auto_sync_memory: bool = False
 
@@ -41,13 +32,6 @@ class ProjectUpdate(BaseModel):
     default_model: str | None = None
     style_profile_id: str | None = None
     plot_profile_id: str | None = None
-    inspiration: str | None = None
-    world_building: str | None = None
-    characters: str | None = None
-    outline_master: str | None = None
-    outline_detail: str | None = None
-    runtime_state: str | None = None
-    runtime_threads: str | None = None
     length_preset: LengthPreset | None = None
     auto_sync_memory: bool | None = None
 
@@ -63,6 +47,29 @@ class ProjectResponse(BaseModel):
     default_model: str
     style_profile_id: str | None
     plot_profile_id: str | None
+    length_preset: str
+    auto_sync_memory: bool
+    archived_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    provider: ProviderSummary
+
+
+class ProjectBibleUpdate(BaseModel):
+    inspiration: str | None = None
+    world_building: str | None = None
+    characters: str | None = None
+    outline_master: str | None = None
+    outline_detail: str | None = None
+    runtime_state: str | None = None
+    runtime_threads: str | None = None
+
+
+class ProjectBibleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
     inspiration: str
     world_building: str
     characters: str
@@ -70,12 +77,8 @@ class ProjectResponse(BaseModel):
     outline_detail: str
     runtime_state: str
     runtime_threads: str
-    length_preset: str
-    auto_sync_memory: bool
-    archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
-    provider: ProviderSummary
 
 
 class ProjectSummaryResponse(BaseModel):
