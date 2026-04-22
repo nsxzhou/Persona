@@ -62,6 +62,20 @@ const project = {
   provider: null,
 } as const;
 
+const projectBible = {
+  id: "project-1",
+  project_id: "project-1",
+  inspiration: "Inspiration content",
+  world_building: "World building content",
+  characters: "Characters content",
+  outline_master: "Outline master content",
+  outline_detail: "Outline detail content",
+  runtime_state: "",
+  runtime_threads: "",
+  created_at: "2026-04-10T00:00:00Z",
+  updated_at: "2026-04-10T00:00:00Z",
+};
+
 describe("WorkbenchTabs", () => {
   beforeEach(() => {
     apiMock.getProjectChapters.mockReset();
@@ -73,6 +87,7 @@ describe("WorkbenchTabs", () => {
     render(
       <WorkbenchTabs
         project={project as never}
+        projectBible={projectBible as never}
         providers={[]}
         styleProfiles={[]}
         plotProfiles={[]}
@@ -85,14 +100,15 @@ describe("WorkbenchTabs", () => {
     expect(screen.getByRole("button", { name: "重试加载章节" })).toBeInTheDocument();
   });
 
-  test("retries chapter loading after a failure", async () => {
+  it("retries chapter loading after a failure", async () => {
     apiMock.getProjectChapters
-      .mockRejectedValueOnce(new Error("加载章节失败"))
+      .mockRejectedValueOnce(new Error("Network Error"))
       .mockResolvedValueOnce([]);
 
     render(
       <WorkbenchTabs
         project={project as never}
+        projectBible={projectBible as never}
         providers={[]}
         styleProfiles={[]}
         plotProfiles={[]}

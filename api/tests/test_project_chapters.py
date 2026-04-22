@@ -34,12 +34,16 @@ async def test_sync_outline_creates_chapter_records_and_project_omits_content(
             "default_provider_id": initialized_provider["id"],
             "default_model": "",
             "style_profile_id": None,
-            "outline_detail": OUTLINE_DETAIL,
         },
     )
     assert project_response.status_code == 201
     project = project_response.json()
     assert "content" not in project
+
+    await initialized_client.patch(
+        f"/api/v1/projects/{project['id']}/bible",
+        json={"outline_detail": OUTLINE_DETAIL},
+    )
 
     sync_response = await initialized_client.post(
         f"/api/v1/projects/{project['id']}/chapters/sync-outline"
@@ -99,10 +103,13 @@ async def test_can_update_only_owned_project_chapter(
                 "default_provider_id": initialized_provider["id"],
                 "default_model": "",
                 "style_profile_id": None,
-                "outline_detail": OUTLINE_DETAIL,
             },
         )
     ).json()
+    await initialized_client.patch(
+        f"/api/v1/projects/{project['id']}/bible",
+        json={"outline_detail": OUTLINE_DETAIL},
+    )
     chapters = (
         await initialized_client.post(f"/api/v1/projects/{project['id']}/chapters/sync-outline")
     ).json()
@@ -133,10 +140,14 @@ async def test_update_missing_chapter_returns_404(
                 "default_provider_id": initialized_provider["id"],
                 "default_model": "",
                 "style_profile_id": None,
-                "outline_detail": OUTLINE_DETAIL,
             },
         )
     ).json()
+
+    await initialized_client.patch(
+        f"/api/v1/projects/{project['id']}/bible",
+        json={"outline_detail": OUTLINE_DETAIL},
+    )
 
     response = await initialized_client.patch(
         f"/api/v1/projects/{project['id']}/chapters/missing-chapter",
@@ -214,7 +225,8 @@ async def test_sync_outline_fetches_existing_chapters_once_and_reuses_in_memory_
         flush=AsyncMock(),
     )
     project_service = SimpleNamespace(
-        get_or_404=AsyncMock(return_value=SimpleNamespace(outline_detail=OUTLINE_DETAIL))
+        get_or_404=AsyncMock(return_value=SimpleNamespace()),
+        get_bible_or_404=AsyncMock(return_value=SimpleNamespace(outline_detail=OUTLINE_DETAIL)),
     )
     service = ProjectChapterService(repository=repository, project_service=project_service)
 

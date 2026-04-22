@@ -1,8 +1,25 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { ZenEditorView } from "@/components/zen-editor-view";
-import type { Project } from "@/lib/types";
+import type { Project, ProjectBible } from "@/lib/types";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
+const renderWithClient = (ui: React.ReactElement) => {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  );
+};
 
 vi.mock("sonner", () => ({
   toast: {
@@ -37,19 +54,25 @@ const autosaveMock = vi.hoisted(() => ({
 }));
 
 const apiMock = vi.hoisted(() => ({
+  getProject: vi.fn(),
+  getProjectBible: vi.fn(),
   getProjectChapters: vi.fn(),
   syncProjectChapters: vi.fn(),
   updateProjectChapter: vi.fn(),
   updateProject: vi.fn(),
+  updateProjectBible: vi.fn(),
   proposeBibleUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
   api: {
+    getProject: apiMock.getProject,
+    getProjectBible: apiMock.getProjectBible,
     getProjectChapters: apiMock.getProjectChapters,
     syncProjectChapters: apiMock.syncProjectChapters,
     updateProjectChapter: apiMock.updateProjectChapter,
     updateProject: apiMock.updateProject,
+    updateProjectBible: apiMock.updateProjectBible,
     proposeBibleUpdate: apiMock.proposeBibleUpdate,
   },
 }));
@@ -86,15 +109,9 @@ vi.mock("next/navigation", async () => {
   };
 });
 
-const project: Project = {
-  id: "project-1",
-  name: "反派攻略手册",
-  description: "",
-  status: "active",
-  default_provider_id: "provider-1",
-  default_model: "gpt-4.1-mini",
-  style_profile_id: "style-1",
-  plot_profile_id: null,
+const projectBible: ProjectBible = {
+  id: "bible-1",
+  project_id: "project-1",
   inspiration: "",
   world_building: "",
   characters: "",
@@ -109,6 +126,19 @@ const project: Project = {
 - **核心事件**：天香楼试探`,
   runtime_state: "",
   runtime_threads: "",
+  created_at: "2026-04-10T00:00:00Z",
+  updated_at: "2026-04-10T00:00:00Z",
+};
+
+const project: Project = {
+  id: "project-1",
+  name: "反派攻略手册",
+  description: "",
+  status: "active",
+  default_provider_id: "provider-1",
+  default_model: "gpt-4.1-mini",
+  style_profile_id: "style-1",
+  plot_profile_id: null,
   length_preset: "short",
   auto_sync_memory: false,
   archived_at: null,
@@ -160,6 +190,12 @@ const chapters = [
 
 describe("ZenEditorView", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    queryClient.clear();
+    
+    apiMock.getProject.mockResolvedValue(project);
+    apiMock.getProjectBible.mockResolvedValue(projectBible);
+
     completionMock.isGenerating = false;
     completionMock.handleGenerate.mockReset();
     completionMock.handleStop.mockReset();
@@ -200,7 +236,7 @@ describe("ZenEditorView", () => {
   });
 
   test("selects the first unwritten chapter by default", async () => {
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getAllByText("第2章 纨绔是假装，天香楼才是入口").length).toBeGreaterThan(0);
@@ -210,9 +246,10 @@ describe("ZenEditorView", () => {
   });
 
   test("hydrates chapter selection from the editor entry context", async () => {
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 1 },
@@ -232,7 +269,7 @@ describe("ZenEditorView", () => {
   });
 
   test("clicking another chapter swaps editor content instead of keeping previous chapter", async () => {
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toHaveValue("");
@@ -247,7 +284,7 @@ describe("ZenEditorView", () => {
   });
 
   test("typing into the selected chapter does not get reset by chapter synchronization", async () => {
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toHaveValue("");
@@ -264,7 +301,7 @@ describe("ZenEditorView", () => {
   test("chapter switch stops when pending autosave flush fails", async () => {
     autosaveMock.flushPendingSave.mockRejectedValueOnce(new Error("自动保存失败"));
 
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toHaveValue("");
@@ -281,7 +318,7 @@ describe("ZenEditorView", () => {
   test("disables the editor textarea while streaming completion is active", async () => {
     completionMock.isGenerating = true;
 
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toBeDisabled();
@@ -294,7 +331,7 @@ describe("ZenEditorView", () => {
     beatGenerationMock.beats = ["第一拍"];
     beatGenerationMock.currentBeatIndex = 0;
 
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toBeDisabled();
@@ -302,7 +339,7 @@ describe("ZenEditorView", () => {
   });
 
   test("book and settings rail buttons switch different left panel modes", async () => {
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => expect(screen.getByText("当前章节")).toBeInTheDocument());
     fireEvent.click(screen.getByTitle("创作设定"));
@@ -315,7 +352,7 @@ describe("ZenEditorView", () => {
   });
 
   test("allows collapsing the active volume while keeping current chapter banner", async () => {
-    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /第2章 纨绔是假装/ })).toBeInTheDocument();
@@ -328,16 +365,20 @@ describe("ZenEditorView", () => {
   });
 
   test("shows empty-state redirect when a volume has no chapter outline", async () => {
-    render(
-      <ZenEditorView
-        project={{
-          ...project,
-          outline_detail: `## 第一幕：高危开局与关系占位
+    const emptyOutlineBible = {
+      ...projectBible,
+      outline_detail: `## 第一幕：高危开局与关系占位
 > 主题：先活下来，把必死反派改造成可操盘变量 | 字数范围：0-4万字
 
 ## 第二幕：洗白不是认怂，结盟就是换资源
 > 主题：从单点自救转向结构经营，把名声、关系与组织力一起做出来 | 字数范围：4-8万字`,
-        }}
+    };
+    apiMock.getProjectBible.mockResolvedValueOnce(emptyOutlineBible);
+
+    renderWithClient(
+      <ZenEditorView
+        project={project}
+        projectBible={emptyOutlineBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -361,9 +402,10 @@ describe("ZenEditorView", () => {
   });
 
   test("renders a manual memory sync action and saves current chapter before checking", async () => {
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -403,9 +445,10 @@ describe("ZenEditorView", () => {
       chapters[1],
     ]);
 
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -432,9 +475,10 @@ describe("ZenEditorView", () => {
       chapters[1],
     ]);
 
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -464,9 +508,10 @@ describe("ZenEditorView", () => {
       chapters[1],
     ]);
 
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -494,9 +539,10 @@ describe("ZenEditorView", () => {
       chapters[1],
     ]);
 
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -535,9 +581,10 @@ describe("ZenEditorView", () => {
       chapters[1],
     ]);
 
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
@@ -577,9 +624,10 @@ describe("ZenEditorView", () => {
       chapters[1],
     ]);
 
-    render(
+    renderWithClient(
       <ZenEditorView
         project={project}
+        projectBible={projectBible}
         activeProfileName="娱乐春秋"
         {...({
           initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },

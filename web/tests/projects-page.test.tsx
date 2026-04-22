@@ -23,7 +23,6 @@ test("projects page renders active projects and archive toggle", () => {
           style_profile_id: null,
           plot_profile_id: null,
           length_preset: "short",
-          auto_sync_memory: false,
           archived_at: null,
           created_at: "2026-04-09T00:00:00Z",
           updated_at: "2026-04-09T00:00:00Z",

@@ -58,6 +58,8 @@ describe("API contracts", () => {
     });
     const styleProfileUpdatePromise: Promise<StyleProfile> = client.updateStyleProfile("style-profile-1", {
       style_name: "冷白风终版",
+      style_summary_markdown: "# 风格摘要2",
+      prompt_pack_markdown: "# Prompt Pack2",
     });
     const plotProfileCreatePromise: Promise<PlotProfile> = client.createPlotProfile({
       job_id: "plot-job-1",
@@ -67,6 +69,8 @@ describe("API contracts", () => {
     });
     const plotProfileUpdatePromise: Promise<PlotProfile> = client.updatePlotProfile("plot-profile-1", {
       plot_name: "反派修罗场终版",
+      plot_summary_markdown: "# 剧情摘要2",
+      prompt_pack_markdown: "# Plot Prompt2",
     });
 
     const payload: StyleAnalysisJobCreatePayload = {
