@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import io
 import urllib.parse
 from fastapi.responses import StreamingResponse
@@ -56,10 +57,11 @@ class ExportService:
             )
             # 格式化正文为 HTML 段落
             content_html = "".join(
-                [f"<p>{p}</p>" for p in chapter.content.split("\n") if p.strip()]
+                [f"<p>{html.escape(p, quote=True)}</p>" for p in chapter.content.split("\n") if p.strip()]
             )
             c.content = (
-                f"<h2>第 {chapter.chapter_index + 1} 章 {chapter.title}</h2>{content_html}"
+                f"<h2>第 {chapter.chapter_index + 1} 章 {html.escape(chapter.title, quote=True)}</h2>"
+                f"{content_html}"
             )
             book.add_item(c)
             epub_chapters.append(c)

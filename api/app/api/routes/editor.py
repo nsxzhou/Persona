@@ -42,6 +42,7 @@ async def generate_concepts(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> ConceptGenerateResponse:
+    """Generate concept candidates for a new project."""
     concepts = await editor_service.planning.generate_concepts(
         db_session, current_user.id, payload,
     )
@@ -56,6 +57,7 @@ async def editor_complete(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> StreamingResponse:
+    """Stream continuation text for the active project editor session."""
     gen = await editor_service.writing.stream_completion(
         db_session, project_id, current_user.id, payload,
     )
@@ -70,6 +72,7 @@ async def generate_section(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> StreamingResponse:
+    """Stream generated bible content for a single planning section."""
     gen = await editor_service.writing.stream_section_generation(
         db_session, project_id, current_user.id, payload,
     )
@@ -87,6 +90,7 @@ async def propose_bible_update(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> BibleUpdateResponse:
+    """Propose runtime-state and thread updates from newly written content."""
     proposed_state, proposed_threads, changed = await editor_service.memory.propose_bible_update(
         db_session, project_id, current_user.id, payload,
     )
@@ -108,6 +112,7 @@ async def generate_beats(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> BeatGenerateResponse:
+    """Generate beat outlines for the current chapter context."""
     beats = await editor_service.planning.generate_beats(
         db_session, project_id, current_user.id, payload,
     )
@@ -122,6 +127,7 @@ async def expand_beat(
     db_session: DbSessionDep,
     editor_service: EditorServiceDep,
 ) -> StreamingResponse:
+    """Stream prose that expands a selected beat into chapter text."""
     gen = await editor_service.writing.stream_beat_expansion(
         db_session, project_id, current_user.id, payload,
     )
@@ -136,6 +142,7 @@ async def generate_volumes(
     editor_service: EditorServiceDep,
     payload: VolumeGenerateRequest | None = None,
 ) -> StreamingResponse:
+    """Stream top-level volume planning output for the project."""
     gen = await editor_service.planning.stream_volume_generation(
         db_session, project_id, current_user.id, payload,
     )

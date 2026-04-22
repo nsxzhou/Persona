@@ -13,6 +13,8 @@ from app.services.auth import AuthService
 from app.services.editor import EditorService
 from app.services.llm_provider import LLMProviderService
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
+from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
+from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.plot_profiles import PlotProfileService
 from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
@@ -110,7 +112,11 @@ StyleProfileServiceDep = Annotated[
 
 
 def get_plot_analysis_job_service() -> PlotAnalysisJobService:
-    return PlotAnalysisJobService()
+    return PlotAnalysisJobService(
+        provider_service=ProviderConfigService(),
+        storage_service=PlotAnalysisStorageService(),
+        checkpointer_factory=PlotAnalysisCheckpointerFactory(),
+    )
 
 
 PlotAnalysisJobServiceDep = Annotated[
