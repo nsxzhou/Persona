@@ -52,10 +52,13 @@ class ProjectChapterService:
         *,
         user_id: str,
     ) -> list[ProjectChapter]:
-        project = await self.project_service.get_or_404(
+        await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
-        parsed = parse_outline(project.outline_detail or "")
+        bible = await self.project_service.get_bible_or_404(
+            session, project_id, user_id=user_id,
+        )
+        parsed = parse_outline(bible.outline_detail or "")
         existing_chapters = await self.repository.list_by_project(session, project_id)
         existing_chapter_map = {
             (chapter.volume_index, chapter.chapter_index): chapter

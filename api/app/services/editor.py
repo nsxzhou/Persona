@@ -123,6 +123,9 @@ class WritingEditorService(_EditorServiceBase):
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
+        bible = await self.project_service.get_bible_or_404(
+            session, project_id, user_id=user_id,
+        )
         if not project.style_profile_id:
             raise BadRequestError("项目未挂载风格档案")
 
@@ -135,12 +138,12 @@ class WritingEditorService(_EditorServiceBase):
             style_profile.prompt_pack_payload,
             sections=WritingContextSections(
                 description=project.description,
-                world_building=project.world_building,
-                characters=project.characters,
-                outline_master=project.outline_master,
-                outline_detail=project.outline_detail,
-                runtime_state=project.runtime_state,
-                runtime_threads=project.runtime_threads,
+                world_building=bible.world_building,
+                characters=bible.characters,
+                outline_master=bible.outline_master,
+                outline_detail=bible.outline_detail,
+                runtime_state=bible.runtime_state,
+                runtime_threads=bible.runtime_threads,
             ),
             length_preset=project.length_preset,
             content_length=payload.total_content_length,
@@ -400,6 +403,9 @@ class PlanningEditorService(_EditorServiceBase):
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
+        bible = await self.project_service.get_bible_or_404(
+            session, project_id, user_id=user_id,
+        )
         if not project.provider:
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
@@ -417,7 +423,7 @@ class PlanningEditorService(_EditorServiceBase):
             regenerating=regenerating,
         )
         user_message = build_volume_generate_user_message(
-            project.outline_master,
+            bible.outline_master,
             previous_output=previous_output,
             user_feedback=user_feedback,
         )
@@ -438,10 +444,13 @@ class PlanningEditorService(_EditorServiceBase):
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
+        bible = await self.project_service.get_bible_or_404(
+            session, project_id, user_id=user_id,
+        )
         if not project.provider:
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
-        parsed = parse_outline(project.outline_detail or "")
+        parsed = parse_outline(bible.outline_detail or "")
         if payload.volume_index >= len(parsed["volumes"]):
             raise BadRequestError(
                 f"卷索引 {payload.volume_index} 超出范围"
@@ -471,7 +480,7 @@ class PlanningEditorService(_EditorServiceBase):
             regenerating=regenerating,
         )
         user_message = build_volume_chapters_user_message(
-            project.outline_master,
+            bible.outline_master,
             target_vol["title"],
             target_vol["meta"],
             preceding_summary,
