@@ -2,6 +2,8 @@
 
 > 面向开发者的系统化上手文档。产品定位、架构原理、领域实现、Prompt 工程、运维与规范，一网打尽。
 
+<!-- wiki-sync-smoke-test: 2026-04-22T00:00:00Z -->
+
 Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目标不是"一键写小说"，而是把大模型变成一个**受审美约束、有记忆、可驯化**的文字执行器。前后端全部开源在同一仓库内：
 
 - **前端**：Next.js 15 App Router + React 19 + TypeScript + Tailwind 4 + shadcn/ui + TanStack Query + React Hook Form + Zod
