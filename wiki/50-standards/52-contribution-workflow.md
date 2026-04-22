@@ -62,6 +62,16 @@ cd web && pnpm build
 - 在 Markdown Preview 中看 Mermaid 是否可渲染
 - 确认 `wiki/README.md` 导航没断
 
+### GitHub 独立 Wiki 自动同步
+
+仓库内 `wiki/` 目录是文档事实源。`.github/workflows/sync-github-wiki.yml` 会在 `main` 分支上有 `wiki/**` 变更时，自动把内容推到 `Persona.wiki.git`。
+
+前提是仓库 secrets 中已配置：
+
+- `WIKI_PUSH_TOKEN`：一个对 GitHub 独立 Wiki 仓库有写权限的 PAT
+
+同步时还会把 `wiki/README.md` 复制成 GitHub Wiki 的 `Home.md`，保证独立 Wiki 首页和仓库内目录页保持一致。
+
 ## 常见坑 / 调试指南
 
 | 症状 | 常见原因 | 建议 |

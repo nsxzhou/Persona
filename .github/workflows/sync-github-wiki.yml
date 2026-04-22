@@ -1,0 +1,62 @@
+name: Sync GitHub Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "wiki/**"
+      - ".github/workflows/sync-github-wiki.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-github-wiki
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check required secret
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
+        run: |
+          if [ -z "$WIKI_PUSH_TOKEN" ]; then
+            echo "Missing required secret: WIKI_PUSH_TOKEN"
+            echo "Create a PAT with write access to ${GITHUB_REPOSITORY}.wiki.git and store it as Actions secret WIKI_PUSH_TOKEN."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync wiki directory to GitHub Wiki repo
+        env:
+          WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          wiki_url="https://x-access-token:${WIKI_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+
+          git clone "$wiki_url" "$workdir/wiki"
+
+          rsync -a --delete --exclude '.git/' wiki/ "$workdir/wiki/"
+          cp wiki/README.md "$workdir/wiki/Home.md"
+
+          cd "$workdir/wiki"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to sync."
+            exit 0
+          fi
+
+          git commit -m "docs: sync repository wiki"
+          git push origin master

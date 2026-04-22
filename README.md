@@ -60,3 +60,17 @@ cd Persona/api && uv run pytest -q
 cd Persona/web && pnpm test
 cd Persona/web && pnpm build
 ```
+
+## GitHub Wiki Sync
+
+仓库内的 `wiki/` 目录是文档事实源。GitHub 单独 Wiki 通过 [sync-github-wiki.yml](/Users/zhouzirui/code/test/AI-NOVEL/Persona/.github/workflows/sync-github-wiki.yml) 自动同步。
+
+要让自动同步生效，需要在 GitHub Actions secrets 里配置：
+
+- `WIKI_PUSH_TOKEN`
+
+要求：
+
+- 使用可访问 `nsxzhou/Persona.wiki.git` 的 Personal Access Token
+- 令牌至少需要对该 Wiki 仓库有写权限
+- 每次 `main` 分支上有 `wiki/**` 变更时，Action 会把 `wiki/README.md` 同步为 GitHub Wiki 的 `Home.md`
