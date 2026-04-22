@@ -4,13 +4,11 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.core.config import get_settings
 from app.core.redaction import summarize_exception
-from app.core.security import decrypt_secret
 from app.db.models import ProviderConfig
+from app.services.llm_model_factory import build_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +27,10 @@ class LLMProviderService:
         is still open, because it reads ORM attributes (base_url,
         api_key_encrypted, default_model) and decrypts the API key.
         """
-        settings = get_settings()
-        timeout_seconds = settings.llm_timeout_seconds
-        return init_chat_model(
-            model=model_name or provider_config.default_model,
-            model_provider="openai",
-            base_url=provider_config.base_url,
-            api_key=decrypt_secret(provider_config.api_key_encrypted),
+        return build_chat_model(
+            provider_config,
+            model_name=model_name,
             temperature=temperature,
-            timeout=timeout_seconds,
-            max_retries=settings.llm_max_retries,
         )
 
     async def test_connection(self, provider_config: ProviderConfig) -> dict[str, str]:
