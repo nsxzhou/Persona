@@ -58,3 +58,21 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 });
+
+describe("server auth handling", () => {
+  test("project detail page does not collapse non-401 server-api failures into logged-out state", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/server-api", () => ({
+      getServerApi: vi.fn().mockRejectedValue(Object.assign(new Error("boom"), { status: 500 })),
+    }));
+
+    const ProjectDetailPage = (await import("@/app/(workspace)/projects/[id]/page")).default;
+
+    await expect(
+      ProjectDetailPage({
+        params: Promise.resolve({ id: "project-1" }),
+        searchParams: Promise.resolve({}),
+      } as never),
+    ).rejects.toThrow("boom");
+  });
+});

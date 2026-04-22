@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { toast } from "sonner";
 
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 
@@ -50,5 +51,27 @@ describe("useEditorAutosave", () => {
       { content: "新的正文" },
     );
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  test("flushPendingSave surfaces save failures instead of swallowing them", async () => {
+    apiMock.updateProjectChapter.mockRejectedValueOnce(new Error("写入失败"));
+    const { result, rerender } = renderHook(
+      ({ currentContent, savedContent }) =>
+        useEditorAutosave("project-1", "chapter-1", currentContent, savedContent, false),
+      {
+        initialProps: {
+          currentContent: "新的正文",
+          savedContent: "旧正文",
+        },
+      },
+    );
+
+    rerender({
+      currentContent: "新的正文",
+      savedContent: "新的正文",
+    });
+
+    await expect(result.current.flushPendingSave()).rejects.toThrow("写入失败");
+    expect(toast.error).toHaveBeenCalledWith("自动保存失败");
   });
 });

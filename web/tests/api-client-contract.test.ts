@@ -5,8 +5,10 @@ import { createJsonRequester } from "@/lib/api/transport";
 import type {
   BeatGenerateResponse,
   BibleUpdateResponse,
+  PlotProfile,
   SetupResponse,
   SetupStatusResponse,
+  StyleProfile,
   StyleAnalysisJobCreatePayload,
   StyleAnalysisJobStatusSnapshot,
 } from "@/lib/types";
@@ -48,6 +50,24 @@ describe("API contracts", () => {
       "new content",
       "generated_fragment",
     );
+    const styleProfileCreatePromise: Promise<StyleProfile> = client.createStyleProfile({
+      job_id: "style-job-1",
+      style_name: "冷白风",
+      style_summary_markdown: "# 风格摘要",
+      prompt_pack_markdown: "# Prompt Pack",
+    });
+    const styleProfileUpdatePromise: Promise<StyleProfile> = client.updateStyleProfile("style-profile-1", {
+      style_name: "冷白风终版",
+    });
+    const plotProfileCreatePromise: Promise<PlotProfile> = client.createPlotProfile({
+      job_id: "plot-job-1",
+      plot_name: "反派修罗场",
+      plot_summary_markdown: "# 剧情摘要",
+      prompt_pack_markdown: "# Plot Prompt",
+    });
+    const plotProfileUpdatePromise: Promise<PlotProfile> = client.updatePlotProfile("plot-profile-1", {
+      plot_name: "反派修罗场终版",
+    });
 
     const payload: StyleAnalysisJobCreatePayload = {
       style_name: "冷白风",
@@ -57,7 +77,17 @@ describe("API contracts", () => {
     };
     void client.createStyleAnalysisJob(payload);
 
-    await Promise.all([setupStatusPromise, setupPromise, statusPromise, beatsPromise, biblePromise]);
+    await Promise.all([
+      setupStatusPromise,
+      setupPromise,
+      statusPromise,
+      beatsPromise,
+      biblePromise,
+      styleProfileCreatePromise,
+      styleProfileUpdatePromise,
+      plotProfileCreatePromise,
+      plotProfileUpdatePromise,
+    ]);
     expect(request).toHaveBeenCalled();
   });
 

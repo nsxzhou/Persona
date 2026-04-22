@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, vi } from "vitest";
+import { beforeEach, test, vi } from "vitest";
 
 import PlotLabPage from "@/app/(workspace)/plot-lab/page";
 import { PlotLabWizardView } from "@/components/plot-lab-wizard-view";
@@ -15,6 +15,7 @@ const apiMock = vi.hoisted(() => ({
   getPlotAnalysisJobPlotSummary: vi.fn(),
   getPlotAnalysisJobPlotSkeleton: vi.fn(),
   getPlotAnalysisJobPromptPack: vi.fn(),
+  getPlotAnalysisJobLogs: vi.fn(),
   createPlotAnalysisJob: vi.fn(),
   getPlotProfiles: vi.fn(),
   getPlotProfile: vi.fn(),
@@ -122,6 +123,11 @@ beforeEach(() => {
   apiMock.getPlotAnalysisJobPlotSummary.mockResolvedValue(buildSummary());
   apiMock.getPlotAnalysisJobPlotSkeleton.mockResolvedValue(buildSkeleton());
   apiMock.getPlotAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
+  apiMock.getPlotAnalysisJobLogs.mockResolvedValue({
+    content: "",
+    next_offset: 0,
+    truncated: false,
+  });
 });
 
 test("plot lab page submits txt upload form", async () => {
@@ -216,4 +222,68 @@ test("plot lab wizard saves profile and mounts project", async () => {
       }),
     ),
   );
+});
+
+test("plot lab wizard log polling carries next offset forward", async () => {
+  apiMock.getPlotAnalysisJobStatus.mockResolvedValue({
+    id: "job-1",
+    status: "running",
+    stage: "analyzing_chunks",
+    error_message: null,
+    updated_at: "2026-04-09T00:01:00Z",
+  });
+  apiMock.getPlotAnalysisJob.mockResolvedValue({
+    ...buildSucceededJob({
+      status: "running",
+      completed_at: null,
+      updated_at: "2026-04-09T00:00:30Z",
+    }),
+  });
+  apiMock.getPlotAnalysisJobLogs
+    .mockResolvedValueOnce({
+      content: "[1] first chunk\n",
+      next_offset: 16,
+      truncated: false,
+    })
+    .mockResolvedValueOnce({
+      content: "[2] second chunk\n",
+      next_offset: 33,
+      truncated: false,
+    });
+
+  renderWizard();
+
+  await screen.findByText("正在分析中...");
+  await waitFor(() => {
+    expect(apiMock.getPlotAnalysisJobLogs).toHaveBeenNthCalledWith(1, "job-1", 0);
+  });
+
+  await waitFor(() => {
+    expect(apiMock.getPlotAnalysisJobLogs).toHaveBeenNthCalledWith(2, "job-1", 16);
+  }, { timeout: 4000 });
+});
+
+test("plot lab wizard keeps succeeded artifact queries stable across rerenders", async () => {
+  apiMock.getPlotAnalysisJob.mockResolvedValue(buildSucceededJob());
+
+  const queryClient = createTestQueryClient();
+  const view = renderWizard(queryClient);
+
+  await screen.findByText("完整分析报告");
+  expect(apiMock.getPlotAnalysisJobAnalysisReport).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobPlotSummary).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobPlotSkeleton).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobPromptPack).toHaveBeenCalledTimes(1);
+
+  view.rerender(
+    <QueryClientProvider client={queryClient}>
+      <PlotLabWizardView jobId="job-1" />
+    </QueryClientProvider>,
+  );
+
+  await screen.findByText("完整分析报告");
+  expect(apiMock.getPlotAnalysisJobAnalysisReport).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobPlotSummary).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobPlotSkeleton).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobPromptPack).toHaveBeenCalledTimes(1);
 });

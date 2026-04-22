@@ -32,6 +32,8 @@ const autosaveMock = vi.hoisted(() => ({
   isSaving: false,
   saveNow: vi.fn(),
   flushPendingSave: vi.fn().mockResolvedValue(null),
+  lastSaveError: null,
+  clearSaveError: vi.fn(),
 }));
 
 const apiMock = vi.hoisted(() => ({
@@ -170,6 +172,8 @@ describe("ZenEditorView", () => {
     beatGenerationMock.handleStartBeatExpand.mockReset();
     autosaveMock.isSaving = false;
     autosaveMock.saveNow.mockReset();
+    autosaveMock.clearSaveError.mockReset();
+    autosaveMock.lastSaveError = null;
     apiMock.getProjectChapters.mockReset();
     apiMock.syncProjectChapters.mockReset();
     apiMock.updateProjectChapter.mockReset();
@@ -255,6 +259,23 @@ describe("ZenEditorView", () => {
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toHaveValue("新写入的正文");
     });
+  });
+
+  test("chapter switch stops when pending autosave flush fails", async () => {
+    autosaveMock.flushPendingSave.mockRejectedValueOnce(new Error("自动保存失败"));
+
+    render(<ZenEditorView project={project} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("");
+    });
+    fireEvent.click(screen.getByTitle("创作导航 (⌘B)"));
+    fireEvent.click(screen.getByRole("button", { name: /第1章 反派开局，短命名单/ }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("");
+    });
+    expect(autosaveMock.clearSaveError).not.toHaveBeenCalled();
   });
 
   test("disables the editor textarea while streaming completion is active", async () => {

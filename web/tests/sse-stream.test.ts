@@ -40,4 +40,11 @@ describe("consumeTextEventStream", () => {
 
     await expect(consumeTextEventStream(reader, {})).rejects.toThrow("boom");
   });
+
+  test("throws when a completed non-error frame contains malformed JSON", async () => {
+    const stream = createStream(['data: {"broken": true\n\n']);
+    const reader = stream.getReader();
+
+    await expect(consumeTextEventStream(reader, {})).rejects.toThrow("SSE payload parse failed");
+  });
 });
