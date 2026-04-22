@@ -2,56 +2,12 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy.orm import joinedload
 
-from app.db.models import Project
-
-
-_SUMMARY_COLUMNS = (
-    Project.id,
-    Project.user_id,
-    Project.name,
-    Project.description,
-    Project.status,
-    Project.default_provider_id,
-    Project.default_model,
-    Project.style_profile_id,
-    Project.plot_profile_id,
-    Project.length_preset,
-    Project.archived_at,
-    Project.created_at,
-    Project.updated_at,
-)
+from app.db.models import Project, ProjectBible
 
 
 class ProjectRepository:
-    async def list_summaries(
-        self,
-        session: AsyncSession,
-        *,
-        user_id: str | None = None,
-        include_archived: bool,
-        offset: int = 0,
-        limit: int = 50,
-    ) -> list[Project]:
-        """Return projects without heavy Text columns (inspiration/outline/runtime...)."""
-        query = (
-            select(Project)
-            .options(
-                load_only(*_SUMMARY_COLUMNS),
-                joinedload(Project.provider),
-            )
-            .order_by(Project.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
-        if user_id is not None:
-            query = query.where(Project.user_id == user_id)
-        if not include_archived:
-            query = query.where(Project.archived_at.is_(None))
-        result = await session.stream_scalars(query)
-        return [project async for project in result]
-
     async def list(
         self,
         session: AsyncSession,
@@ -105,13 +61,6 @@ class ProjectRepository:
         default_model: str,
         style_profile_id: str | None,
         plot_profile_id: str | None,
-        inspiration: str,
-        world_building: str,
-        characters: str,
-        outline_master: str,
-        outline_detail: str,
-        runtime_state: str,
-        runtime_threads: str,
         length_preset: str,
         auto_sync_memory: bool,
     ) -> Project:
@@ -123,18 +72,13 @@ class ProjectRepository:
             default_model=default_model,
             style_profile_id=style_profile_id,
             plot_profile_id=plot_profile_id,
-            inspiration=inspiration,
-            world_building=world_building,
-            characters=characters,
-            outline_master=outline_master,
-            outline_detail=outline_detail,
-            runtime_state=runtime_state,
-            runtime_threads=runtime_threads,
             length_preset=length_preset,
             auto_sync_memory=auto_sync_memory,
             user_id=user_id,
         )
+        bible = ProjectBible(project=project)
         session.add(project)
+        session.add(bible)
         await session.flush()
         return project
 
@@ -177,3 +121,11 @@ class ProjectRepository:
     async def delete(self, session: AsyncSession, project: Project) -> None:
         await session.delete(project)
         await session.flush()
+
+    async def get_bible_by_project_id(
+        self,
+        session: AsyncSession,
+        project_id: str,
+    ) -> ProjectBible | None:
+        stmt = select(ProjectBible).where(ProjectBible.project_id == project_id)
+        return await session.scalar(stmt)

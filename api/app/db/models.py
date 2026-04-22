@@ -160,15 +160,6 @@ class Project(TimestampMixin, Base):
     plot_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("plot_profiles.id"), nullable=True, index=True
     )
-    # 蓝图层：作者手动编辑的创作规划资产
-    inspiration: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    world_building: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    characters: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    outline_master: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    outline_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    # 活态层：AI 写作后自动提议的运行时状态
-    runtime_state: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    runtime_threads: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # short / medium / long
     length_preset: Mapped[str] = mapped_column(String(16), nullable=False, default="short")
     # 逐拍写作完成时是否静默自动同步记忆
@@ -186,10 +177,33 @@ class Project(TimestampMixin, Base):
     plot_profile: Mapped["PlotProfile | None"] = relationship(
         back_populates="projects"
     )
+    bible: Mapped["ProjectBible"] = relationship(
+        back_populates="project", cascade="all, delete-orphan", uselist=False
+    )
     user: Mapped["User"] = relationship(back_populates="projects")
     chapters: Mapped[list["ProjectChapter"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+
+
+class ProjectBible(TimestampMixin, Base):
+    __tablename__ = "project_bibles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    # 蓝图层：作者手动编辑的创作规划资产
+    inspiration: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    world_building: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    characters: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    outline_master: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    outline_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 活态层：AI 写作后自动提议的运行时状态
+    runtime_state: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    runtime_threads: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    project: Mapped["Project"] = relationship(back_populates="bible")
 
 
 class ProjectChapter(TimestampMixin, Base):
