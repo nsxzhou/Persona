@@ -142,7 +142,6 @@ PlotAnalysisJobStage: TypeAlias = Literal[
     "postprocessing",
 ]
 
-
 class PlotProfileEmbeddedResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
