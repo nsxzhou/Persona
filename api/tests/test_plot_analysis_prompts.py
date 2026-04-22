@@ -8,6 +8,7 @@ import pytest
 from app.services.plot_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
+    build_prompt_pack_prompt,
     build_report_prompt,
     build_skeleton_group_reduce_prompt,
     build_skeleton_reduce_prompt,
@@ -30,6 +31,14 @@ _SAMPLE_SKELETON = (
     "# 全书骨架\n"
     "## 阶段划分（按 chunk 索引）\n"
     "启动期 0-1；上升期 2-3"
+)
+_REPORT_MARKDOWN = "# 执行摘要\n- 李青阳利用信息差胁迫主角。\n- 玄女在修行名义下被迫接受绑定。\n- 龙女接受婚约作为利弊权衡。\n- 圣祖精血成为身份逆转筹码。"
+_PLOT_SUMMARY_MARKDOWN = (
+    "# 剧情定位\n"
+    "- 主角围绕宗门权力与稀缺资源制造冲突。\n"
+    "\n"
+    "# 关系推进公式\n"
+    "- 师徒胁迫、婚约控制、失身交易、精血争夺。"
 )
 
 
@@ -405,3 +414,52 @@ def test_build_report_prompt_with_skeleton_injects_section_and_hint_before_input
     # Both skeleton section and the hint must appear before the merged result payload
     assert prompt.index(_SKELETON_HEADER) < prompt.index("聚合结果：")
     assert prompt.index(_REPORT_SKELETON_HINT) < prompt.index("聚合结果：")
+
+
+# --------------------------------------------------------------------------- #
+#  build_prompt_pack_prompt                                                   #
+# --------------------------------------------------------------------------- #
+
+
+def test_build_prompt_pack_prompt_forbids_explanatory_preface_and_requires_direct_section_start() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_summary_markdown=_PLOT_SUMMARY_MARKDOWN,
+    )
+
+    assert "输出必须直接从 `# Shared Constraints` 开始" in prompt
+    assert "不要输出任何前言、任务说明、来源说明" in prompt
+    assert "不要写“好的”" in prompt
+    assert "不要写“作为”" in prompt
+    assert "不得依赖“分析报告”这一上文存在" in prompt
+
+
+def test_build_prompt_pack_prompt_requires_de_sampling_and_prototype_rewrites() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_summary_markdown=_PLOT_SUMMARY_MARKDOWN,
+    )
+
+    assert "人物名必须改写为角色原型" in prompt
+    assert "专属资源必须改写为资源原型" in prompt
+    assert "专属事件必须改写为冲突原型" in prompt
+    assert "禁止保留章节号、chunk 编号、样本专名、原作特有固有名词" in prompt
+    assert "师门权威、高位女性角色、异族继承者、竞争型反派、指导型强者" in prompt
+    assert "核心稀缺资源、身份逆转筹码、境界突破媒介、血脉级利益" in prompt
+    assert "胁迫性绑定、被迫接受的契约、资源争夺引发的反转、由信息差触发的控制关系" in prompt
+
+
+def test_build_prompt_pack_prompt_limits_few_shot_to_abstract_prototypes_and_slots() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_summary_markdown=_PLOT_SUMMARY_MARKDOWN,
+    )
+
+    assert "Few-shot 只允许使用原型词与显式槽位" in prompt
+    assert "高位角色、反派、关键关系对象、宗门权威、核心资源、绑定关系、突破机会" in prompt
+    assert "[角色A]" in prompt
+    assert "[高位角色B]" in prompt
+    assert "[资源C]" in prompt
+    assert "[场景D]" in prompt
+    assert "[弱点E]" in prompt
+    assert "禁止出现原样本人物名、原样本事件名、原样本世界观专属名词" in prompt
