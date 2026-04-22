@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, NotRequired, TypedDict
@@ -48,6 +49,16 @@ SKELETON_HIERARCHICAL_TOKEN_THRESHOLD = 80_000
 
 # Group size for the hierarchical group-reduce step. Also monkeypatch-able.
 SKELETON_GROUP_SIZE = 40
+
+_PROMPT_PACK_SECTION_HEADERS = (
+    "# Shared Constraints",
+    "# Tone Lock",
+    "# Anti-Whitewash Guardrails",
+    "# Outline Master Prompt",
+    "# Volume Planning Prompt",
+    "# Chapter Outline Prompt",
+    "# Few-shot Slots",
+)
 
 
 class PlotAnalysisPauseRequested(Exception):
@@ -139,6 +150,34 @@ class PlotAnalysisPipeline:
         self.storage_service = storage_service or PlotAnalysisStorageService()
         self._plot_skeleton_cache: str | None = None
         self.graph = self._build_graph()
+
+    @staticmethod
+    def _normalize_prompt_pack_markdown(markdown: str) -> str:
+        stripped = markdown.strip()
+        if not stripped:
+            return stripped
+
+        first_header = _PROMPT_PACK_SECTION_HEADERS[0]
+        start = stripped.find(first_header)
+        if start >= 0:
+            stripped = stripped[start:]
+
+        matches = list(
+            re.finditer(r"^# [^\n]+", stripped, flags=re.MULTILINE)
+        )
+        if not matches:
+            return stripped
+
+        sections: list[str] = []
+        for index, match in enumerate(matches):
+            header = match.group(0).strip()
+            if header not in _PROMPT_PACK_SECTION_HEADERS:
+                continue
+            section_end = matches[index + 1].start() if index + 1 < len(matches) else len(stripped)
+            section_body = stripped[match.start():section_end].strip()
+            sections.append(section_body)
+
+        return "\n\n".join(sections).strip()
 
     async def run(
         self,
@@ -590,6 +629,7 @@ class PlotAnalysisPipeline:
                 plot_summary_markdown=state["plot_summary_markdown"],
             ),
         )
+        prompt_pack_markdown = self._normalize_prompt_pack_markdown(prompt_pack_markdown)
 
         await self.storage_service.write_stage_markdown_artifact(
             state["job_id"], name="prompt-pack", markdown=prompt_pack_markdown

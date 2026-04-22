@@ -95,10 +95,42 @@ class PipelineLLMStub:
         if "从完整 Plot Lab 报告" in prompt:
             self.summary_prompts.append(prompt)
             return "# 剧情定位\n摘要内容"
-        if "小说情节 prompt 编排器" in prompt:
+        if "Markdown 情节 prompt 包" in prompt:
             self.pack_prompts.append(prompt)
             return "# Shared Constraints\n包内容"
         raise AssertionError(f"Unexpected prompt: {prompt[:120]}")
+
+
+class NoisyPromptPackLLMStub(PipelineLLMStub):
+    async def ainvoke_markdown(self, *, model: object, prompt: str) -> str:
+        if "Markdown 情节 prompt 包" in prompt:
+            self.pack_prompts.append(prompt)
+            return (
+                "好的，遵照您的要求。作为小说情节 prompt 编排器，我已基于您提供的完整 Plot Lab 分析报告和当前剧情摘要，"
+                "生成了一份全局可复用的 Markdown 情节母 prompt 包。\n\n"
+                "---\n\n"
+                "# Shared Constraints\n"
+                "- 保留的约束\n\n"
+                "# Tone Lock\n"
+                "- 保留的语气\n\n"
+                "# Anti-Whitewash Guardrails\n"
+                "- 保留的边界\n\n"
+                "# Outline Master Prompt\n"
+                "总纲模板\n\n"
+                "# Volume Planning Prompt\n"
+                "分卷模板\n\n"
+                "# Chapter Outline Prompt\n"
+                "章节模板\n\n"
+                "# Few-shot Slots\n"
+                "## Slot 1\n"
+                "- Label: 示例\n"
+                "- Type: 模板\n"
+                "- Purpose: 示例\n"
+                "- Text: [角色A] 在 [场景D] 获取 [资源C]\n\n"
+                "# 无关说明\n"
+                "- 这部分不应被保留\n"
+            )
+        return await super().ainvoke_markdown(model=model, prompt=prompt)
 
 
 def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> PlotAnalysisPipeline:
@@ -358,6 +390,58 @@ async def test_pipeline_graph_builds_skeleton_via_hierarchical_reduce_when_above
         job_id, name="plot-skeleton"
     )
     assert result.plot_skeleton_markdown == skeleton_md
+
+
+@pytest.mark.asyncio
+async def test_pipeline_graph_normalizes_prompt_pack_to_allowed_sections_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    storage_service = PlotAnalysisStorageService()
+    job_id = "job-prompt-pack-normalize"
+    chunk_count = 1
+    await storage_service.write_chunk_artifact(job_id, 0, "chunk 0 text")
+
+    client = NoisyPromptPackLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+
+    result = await pipeline.run(
+        job_id=job_id,
+        chunk_count=chunk_count,
+        classification=_CLASSIFICATION,
+        max_concurrency=1,
+    )
+
+    expected = (
+        "# Shared Constraints\n"
+        "- 保留的约束\n\n"
+        "# Tone Lock\n"
+        "- 保留的语气\n\n"
+        "# Anti-Whitewash Guardrails\n"
+        "- 保留的边界\n\n"
+        "# Outline Master Prompt\n"
+        "总纲模板\n\n"
+        "# Volume Planning Prompt\n"
+        "分卷模板\n\n"
+        "# Chapter Outline Prompt\n"
+        "章节模板\n\n"
+        "# Few-shot Slots\n"
+        "## Slot 1\n"
+        "- Label: 示例\n"
+        "- Type: 模板\n"
+        "- Purpose: 示例\n"
+        "- Text: [角色A] 在 [场景D] 获取 [资源C]"
+    )
+    assert result.prompt_pack_markdown == expected
+    assert not result.prompt_pack_markdown.startswith("好的")
+    assert "# 无关说明" not in result.prompt_pack_markdown
+
+    stored = await storage_service.read_stage_markdown_artifact(job_id, name="prompt-pack")
+    assert stored == expected
+    get_settings.cache_clear()
     get_settings.cache_clear()
 
 
