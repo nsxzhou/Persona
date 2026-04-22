@@ -5,16 +5,9 @@ type OpenApiSchema<Name extends keyof components["schemas"]> = components["schem
 export type User = OpenApiSchema<"UserResponse">;
 export type ProviderConfig = OpenApiSchema<"ProviderConfigResponse">;
 export type Project = OpenApiSchema<"ProjectResponse">;
-export type ProjectSummary = Omit<
-  Project,
-  | "inspiration"
-  | "world_building"
-  | "characters"
-  | "outline_master"
-  | "outline_detail"
-  | "runtime_state"
-  | "runtime_threads"
->;
+export type ProjectSummary = OpenApiSchema<"ProjectSummaryResponse">;
+export type ProjectBible = OpenApiSchema<"ProjectBibleResponse">;
+export type ProjectBibleUpdate = OpenApiSchema<"ProjectBibleUpdate">;
 export type MemorySyncStatus = "checking" | "pending_review" | "synced" | "no_change" | "failed";
 export type MemorySyncSource = "auto" | "manual";
 export type MemorySyncScope = "generated_fragment" | "chapter_full";

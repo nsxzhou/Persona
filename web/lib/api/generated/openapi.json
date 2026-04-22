@@ -607,6 +607,98 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/bible": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get Project Bible",
+        "operationId": "get_project_bible_api_v1_projects__project_id__bible_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectBibleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update Project Bible",
+        "operationId": "update_project_bible_api_v1_projects__project_id__bible_patch",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectBibleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectBibleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/archive": {
       "post": {
         "tags": [
@@ -713,6 +805,10 @@
             "in": "query",
             "required": true,
             "schema": {
+              "enum": [
+                "txt",
+                "epub"
+              ],
               "type": "string",
               "title": "Format"
             }
@@ -899,6 +995,7 @@
           "editor"
         ],
         "summary": "Generate Concepts",
+        "description": "Generate concept candidates for a new project.",
         "operationId": "generate_concepts_api_v1_projects_generate_concepts_post",
         "requestBody": {
           "content": {
@@ -940,6 +1037,7 @@
           "editor"
         ],
         "summary": "Editor Complete",
+        "description": "Stream continuation text for the active project editor session.",
         "operationId": "editor_complete_api_v1_projects__project_id__editor_complete_post",
         "parameters": [
           {
@@ -990,6 +1088,7 @@
           "editor"
         ],
         "summary": "Generate Section",
+        "description": "Stream generated bible content for a single planning section.",
         "operationId": "generate_section_api_v1_projects__project_id__editor_generate_section_post",
         "parameters": [
           {
@@ -1040,6 +1139,7 @@
           "editor"
         ],
         "summary": "Propose Bible Update",
+        "description": "Propose runtime-state and thread updates from newly written content.",
         "operationId": "propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post",
         "parameters": [
           {
@@ -1092,6 +1192,7 @@
           "editor"
         ],
         "summary": "Generate Beats",
+        "description": "Generate beat outlines for the current chapter context.",
         "operationId": "generate_beats_api_v1_projects__project_id__editor_generate_beats_post",
         "parameters": [
           {
@@ -1144,6 +1245,7 @@
           "editor"
         ],
         "summary": "Expand Beat",
+        "description": "Stream prose that expands a selected beat into chapter text.",
         "operationId": "expand_beat_api_v1_projects__project_id__editor_expand_beat_post",
         "parameters": [
           {
@@ -1194,6 +1296,7 @@
           "editor"
         ],
         "summary": "Generate Volumes",
+        "description": "Stream top-level volume planning output for the project.",
         "operationId": "generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post",
         "parameters": [
           {
@@ -4279,6 +4382,154 @@
         "title": "PlotSummaryMarkdown",
         "description": "Editable markdown plot summary."
       },
+      "ProjectBibleResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "inspiration": {
+            "type": "string",
+            "title": "Inspiration"
+          },
+          "world_building": {
+            "type": "string",
+            "title": "World Building"
+          },
+          "characters": {
+            "type": "string",
+            "title": "Characters"
+          },
+          "outline_master": {
+            "type": "string",
+            "title": "Outline Master"
+          },
+          "outline_detail": {
+            "type": "string",
+            "title": "Outline Detail"
+          },
+          "runtime_state": {
+            "type": "string",
+            "title": "Runtime State"
+          },
+          "runtime_threads": {
+            "type": "string",
+            "title": "Runtime Threads"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "inspiration",
+          "world_building",
+          "characters",
+          "outline_master",
+          "outline_detail",
+          "runtime_state",
+          "runtime_threads",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectBibleResponse"
+      },
+      "ProjectBibleUpdate": {
+        "properties": {
+          "inspiration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspiration"
+          },
+          "world_building": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "World Building"
+          },
+          "characters": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Characters"
+          },
+          "outline_master": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outline Master"
+          },
+          "outline_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outline Detail"
+          },
+          "runtime_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime State"
+          },
+          "runtime_threads": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Threads"
+          }
+        },
+        "type": "object",
+        "title": "ProjectBibleUpdate"
+      },
       "ProjectChapterResponse": {
         "properties": {
           "id": {
@@ -4620,41 +4871,6 @@
             ],
             "title": "Plot Profile Id"
           },
-          "inspiration": {
-            "type": "string",
-            "title": "Inspiration",
-            "default": ""
-          },
-          "world_building": {
-            "type": "string",
-            "title": "World Building",
-            "default": ""
-          },
-          "characters": {
-            "type": "string",
-            "title": "Characters",
-            "default": ""
-          },
-          "outline_master": {
-            "type": "string",
-            "title": "Outline Master",
-            "default": ""
-          },
-          "outline_detail": {
-            "type": "string",
-            "title": "Outline Detail",
-            "default": ""
-          },
-          "runtime_state": {
-            "type": "string",
-            "title": "Runtime State",
-            "default": ""
-          },
-          "runtime_threads": {
-            "type": "string",
-            "title": "Runtime Threads",
-            "default": ""
-          },
           "length_preset": {
             "type": "string",
             "enum": [
@@ -4731,34 +4947,6 @@
             ],
             "title": "Plot Profile Id"
           },
-          "inspiration": {
-            "type": "string",
-            "title": "Inspiration"
-          },
-          "world_building": {
-            "type": "string",
-            "title": "World Building"
-          },
-          "characters": {
-            "type": "string",
-            "title": "Characters"
-          },
-          "outline_master": {
-            "type": "string",
-            "title": "Outline Master"
-          },
-          "outline_detail": {
-            "type": "string",
-            "title": "Outline Detail"
-          },
-          "runtime_state": {
-            "type": "string",
-            "title": "Runtime State"
-          },
-          "runtime_threads": {
-            "type": "string",
-            "title": "Runtime Threads"
-          },
           "length_preset": {
             "type": "string",
             "title": "Length Preset"
@@ -4803,13 +4991,6 @@
           "default_model",
           "style_profile_id",
           "plot_profile_id",
-          "inspiration",
-          "world_building",
-          "characters",
-          "outline_master",
-          "outline_detail",
-          "runtime_state",
-          "runtime_threads",
           "length_preset",
           "auto_sync_memory",
           "archived_at",
@@ -5007,83 +5188,6 @@
               }
             ],
             "title": "Plot Profile Id"
-          },
-          "inspiration": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inspiration"
-          },
-          "world_building": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "World Building"
-          },
-          "characters": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Characters"
-          },
-          "outline_master": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outline Master"
-          },
-          "outline_detail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outline Detail"
-          },
-          "runtime_state": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Runtime State"
-          },
-          "runtime_threads": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Runtime Threads"
           },
           "length_preset": {
             "anyOf": [

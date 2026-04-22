@@ -15,6 +15,8 @@ import type {
   ProjectChapterUpdate,
   ProjectPayload,
   ProjectSummary,
+  ProjectBible,
+  ProjectBibleUpdate,
   PlotAnalysisJob,
   PlotAnalysisJobCreatePayload,
   PlotAnalysisJobListItem,
@@ -119,6 +121,12 @@ export function createApiClient(request: Requester) {
       );
     },
     getProject: (id: string) => request<Project>(`/api/v1/projects/${id}`),
+    getProjectBible: (id: string) => request<ProjectBible>(`/api/v1/projects/${id}/bible`),
+    updateProjectBible: (id: string, payload: Partial<ProjectBibleUpdate>) =>
+      request<ProjectBible>(`/api/v1/projects/${id}/bible`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
     exportProject: async (id: string, format: "txt" | "epub") => {
       const response = await request.raw(`/api/v1/projects/${id}/export?format=${format}`);
       if (!response.ok) {

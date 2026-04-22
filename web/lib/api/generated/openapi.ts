@@ -225,6 +225,24 @@ export interface paths {
         patch: operations["update_project_api_v1_projects__project_id__patch"];
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/bible": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Bible */
+        get: operations["get_project_bible_api_v1_projects__project_id__bible_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Project Bible */
+        patch: operations["update_project_bible_api_v1_projects__project_id__bible_patch"];
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/archive": {
         parameters: {
             query?: never;
@@ -336,7 +354,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generate Concepts */
+        /**
+         * Generate Concepts
+         * @description Generate concept candidates for a new project.
+         */
         post: operations["generate_concepts_api_v1_projects_generate_concepts_post"];
         delete?: never;
         options?: never;
@@ -353,7 +374,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Editor Complete */
+        /**
+         * Editor Complete
+         * @description Stream continuation text for the active project editor session.
+         */
         post: operations["editor_complete_api_v1_projects__project_id__editor_complete_post"];
         delete?: never;
         options?: never;
@@ -370,7 +394,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generate Section */
+        /**
+         * Generate Section
+         * @description Stream generated bible content for a single planning section.
+         */
         post: operations["generate_section_api_v1_projects__project_id__editor_generate_section_post"];
         delete?: never;
         options?: never;
@@ -387,7 +414,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Propose Bible Update */
+        /**
+         * Propose Bible Update
+         * @description Propose runtime-state and thread updates from newly written content.
+         */
         post: operations["propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post"];
         delete?: never;
         options?: never;
@@ -404,7 +434,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generate Beats */
+        /**
+         * Generate Beats
+         * @description Generate beat outlines for the current chapter context.
+         */
         post: operations["generate_beats_api_v1_projects__project_id__editor_generate_beats_post"];
         delete?: never;
         options?: never;
@@ -421,7 +454,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Expand Beat */
+        /**
+         * Expand Beat
+         * @description Stream prose that expands a selected beat into chapter text.
+         */
         post: operations["expand_beat_api_v1_projects__project_id__editor_expand_beat_post"];
         delete?: never;
         options?: never;
@@ -438,7 +474,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generate Volumes */
+        /**
+         * Generate Volumes
+         * @description Stream top-level volume planning output for the project.
+         */
         post: operations["generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post"];
         delete?: never;
         options?: never;
@@ -1546,6 +1585,54 @@ export interface components {
          * @description Editable markdown plot summary.
          */
         PlotSummaryMarkdown: string;
+        /** ProjectBibleResponse */
+        ProjectBibleResponse: {
+            /** Id */
+            id: string;
+            /** Project Id */
+            project_id: string;
+            /** Inspiration */
+            inspiration: string;
+            /** World Building */
+            world_building: string;
+            /** Characters */
+            characters: string;
+            /** Outline Master */
+            outline_master: string;
+            /** Outline Detail */
+            outline_detail: string;
+            /** Runtime State */
+            runtime_state: string;
+            /** Runtime Threads */
+            runtime_threads: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProjectBibleUpdate */
+        ProjectBibleUpdate: {
+            /** Inspiration */
+            inspiration?: string | null;
+            /** World Building */
+            world_building?: string | null;
+            /** Characters */
+            characters?: string | null;
+            /** Outline Master */
+            outline_master?: string | null;
+            /** Outline Detail */
+            outline_detail?: string | null;
+            /** Runtime State */
+            runtime_state?: string | null;
+            /** Runtime Threads */
+            runtime_threads?: string | null;
+        };
         /** ProjectChapterResponse */
         ProjectChapterResponse: {
             /** Id */
@@ -1634,41 +1721,6 @@ export interface components {
             /** Plot Profile Id */
             plot_profile_id?: string | null;
             /**
-             * Inspiration
-             * @default
-             */
-            inspiration: string;
-            /**
-             * World Building
-             * @default
-             */
-            world_building: string;
-            /**
-             * Characters
-             * @default
-             */
-            characters: string;
-            /**
-             * Outline Master
-             * @default
-             */
-            outline_master: string;
-            /**
-             * Outline Detail
-             * @default
-             */
-            outline_detail: string;
-            /**
-             * Runtime State
-             * @default
-             */
-            runtime_state: string;
-            /**
-             * Runtime Threads
-             * @default
-             */
-            runtime_threads: string;
-            /**
              * Length Preset
              * @default short
              * @enum {string}
@@ -1701,20 +1753,6 @@ export interface components {
             style_profile_id: string | null;
             /** Plot Profile Id */
             plot_profile_id: string | null;
-            /** Inspiration */
-            inspiration: string;
-            /** World Building */
-            world_building: string;
-            /** Characters */
-            characters: string;
-            /** Outline Master */
-            outline_master: string;
-            /** Outline Detail */
-            outline_detail: string;
-            /** Runtime State */
-            runtime_state: string;
-            /** Runtime Threads */
-            runtime_threads: string;
             /** Length Preset */
             length_preset: string;
             /** Auto Sync Memory */
@@ -1789,20 +1827,6 @@ export interface components {
             style_profile_id?: string | null;
             /** Plot Profile Id */
             plot_profile_id?: string | null;
-            /** Inspiration */
-            inspiration?: string | null;
-            /** World Building */
-            world_building?: string | null;
-            /** Characters */
-            characters?: string | null;
-            /** Outline Master */
-            outline_master?: string | null;
-            /** Outline Detail */
-            outline_detail?: string | null;
-            /** Runtime State */
-            runtime_state?: string | null;
-            /** Runtime Threads */
-            runtime_threads?: string | null;
             /** Length Preset */
             length_preset?: ("short" | "medium" | "long") | null;
             /** Auto Sync Memory */
@@ -2752,6 +2776,72 @@ export interface operations {
             };
         };
     };
+    get_project_bible_api_v1_projects__project_id__bible_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBibleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_project_bible_api_v1_projects__project_id__bible_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectBibleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBibleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     archive_project_api_v1_projects__project_id__archive_post: {
         parameters: {
             query?: never;
@@ -2817,7 +2907,7 @@ export interface operations {
     export_project_api_v1_projects__project_id__export_get: {
         parameters: {
             query: {
-                format: string;
+                format: "txt" | "epub";
             };
             header?: never;
             path: {
