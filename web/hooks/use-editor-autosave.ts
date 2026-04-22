@@ -14,6 +14,7 @@ export function useEditorAutosave(
   onSaved?: (chapter: ProjectChapter) => void,
 ) {
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSaveError, setLastSaveError] = useState<Error | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<PendingSave | null>(null);
   const onSavedRef = useRef(onSaved);
@@ -29,9 +30,11 @@ export function useEditorAutosave(
         const updated = await api.updateProjectChapter(projectId, targetChapterId, {
           content: nextContent,
         });
+        setLastSaveError(null);
         onSavedRef.current?.(updated);
         return updated;
       } catch (e) {
+        setLastSaveError(e instanceof Error ? e : new Error(String(e)));
         console.error("Failed to save content", e);
         toast.error(errorMessage);
         throw e;
@@ -54,11 +57,7 @@ export function useEditorAutosave(
     const pending = pendingRef.current;
     pendingRef.current = null;
     if (!pending) return null;
-    try {
-      return await persistContent(pending.chapterId, pending.content, "自动保存失败");
-    } catch {
-      return null;
-    }
+    return await persistContent(pending.chapterId, pending.content, "自动保存失败");
   }, [clearPendingTimer, persistContent]);
 
   const saveNow = useCallback(
@@ -105,5 +104,11 @@ export function useEditorAutosave(
     };
   }, [chapterId, persistContent]);
 
-  return { isSaving, saveNow, flushPendingSave };
+  return {
+    isSaving,
+    saveNow,
+    flushPendingSave,
+    lastSaveError,
+    clearSaveError: () => setLastSaveError(null),
+  };
 }

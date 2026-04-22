@@ -239,7 +239,7 @@ export function ZenEditorView({
     onBeatExpandCompleted: handleBeatExpandCompleted,
   });
 
-  const { isSaving, saveNow, flushPendingSave } = useEditorAutosave(
+  const { isSaving, saveNow, flushPendingSave, clearSaveError } = useEditorAutosave(
     project.id,
     selectedChapterRecord?.id ?? null,
     content,
@@ -428,14 +428,19 @@ export function ZenEditorView({
   }, [handleGenerateBeatPlan, selectedChapterRecord]);
 
   const handleSelectChapter = useCallback(async (volumeIndex: number, chapterIndex: number) => {
-    await flushPendingSave();
+    try {
+      await flushPendingSave();
+      clearSaveError();
+    } catch {
+      return;
+    }
     setSelectedVolumeIndex(volumeIndex);
     setCurrentChapter({ volumeIndex, chapterIndex });
     setChapterFocusMode("navigate");
     setIsLeftExpanded(true);
     setLeftPanelMode("navigation");
     setBeatList([]);
-  }, [flushPendingSave, setBeatList]);
+  }, [clearSaveError, flushPendingSave, setBeatList]);
 
   const handleGoGenerateVolume = useCallback(
     (volumeIndex: number) => {

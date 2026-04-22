@@ -62,20 +62,36 @@ export function WorkbenchTabs({
   const [generatingSection, setGeneratingSection] = useState<BibleFieldKey | null>(null);
   const [regenerateSection, setRegenerateSection] = useState<BibleFieldKey | null>(null);
   const [chapters, setChapters] = useState<ProjectChapter[]>([]);
+  const [chaptersLoadError, setChaptersLoadError] = useState<string | null>(null);
   const generationReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     api.getProjectChapters(project.id)
       .then((loaded) => {
-        if (!cancelled) setChapters(loaded);
+        if (!cancelled) {
+          setChaptersLoadError(null);
+          setChapters(loaded);
+        }
       })
-      .catch(() => {
-        if (!cancelled) setChapters([]);
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setChaptersLoadError(e instanceof Error ? e.message : "加载章节失败");
+        }
       });
     return () => {
       cancelled = true;
     };
+  }, [project.id]);
+
+  const handleRetryChapters = useCallback(async () => {
+    try {
+      const loaded = await api.getProjectChapters(project.id);
+      setChaptersLoadError(null);
+      setChapters(loaded);
+    } catch (e: unknown) {
+      setChaptersLoadError(e instanceof Error ? e.message : "加载章节失败");
+    }
   }, [project.id]);
 
   const handleStopGeneration = useCallback(() => {
@@ -221,8 +237,21 @@ export function WorkbenchTabs({
   };
 
   return (
-    <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
-      <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
+    <div className="w-full">
+      {chaptersLoadError ? (
+        <div className="mb-4 flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <span>{chaptersLoadError}</span>
+          <button
+            type="button"
+            className="underline underline-offset-4"
+            onClick={() => void handleRetryChapters()}
+          >
+            重试加载章节
+          </button>
+        </div>
+      ) : null}
+      <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
+        <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
         {BIBLE_SECTION_META.map((section) => (
           <TabsTrigger
             key={section.key}
@@ -239,7 +268,7 @@ export function WorkbenchTabs({
           <Settings className="mr-1.5 h-3.5 w-3.5" />
           设置
         </TabsTrigger>
-      </TabsList>
+        </TabsList>
 
       {/* Bible field tabs — forceMount + CSS toggle to preserve state */}
       {BIBLE_SECTION_META.map((section) => (
@@ -277,30 +306,31 @@ export function WorkbenchTabs({
       ))}
 
       {/* Settings tab */}
-      <TabsContent value="settings" className="mt-0 pt-6">
-        <SettingsTab
-          project={project}
-          providers={providers}
-          styleProfiles={styleProfiles}
-          plotProfiles={plotProfiles}
-          onNameChange={onNameChange}
-        />
-      </TabsContent>
+        <TabsContent value="settings" className="mt-0 pt-6">
+          <SettingsTab
+            project={project}
+            providers={providers}
+            styleProfiles={styleProfiles}
+            plotProfiles={plotProfiles}
+            onNameChange={onNameChange}
+          />
+        </TabsContent>
 
-      <RegenerateDialog
-        open={regenerateSection !== null}
-        title={
-          regenerateSection
-            ? `重新生成「${
-                BIBLE_SECTION_META.find((s) => s.key === regenerateSection)?.title ?? regenerateSection
-              }」`
-            : ""
-        }
-        description="当前已有内容，将在其基础上按你的意见重新生成。意见可填可不填。"
-        busy={generatingSection !== null}
-        onCancel={() => setRegenerateSection(null)}
-        onConfirm={handleRegenerateConfirm}
-      />
-    </Tabs>
+        <RegenerateDialog
+          open={regenerateSection !== null}
+          title={
+            regenerateSection
+              ? `重新生成「${
+                  BIBLE_SECTION_META.find((s) => s.key === regenerateSection)?.title ?? regenerateSection
+                }」`
+              : ""
+          }
+          description="当前已有内容，将在其基础上按你的意见重新生成。意见可填可不填。"
+          busy={generatingSection !== null}
+          onCancel={() => setRegenerateSection(null)}
+          onConfirm={handleRegenerateConfirm}
+        />
+      </Tabs>
+    </div>
   );
 }
