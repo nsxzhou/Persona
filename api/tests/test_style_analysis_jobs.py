@@ -1259,8 +1259,29 @@ async def test_worker_entrypoint_delegates_polling_to_service_run_worker(
         async def aclose(self) -> None:
             self.aclose_calls += 1
 
+    class FakePlotService:
+        def __init__(self) -> None:
+            self.aclose_calls = 0
+
+        async def run_worker(
+            self,
+            session_factory,
+            *,
+            poll_interval_seconds: float,
+            max_poll_interval_seconds: float | None = None,
+        ) -> None:
+            calls["plot"] = {
+                "session_factory": session_factory,
+                "poll_interval_seconds": poll_interval_seconds,
+                "max_poll_interval_seconds": max_poll_interval_seconds,
+            }
+
+        async def aclose(self) -> None:
+            self.aclose_calls += 1
+
     fake_engine = FakeEngine()
     fake_service = FakeService()
+    fake_plot_service = FakePlotService()
     fake_session_factory = object()
     settings = SimpleNamespace(
         style_analysis_worker_enabled=True,
@@ -1273,6 +1294,7 @@ async def test_worker_entrypoint_delegates_polling_to_service_run_worker(
     monkeypatch.setattr(worker_module, "create_engine", lambda database_url: fake_engine)
     monkeypatch.setattr(worker_module, "create_session_factory", lambda engine: fake_session_factory)
     monkeypatch.setattr(worker_module, "StyleAnalysisWorkerService", lambda: fake_service)
+    monkeypatch.setattr(worker_module, "PlotAnalysisWorkerService", lambda: fake_plot_service)
 
     await worker_module.run_worker()
 
@@ -1280,8 +1302,14 @@ async def test_worker_entrypoint_delegates_polling_to_service_run_worker(
         "session_factory": fake_session_factory,
         "poll_interval_seconds": 1.5,
         "max_poll_interval_seconds": 6.0,
+        "plot": {
+            "session_factory": fake_session_factory,
+            "poll_interval_seconds": 1.5,
+            "max_poll_interval_seconds": 6.0,
+        },
     }
     assert fake_service.aclose_calls == 1
+    assert fake_plot_service.aclose_calls == 1
     assert fake_engine.dispose_calls == 1
 
 

@@ -117,6 +117,17 @@
 | **超长文本专项分析策略** | ⏳ | 当前只有段落聚合启发式 |
 | **外部任务队列化（Celery 等）** | ⏳ | 现在是进程内 + DB lease |
 
+### Plot Lab（情节实验室）
+
+| 功能 | 状态 | 入口 |
+| --- | --- | --- |
+| Plot Lab Dashboard / Wizard / Profile UI | ✅ | `web/app/(workspace)/plot-lab/`、`web/components/plot-lab-*.tsx` |
+| `plot_sample_files` / `plot_analysis_jobs` / `plot_profiles` 三表 | ✅ | `api/app/db/models.py` |
+| Plot 分析管道（sketch → skeleton → report → summary → prompt pack） | ✅ | `api/app/services/plot_analysis_pipeline.py` |
+| Plot 任务暂停 / 恢复 / stale recovery 状态机 | ✅ | `api/app/services/plot_analysis_worker.py`、`api/app/main.py` |
+| Plot Worker 默认启动集成 | ✅ | `api/app/worker.py`、`Makefile` |
+| Plot Lab 默认本地端到端闭环 | ✅ | `make dev` 下可由统一 Worker 直接消费任务 |
+
 ### 记忆同步（Memory Sync）
 
 | 功能 | 状态 | 入口 |
@@ -162,6 +173,7 @@
 | --- | --- |
 | 基础框架（鉴权、Provider、项目 CRUD） | ✅ |
 | Style Lab 深度分析结果包 | 🧪 |
+| Plot Lab 基础闭环 | 🔁 |
 | Style Lab 多 TXT 合并 / 独立证据账本 / 超长文本批处理 / 采样聚合质量升级 / 外部任务队列 | ⏳ |
 
 ### Phase 2：Zen Editor

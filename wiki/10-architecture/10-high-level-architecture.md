@@ -32,14 +32,14 @@ flowchart LR
         Lifespan[lifespan hook<br/>fail_stale_running_jobs]
     end
 
-    subgraph Style Analysis Worker<br/>独立进程
+    subgraph Background Worker<br/>独立进程（已接入 Style + Plot）
         WorkerLoop[Worker Loop<br/>claim → lease → run]
         LangGraph[LangGraph Pipeline<br/>prepare→analyze→merge→report→summary→pack→persist]
         Checkpointer[Checkpointer<br/>SQLite/Postgres]
     end
 
     subgraph Postgres 容器<br/>端口 5432
-        DB[(业务表 + style_* 表)]
+        DB[(业务表 + style_* / plot_* 表)]
         Ckpt[(LangGraph checkpoints)]
     end
 
@@ -79,17 +79,20 @@ flowchart LR
 | 进程 | 职责 | 启动方式 | 日志 |
 | --- | --- | --- | --- |
 | **FastAPI API** | HTTP API、SSE、业务 CRUD、编辑器续写 | `uvicorn app.main:app --reload --port 8000` | `.run/api.log` |
-| **Style Analysis Worker** | 后台轮询 claim 分析任务、跑 LangGraph 管道、回写结果 | `python -m app.worker` | `.run/worker.log` |
+| **Background Worker** | 同一进程内并发轮询 Style / Plot 两类分析任务，驱动 LangGraph 管道并回写结果 | `python -m app.worker` | `.run/worker.log` |
 | **Next.js Web** | 前端页面、SSR、Server Actions | `pnpm dev --port 3000` | `.run/web.log` |
 
-三者全部通过 **Postgres** 作为共享状态中枢通讯。**没有 Redis、MQ、Celery**——队列就是 `style_analysis_jobs` 表，用 `status + claimed_at + lease_expires_at` 字段做 "pending / claimed / running / stale" 状态机。
+三者全部通过 **Postgres** 作为共享状态中枢通讯。**没有 Redis、MQ、Celery**——后台任务目前靠数据库状态机驱动：
+
+- `style_analysis_jobs` 与 `plot_analysis_jobs` 都由默认 worker 进程消费
+- 两条分析流水线复用同一套数据库 lease / heartbeat / stale recovery 思路，但执行器各自独立
 
 **为什么不上队列**：
 - 单用户部署，并发量极低（通常 1 个分析任务排队）
 - 加 Redis / Celery 运维成本高于其业务价值
-- DB lease 方案足够稳、实现简单、可审计（`SELECT * FROM style_analysis_jobs` 能直接看到"谁在跑"）
+- DB lease 方案足够稳、实现简单、可审计（直接查任务表就能看到"谁在跑"）
 
-参考代码：`Makefile:15`（`dev` target 串起 `db api worker web status`）、`api/app/main.py:46`（`create_app` lifespan + 路由注册）、`api/app/services/style_analysis_worker.py`（worker 主循环）。
+参考代码：`Makefile:15`（`dev` target 串起 `db api worker web status`）、`api/app/main.py:46`（`create_app` lifespan + 路由注册）、`api/app/worker.py`（统一后台入口）、`api/app/services/style_analysis_worker.py` 与 `api/app/services/plot_analysis_worker.py`（两条执行循环）。
 
 ### 启动时序
 
@@ -99,7 +102,7 @@ sequenceDiagram
     participant Make as make dev
     participant PG as Postgres 容器
     participant API as FastAPI (8000)
-    participant Worker as Style Worker
+    participant Worker as Background Worker
     participant Web as Next.js (3000)
     participant Alembic
 
@@ -126,18 +129,18 @@ sequenceDiagram
 
 ### API 进程的 lifespan
 
-`api/app/main.py:51-62` 的 `lifespan` 上下文管理器在 FastAPI 启动时做一次性操作：
+`api/app/main.py:47-69` 的 `lifespan` 上下文管理器在 FastAPI 启动时做一次性操作：
 
-1. 构造 `StyleAnalysisWorkerService`
-2. 调用 `fail_stale_running_jobs(session_factory, stale_after_seconds=settings.style_analysis_stale_timeout_seconds)` —— 把上次进程没正常退出时遗留的 `running` 任务重置回 `pending`，允许下一个 Worker 重新 claim
+1. 构造 `StyleAnalysisWorkerService` 与 `PlotAnalysisWorkerService`
+2. 分别对 `style_analysis_jobs` 和 `plot_analysis_jobs` 调用 `fail_stale_running_jobs(...)`，把上次异常退出遗留的 `running` 任务打回 `pending`
 3. `yield` 正常服务请求
-4. 关闭时 `aclose()` Worker 实例；如果 engine 是内部创建的（非测试注入），`dispose()` 连接池
+4. 关闭时分别 `aclose()` 两个执行器；如果 engine 是内部创建的（非测试注入），再 `dispose()` 连接池
 
-**关键**：Worker 进程与 API 进程**独立进程**，但 API 进程负责恢复陈旧任务，体现"控制面（API）+ 数据面（Worker）"的角色分工。
+**关键**：API 进程负责恢复陈旧任务，真正的消费逻辑在独立的后台 worker 进程里；当前默认入口会并发跑 Style 与 Plot 两条轮询循环。
 
 ### 路由前缀 + CORS
 
-`api/app/main.py:114-121` 所有业务路由挂在 `/api/v1` 前缀下，8 个路由模块：
+`api/app/main.py:123-132` 所有业务路由挂在 `/api/v1` 前缀下，10 个路由模块：
 
 ```
 /api/v1/setup
@@ -148,6 +151,8 @@ sequenceDiagram
 /api/v1/editor
 /api/v1/style-analysis-jobs
 /api/v1/style-profiles
+/api/v1/plot-analysis-jobs
+/api/v1/plot-profiles
 ```
 
 另有独立的 `GET /health` 健康检查。
@@ -213,7 +218,8 @@ app = create_app(session_factory=mock_factory)
 | `api/app/core/config.py` | `Settings` Pydantic Settings，所有 env 变量统一入口 |
 | `api/app/db/session.py` | `create_engine` / `create_session_factory` / `get_db_session` 异步 Session |
 | `api/app/api/deps.py` | 所有 `Depends()` 依赖注入工厂 |
-| `api/app/worker.py` | Worker 进程入口（`python -m app.worker`） |
+| `api/app/worker.py` | 统一后台 worker 入口（`python -m app.worker`，并发运行 Style + Plot 两条轮询循环） |
+| `api/app/services/plot_analysis_worker.py` | Plot 分析执行器实现 |
 | `web/app/layout.tsx` | 根 layout，挂 `AppProviders` |
 | `web/components/app-providers.tsx` | TanStack QueryClient、Theme、错误边界 |
 | `web/components/app-shell.tsx` | 主应用壳（左侧导航、顶部栏） |
