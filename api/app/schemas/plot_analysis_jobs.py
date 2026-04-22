@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, TypeAlias
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
+from app.schemas.analysis_common import InputClassificationSchema
 from app.schemas.provider_configs import ProviderSummary
 
 
@@ -87,7 +88,7 @@ class PlotChunkSketch(BaseModel):
 
 
 class PlotMergedAnalysis(BaseModel):
-    classification: dict[str, Any] = Field(description="Input classification metadata used during the analysis.")
+    classification: InputClassificationSchema = Field(description="Input classification metadata used during the analysis.")
     markdown: str = Field(min_length=1, description="Merged markdown analysis.")
 
 

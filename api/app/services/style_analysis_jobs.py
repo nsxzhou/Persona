@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redaction import redact_sensitive_text
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import StyleAnalysisJob
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
@@ -32,9 +33,11 @@ logger = logging.getLogger(__name__)
 def sanitize_style_analysis_error_message(error_message: str | None) -> str:
     if error_message is None:
         return STYLE_ANALYSIS_USER_ERROR_MESSAGE
-    normalized_message = error_message.strip()
+    normalized_message = redact_sensitive_text(error_message).strip()
     if not normalized_message:
         return STYLE_ANALYSIS_USER_ERROR_MESSAGE
+    if len(normalized_message) > 200:
+        return normalized_message[:199] + "…"
     return normalized_message
 
 

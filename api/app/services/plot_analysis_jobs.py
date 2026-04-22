@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redaction import redact_sensitive_text
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import PlotAnalysisJob
 from app.db.repositories.plot_analysis_jobs import PlotAnalysisJobRepository
@@ -32,9 +33,11 @@ logger = logging.getLogger(__name__)
 def sanitize_plot_analysis_error_message(error_message: str | None) -> str:
     if error_message is None:
         return PLOT_ANALYSIS_USER_ERROR_MESSAGE
-    normalized_message = error_message.strip()
+    normalized_message = redact_sensitive_text(error_message).strip()
     if not normalized_message:
         return PLOT_ANALYSIS_USER_ERROR_MESSAGE
+    if len(normalized_message) > 200:
+        return normalized_message[:199] + "…"
     return normalized_message
 
 
@@ -63,11 +66,14 @@ class PlotAnalysisJobService:
     def __init__(
         self,
         repository: PlotAnalysisJobRepository | None = None,
+        provider_service: ProviderConfigService | None = None,
+        storage_service: PlotAnalysisStorageService | None = None,
+        checkpointer_factory: PlotAnalysisCheckpointerFactory | None = None,
     ) -> None:
         self.repository = repository or PlotAnalysisJobRepository()
-        self.provider_service = ProviderConfigService()
-        self.storage_service = PlotAnalysisStorageService()
-        self.checkpointer_factory = PlotAnalysisCheckpointerFactory()
+        self.provider_service = provider_service or ProviderConfigService()
+        self.storage_service = storage_service or PlotAnalysisStorageService()
+        self.checkpointer_factory = checkpointer_factory or PlotAnalysisCheckpointerFactory()
 
     async def list(
         self,
@@ -237,29 +243,13 @@ class PlotAnalysisJobService:
         await session.flush()
         return await self.get_status_or_404(session, job_id, user_id=user_id)
 
-    async def _get_payload_or_409(
+    async def _resolve_payload_result_or_409(
         self,
-        session: AsyncSession,
-        job_id: str,
         *,
-        user_id: str | None = None,
-        payload_column=None,
-        parser=None,
+        result,
+        parser,
         not_ready_detail: str,
     ):
-        if user_id is None:
-            result = await self.repository.get_status_and_payload(
-                session,
-                job_id,
-                payload_column=payload_column,
-            )
-        else:
-            result = await self.repository.get_status_and_payload(
-                session,
-                job_id,
-                user_id=user_id,
-                payload_column=payload_column,
-            )
         if result is None:
             raise NotFoundError("分析任务不存在")
         job_status, payload = result
@@ -274,11 +264,13 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> PlotAnalysisMeta:
-        return await self._get_payload_or_409(
+        result = await self.repository.get_status_and_analysis_meta(
             session,
             job_id,
             user_id=user_id,
-            payload_column=PlotAnalysisJob.analysis_meta_payload,
+        )
+        return await self._resolve_payload_result_or_409(
+            result=result,
             parser=PlotAnalysisMeta.model_validate,
             not_ready_detail="分析任务尚未完成，暂无法读取元数据",
         )
@@ -290,11 +282,13 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> str:
-        return await self._get_payload_or_409(
+        result = await self.repository.get_status_and_analysis_report(
             session,
             job_id,
             user_id=user_id,
-            payload_column=PlotAnalysisJob.analysis_report_payload,
+        )
+        return await self._resolve_payload_result_or_409(
+            result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取分析报告",
         )
@@ -306,11 +300,13 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> str:
-        return await self._get_payload_or_409(
+        result = await self.repository.get_status_and_plot_skeleton(
             session,
             job_id,
             user_id=user_id,
-            payload_column=PlotAnalysisJob.plot_skeleton_payload,
+        )
+        return await self._resolve_payload_result_or_409(
+            result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取全书骨架",
         )
@@ -322,11 +318,13 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> str:
-        return await self._get_payload_or_409(
+        result = await self.repository.get_status_and_plot_summary(
             session,
             job_id,
             user_id=user_id,
-            payload_column=PlotAnalysisJob.plot_summary_payload,
+        )
+        return await self._resolve_payload_result_or_409(
+            result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取情节摘要",
         )
@@ -338,11 +336,13 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> str:
-        return await self._get_payload_or_409(
+        result = await self.repository.get_status_and_prompt_pack(
             session,
             job_id,
             user_id=user_id,
-            payload_column=PlotAnalysisJob.prompt_pack_payload,
+        )
+        return await self._resolve_payload_result_or_409(
+            result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取 Prompt 包",
         )

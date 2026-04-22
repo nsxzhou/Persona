@@ -6,12 +6,10 @@ from collections.abc import Callable
 from typing import Any
 
 from openai import PermissionDeniedError
-from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
-from app.core.config import get_settings
-from app.core.security import decrypt_secret
 from app.db.models import ProviderConfig
+from app.services.llm_model_factory import build_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -90,23 +88,23 @@ class MarkdownLLMClient:
     def __init__(
         self,
         *,
-        model_factory: Callable[..., Any] = init_chat_model,
-        secret_decrypter: Callable[[str], str] = decrypt_secret,
+        model_factory: Callable[..., Any] | None = None,
+        secret_decrypter: Callable[[str], str] | None = None,
     ) -> None:
         self._model_factory = model_factory
         self._secret_decrypter = secret_decrypter
 
     def build_model(self, *, provider: ProviderConfig, model_name: str) -> Any:
-        settings = get_settings()
-        timeout_seconds = settings.llm_timeout_seconds
-        return self._model_factory(
-            model=model_name,
-            model_provider="openai",
-            base_url=provider.base_url,
-            api_key=self._secret_decrypter(provider.api_key_encrypted),
+        kwargs: dict[str, Any] = {}
+        if self._model_factory is not None:
+            kwargs["model_factory"] = self._model_factory
+        if self._secret_decrypter is not None:
+            kwargs["secret_decrypter"] = self._secret_decrypter
+        return build_chat_model(
+            provider,
+            model_name=model_name,
             temperature=0.0,
-            timeout=timeout_seconds,
-            max_retries=settings.llm_max_retries,
+            **kwargs,
         )
 
     async def ainvoke_markdown(

@@ -86,7 +86,6 @@ class ChunkMapState(TypedDict):
     chunk_index: int
     chunk_count: int
     classification: InputClassification
-    plot_skeleton_markdown: str
 
 
 @dataclass(frozen=True)
@@ -110,7 +109,9 @@ class PlotAnalysisPipeline:
         plot_name: str,
         source_filename: str,
         llm_client: MarkdownLLMClient | None = None,
+        chat_model: Any | None = None,
         checkpointer: Any | None = None,
+        storage_service: PlotAnalysisStorageService | None = None,
         stage_callback: StageCallback | None = None,
         should_pause: Callable[[], bool] | None = None,
     ) -> None:
@@ -120,7 +121,7 @@ class PlotAnalysisPipeline:
         self.source_filename = source_filename
 
         self.llm_client = llm_client or MarkdownLLMClient()
-        self.chat_model = self.llm_client.build_model(
+        self.chat_model = chat_model or self.llm_client.build_model(
             provider=provider, model_name=model_name
         )
 
@@ -135,7 +136,8 @@ class PlotAnalysisPipeline:
 
         self.stage_callback = stage_callback
         self.should_pause = should_pause
-        self.storage_service = PlotAnalysisStorageService()
+        self.storage_service = storage_service or PlotAnalysisStorageService()
+        self._plot_skeleton_cache: str | None = None
         self.graph = self._build_graph()
 
     async def run(
@@ -396,6 +398,7 @@ class PlotAnalysisPipeline:
                 "plot_skeleton_markdown is required before routing chunks; "
                 "build_skeleton must run first."
             )
+        self._plot_skeleton_cache = skeleton
         return [
             Send(
                 "analyze_chunk",
@@ -406,11 +409,18 @@ class PlotAnalysisPipeline:
                     "chunk_index": index,
                     "chunk_count": state["chunk_count"],
                     "classification": state["classification"],
-                    "plot_skeleton_markdown": skeleton,
                 },
             )
             for index in range(state["chunk_count"])
         ]
+
+    async def _get_plot_skeleton_markdown(self, job_id: str) -> str:
+        if self._plot_skeleton_cache is None:
+            self._plot_skeleton_cache = await self.storage_service.read_stage_markdown_artifact(
+                job_id,
+                name="plot-skeleton",
+            )
+        return self._plot_skeleton_cache
 
     async def _analyze_chunk(self, state: ChunkMapState) -> dict[str, Any]:
         self._raise_if_paused()
@@ -422,13 +432,14 @@ class PlotAnalysisPipeline:
         if self.storage_service.chunk_analysis_artifact_exists(state["job_id"], state["chunk_index"]):
             return {}
         chunk = await self.storage_service.read_chunk_artifact(state["job_id"], state["chunk_index"])
+        plot_skeleton_markdown = await self._get_plot_skeleton_markdown(state["job_id"])
 
         prompt = build_chunk_analysis_prompt(
             chunk=chunk,
             chunk_index=state["chunk_index"],
             classification=state["classification"],
             chunk_count=state["chunk_count"],
-            plot_skeleton=state.get("plot_skeleton_markdown"),
+            plot_skeleton=plot_skeleton_markdown,
         )
 
         markdown = await self.llm_client.ainvoke_markdown(

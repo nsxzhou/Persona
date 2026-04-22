@@ -21,6 +21,7 @@ from app.services.plot_analysis_pipeline import (
     PlotAnalysisPipelineResult,
 )
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
+from app.services.style_analysis_llm import MarkdownLLMClient
 from app.services.style_analysis_text import InputClassification, read_chunks_and_classification
 
 logger = logging.getLogger(__name__)
@@ -262,12 +263,17 @@ class PlotAnalysisJobExecutor:
         stage_callback,
         should_pause=None,
     ) -> PlotAnalysisPipeline:
+        llm_client = MarkdownLLMClient()
+        chat_model = llm_client.build_model(provider=provider, model_name=model_name)
         return PlotAnalysisPipeline(
             provider=provider,
             model_name=model_name,
             plot_name=plot_name,
             source_filename=source_filename,
+            llm_client=llm_client,
+            chat_model=chat_model,
             checkpointer=await self.checkpointer_factory.get(),
+            storage_service=self.storage_service,
             stage_callback=stage_callback,
             should_pause=should_pause,
         )

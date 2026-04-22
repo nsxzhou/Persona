@@ -71,7 +71,7 @@ class PlotAnalysisJobRepository:
             stmt = stmt.where(PlotAnalysisJob.user_id == user_id)
         return await session.scalar(stmt)
 
-    async def get_status_and_payload(
+    async def _get_status_and_payload(
         self,
         session: AsyncSession,
         job_id: str,
@@ -86,6 +86,49 @@ class PlotAnalysisJobRepository:
             stmt = stmt.where(PlotAnalysisJob.user_id == user_id)
         row = await session.execute(stmt)
         return row.one_or_none()
+
+    async def get_status_and_analysis_meta(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
+        return await self._get_status_and_payload(
+            session,
+            job_id,
+            user_id=user_id,
+            payload_column=PlotAnalysisJob.analysis_meta_payload,
+        )
+
+    async def get_status_and_analysis_report(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
+        return await self._get_status_and_payload(
+            session,
+            job_id,
+            user_id=user_id,
+            payload_column=PlotAnalysisJob.analysis_report_payload,
+        )
+
+    async def get_status_and_plot_skeleton(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
+        return await self._get_status_and_payload(
+            session,
+            job_id,
+            user_id=user_id,
+            payload_column=PlotAnalysisJob.plot_skeleton_payload,
+        )
+
+    async def get_status_and_plot_summary(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
+        return await self._get_status_and_payload(
+            session,
+            job_id,
+            user_id=user_id,
+            payload_column=PlotAnalysisJob.plot_summary_payload,
+        )
+
+    async def get_status_and_prompt_pack(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
+        return await self._get_status_and_payload(
+            session,
+            job_id,
+            user_id=user_id,
+            payload_column=PlotAnalysisJob.prompt_pack_payload,
+        )
+
+    async def get_status_and_payload(self, *args, **kwargs):  # pragma: no cover - compatibility guard
+        return await self._get_status_and_payload(*args, **kwargs)
 
     async def get_for_delete(
         self,
