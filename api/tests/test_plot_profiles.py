@@ -457,6 +457,41 @@ async def test_get_plot_skeleton_or_409_returns_payload_when_succeeded(
 
 
 @pytest.mark.asyncio
+async def test_plot_payload_getters_use_explicit_repository_methods(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    initialized_provider: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.db.repositories.plot_analysis_jobs import PlotAnalysisJobRepository
+
+    job_id, detail = await create_succeeded_plot_job(
+        initialized_client=initialized_client,
+        app_with_db=app_with_db,
+        plot_name="显式读取",
+        provider_id=str(initialized_provider["id"]),
+        model_name=str(initialized_provider["default_model"]),
+    )
+
+    async def fail_generic(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("generic payload accessor should not be used")
+
+    monkeypatch.setattr(PlotAnalysisJobRepository, "get_status_and_payload", fail_generic)
+
+    async with app_with_db.state.session_factory() as session:
+        report = await PlotAnalysisJobService().get_analysis_report_or_409(session, job_id)
+        summary = await PlotAnalysisJobService().get_plot_summary_or_409(session, job_id)
+        prompt_pack = await PlotAnalysisJobService().get_prompt_pack_or_409(session, job_id)
+        skeleton = await PlotAnalysisJobService().get_plot_skeleton_or_409(session, job_id)
+
+    assert report == detail["analysis_report_markdown"]
+    assert summary == detail["plot_summary_markdown"]
+    assert prompt_pack == detail["prompt_pack_markdown"]
+    assert skeleton == detail["plot_skeleton_markdown"]
+
+
+@pytest.mark.asyncio
 async def test_get_plot_skeleton_or_409_raises_conflict_when_not_ready(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,

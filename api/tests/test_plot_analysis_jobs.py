@@ -9,6 +9,27 @@ from httpx import AsyncClient
 from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 
 
+def test_plot_analysis_job_service_supports_dependency_injection() -> None:
+    from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
+    from app.services.plot_analysis_jobs import PlotAnalysisJobService
+    from app.services.plot_analysis_storage import PlotAnalysisStorageService
+    from app.services.provider_configs import ProviderConfigService
+
+    provider_service = ProviderConfigService()
+    storage_service = PlotAnalysisStorageService()
+    checkpointer_factory = PlotAnalysisCheckpointerFactory()
+
+    service = PlotAnalysisJobService(
+        provider_service=provider_service,
+        storage_service=storage_service,
+        checkpointer_factory=checkpointer_factory,
+    )
+
+    assert service.provider_service is provider_service
+    assert service.storage_service is storage_service
+    assert service.checkpointer_factory is checkpointer_factory
+
+
 @pytest.mark.asyncio
 async def test_plot_worker_uses_configured_chunk_concurrency(
     initialized_client: AsyncClient,

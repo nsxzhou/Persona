@@ -16,7 +16,7 @@ from app.schemas.style_analysis_jobs import (
     MergedAnalysis,
     STYLE_ANALYSIS_REPORT_SECTIONS,
 )
-from app.services import llm_provider as llm_provider_module
+from app.services import llm_model_factory as llm_model_factory_module
 from app.services.llm_provider import LLMProviderService
 from app.services.style_analysis_llm import EmptyMarkdownResponseError, MarkdownLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
@@ -55,6 +55,8 @@ def test_chunk_and_merged_analysis_accept_markdown_payloads() -> None:
 
     assert chunk.markdown.startswith("# 执行摘要")
     assert "## 3.1 口头禅与常用表达" in merged.markdown
+    assert merged.classification.text_type == "章节正文"
+    assert merged.classification.noise_notes == "未发现显著噪声。"
 
 
 def test_analysis_meta_requires_expected_fields() -> None:
@@ -152,9 +154,9 @@ def test_llm_provider_service_uses_configured_timeout(
         factory_calls.append(kwargs)
         return object()
 
-    monkeypatch.setattr(llm_provider_module, "init_chat_model", fake_init_chat_model)
+    monkeypatch.setattr(llm_model_factory_module, "init_chat_model", fake_init_chat_model)
     monkeypatch.setattr(
-        llm_provider_module,
+        llm_model_factory_module,
         "decrypt_secret",
         lambda value: f"decrypted:{value}",
     )
@@ -178,6 +180,53 @@ def test_llm_provider_service_uses_configured_timeout(
             "timeout": 7.5,
             "max_retries": 2,
         }
+    ]
+    get_settings.cache_clear()
+
+
+def test_markdown_llm_client_and_provider_service_share_model_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    get_settings.cache_clear()
+
+    factory_calls: list[dict] = []
+
+    def fake_init_chat_model(**kwargs: object) -> object:
+        factory_calls.append(kwargs)
+        return object()
+
+    monkeypatch.setattr(llm_model_factory_module, "init_chat_model", fake_init_chat_model)
+    monkeypatch.setattr(llm_model_factory_module, "decrypt_secret", lambda value: f"decrypted:{value}")
+
+    provider = SimpleNamespace(
+        base_url="https://api.example.test/v1",
+        api_key_encrypted="encrypted-key",
+        default_model="gpt-4.1-mini",
+    )
+
+    LLMProviderService()._build_model(provider, temperature=0.2)
+    MarkdownLLMClient().build_model(provider=provider, model_name="gpt-4.1-mini")
+
+    assert factory_calls == [
+        {
+            "model": "gpt-4.1-mini",
+            "model_provider": "openai",
+            "base_url": "https://api.example.test/v1",
+            "api_key": "decrypted:encrypted-key",
+            "temperature": 0.2,
+            "timeout": 300.0,
+            "max_retries": 2,
+        },
+        {
+            "model": "gpt-4.1-mini",
+            "model_provider": "openai",
+            "base_url": "https://api.example.test/v1",
+            "api_key": "decrypted:encrypted-key",
+            "temperature": 0.0,
+            "timeout": 300.0,
+            "max_retries": 2,
+        },
     ]
     get_settings.cache_clear()
 

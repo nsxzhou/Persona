@@ -1357,6 +1357,7 @@ async def test_create_app_disposes_owned_engine_on_shutdown(
     monkeypatch.setattr("app.main.create_engine", lambda database_url: fake_engine)
     monkeypatch.setattr("app.main.create_session_factory", lambda engine: "fake-session-factory")
     monkeypatch.setattr("app.main.StyleAnalysisWorkerService", lambda: FakeWorkerService())
+    monkeypatch.setattr("app.main.PlotAnalysisWorkerService", lambda: FakeWorkerService())
 
     app = create_app()
     async with LifespanManager(app):

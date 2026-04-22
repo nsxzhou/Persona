@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import io
+import zipfile
 from typing import get_type_hints
 
 import pytest
@@ -19,12 +21,14 @@ def test_project_service_supports_repository_injection() -> None:
 
 def test_projects_routes_use_annotated_service_dependency() -> None:
     from app.api.deps import DbSessionDep, ProjectServiceDep
-    from app.api.routes.projects import list_projects
+    from app.api.routes.projects import export_project, list_projects
 
     hints = get_type_hints(list_projects, include_extras=True)
 
     assert hints["db_session"] == DbSessionDep
     assert hints["project_service"] == ProjectServiceDep
+    export_hints = get_type_hints(export_project, include_extras=True)
+    assert export_hints["format"] != str
 
 
 @pytest.mark.asyncio
@@ -377,4 +381,32 @@ async def test_export_project(
 
     # Test invalid format
     export_invalid = await initialized_client.get(f"/api/v1/projects/{project_id}/export?format=pdf")
-    assert export_invalid.status_code == 400
+    assert export_invalid.status_code == 422
+
+
+def test_generate_epub_export_escapes_chapter_html() -> None:
+    from app.services.export import ExportService
+
+    project = type("ProjectStub", (), {"name": "Escape Test Project"})()
+    chapters = [
+        type(
+            "ChapterStub",
+            (),
+            {
+                "volume_index": 0,
+                "chapter_index": 0,
+                "title": '危险 <标题> & "引号"',
+                "content": "第一段 <b>不应注入</b>\n第二段 & 伏笔",
+            },
+        )()
+    ]
+
+    epub_bytes = ExportService.generate_epub_export(project, chapters)
+
+    with zipfile.ZipFile(io.BytesIO(epub_bytes)) as archive:
+        chapter_markup = archive.read("EPUB/chap_0_0.xhtml").decode("utf-8")
+
+    assert "&lt;标题&gt;" in chapter_markup
+    assert "&lt;b&gt;不应注入&lt;/b&gt;" in chapter_markup
+    assert "&amp; 伏笔" in chapter_markup
+    assert "<b>不应注入</b>" not in chapter_markup

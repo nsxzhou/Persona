@@ -102,6 +102,13 @@ class PipelineLLMStub:
 
 
 def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> PlotAnalysisPipeline:
+    chat_model = client.build_model(
+        provider=SimpleNamespace(
+            base_url="https://api.example.test/v1",
+            api_key_encrypted="encrypted",
+        ),
+        model_name="gpt-4.1-mini",
+    )
     return PlotAnalysisPipeline(
         provider=SimpleNamespace(
             base_url="https://api.example.test/v1",
@@ -111,6 +118,7 @@ def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> Plot
         plot_name="骨架测试",
         source_filename="sample.txt",
         llm_client=client,
+        chat_model=chat_model,
         checkpointer=checkpointer,
     )
 
@@ -123,6 +131,27 @@ _CLASSIFICATION = {
     "uses_batch_processing": True,
     "location_indexing": "章节或段落位置",
 }
+
+
+def test_route_chunks_does_not_embed_skeleton_into_each_send_payload() -> None:
+    pipeline = build_pipeline(PipelineLLMStub(), InMemorySaver())
+
+    sends = pipeline._route_chunks(  # noqa: SLF001 - private regression test
+        {
+            "job_id": "job-route-chunks",
+            "plot_name": "骨架测试",
+            "source_filename": "sample.txt",
+            "model_name": "gpt-4.1-mini",
+            "chunk_count": 2,
+            "classification": _CLASSIFICATION,
+            "plot_skeleton_markdown": _SKELETON_MARKDOWN,
+        }
+    )
+
+    assert [send.node for send in sends] == ["analyze_chunk", "analyze_chunk"]
+    for index, send in enumerate(sends):
+        assert send.arg["chunk_index"] == index
+        assert "plot_skeleton_markdown" not in send.arg
 
 
 @pytest.mark.asyncio
@@ -228,6 +257,13 @@ async def test_pipeline_graph_tracks_stage_transitions_from_prepare_to_prompt_pa
         seen_stages.append(stage)
 
     client = PipelineLLMStub()
+    chat_model = client.build_model(
+        provider=SimpleNamespace(
+            base_url="https://api.example.test/v1",
+            api_key_encrypted="encrypted",
+        ),
+        model_name="gpt-4.1-mini",
+    )
     pipeline = PlotAnalysisPipeline(
         provider=SimpleNamespace(
             base_url="https://api.example.test/v1",
@@ -237,6 +273,7 @@ async def test_pipeline_graph_tracks_stage_transitions_from_prepare_to_prompt_pa
         plot_name="阶段测试",
         source_filename="sample.txt",
         llm_client=client,
+        chat_model=chat_model,
         checkpointer=InMemorySaver(),
         stage_callback=stage_callback,
     )
