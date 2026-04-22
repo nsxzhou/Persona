@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Project } from "@/lib/types";
+import { Project, ProjectBible } from "@/lib/types";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
 import { useStreamingText } from "@/hooks/use-streaming-text";
 
 export function useBeatGeneration({
   project,
+  projectBible,
   content,
   setContent,
   textareaRef,
@@ -18,6 +19,7 @@ export function useBeatGeneration({
   onBeatExpandCompleted,
 }: {
   project: Project;
+  projectBible: ProjectBible;
   content: string;
   setContent: (val: string | ((prev: string) => string)) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -46,9 +48,9 @@ export function useBeatGeneration({
       const data = await api.generateBeats(
         project.id,
         textBeforeCursor,
-        project.runtime_state ?? "",
-        project.runtime_threads ?? "",
-        project.outline_detail ?? "",
+        projectBible.runtime_state ?? "",
+        projectBible.runtime_threads ?? "",
+        projectBible.outline_detail ?? "",
         currentChapterContext,
         previousChapterContext,
         totalContentLength,
@@ -82,9 +84,9 @@ export function useBeatGeneration({
         const response = await api.expandBeat(
           project.id,
           textBeforeCursor,
-          project.runtime_state ?? "",
-          project.runtime_threads ?? "",
-          project.outline_detail ?? "",
+          projectBible.runtime_state ?? "",
+          projectBible.runtime_threads ?? "",
+          projectBible.outline_detail ?? "",
           beats[i],
           i,
           beats.length,

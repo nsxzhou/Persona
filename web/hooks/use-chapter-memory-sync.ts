@@ -7,6 +7,8 @@ import type {
   MemorySyncScope,
   MemorySyncSource,
   Project,
+  ProjectBible,
+  ProjectBibleUpdate,
   ProjectChapter,
   ProjectChapterUpdate,
   ProjectPayload,
@@ -40,31 +42,31 @@ async function hashContent(content: string) {
 
 function getStoredDiff(
   chapter: ProjectChapter | null,
-  project: Pick<Project, "runtime_state" | "runtime_threads">,
+  projectBible: Pick<ProjectBible, "runtime_state" | "runtime_threads">,
 ): RuntimeUpdateDiffState {
   return {
     open: false,
-    currentState: project.runtime_state,
+    currentState: projectBible.runtime_state,
     proposedState: chapter?.memory_sync_proposed_state ?? "",
-    currentThreads: project.runtime_threads ?? "",
+    currentThreads: projectBible.runtime_threads ?? "",
     proposedThreads: chapter?.memory_sync_proposed_threads ?? "",
   };
 }
 
 export function useChapterMemorySync({
   projectId,
-  project,
+  projectBible,
   selectedChapter,
   getCurrentContent,
-  persistProjectUpdate,
+  persistProjectBibleUpdate,
   persistChapterUpdate,
 }: {
   projectId: string;
-  project: Pick<Project, "runtime_state" | "runtime_threads">;
+  projectBible: Pick<ProjectBible, "runtime_state" | "runtime_threads">;
   selectedChapter: ProjectChapter | null;
   getCurrentContent: () => string;
-  persistProjectUpdate: (
-    payload: Partial<ProjectPayload>,
+  persistProjectBibleUpdate: (
+    payload: Partial<ProjectBibleUpdate>,
     options?: { successMessage?: string; errorMessage?: string },
   ) => Promise<unknown>;
   persistChapterUpdate: (
@@ -117,10 +119,10 @@ export function useChapterMemorySync({
       return;
     }
     setBibleDiff({
-      ...getStoredDiff(selectedChapter, project),
+      ...getStoredDiff(selectedChapter, projectBible),
       open: true,
     });
-  }, [project, selectedChapter]);
+  }, [projectBible, selectedChapter]);
 
   const dismissRuntimeUpdate = useCallback(() => {
     setBibleDiff((prev) => ({ ...prev, open: false }));
@@ -164,8 +166,8 @@ export function useChapterMemorySync({
       try {
         const result = await api.proposeBibleUpdate(
           projectId,
-          project.runtime_state,
-          project.runtime_threads ?? "",
+          projectBible.runtime_state,
+          projectBible.runtime_threads ?? "",
           contentToCheck,
           scope,
           options,
@@ -182,9 +184,9 @@ export function useChapterMemorySync({
           });
           setBibleDiff({
             open: true,
-            currentState: project.runtime_state,
+            currentState: projectBible.runtime_state,
             proposedState: result.proposed_runtime_state,
-            currentThreads: project.runtime_threads ?? "",
+            currentThreads: projectBible.runtime_threads ?? "",
             proposedThreads: result.proposed_runtime_threads,
           });
           return;
@@ -206,7 +208,7 @@ export function useChapterMemorySync({
         setIsChecking(false);
       }
     },
-    [markSyncFailed, persistMemorySnapshot, project, projectId, selectedChapter],
+    [markSyncFailed, persistMemorySnapshot, projectBible, projectId, selectedChapter],
   );
 
   const handleGeneratedContent = useCallback(
@@ -230,13 +232,13 @@ export function useChapterMemorySync({
       try {
         const result = await api.proposeBibleUpdate(
           projectId,
-          project.runtime_state,
-          project.runtime_threads ?? "",
+          projectBible.runtime_state,
+          projectBible.runtime_threads ?? "",
           content,
           "chapter_full",
         );
         if (result.changed) {
-          await persistProjectUpdate(
+          await persistProjectBibleUpdate(
             {
               runtime_state: result.proposed_runtime_state,
               runtime_threads: result.proposed_runtime_threads,
@@ -278,9 +280,9 @@ export function useChapterMemorySync({
     },
     [
       persistMemorySnapshot,
-      persistProjectUpdate,
-      project.runtime_state,
-      project.runtime_threads,
+      persistProjectBibleUpdate,
+      projectBible.runtime_state,
+      projectBible.runtime_threads,
       projectId,
       selectedChapter,
     ],
@@ -289,7 +291,7 @@ export function useChapterMemorySync({
   const acceptRuntimeUpdate = useCallback(
     async (state: string, threads: string) => {
       if (!selectedChapter) return;
-      await persistProjectUpdate(
+      await persistProjectBibleUpdate(
         { runtime_state: state, runtime_threads: threads },
         {
           successMessage: "运行时状态已更新",
@@ -306,7 +308,7 @@ export function useChapterMemorySync({
       });
       setBibleDiff(EMPTY_DIFF_STATE);
     },
-    [getCurrentContent, persistMemorySnapshot, persistProjectUpdate, selectedChapter],
+    [getCurrentContent, persistMemorySnapshot, persistProjectBibleUpdate, selectedChapter],
   );
 
   return {
