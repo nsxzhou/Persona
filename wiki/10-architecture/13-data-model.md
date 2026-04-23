@@ -2,7 +2,7 @@
 
 ## 要解决什么问题
 
-Persona 的业务逻辑全部建立在八张表之上。本章回答四个问题：
+Persona 的业务逻辑全部建立在 **12 张核心表** 之上（其中 10 张是业务表，外加 `users` / `sessions` 两张基础表）。本章回答四个问题：
 
 - 每张表有什么字段、用途、约束？表与表之间如何连通？
 - 为什么所有业务资源都携带 `user_id`？
@@ -23,6 +23,9 @@ erDiagram
     users ||--o{ style_sample_files : "上传样本"
     users ||--o{ style_analysis_jobs : "分析任务"
     users ||--o{ style_profiles : "风格档案"
+    users ||--o{ plot_sample_files : "上传情节样本"
+    users ||--o{ plot_analysis_jobs : "情节分析任务"
+    users ||--o{ plot_profiles : "情节档案"
 
     provider_configs ||--o{ projects : "default_provider"
     provider_configs ||--o{ style_analysis_jobs : "执行 provider"
@@ -162,7 +165,10 @@ erDiagram
 - **`users` 是一切的源头**：所有业务资源都带 `user_id` FK + `ondelete="CASCADE"`，删用户级联清账
 - **`style_sample_files ↔ style_analysis_jobs` 是 1:1**：`StyleAnalysisJob.sample_file_id` 带 `unique=True`，一个样本最多绑一个任务
 - **`style_analysis_jobs → style_profiles` 是 1:0..1**：`StyleProfile.source_job_id` 带 `unique=True`，任务跑完可选择保存成 profile；只有保存后才有对应的 profile 记录
-- **`projects → style_profiles` 是 N:0..1**：项目可以**挂载一个** profile（也可以不挂）
+- **`projects → style_profiles` 是 N:0..1**：项目可以挂载一个 Style Profile（也可以不挂）
+- **`plot_sample_files ↔ plot_analysis_jobs` 是 1:1**：`PlotAnalysisJob.sample_file_id` 带 `unique=True`，一个样本最多绑一个任务
+- **`plot_analysis_jobs → plot_profiles` 是 1:0..1**：`PlotProfile.source_job_id` 带 `unique=True`，成功任务可保存成长期情节档案
+- **`projects → plot_profiles` 是 N:0..1**：项目可以挂载一个 Plot Profile（也可以不挂）
 
 ### 表结构逐项
 
@@ -179,7 +185,7 @@ erDiagram
 | `password_hash` | String(255) | not null | Argon2 哈希，非明文；见 `api/app/core/security.py` |
 | `created_at` / `updated_at` | DateTime(tz) | not null | TimestampMixin |
 
-Relationships：`sessions`, `provider_configs`, `projects`, `style_sample_files`, `style_analysis_jobs`, `style_profiles`，全部 `cascade="all, delete-orphan"`——删 user 一锅端。
+Relationships：`sessions`, `provider_configs`, `projects`, `style_sample_files`, `style_analysis_jobs`, `style_profiles`, `plot_sample_files`, `plot_analysis_jobs`, `plot_profiles`，全部 `cascade="all, delete-orphan"`——删 user 一锅端。
 
 #### `sessions`（`models.py:72-90`）
 
