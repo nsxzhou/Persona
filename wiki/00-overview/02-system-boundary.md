@@ -30,8 +30,9 @@
 ### Session
 
 - HttpOnly Cookie + 服务端 Session
-- 访问 `/projects` / `/style-lab` / `/settings/*` 等受保护页面时，前端 `route-guards.tsx` 先问后端 `/api/v1/auth/me`
-- 后端每个路由通过 `api/app/api/deps.py` 的 `get_current_user` 依赖注入校验
+- 访问 `/projects` / `/style-lab` / `/plot-lab` / `/settings/*` 等受保护页面时，工作区入口 `web/app/(workspace)/layout.tsx` 会先读取 setup 状态与当前用户；未初始化跳 `/setup`，未登录跳 `/login`
+- setup / login 页的客户端提交逻辑由 `web/components/route-guards.tsx` 负责，成功后刷新 Query cache 并跳转到 `/projects`
+- 后端每个受保护路由通过 `api/app/api/deps.py` 的 `CurrentUserDep` 依赖注入校验
 
 详见 [14 鉴权、Session 与资源隔离](../10-architecture/14-auth-and-session.md)。
 
@@ -42,7 +43,7 @@
 ### BYOK（Bring Your Own Key）
 
 - Persona 本身**不代理** LLM 调用、**不做计费中转**
-- 用户在 `/settings/models` 填写 **OpenAI-compatible** 接入点：`base_url` + `api_key` + `model` 列表 + 超时 + tags
+- 用户在 `/settings/models` 填写 **OpenAI-compatible** 接入点：`label`、`base_url`、`api_key`、`default_model` 与 `is_enabled`
 - 数据库表 `provider_configs` 存储这些配置，`api_key` 字段使用对称加密入库，对外 API 返回掩码（只显示前 4 后 4 位）
 - 真实调用时 `api/app/services/llm_provider.py` 读取 config，解密 api_key，通过 LangChain 的 `ChatOpenAI` 或等价包装器发起请求
 
@@ -55,15 +56,15 @@
 
 ### 不做的：模型能力探测 / 自动定价
 
-- ❌ 自动探测 Provider 支持哪些模型——用户自己在 config 里手填 `models` 列表
+- ❌ 自动探测 Provider 支持哪些模型
 - ❌ 自动计价 / token 消耗统计 / 用量分析——BYOK，用户去厂商看自己账单
 - ❌ 模型降级 / 回退策略——用户手动切换 provider
 
 ### 超时与重试
 
-- 超时由 `app/core/config.py` 的 `Settings.llm_timeout_seconds` 统一决定
-- 重试：LangChain 默认策略，Persona 不额外加层
-- Style Analysis 任务级别有独立的 lease / 陈旧任务恢复机制（见下）
+- 超时与重试由 `api/app/core/config.py` 的 `Settings.llm_timeout_seconds` / `llm_max_retries` 统一决定
+- Provider 配置本身没有独立的超时或重试面板
+- Style / Plot 分析任务级别另有 lease、心跳和陈旧任务恢复机制
 
 详见 [15 LLM Provider 接入](../10-architecture/15-llm-provider-integration.md)。
 

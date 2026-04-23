@@ -116,7 +116,12 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 
 ### 代码引用
 
-使用 `路径:行号` 格式，示例：`api/app/services/style_analysis_pipeline.py:42`。所有引用在撰写时验证过，但随代码演进可能漂移；发现不一致时应信任源代码并修复本文档。
+优先使用“`文件路径 + 关键符号 / 路由 / 组件名`”的稳定引用方式，例如：
+
+- `api/app/api/routes/editor.py` 中的 `generate_beats()`
+- `web/components/workbench-tabs.tsx` 中的 `OutlineDetailTab`
+
+只有在字段、迁移号或小型工具函数这类相对稳定的位置，才补充 `路径:行号`。发现 wiki 与代码不一致时，应以代码为准并修复本文档。
 
 ### 图表
 
@@ -147,6 +152,6 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 ## 贡献 wiki 本身
 
 - 修改后在 GitHub 或 VS Code Markdown Preview 里确认 Mermaid 图渲染正常
-- 更新代码引用时，`grep -n` 一次确认行号
+- 更新代码引用时，优先确认文件、符号名与路由名是否仍然存在；只有确实保留行号时才刷新行号
 - 新增文章时，**必须**在本 `README.md` 的目录 + 对应角色阅读路径里同步新增链接
 - 文章标题用"章节号 + 中文标题"双语并置（目录链接显示中文，文件名用英文拼写）

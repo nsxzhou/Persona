@@ -397,13 +397,13 @@ export type Project = OpenApiSchema<"ProjectResponse">;
 
 以加"标签管理"页为例：
 
-1. **路径**：`web/app/(workspace)/tags/page.tsx`（默认 Server Component）
-2. **取数据**：在 `page.tsx` 里 `await getServerApi().then(a => a.getTags())`
-3. **客户端交互**：若只是展示，直接渲染；若需要编辑，新建 `web/components/tags-page-view.tsx`（`'use client'`），父 Server Component 把初始数据作为 props 传入
+1. **路径**：在 `web/app/(workspace)/<feature>/page.tsx` 建立默认 Server Component 页面
+2. **取数据**：在 `page.tsx` 中 `await getServerApi()` 拿首屏数据
+3. **客户端交互**：若只是展示，直接渲染；若需要编辑，新建 `web/components/<feature>-page-view.tsx`（`'use client'`），父 Server Component 把初始数据作为 props 传入
 4. **变更操作**：
-   - 纯写 + `revalidatePath` → `web/app/(workspace)/tags/actions.ts` 导出 `createTagAction`
-   - 需要复杂客户端反馈 → `useMutation({ mutationFn: api.createTag })` 或 `mutationFn: createTagAction`
-5. **新 API 方法**：在 `web/lib/api-client.ts` 加 `getTags` / `createTag`；在 `web/lib/types.ts` 加 `export type Tag = OpenApiSchema<"TagResponse">`
+   - 纯写 + `revalidatePath` → 在对应目录下加 `actions.ts`
+   - 需要复杂客户端反馈 → `useMutation({ mutationFn: api.xxx })` 或 `mutationFn: serverAction`
+5. **新 API 方法**：在 `web/lib/api-client.ts` 增加方法，在 `web/lib/types.ts` 增加 OpenAPI 派生类型别名
 6. **导航**：若要进侧栏，改 `web/components/app-shell.tsx:9-14` 的 `NAV_ITEMS`
 
 ### 新增一个 Server Action

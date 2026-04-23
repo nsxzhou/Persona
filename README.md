@@ -2,7 +2,7 @@
 
 完整开发者文档见 [wiki/](./wiki/README.md)。
 
-Persona 是一个前后端分离的单用户 AI 创作基础平台。
+Persona 是一个单用户、BYOK、约束式的 AI 长篇创作平台。
 
 ## 目录
 

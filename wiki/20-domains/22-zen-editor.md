@@ -14,13 +14,15 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 ## 前端入口与组件链路
 
-页面入口是 `web/app/(workspace)/projects/[id]/editor/page.tsx:5`。它先在服务端拿到：
+页面入口是 `web/app/(workspace)/projects/[id]/editor/page.tsx`。它先在服务端拿到：
 
 - 项目本体
 - 当前挂载风格档案名（如果有）
 - 初始章节定位和意图参数
 
-核心组件是 `web/components/zen-editor-view.tsx:38`。这个组件内部同时持有：
+页面先把项目、Project Bible、可选的 active profile 名称以及初始章节定位交给 `web/components/zen-editor-view.tsx`。`ZenEditorView` 进一步把这些状态交给 `EditorProvider` 与 `EditorContentArea`，真正的编辑器 UI 已拆到 `web/components/editor/` 子目录下，而不是继续堆在单一大组件里。
+
+当前编辑器内部同时持有：
 
 - `chapters` 与 `currentChapter`
 - 当前 textarea 内容与已保存内容
@@ -42,11 +44,11 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 ## 后端接口 / Service / Repository 链路
 
-流式写作路由在 `api/app/api/routes/editor.py:50`：
+流式写作路由在 `api/app/api/routes/editor.py`：
 
-- `POST /editor/complete` 用于直接续写
-- `POST /editor/generate-section` 用于生成蓝图字段
-- `POST /editor/expand-beat` 用于逐拍展开
+- `POST /projects/{project_id}/editor/complete` 用于直接续写
+- `POST /projects/{project_id}/editor/generate-section` 用于生成 Bible 区块
+- `POST /projects/{project_id}/editor/expand-beat` 用于逐拍展开
 
 正文持久化不走 editor route，而是走章节更新接口：`api/app/api/routes/project_chapters.py:47`。这条路径最终进入 `ProjectChapterService.update()`，见 `api/app/services/project_chapters.py:88`。
 
@@ -59,14 +61,15 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 ## 数据模型
 
-编辑器横跨两张核心表：
+编辑器横跨三张核心表：
 
-- `api/app/db/models.py:127` 的 `Project` 提供蓝图字段、运行时字段、默认模型与 `auto_sync_memory`
-- `api/app/db/models.py:174` 的 `ProjectChapter` 提供当前章正文、字数和记忆同步状态
+- `Project` 提供默认模型、挂载档案与 `auto_sync_memory`
+- `ProjectBible` 提供蓝图字段与活态字段
+- `ProjectChapter` 提供当前章正文、字数和记忆同步状态
 
 所以编辑器的状态边界也很清楚：
 
-- “整本书级别”的信息写回 `projects`
+- “整本书级别”的 Bible 信息写回 `project_bibles`
 - “当前章级别”的正文与同步状态写回 `project_chapters`
 
 ## Prompt / LLM 调用要点

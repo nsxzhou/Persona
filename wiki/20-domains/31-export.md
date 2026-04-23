@@ -26,7 +26,7 @@
 
 ## 后端接口 / Service / Repository 链路
 
-导出接口挂在项目路由上：`api/app/api/routes/projects.py:139`。
+导出接口挂在项目路由上：`api/app/api/routes/projects.py` 中的 `export_project()`。
 
 路由层只做四件事：
 

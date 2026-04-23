@@ -372,29 +372,16 @@ Router 只需 `return build_job_detail_response(job)`。
 
 ### 新增一个业务领域的四件套
 
-假设要加"**评论（Comment）**"功能。顺序：
+新增一个领域时，按这条顺序走：
 
-1. **Model & 迁移**（`api/app/db/models.py` + `alembic revision --autogenerate -m "..."`）
-   - 定义 `Comment(TimestampMixin, Base)`，带 `user_id` + `project_id` 外键
-   - 参考现有模型的关系声明风格（`back_populates` + `cascade="all, delete-orphan"`）
-2. **Schema**（`api/app/schemas/comments.py`）
-   - `CommentCreate` / `CommentUpdate` / `CommentResponse`
-   - 使用 Pydantic V2，`model_config = ConfigDict(from_attributes=True)` 才能 `model_validate(orm_obj)`
-3. **Repository**（`api/app/db/repositories/comments.py`）
-   - 至少提供 `list / get_by_id / create / delete`，签名统一按 `*, user_id=None` 收尾
-   - 列表方法用 `stream_scalars` 或 `yield_per` 防大数据集爆内存
-4. **Service**（`api/app/services/comments.py`）
-   - `CommentService.__init__` 接受可选 repository（方便单测注入 mock）
-   - 业务校验全放这儿；对外只抛 `DomainError`
-5. **Router**（`api/app/api/routes/comments.py`）
-   - 只用 `CurrentUserDep / DbSessionDep / CommentServiceDep`
-   - 每个 path function 不超过 10 行
-6. **deps 注册**（`api/app/api/deps.py`）
-   - 加 `get_comment_service` + `CommentServiceDep` 别名
-7. **挂载 Router**（`api/app/main.py:114-121` 的 `app.include_router(...)`）
-8. **测试**（`api/tests/`）
-   - Mock 级别：service + repository 各一份
-   - 集成级别：`TestClient` 跑完整的 POST/GET/PATCH/DELETE
+1. **Model & 迁移**：先在 `api/app/db/models.py` 加模型，再生成并审查 Alembic 迁移
+2. **Schema**：在 `api/app/schemas/` 定义请求 / 响应模型，使用 Pydantic V2 与 `from_attributes=True`
+3. **Repository**：在 `api/app/db/repositories/` 封装 CRUD 与加载策略，签名统一按 `*, user_id=None` 收尾
+4. **Service**：在 `api/app/services/` 实现业务规则、组合多个 repository / service，并只抛 `DomainError`
+5. **Router**：在 `api/app/api/routes/` 暴露 HTTP 入口，只做参数解析、调用 service 和组装响应
+6. **deps 注册**：在 `api/app/api/deps.py` 增加对应的 `get_xxx_service` 与 `XxxServiceDep`
+7. **挂载 Router**：在 `api/app/main.py` 注册 `app.include_router(...)`
+8. **测试**：补 service / repository 测试与完整接口回归
 
 ### 扩展点速查表
 

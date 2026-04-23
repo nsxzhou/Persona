@@ -19,7 +19,7 @@
 - 当前卷统计完成章节数，见 `web/components/chapter-tree.tsx:48`
 - 当前选中章会额外展示核心事件、情绪走向和章末钩子，见 `web/components/chapter-tree.tsx:125`
 
-编辑器在 `web/components/zen-editor-view.tsx:314` 首次加载时会：
+编辑器启动后会先通过编辑器上下文读取章节：
 
 - 先 `api.getProjectChapters(project.id)`
 - 若列表为空，再 fallback 到 `api.syncProjectChapters(project.id)`
@@ -37,7 +37,7 @@
 Service 在 `api/app/services/project_chapters.py`：
 
 - `list()` 先校验项目存在，再按项目返回章节，见 `api/app/services/project_chapters.py:38`
-- `sync_outline()` 读取 `project.outline_detail`，用 `parse_outline()` 解析出卷/章结构，再按 `(volume_index, chapter_index)` 做 upsert，见 `api/app/services/project_chapters.py:48`
+- `sync_outline()` 读取 `ProjectBible.outline_detail`，用 `parse_outline()` 解析出卷/章结构，再按 `(volume_index, chapter_index)` 做 upsert
 - `update()` 既负责正文落库，也负责在内容 hash 变化时清空旧的记忆同步状态，见 `api/app/services/project_chapters.py:88`
 
 这里最重要的约束是：章节树的“主排序键”不是标题，而是 `(volume_index, chapter_index)`。

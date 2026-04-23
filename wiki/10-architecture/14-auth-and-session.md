@@ -133,7 +133,7 @@ Persona 虽然是单用户产品，但后端仍然坚持所有核心业务资源
 - 未登录时 `redirect("/login")`
 - 已登录则把 `current-user` 预灌入 TanStack Query cache
 
-客户端的 setup/login 表单守卫在 `web/components/route-guards.tsx:12` 与 `web/components/route-guards.tsx:36`：
+客户端的 setup/login 表单守卫在 `web/components/route-guards.tsx`：
 
 - setup 成功后失效 `["setup-status"]` 与 `["current-user"]`
 - login 成功后失效 `["current-user"]`
@@ -159,6 +159,7 @@ Persona 虽然是单用户产品，但后端仍然坚持所有核心业务资源
 | `web/components/route-guards.tsx` | setup/login 的客户端 mutation 包装 |
 | `web/components/setup-page-view.tsx` | 初始化向导 UI |
 | `web/components/login-page-view.tsx` | 登录表单 UI |
+| `web/app/(workspace)/settings/account/page.tsx` | 账户页入口，负责拉取当前用户和包装退出登录 |
 | `web/components/account-panel.tsx` | 登出与“注销并重置系统”入口 |
 
 ### 可扩展点
@@ -172,7 +173,7 @@ Persona 虽然是单用户产品，但后端仍然坚持所有核心业务资源
 | 症状 | 常见原因 | 先看哪里 |
 | --- | --- | --- |
 | `/projects` 一直跳回 `/login` | Cookie 没写入、Cookie 名不匹配、CORS 未允许凭证 | `api/app/api/deps.py:24`、`api/app/main.py:75` |
-| setup 提交成功但刷新后又回 `/setup` | setup 成功后没有正确失效 `setup-status` 缓存 | `web/components/route-guards.tsx:15` |
+| setup 提交成功但刷新后又回 `/setup` | setup 成功后没有正确失效 `setup-status` 缓存 | `web/components/route-guards.tsx` |
 | 数据库里有 `sessions` 记录但 `/auth/me` 仍返回未登录 | 浏览器存的是 raw token，DB 里查的是 HMAC；确认哈希逻辑一致 | `api/app/core/security.py:56`、`api/app/services/auth.py:80` |
 | 读请求频繁更新 `sessions.last_accessed_at` | `resolve_user_by_token()` 的节流逻辑被破坏 | `api/app/services/auth.py:99` |
 | 本地开发登录成功但跨端口请求不带 Cookie | `session_cookie_secure=true` 或 CORS 未开 `allow_credentials` | `api/.env.example:16`、`api/app/main.py:79` |

@@ -46,15 +46,16 @@ AI 生成蓝图字段与活态初稿走 editor route：
 
 ## 数据模型
 
-Bible 没有独立表，全部直接挂在 `api/app/db/models.py:127` 的 `Project` 上。这是一个很有意图的设计：
+Bible 已拆成独立的 `ProjectBible` 表，与 `Project` 形成 1:1 关系。这条边界的含义是：
 
 - 蓝图字段是“整本书级别”的长期资产，天然属于项目
 - 活态字段也是“整本书当前运行时状态”，不是单章私有数据
 
 这样带来的好处是：
 
-- 不需要额外 join 就能组装完整写作上下文
-- 作者可以把所有长期约束和运行时记忆放在同一个项目壳里维护
+- 项目元数据（Provider、挂载档案、长度偏好）与长文本 Bible 内容分层更清晰
+- `PATCH /api/v1/projects/{id}` 和 `PATCH /api/v1/projects/{id}/bible` 的职责边界更明确
+- 作者仍然可以在同一个工作台 UI 下维护所有长期约束和运行时记忆
 
 ## Prompt / LLM 调用要点
 

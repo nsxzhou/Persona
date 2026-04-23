@@ -23,6 +23,7 @@ Persona 的运行配置主要分成三类：
 - `llm_timeout_seconds` / `llm_max_retries`
 - `storage_dir`
 - `style_analysis_*` 一组 Worker 与管道参数
+- `analysis_pause_confirm_timeout_seconds`
 
 `get_settings()` 通过 `@lru_cache` 做单例缓存，见 `api/app/core/config.py:110`。
 
@@ -61,6 +62,7 @@ Persona 的运行配置主要分成三类：
 - `PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY`
 - `PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS`
 - `PERSONA_STYLE_ANALYSIS_CHECKPOINT_URL`
+- `PERSONA_ANALYSIS_PAUSE_CONFIRM_TIMEOUT_SECONDS`
 
 它们分别影响：
 
@@ -71,6 +73,7 @@ Persona 的运行配置主要分成三类：
 - Chunk 并发数
 - 重试次数
 - Checkpointer 存储位置
+- 暂停请求转为真正 `paused` 的确认窗口
 
 ## 实现位置与扩展点
 

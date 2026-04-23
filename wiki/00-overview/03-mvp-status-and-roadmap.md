@@ -30,13 +30,13 @@
 | 单用户登录（`/login`） | ✅ | `web/app/login/page.tsx`、`api/app/api/routes/auth.py` |
 | HttpOnly Session 鉴权 | ✅ | `api/app/core/security.py`、`api/app/api/deps.py` |
 | 业务资源按 `user_id` scope 隔离 | ✅ | 所有 service / repository |
-| 路由守卫（未登录重定向、已登录跳业务页） | ✅ | `web/components/route-guards.tsx` |
+| 路由守卫（工作区服务端重定向 + setup/login 客户端跳转） | ✅ | `web/app/(workspace)/layout.tsx`、`web/components/route-guards.tsx` |
 
 ### Provider 配置（BYOK）
 
 | 功能 | 状态 | 入口 |
 | --- | --- | --- |
-| Provider CRUD（多条配置） | ✅ | `web/app/(workspace)/settings/models/`、`api/app/api/routes/provider_configs.py` |
+| Provider CRUD（多条配置） | ✅ | `web/app/(workspace)/settings/models/page.tsx`、`api/app/api/routes/provider_configs.py` |
 | API Key 加密入库 + 掩码返回 | ✅ | `api/app/services/provider_configs.py` |
 | 测试连接（Provider 连通性校验） | ✅ | `api/app/services/llm_provider.py` |
 | 防删除被引用的 Provider | ✅ | service 层校验 |
@@ -47,15 +47,16 @@
 | --- | --- | --- |
 | 项目 CRUD | ✅ | `web/components/projects-page-view.tsx`、`api/app/api/routes/projects.py` |
 | 归档 / 恢复 | ✅ | |
-| 挂载风格档案（`style_profile_id`） | ✅ | 在新建或编辑项目时选择 |
-| 默认 Provider + 默认模型绑定 | ✅ | `ProjectForm` |
+| 挂载风格档案（`style_profile_id`） | ✅ | 新建项目、项目表单和工作台设置页都可操作 |
+| 挂载情节档案（`plot_profile_id`） | ✅ | 新建项目、项目表单和工作台设置页都可操作 |
+| 默认 Provider + 默认模型绑定 | ✅ | `ProjectForm` 与 `SettingsTab` |
 | 项目导出 txt / epub | ✅ | `web/components/export-project-dialog.tsx`、`api/app/services/export.py` |
 
 ### 章节与大纲
 
 | 功能 | 状态 | 入口 |
 | --- | --- | --- |
-| 章节树 CRUD（多级层次 + 排序） | ✅ | `web/components/chapter-tree.tsx`、`api/app/api/routes/project_chapters.py` |
+| 章节树按大纲同步 + 正文更新 | ✅ | `web/components/chapter-tree.tsx`、`api/app/api/routes/project_chapters.py` |
 | 总纲 `outline_master` 编辑 | ✅ | `projects` 表字段 |
 | 分卷 / 分章细纲 `outline_detail` | ✅ | `web/components/outline-detail-tab.tsx`、`lib/outline-parser.ts`、`api/app/services/outline_parser.py` |
 | 节拍面板 + 节拍生成 | ✅ | `web/components/beat-panel.tsx`、`hooks/use-beat-generation.ts` |
@@ -66,8 +67,8 @@
 
 | 功能 | 状态 | 入口 |
 | --- | --- | --- |
-| 蓝图字段编辑（5 项） | ✅ | `inspiration` / `world_building` / `characters` / `outline_master` / `outline_detail` |
-| 活态字段（2 项）AI 提议 | ✅ | `runtime_state` / `runtime_threads` |
+| 蓝图字段编辑（5 项） | ✅ | `ProjectBible` 的 `inspiration` / `world_building` / `characters` / `outline_master` / `outline_detail` |
+| 活态字段（2 项）AI 提议 | ✅ | `ProjectBible` 的 `runtime_state` / `runtime_threads` |
 | 圣经 Diff Dialog（AI 提议 vs 当前）| ✅ | `web/components/bible-diff-dialog.tsx` |
 | 圣经字段元数据增强 | ✅ | `web/lib/bible-fields.ts`、`api/app/core/bible_fields.py` |
 | 圣经模板 | ✅ | `web/lib/bible-templates.ts`、概念生成 prompt |
@@ -89,9 +90,9 @@
 
 | 功能 | 状态 | 入口 |
 | --- | --- | --- |
-| 概念抽卡页面 | ✅ | `web/components/concept-gacha-page.tsx` |
-| 番茄 / 起点平台差异化策略 | ✅ | 相关 prompt 按平台分化 |
-| 标题与简介规则约束 | ✅ | 最近几次 commit 优化过 |
+| 概念抽卡页面 | ✅ | `web/app/(workspace)/projects/new/page.tsx`、`web/components/concept-gacha-page.tsx` |
+| 3 张差异化概念卡 | ✅ | `/api/v1/projects/generate-concepts` + `ConceptGachaPage` |
+| 标题与简介规则约束 | ✅ | `editor_prompts.py` 的概念生成 prompt 与解析器 |
 
 ### Style Lab（风格实验室）
 
@@ -135,7 +136,7 @@
 | 章节 → 活态层回灌按钮 | ✅ | `web/components/memory-sync-button.tsx` |
 | 章节记忆同步 hook | ✅ | `web/hooks/use-chapter-memory-sync.ts` |
 | Diff 计算与展示 | ✅ | `web/lib/diff-utils.ts`、`bible-diff-dialog.tsx` |
-| 自动同步触发（write 到阈值） | ✅ | `use-editor-completion.ts`（阈值 1000 字） |
+| 自动同步触发（短片段与整章两条路径） | ✅ | `use-chapter-memory-sync.ts`、`use-editor-completion.ts` |
 
 ### LLM 管道与上下文
 

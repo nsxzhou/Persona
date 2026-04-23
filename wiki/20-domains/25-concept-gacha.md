@@ -20,7 +20,8 @@ Concept Gacha 是 Persona 的“新项目启动器”。它不是直接让用户
 
 - `handleGenerate()` 负责调用 `api.generateConcepts()`，见 `web/components/concept-gacha-page.tsx:42`
 - `handleConfirm()` 负责把被选中的概念转换成真正的 `ProjectCreate` payload，见 `web/components/concept-gacha-page.tsx:65`
-- `lengthPreset` 选择器让项目从一开始就带上篇幅目标，见 `web/components/concept-gacha-page.tsx:216`
+- `lengthPreset` 选择器让项目从一开始就带上篇幅目标
+- 页面还允许在创建前预挂风格档案与情节档案
 
 这个页面有两个有意的产品选择：
 
@@ -50,10 +51,11 @@ Concept Gacha 没有独立表。它的产物是一个普通 `Project`：
 
 - `name` <- 选中概念的标题
 - `description` <- 选中概念的简介
-- `inspiration` <- 用户原始灵感
 - `length_preset` <- 用户在概念页选择的篇幅范围
+- `style_profile_id` / `plot_profile_id` <- 用户在概念页预先挂载的档案
+- `default_provider_id` / `default_model` <- 用户在概念页选定的调用配置
 
-也就是说，概念卡是一次性中间结果，不会以独立资产保存到数据库里。
+用户原始灵感不会在概念生成阶段单独落表；概念卡本身也是一次性中间结果，不会以独立资产保存到数据库里。
 
 ## Prompt / LLM 调用要点
 

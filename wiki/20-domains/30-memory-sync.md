@@ -10,11 +10,11 @@
 2. 点击“同步记忆”，或在开启 `auto_sync_memory` 时由系统自动触发。
 3. 前端把当前 `runtime_state`、`runtime_threads` 与待检查正文发给后端。
 4. 模型返回“完整的新版本运行时状态 + 伏笔追踪”。
-5. 如果内容有变化，UI 打开 Diff Dialog；用户确认后才真正写回 `projects.runtime_state` / `runtime_threads`。
+5. 如果内容有变化，UI 打开 Diff Dialog；用户确认后才真正写回 `project_bibles.runtime_state` / `runtime_threads`。
 
 ## 前端入口与组件链路
 
-主协调点在 `web/components/zen-editor-view.tsx:164`。它从 `useChapterMemorySync()` 里拿到：
+主协调点在 `web/components/editor/editor-content-area.tsx`。它从 `useChapterMemorySync()` 里拿到：
 
 - `handleGeneratedContent`
 - `handleManualSync`
@@ -22,7 +22,7 @@
 - `openStoredDiff`
 - `acceptRuntimeUpdate`
 
-手动触发逻辑在 `web/components/zen-editor-view.tsx:265`：
+手动触发逻辑也在 `web/components/editor/editor-content-area.tsx`：
 
 - 若当前章已有 `pending_review` 且正文未变，直接打开已有 diff
 - 若当前章已是 `synced` / `no_change`，提示可“强制重跑”
@@ -65,10 +65,10 @@ Prompt 规则定义在 `api/app/services/editor_prompts.py:490` 与 `api/app/ser
 
 ## 数据模型
 
-这个领域横跨一张项目表和一张章节表：
+这个领域横跨一张 Bible 表和一张章节表：
 
-- `api/app/db/models.py:127` 的 `Project` 存真实生效的 `runtime_state` 与 `runtime_threads`
-- `api/app/db/models.py:174` 的 `ProjectChapter` 存“本章最近一次检查结果”的快照
+- `ProjectBible` 存真实生效的 `runtime_state` 与 `runtime_threads`
+- `ProjectChapter` 存“本章最近一次检查结果”的快照
 
 章节表上的状态字段很关键：
 

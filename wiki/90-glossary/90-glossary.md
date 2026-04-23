@@ -4,12 +4,13 @@
 | --- | --- |
 | Persona | 一个单用户、BYOK、约束式的 AI 长篇创作平台。 |
 | BYOK | Bring Your Own Key。用户自己提供模型 API Key。 |
-| Project | 创作项目的根对象，承载 Provider、Style Profile、蓝图字段与运行时字段。 |
+| Project | 创作项目的根对象，承载 Provider、风格/情节档案挂载、篇幅偏好与工作台入口。 |
+| Project Bible | 与 `Project` 一对一关联的独立表，承载蓝图层与活态层文本字段。 |
 | Style Lab | 上传 TXT 样本、分析文风并生成风格资产的模块。 |
 | Style Analysis Job | 一次后台风格分析任务，对应 `style_analysis_jobs` 记录。 |
 | Style Profile | 可长期复用的风格档案，包含报告、摘要、Prompt Pack。 |
 | Prompt Pack | 会被后续写作系统提示词直接注入的风格母 Prompt。 |
-| Bible | 项目级创作资产面板，包含蓝图层与活态层。 |
+| Bible | 项目级创作资产面板；前端表现为工作台里的多个标签页，后端落在 `ProjectBible`。 |
 | 蓝图层 | 作者长期维护的 `inspiration / world_building / characters / outline_*` 等字段。 |
 | 活态层 | 随正文推进而变化的 `runtime_state / runtime_threads`。 |
 | Runtime State | 会影响后续章节连续性的稳定事实、关系变化和新规则。 |

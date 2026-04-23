@@ -7,7 +7,7 @@ Persona 的写作体验依赖“边生成边显示”，而不是等待整个 LL
 - FastAPI 如何把 LLM chunk 按文本流推给浏览器
 - 浏览器如何解析 `text/event-stream`
 - 用户点击“停止”时如何取消正在进行的生成
-- 编辑器、分卷生成、章节细纲生成、逐拍展开如何共用一套流式基础设施
+- 编辑器续写、Bible 区块生成、分卷生成、章节细纲生成、逐拍展开如何共用一套流式基础设施
 
 ## 流式通道总图
 
@@ -74,8 +74,8 @@ flowchart LR
 
 浏览器端分两层：
 
-- `web/lib/sse.ts:13` 负责解析 `text/event-stream`，把 frame 还原成纯文本
-- `web/hooks/use-streaming-text.ts:14` 负责管理 `ReadableStreamDefaultReader`、取消、以及 `requestAnimationFrame` 节流刷新
+- `web/lib/sse.ts` 负责解析 `text/event-stream`，把 frame 还原成纯文本
+- `web/hooks/use-streaming-text.ts` 负责管理 `ReadableStreamDefaultReader`、取消、以及 `requestAnimationFrame` 节流刷新
 
 `useStreamingText()` 的关键行为在 `web/hooks/use-streaming-text.ts:36`：
 
@@ -88,9 +88,10 @@ flowchart LR
 
 代表性前端调用点：
 
-- `web/hooks/use-editor-completion.ts:53` 调用 `/editor/complete`
-- `web/components/outline-detail-tab.tsx:67` 封装通用 `streamSSE()`，用于分卷与章节细纲生成
-- `web/hooks/use-beat-generation.ts:78` 调用 `/editor/expand-beat`
+- `web/hooks/use-editor-completion.ts` 调用 `/editor/complete`
+- `web/components/workbench-tabs.tsx` 通过 `consumeTextEventStream()` 承载 Bible 区块生成
+- `web/components/outline-detail-tab.tsx` 封装通用 `streamSSE()`，用于分卷与章节细纲生成
+- `web/hooks/use-beat-generation.ts` 调用 `/editor/generate-beats` 与 `/editor/expand-beat`
 
 这意味着 Persona 没有为每个 feature 各写一套“流式客户端协议”。统一协议带来三点好处：
 

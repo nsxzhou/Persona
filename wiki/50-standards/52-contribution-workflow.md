@@ -26,7 +26,7 @@ cd web && pnpm build
 
 ### 如果后端接口变了，别忘了 codegen
 
-前端 OpenAPI codegen 脚本定义在 `web/package.json:9`：
+前端 OpenAPI codegen 脚本定义在 `web/package.json`：
 
 - `pnpm run codegen:openapi:schema`
 - `pnpm run codegen:openapi:types`
@@ -58,7 +58,7 @@ cd web && pnpm build
 
 如果你改的是 wiki：
 
-- 抽样检查 `路径:行号`
+- 抽样检查仓库路径、关键符号、路由名与少量保留行号
 - 在 Markdown Preview 中看 Mermaid 是否可渲染
 - 确认 `wiki/README.md` 导航没断
 

@@ -53,11 +53,11 @@
 
 ## 数据模型
 
-大纲数据本体仍然存回 `Project.outline_master` 与 `Project.outline_detail`，对应 `api/app/db/models.py:127`。
+大纲数据本体仍然存回 `ProjectBible.outline_master` 与 `ProjectBible.outline_detail`。
 
 章节树同步时会把 `outline_detail` 投影成 `ProjectChapter`，入口见 `api/app/services/project_chapters.py:48`。因此这一领域横跨两层：
 
-- 源文本：`projects.outline_master` / `projects.outline_detail`
+- 源文本：`project_bibles.outline_master` / `project_bibles.outline_detail`
 - 运行投影：`project_chapters`
 
 ## Prompt / LLM 调用要点

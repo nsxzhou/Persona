@@ -49,8 +49,8 @@
 
 导出读取的是数据库里的 `project_chapters`，不是浏览器 textarea 当前内存状态。先确认自动保存已经完成，或手动保存当前章。相关链路：
 
-- `web/hooks/use-editor-autosave.ts:25`
-- `api/app/api/routes/projects.py:139`
+- `web/hooks/use-editor-autosave.ts`
+- `api/app/api/routes/projects.py` 中的 `export_project()`
 
 ## 为什么删除 Provider / Style Profile 会报“正在被引用”？
 
