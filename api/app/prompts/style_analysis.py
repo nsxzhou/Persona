@@ -85,21 +85,32 @@ STYLE_SUMMARY_TEMPLATE = """
 
 PROMPT_PACK_TEMPLATE = """
 # Shared Style Rules
+- Rule 1:
+- Rule 2:
 
 # Style Transfer Prompt
+- Core Transfer:
+- Conditional Preferences:
 
 # Scene Prompts
 ## Dialogue
+- Strategy:
 ## Action
+- Strategy:
 ## Environment
+- Strategy:
 
 # Anti-Pattern Guardrails
-- 
+- Guardrail 1:
+- Guardrail 2:
 
 # Style Controls
 ## Tone
+- Control:
 ## Rhythm
+- Control:
 ## Evidence Anchor
+- Control:
 
 # Few-shot Slots
 ## Slot 1
@@ -181,8 +192,29 @@ def build_prompt_pack_prompt(
 ) -> str:
     return (
         "你是一位小说写作 prompt 编排器。"
-        "请基于完整分析报告和当前风格摘要，生成一个全局可复用的 Markdown 风格母 prompt 包。"
+        "请基于完整分析报告和当前风格摘要，生成一个全局可复用的 Markdown 风格母 prompt 包，可脱离原始样本单独注入。"
         "不要绑定具体项目剧情，不要引入报告中没有的结论。\n\n"
+        "输出起始规则：\n"
+        "- 输出必须直接从 `# Shared Style Rules` 开始。\n"
+        "- 不要输出任何前言、任务说明、来源说明或总结。\n"
+        "- 不要写“作为”开头的身份化句式。\n"
+        "- 不要写“好的”“下面是”“基于你提供的报告/摘要”“作为……我将……”这类解释性或身份化开场。\n"
+        "- 最终产物必须可单独阅读，不得依赖“分析报告”这一上文存在。\n\n"
+        "去样本化规则：\n"
+        "- 不要保留样本人物名、地名、组织名、专属设定词、事件名。\n"
+        "- 具体角色关系必须改写为角色原型，例如：轻快少女角色、权威上位者、理性吐槽型主视角、调侃型友人。\n"
+        "- 具体冲突必须改写为冲突原型，例如：价值观碰撞、利益交换、身份压制、规则错位。\n"
+        "- 具体世界词必须改写为语义类别，例如：能力体系词、行业黑话、阶层秩序词、标志性意象词。\n"
+        "- 不要把样本主角模板、题材设定、叙事人称直接写成全局硬约束。\n"
+        "- 只有当样本证据非常明确且跨段稳定时，才可以把强风格锚点写成“优先采用的偏好”；不要写成所有文本都必须满足的硬约束。\n"
+        "- 禁止保留章节号、chunk 编号、样本专名、原作特有固有名词。\n\n"
+        "结构规则：\n"
+        "- Shared Style Rules 只写跨作品稳定成立的风格机制，不写剧情设定、人物履历或样本世界观。\n"
+        "- Style Transfer Prompt 只描述写法迁移规则，不锁死具体世界观、主角身份、固定人称或题材前提。\n"
+        "- Scene Prompts 允许描述“当样本出现某类场景时如何写”，不允许默认某个既有世界观前提。\n"
+        "- Anti-Pattern Guardrails 只写风格禁区，不写原作专属角色、势力、桥段或价值判断标签。\n"
+        "- Style Controls 只保留 Tone、Rhythm、Evidence Anchor 的执行控制，不扩展成剧情说明。\n"
+        "- Few-shot Slots 只保留角色原型 + 通用示例，不得写成样本摘录、样本改写或实名化示例。\n\n"
         f"输出模板：\n{PROMPT_PACK_TEMPLATE}\n\n"
         f"分析报告：\n{report_markdown}\n\n"
         f"当前风格摘要：\n{style_summary_markdown}"
