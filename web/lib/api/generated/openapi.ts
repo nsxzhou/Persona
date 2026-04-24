@@ -1270,7 +1270,7 @@ export interface components {
              */
             status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
-            stage: ("preparing_input" | "building_skeleton" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            stage: ("preparing_input" | "building_skeleton" | "selecting_focus_chunks" | "analyzing_focus_chunks" | "aggregating" | "reporting" | "postprocessing") | null;
             /** Error Message */
             error_message: string | null;
             /** Started At */
@@ -1329,7 +1329,7 @@ export interface components {
              */
             status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
-            stage: ("preparing_input" | "building_skeleton" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            stage: ("preparing_input" | "building_skeleton" | "selecting_focus_chunks" | "analyzing_focus_chunks" | "aggregating" | "reporting" | "postprocessing") | null;
             /** Error Message */
             error_message: string | null;
             /** Started At */
@@ -1372,7 +1372,7 @@ export interface components {
              */
             status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
-            stage: ("preparing_input" | "building_skeleton" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            stage: ("preparing_input" | "building_skeleton" | "selecting_focus_chunks" | "analyzing_focus_chunks" | "aggregating" | "reporting" | "postprocessing") | null;
             /** Error Message */
             error_message: string | null;
             /**
@@ -1997,7 +1997,7 @@ export interface components {
              */
             status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
-            stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "postprocessing") | null;
             /** Error Message */
             error_message: string | null;
             /** Started At */
@@ -2056,7 +2056,7 @@ export interface components {
              */
             status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
-            stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "postprocessing") | null;
             /** Error Message */
             error_message: string | null;
             /** Started At */
@@ -2080,6 +2080,13 @@ export interface components {
             /** Pause Requested At */
             pause_requested_at?: string | null;
             style_profile?: components["schemas"]["StyleProfileEmbeddedResponse"] | null;
+            analysis_meta?: components["schemas"]["AnalysisMeta"] | null;
+            /** Analysis Report Markdown */
+            analysis_report_markdown?: string | null;
+            /** Style Summary Markdown */
+            style_summary_markdown?: string | null;
+            /** Prompt Pack Markdown */
+            prompt_pack_markdown?: string | null;
         };
         /** StyleAnalysisJobStatusResponse */
         StyleAnalysisJobStatusResponse: {
@@ -2091,7 +2098,7 @@ export interface components {
              */
             status: "pending" | "running" | "paused" | "succeeded" | "failed";
             /** Stage */
-            stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "summarizing" | "composing_prompt_pack") | null;
+            stage: ("preparing_input" | "analyzing_chunks" | "aggregating" | "reporting" | "postprocessing") | null;
             /** Error Message */
             error_message: string | null;
             /**

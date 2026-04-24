@@ -3548,11 +3548,11 @@
                 "enum": [
                   "preparing_input",
                   "building_skeleton",
-                  "analyzing_chunks",
+                  "selecting_focus_chunks",
+                  "analyzing_focus_chunks",
                   "aggregating",
                   "reporting",
-                  "summarizing",
-                  "composing_prompt_pack"
+                  "postprocessing"
                 ]
               },
               {
@@ -3717,11 +3717,11 @@
                 "enum": [
                   "preparing_input",
                   "building_skeleton",
-                  "analyzing_chunks",
+                  "selecting_focus_chunks",
+                  "analyzing_focus_chunks",
                   "aggregating",
                   "reporting",
-                  "summarizing",
-                  "composing_prompt_pack"
+                  "postprocessing"
                 ]
               },
               {
@@ -3901,11 +3901,11 @@
                 "enum": [
                   "preparing_input",
                   "building_skeleton",
-                  "analyzing_chunks",
+                  "selecting_focus_chunks",
+                  "analyzing_focus_chunks",
                   "aggregating",
                   "reporting",
-                  "summarizing",
-                  "composing_prompt_pack"
+                  "postprocessing"
                 ]
               },
               {
@@ -5622,8 +5622,7 @@
                   "analyzing_chunks",
                   "aggregating",
                   "reporting",
-                  "summarizing",
-                  "composing_prompt_pack"
+                  "postprocessing"
                 ]
               },
               {
@@ -5790,8 +5789,7 @@
                   "analyzing_chunks",
                   "aggregating",
                   "reporting",
-                  "summarizing",
-                  "composing_prompt_pack"
+                  "postprocessing"
                 ]
               },
               {
@@ -5883,6 +5881,49 @@
                 "type": "null"
               }
             ]
+          },
+          "analysis_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_report_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Report Markdown"
+          },
+          "style_summary_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Summary Markdown"
+          },
+          "prompt_pack_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Pack Markdown"
           }
         },
         "type": "object",
@@ -5929,8 +5970,7 @@
                   "analyzing_chunks",
                   "aggregating",
                   "reporting",
-                  "summarizing",
-                  "composing_prompt_pack"
+                  "postprocessing"
                 ]
               },
               {
