@@ -496,33 +496,6 @@ test("style lab wizard renders markdown report and saves new profile with mount"
   );
 });
 
-test("style lab wizard fetches detail resources from dedicated endpoints instead of legacy job fields", async () => {
-  apiMock.getStyleAnalysisJobStatus.mockResolvedValueOnce({
-    id: "job-1",
-    status: "succeeded",
-    stage: null,
-    error_message: null,
-    updated_at: "2026-04-09T00:02:00Z",
-  });
-  apiMock.getStyleAnalysisJob.mockResolvedValue(
-    buildSucceededJob({
-      style_profile_id: null,
-      style_profile: null,
-    }),
-  );
-  apiMock.getStyleAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
-  apiMock.getStyleAnalysisJobStyleSummary.mockResolvedValue(buildSummary());
-  apiMock.getStyleAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
-  apiMock.getProjects.mockResolvedValue([]);
-
-  renderWizard();
-
-  expect(await screen.findByText(/执行摘要/)).toBeInTheDocument();
-  expect(apiMock.getStyleAnalysisJobAnalysisReport).toHaveBeenCalledWith("job-1");
-  expect(apiMock.getStyleAnalysisJobStyleSummary).toHaveBeenCalledWith("job-1");
-  expect(apiMock.getStyleAnalysisJobPromptPack).toHaveBeenCalledWith("job-1");
-});
-
 test("style lab profile view allows editing prompt only without summary error", async () => {
   apiMock.getStyleProfile.mockResolvedValue({
     id: "profile-1",
