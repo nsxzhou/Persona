@@ -32,15 +32,16 @@ def build_fake_prompt_pack() -> str:
 
 
 @pytest.mark.asyncio
+@pytest.mark.live_llm
 async def test_create_and_update_style_profile_from_succeeded_job_and_mount_project(
-    initialized_client: AsyncClient,
+    initialized_live_client: AsyncClient,
     app_with_db: FastAPI,
-    initialized_provider: dict[str, object],
+    initialized_live_provider: dict[str, object],
     run_live_style_analysis_job,
 ) -> None:
-    provider_id = str(initialized_provider["id"])
+    provider_id = str(initialized_live_provider["id"])
 
-    project_response = await initialized_client.post(
+    project_response = await initialized_live_client.post(
         "/api/v1/projects",
         json={
             "name": "风格挂载项目",
@@ -56,12 +57,12 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
 
     result = await run_live_style_analysis_job(
         style_name="王家卫风格",
-        model=str(initialized_provider["default_model"]),
+        model=str(initialized_live_provider["default_model"]),
     )
     job_id = result["job"]["id"]
     detail = result["detail"]
 
-    create_profile_response = await initialized_client.post(
+    create_profile_response = await initialized_live_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
@@ -86,7 +87,7 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
         assert project is not None
         assert project.style_profile_id == profile["id"]
 
-    second_project_response = await initialized_client.post(
+    second_project_response = await initialized_live_client.post(
         "/api/v1/projects",
         json={
             "name": "风格挂载项目 2",
@@ -100,7 +101,7 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     assert second_project_response.status_code == 201
     second_project_id = second_project_response.json()["id"]
 
-    update_profile_response = await initialized_client.patch(
+    update_profile_response = await initialized_live_client.patch(
         f"/api/v1/style-profiles/{profile['id']}",
         json={
             "style_name": "王家卫风格（终版）",
@@ -119,11 +120,11 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
         assert second_project is not None
         assert second_project.style_profile_id == profile["id"]
 
-    detail_response = await initialized_client.get(f"/api/v1/style-profiles/{profile['id']}")
+    detail_response = await initialized_live_client.get(f"/api/v1/style-profiles/{profile['id']}")
     assert detail_response.status_code == 200
     assert detail_response.json()["id"] == profile["id"]
 
-    job_detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
+    job_detail_response = await initialized_live_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     assert job_detail_response.status_code == 200
     assert job_detail_response.json()["style_profile"]["id"] == profile["id"]
     assert job_detail_response.json()["analysis_report_markdown"].startswith("# 执行摘要")
@@ -132,19 +133,20 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
 
 
 @pytest.mark.asyncio
+@pytest.mark.live_llm
 async def test_update_profile_keeps_analysis_report_payload_unchanged(
-    initialized_client: AsyncClient,
-    initialized_provider: dict[str, object],
+    initialized_live_client: AsyncClient,
+    initialized_live_provider: dict[str, object],
     run_live_style_analysis_job,
 ) -> None:
     result = await run_live_style_analysis_job(
         style_name="王家卫风格",
-        model=str(initialized_provider["default_model"]),
+        model=str(initialized_live_provider["default_model"]),
     )
     job_id = result["job"]["id"]
     detail = result["detail"]
 
-    create_profile_response = await initialized_client.post(
+    create_profile_response = await initialized_live_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
@@ -156,7 +158,7 @@ async def test_update_profile_keeps_analysis_report_payload_unchanged(
     assert create_profile_response.status_code == 201
     profile = create_profile_response.json()
 
-    update_profile_response = await initialized_client.patch(
+    update_profile_response = await initialized_live_client.patch(
         f"/api/v1/style-profiles/{profile['id']}",
         json={
             "style_name": "王家卫风格（改）",
@@ -187,20 +189,21 @@ def test_build_profile_result_bundle_only_depends_on_new_payload_fields() -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.live_llm
 async def test_create_style_profile_rolls_back_when_mount_project_is_missing(
-    initialized_client: AsyncClient,
+    initialized_live_client: AsyncClient,
     app_with_db: FastAPI,
-    initialized_provider: dict[str, object],
+    initialized_live_provider: dict[str, object],
     run_live_style_analysis_job,
 ) -> None:
     result = await run_live_style_analysis_job(
         style_name="事务校验风格",
-        model=str(initialized_provider["default_model"]),
+        model=str(initialized_live_provider["default_model"]),
     )
     job_id = result["job"]["id"]
     detail = result["detail"]
 
-    create_profile_response = await initialized_client.post(
+    create_profile_response = await initialized_live_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
@@ -219,13 +222,14 @@ async def test_create_style_profile_rolls_back_when_mount_project_is_missing(
 
 
 @pytest.mark.asyncio
+@pytest.mark.live_llm
 async def test_delete_style_profile_rejects_when_mounted_to_project(
-    initialized_client: AsyncClient,
-    initialized_provider: dict[str, object],
+    initialized_live_client: AsyncClient,
+    initialized_live_provider: dict[str, object],
     run_live_style_analysis_job,
 ) -> None:
-    provider_id = str(initialized_provider["id"])
-    project_response = await initialized_client.post(
+    provider_id = str(initialized_live_provider["id"])
+    project_response = await initialized_live_client.post(
         "/api/v1/projects",
         json={
             "name": "挂载中的项目",
@@ -241,12 +245,12 @@ async def test_delete_style_profile_rejects_when_mounted_to_project(
 
     result = await run_live_style_analysis_job(
         style_name="删除保护风格",
-        model=str(initialized_provider["default_model"]),
+        model=str(initialized_live_provider["default_model"]),
     )
     job_id = result["job"]["id"]
     detail = result["detail"]
 
-    create_profile_response = await initialized_client.post(
+    create_profile_response = await initialized_live_client.post(
         "/api/v1/style-profiles",
         json={
             "job_id": job_id,
@@ -259,6 +263,6 @@ async def test_delete_style_profile_rejects_when_mounted_to_project(
     assert create_profile_response.status_code == 201
     profile_id = create_profile_response.json()["id"]
 
-    delete_response = await initialized_client.delete(f"/api/v1/style-profiles/{profile_id}")
+    delete_response = await initialized_live_client.delete(f"/api/v1/style-profiles/{profile_id}")
     assert delete_response.status_code == 409
     assert delete_response.json()["detail"] == "该风格档案正被项目引用，无法删除"

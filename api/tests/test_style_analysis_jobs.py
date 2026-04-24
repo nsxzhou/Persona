@@ -274,25 +274,26 @@ async def test_create_style_analysis_job_rejects_non_txt_and_empty_file(
 
 
 @pytest.mark.asyncio
+@pytest.mark.live_llm
 async def test_process_next_pending_job_generates_analysis_bundle_and_updates_job_detail(
-    initialized_client: AsyncClient,
-    initialized_provider: dict[str, object],
+    initialized_live_client: AsyncClient,
+    initialized_live_provider: dict[str, object],
     run_live_style_analysis_job,
 ) -> None:
     result = await run_live_style_analysis_job(
         style_name="古龙风格实验",
-        model=str(initialized_provider["default_model"]),
+        model=str(initialized_live_provider["default_model"]),
     )
     job_id = result["job"]["id"]
 
-    detail_response = await initialized_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
+    detail_response = await initialized_live_client.get(f"/api/v1/style-analysis-jobs/{job_id}")
     assert detail_response.status_code == 200
     detail = detail_response.json()
     assert detail["status"] == "succeeded"
     assert detail["stage"] is None
     assert detail["error_message"] is None
     assert detail["sample_file"]["character_count"] > 0
-    assert detail["analysis_meta"]["model_name"] == initialized_provider["default_model"]
+    assert detail["analysis_meta"]["model_name"] == initialized_live_provider["default_model"]
     assert detail["analysis_meta"]["text_type"] == "章节正文"
     assert detail["analysis_report_markdown"].startswith("# 执行摘要")
     assert "## 3.1 口头禅与常用表达" in detail["analysis_report_markdown"]
@@ -301,7 +302,7 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert detail["prompt_pack_markdown"].startswith("# System Prompt")
     assert detail["style_profile"] is None
 
-    meta_response = await initialized_client.get(
+    meta_response = await initialized_live_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/analysis-meta"
     )
     assert meta_response.status_code == 200
@@ -309,19 +310,19 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert meta_payload["text_type"] == "章节正文"
     assert meta_payload["uses_batch_processing"] == (meta_payload["chunk_count"] > 1)
 
-    report_response = await initialized_client.get(
+    report_response = await initialized_live_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/analysis-report"
     )
     assert report_response.status_code == 200
     assert report_response.json().startswith("# 执行摘要")
 
-    summary_response = await initialized_client.get(
+    summary_response = await initialized_live_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/style-summary"
     )
     assert summary_response.status_code == 200
     assert summary_response.json().startswith("# 风格名称")
 
-    prompt_pack_response = await initialized_client.get(
+    prompt_pack_response = await initialized_live_client.get(
         f"/api/v1/style-analysis-jobs/{job_id}/prompt-pack"
     )
     assert prompt_pack_response.status_code == 200
@@ -1047,8 +1048,16 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
         def build_model(self, *, provider, model_name: str):
             return SimpleNamespace(provider=provider, model_name=model_name)
 
-        async def ainvoke_markdown(self, *, model, prompt: str):
-            del model
+        async def ainvoke_markdown(
+            self,
+            *,
+            model,
+            prompt: str,
+            provider=None,
+            model_name: str | None = None,
+            injection_mode: str = "analysis",
+        ):
+            del model, provider, model_name, injection_mode
             if "聚合结果" in prompt:
                 self.report_calls += 1
                 if self.report_calls == 1:
@@ -1142,8 +1151,16 @@ async def test_resume_endpoint_allows_continuing_from_failed_job_without_reinvok
         def build_model(self, *, provider, model_name: str):
             return SimpleNamespace(provider=provider, model_name=model_name)
 
-        async def ainvoke_markdown(self, *, model, prompt: str):
-            del model
+        async def ainvoke_markdown(
+            self,
+            *,
+            model,
+            prompt: str,
+            provider=None,
+            model_name: str | None = None,
+            injection_mode: str = "analysis",
+        ):
+            del model, provider, model_name, injection_mode
             if "聚合结果" in prompt:
                 self.report_calls += 1
                 if self.report_calls == 1:
