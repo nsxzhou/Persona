@@ -22,7 +22,7 @@ config = context.config
 
 # 如果存在配置文件（通常就是 alembic.ini），就按其中的 logging 段落初始化日志
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # 迁移目标元数据：Alembic 会用它来了解“业务期望的表结构是什么”
 # 在 autogenerate 模式下，会用它和数据库当前结构做差异对比

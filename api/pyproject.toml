@@ -38,6 +38,9 @@ dev = [
 asyncio_mode = "strict"
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "live_llm: tests that require a real provider connection or live LLM call",
+]
 
 [tool.uv]
 package = false
