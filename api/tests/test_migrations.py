@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 from pathlib import Path
 
 import pytest
@@ -205,6 +206,27 @@ def test_analysis_job_stage_migration_renames_legacy_stage_values(
         ("plot-job-analyze", "analyzing_focus_chunks"),
         ("plot-job-summary", "postprocessing"),
     ]
+
+
+def test_alembic_upgrade_does_not_disable_application_loggers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "logger-migration.db"
+    monkeypatch.delenv("PERSONA_ENCRYPTION_KEY", raising=False)
+    get_settings.cache_clear()
+    alembic_config = Config("alembic.ini")
+    alembic_config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+
+    app_logger = logging.getLogger("app.services.style_analysis_llm")
+    app_logger.disabled = False
+
+    try:
+        command.upgrade(alembic_config, "head")
+    finally:
+        get_settings.cache_clear()
+
+    assert app_logger.disabled is False
 
 
 def test_alembic_revision_ids_fit_version_column_limit() -> None:

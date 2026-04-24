@@ -13,6 +13,14 @@ from httpx import ASGITransport, AsyncClient
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
+DEFAULT_PROVIDER_PAYLOAD = {
+    "label": "Test Provider",
+    "base_url": "https://api.example.test/v1",
+    "api_key": "sk-test-1234",
+    "default_model": "gpt-4.1-mini",
+    "is_enabled": True,
+}
+
 
 def _require_live_provider_env(name: str) -> str:
     value = os.environ.get(name, "").strip()
@@ -36,6 +44,17 @@ def live_provider_payload() -> dict[str, Any]:
 @pytest.fixture
 def live_provider_api_key_hint(live_provider_payload: dict[str, Any]) -> str:
     api_key = str(live_provider_payload["api_key"])
+    return f"****{api_key[-4:]}"
+
+
+@pytest.fixture
+def default_provider_payload() -> dict[str, Any]:
+    return dict(DEFAULT_PROVIDER_PAYLOAD)
+
+
+@pytest.fixture
+def default_provider_api_key_hint(default_provider_payload: dict[str, Any]) -> str:
+    api_key = str(default_provider_payload["api_key"])
     return f"****{api_key[-4:]}"
 
 
@@ -85,22 +104,32 @@ async def client(app_with_db: FastAPI) -> AsyncIterator[AsyncClient]:
         yield async_client
 
 
-
-@pytest_asyncio.fixture
-async def initialized_client(
+async def _initialize_client(
     client: AsyncClient,
-    live_provider_payload: dict[str, Any],
+    *,
+    provider_payload: dict[str, Any],
 ) -> AsyncClient:
     response = await client.post(
         "/api/v1/setup",
         json={
             "username": "persona-admin",
             "password": "super-secret-password",
-            "provider": live_provider_payload,
+            "provider": provider_payload,
         },
     )
     assert response.status_code == 201
     return client
+
+
+@pytest_asyncio.fixture
+async def initialized_client(
+    client: AsyncClient,
+    default_provider_payload: dict[str, Any],
+) -> AsyncClient:
+    return await _initialize_client(
+        client,
+        provider_payload=default_provider_payload,
+    )
 
 
 @pytest_asyncio.fixture
@@ -112,11 +141,31 @@ async def initialized_provider(initialized_client: AsyncClient) -> dict[str, Any
     return providers[0]
 
 
+@pytest_asyncio.fixture
+async def initialized_live_client(
+    client: AsyncClient,
+    live_provider_payload: dict[str, Any],
+) -> AsyncClient:
+    return await _initialize_client(
+        client,
+        provider_payload=live_provider_payload,
+    )
+
+
+@pytest_asyncio.fixture
+async def initialized_live_provider(initialized_live_client: AsyncClient) -> dict[str, Any]:
+    response = await initialized_live_client.get("/api/v1/provider-configs")
+    assert response.status_code == 200
+    providers = response.json()
+    assert len(providers) == 1
+    return providers[0]
+
+
 @pytest.fixture
 def run_live_style_analysis_job(
-    initialized_client: AsyncClient,
+    initialized_live_client: AsyncClient,
     app_with_db: FastAPI,
-    initialized_provider: dict[str, Any],
+    initialized_live_provider: dict[str, Any],
     live_style_analysis_sample_text: str,
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     from app.services.style_analysis_worker import StyleAnalysisWorkerService
@@ -130,11 +179,11 @@ def run_live_style_analysis_job(
     ) -> dict[str, Any]:
         payload = {
             "style_name": style_name,
-            "provider_id": initialized_provider["id"],
+            "provider_id": initialized_live_provider["id"],
         }
         if model:
             payload["model"] = model
-        create_response = await initialized_client.post(
+        create_response = await initialized_live_client.post(
             "/api/v1/style-analysis-jobs",
             data=payload,
             files={
@@ -154,7 +203,7 @@ def run_live_style_analysis_job(
         for _ in range(attempts):
             processed = await service.process_next_pending(app_with_db.state.session_factory)
             assert processed is True
-            detail_response = await initialized_client.get(
+            detail_response = await initialized_live_client.get(
                 f"/api/v1/style-analysis-jobs/{job['id']}"
             )
             assert detail_response.status_code == 200
@@ -171,9 +220,9 @@ def run_live_style_analysis_job(
 
 @pytest.fixture
 def run_live_plot_analysis_job(
-    initialized_client: AsyncClient,
+    initialized_live_client: AsyncClient,
     app_with_db: FastAPI,
-    initialized_provider: dict[str, Any],
+    initialized_live_provider: dict[str, Any],
     live_style_analysis_sample_text: str,
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     from app.services.plot_analysis_worker import PlotAnalysisWorkerService
@@ -187,11 +236,11 @@ def run_live_plot_analysis_job(
     ) -> dict[str, Any]:
         payload = {
             "plot_name": plot_name,
-            "provider_id": initialized_provider["id"],
+            "provider_id": initialized_live_provider["id"],
         }
         if model:
             payload["model"] = model
-        create_response = await initialized_client.post(
+        create_response = await initialized_live_client.post(
             "/api/v1/plot-analysis-jobs",
             data=payload,
             files={
@@ -211,7 +260,7 @@ def run_live_plot_analysis_job(
         for _ in range(attempts):
             processed = await service.process_next_pending(app_with_db.state.session_factory)
             assert processed is True
-            detail_response = await initialized_client.get(
+            detail_response = await initialized_live_client.get(
                 f"/api/v1/plot-analysis-jobs/{job['id']}"
             )
             assert detail_response.status_code == 200
@@ -219,7 +268,7 @@ def run_live_plot_analysis_job(
             if detail["status"] in ("succeeded", "failed"):
                 break
         if detail and detail["status"] != "succeeded":
-            logs_response = await initialized_client.get(
+            logs_response = await initialized_live_client.get(
                 f"/api/v1/plot-analysis-jobs/{job['id']}/logs"
             )
             print("PLOT_JOB_DETAIL", detail)
