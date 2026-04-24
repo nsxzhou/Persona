@@ -150,12 +150,37 @@ def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None
     assert "阶段性反派（至少 1 个）" not in prompt
 
 
+@pytest.mark.parametrize("length_preset", ["short", "medium", "long"])
+def test_planning_prompts_use_soft_length_hints_without_hard_branching(
+    length_preset: str,
+) -> None:
+    prompts = [
+        build_section_system_prompt("world_building", length_preset=length_preset),
+        build_section_system_prompt("characters", length_preset=length_preset),
+        build_section_system_prompt("outline_master", length_preset=length_preset),
+        build_section_system_prompt("outline_detail", length_preset=length_preset),
+        build_volume_generate_system_prompt(length_preset=length_preset),
+    ]
+
+    for prompt in prompts:
+        assert "篇幅适配提示" in prompt
+        assert "展开密度和推进节奏的软参考" in prompt
+        assert "不必为了匹配预设篇幅，硬性限制结构层级、角色数量或设定规模" in prompt
+        assert "三幕结构" not in prompt
+        assert "2-4 卷" not in prompt
+        assert "5-15 万字" not in prompt
+        assert "15-50 万字" not in prompt
+        assert "重要配角 1-2 个即可" not in prompt
+        assert "重要配角 2-3 个" not in prompt
+
+
 def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() -> None:
     prompt = build_section_system_prompt("outline_master", length_preset="long")
 
     assert "先判断这本书当前真正靠什么让人继续看下去" in prompt
     assert "围绕同一条主爽点主线组织推进" in prompt
     assert "不要为了拉大规模而额外铺地图、体系、势力层级" in prompt
+    assert "以「阶段」为单位规划" in prompt
     assert "地图换挡" not in prompt
     assert "阶段 Boss/核心对手" not in prompt
 
@@ -178,10 +203,20 @@ def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
 def test_outline_detail_prompt_prefers_driving_endings_over_forced_hooks() -> None:
     prompt = build_section_system_prompt("outline_detail", length_preset="long")
 
-    assert "章节末推动点" in prompt
+    assert "章末钩子" in prompt
     assert "可以是悬念、反转、新压力、关系变化或阶段性兑现" in prompt
     assert "不必每章硬凹爆点" in prompt
+    assert "章节末推动点" not in prompt
     assert "每章结尾必须有一个让读者想翻下一章的悬念或爆点" not in prompt
+
+
+def test_outline_detail_prompt_uses_stable_markdown_structure() -> None:
+    prompt = build_section_system_prompt("outline_detail", length_preset="short")
+
+    assert "每个规划块用二级标题（## ）" in prompt
+    assert "需要拆到章节时，再在对应规划块下使用三级标题（### ）列出章节" in prompt
+    assert "不要求固定写成三幕、几卷或多少章" in prompt
+    assert "短篇不设分卷，直接列出章节" not in prompt
 
 
 def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -195,6 +230,16 @@ def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None
     assert "# Plot Prompt\n情节约束" in prompt
     assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
+
+
+def test_volume_generate_prompt_uses_neutral_project_wording_and_stable_structure() -> None:
+    prompt = build_volume_generate_system_prompt(length_preset="medium")
+
+    assert "正在为自己的新书规划整体结构" in prompt
+    assert "每个规划块用二级标题（## ）" in prompt
+    assert "只输出规划结构，不要输出任何章节内容" in prompt
+    assert "不要求固定写成三幕、几卷或多少个阶段" in prompt
+    assert "长篇新书" not in prompt
 
 
 def test_volume_chapters_prompt_injects_plot_prompt_after_style_prompt() -> None:

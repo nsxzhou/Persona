@@ -44,152 +44,73 @@ def parse_concept_response(raw: str, expected_count: int) -> list[ConceptItem]:
 
 
 # --------------------------------------------------------------------------- #
-#  Length-preset-aware section instructions                                     #
+#  Planning instructions with soft length hints                                #
 # --------------------------------------------------------------------------- #
 
-# 按篇幅预设区分的大纲指令
-_OUTLINE_MASTER_INSTRUCTIONS: dict[str, str] = {
-    "short": (
-        "请基于简介、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
-        "生成前先做隐式判断，不要把判断过程写出来：\n"
-        "- 先判断这本书当前真正靠什么让人继续看下去，是局势压迫、关系拉扯、机制兑现还是身份翻盘\n"
-        "- 围绕同一条主爽点主线组织推进，不要为了显得更大而额外加设定\n\n"
-        "以「三幕结构」规划，每幕用二级标题，包含：\n"
-        "- **幕名称与字数范围**（如「第一幕：建置 0-3万字」）\n"
-        "- **核心场景**（不超过 3 个主要场景）\n"
-        "- **核心冲突与转折点**\n"
-        "- **主角状态变化**\n"
-        "- **阶段性翻盘或关系逆转**\n"
-        "- **幕末推动点**（驱动读者继续的悬念、反转、兑现或新压力）\n\n"
-        "全局节奏要求：\n"
-        "- 短篇节奏紧凑，每 1-2 万字一个重大转折\n"
-        "- 开篇 5000 字内必须建立核心冲突\n"
-        "- 全篇围绕一个核心矛盾展开，不开支线\n"
-        "- 结尾必须有明确的情感落点或意义揭示\n"
-        "- 不要为了拉大规模而额外铺地图、体系、势力层级"
-    ),
-    "medium": (
-        "请基于简介、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
-        "生成前先做隐式判断，不要把判断过程写出来：\n"
-        "- 先判断这本书当前真正靠什么让人继续看下去，是局势压迫、关系拉扯、机制兑现还是身份翻盘\n"
-        "- 围绕同一条主爽点主线组织推进，不要为了显得更大而额外加设定\n\n"
-        "以「阶段」为单位规划（建议 3-5 个阶段），每个阶段用二级标题，包含：\n"
-        "- **阶段名称与字数范围**（如「序章期 0-5万字」）\n"
-        "- **核心局面/场景**\n"
-        "- **阶段核心对手或阻力**（冲突类型和压迫方式）\n"
-        "- **主角地位/掌控力变化**（本阶段如何从被动到主动，或从边缘到核心）\n"
-        "- **核心爽点事件**（1-2 个，必须服务主爽点）\n"
-        "- **阶段末推动点**（悬念、反转、兑现或新压力）\n\n"
-        "全局节奏要求：\n"
-        "- 遵循「小高潮-缓冲-大高潮」循环\n"
-        "- 每 3-5 万字至少一个重大事件\n"
-        "- 开篇 1 万字内建立核心冲突和角色魅力\n"
-        "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
-        "- 不要为了拉大规模而额外铺地图、体系、势力层级"
-    ),
-    "long": (
-        "请基于简介、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
-        "生成前先做隐式判断，不要把判断过程写出来：\n"
-        "- 先判断这本书当前真正靠什么让人继续看下去，是局势压迫、关系拉扯、机制兑现还是身份翻盘\n"
-        "- 围绕同一条主爽点主线组织推进，不要为了显得更大而额外加设定\n\n"
-        "以「阶段」为单位规划，每个阶段用二级标题，包含：\n"
-        "- **阶段名称与字数范围**（如「起步期 0-15万字」）\n"
-        "- **核心局面/场景**（这一阶段读者主要在追什么局）\n"
-        "- **阶段核心对手或阻力**（冲突类型和压迫方式）\n"
-        "- **主角地位/掌控力变化**（本阶段如何从被动到主动，或从边缘到核心）\n"
-        "- **核心爽点事件**（1-2 个打脸/逆袭/突破，必须服务主爽点）\n"
-        "- **阶段末推动点**（悬念、反转、兑现或新压力）\n\n"
-        "全局节奏要求：\n"
-        "- 遵循「小高潮-缓冲-大高潮」循环\n"
-        "- 每 3-5 万字至少一个重大事件\n"
-        "- 前 30 万字（追读养成期）节奏偏快，密集爽点\n"
-        "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
-        "- 不要为了拉大规模而额外铺地图、体系、势力层级"
-    ),
+_LENGTH_HINT_LABELS: dict[LengthPresetKey, str] = {
+    "short": "预计体量偏短",
+    "medium": "预计体量中等",
+    "long": "预计体量偏长",
 }
 
-_OUTLINE_DETAIL_INSTRUCTIONS: dict[str, str] = {
-    "short": (
-        "请基于总纲和已有上下文，展开章节细纲。\n"
-        "目标篇幅 5-15 万字，建议 8-20 章。\n\n"
-        "每章必须包含：\n"
-        "- **章节标题**\n"
-        "- **核心事件**（1-2 句话概括）\n"
-        "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
-        "- **章节末推动点**（可以是悬念、反转、新压力、关系变化或阶段性兑现）\n\n"
-        "节奏规则：\n"
-        "- 短篇不设分卷，直接列出章节\n"
-        "- 每 3-5 章安排一个转折\n"
-        "- 最后 2-3 章进入收束，回收伏笔，不要开新线\n"
-        "- 不必每章硬凹爆点，只要让局面继续向前推"
-    ),
-    "medium": (
-        "请基于总纲和已有上下文，展开分卷结构和章节细纲。\n"
-        "目标篇幅 15-50 万字，建议 2-4 卷。\n\n"
-        "每卷用二级标题标注卷名和主题，其下列出各章节。\n"
-        "每章必须包含：\n"
-        "- **章节标题**\n"
-        "- **核心事件**（2-3 句话概括）\n"
-        "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
-        "- **章节末推动点**（可以是悬念、反转、新压力、关系变化或阶段性兑现）\n\n"
-        "节奏规则：\n"
-        "- 同一卷内的章节情绪应有起伏\n"
-        "- 每 3-5 章安排一个小高潮，每卷末安排大高潮\n"
-        "- 最后一卷需安排收束，回收主要伏笔\n"
-        "- 不必每章硬凹爆点，只要让局面继续向前推"
-    ),
-    "long": (
-        "请基于总纲和已有上下文，展开分卷结构和章节细纲。\n\n"
-        "每卷用二级标题标注卷名和主题，其下列出各章节。\n"
-        "每章必须包含：\n"
-        "- **章节标题**\n"
-        "- **核心事件**（2-3 句话概括）\n"
-        "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
-        "- **章节末推动点**（可以是悬念、反转、新压力、关系变化或阶段性兑现）\n\n"
-        "节奏规则：\n"
-        "- 同一卷内的章节情绪应有起伏，避免连续多章同一情绪\n"
-        "- 开头和结尾的情绪尽量形成反差（喜→悲，松→紧）\n"
-        "- 每 3-5 章安排一个小高潮，每卷末安排大高潮\n"
-        "- 不必每章硬凹爆点，只要让局面继续向前推"
-    ),
-}
 
-# 按篇幅追加的世界观/角色补充提示
-_WORLD_BUILDING_SUFFIX: dict[str, str] = {
-    "short": (
+def _build_soft_length_hint(length_preset: LengthPresetKey) -> str:
+    label = _LENGTH_HINT_LABELS.get(length_preset, _LENGTH_HINT_LABELS["long"])
+    return (
         "\n\n篇幅适配提示：\n"
-        "- 这是一部短篇小说（5-15万字），只保留会直接进入剧情的必要设定\n"
-        "- 优先写清压迫、规则和开篇冲突，不要扩写世界百科\n"
-        "- 可选模块从严取舍，能不写就不写"
-    ),
-    "medium": (
-        "\n\n篇幅适配提示：\n"
-        "- 这是一部中篇小说（15-50万字），可以适度补充主要势力或关键前史\n"
-        "- 仍以主线冲突为中心，不要因为篇幅更长就补全一整套体系"
-    ),
-    "long": (
-        "\n\n篇幅适配提示：\n"
-        "- 这是一部长篇小说，可在主线确实需要时逐步展开势力、空间与前史\n"
-        "- 即使是长篇，也不要预支后期暂时用不到的设定"
-    ),
-}
+        f"- 当前项目{label}，把它当作展开密度和推进节奏的软参考\n"
+        "- 不必为了匹配预设篇幅，硬性限制结构层级、角色数量或设定规模\n"
+        "- 以故事实际需要决定哪些部分细写、略写、前置或后置"
+    )
 
-_CHARACTERS_SUFFIX: dict[str, str] = {
-    "short": (
-        "\n\n篇幅适配提示：\n"
-        "- 这是一部短篇小说（5-15万字），角色精简\n"
-        "- 重要配角 1-2 个即可\n"
-        "- 阶段性反派可以与全书反派合一\n"
-        "- 角色设计聚焦核心冲突，不要过多铺展"
-    ),
-    "medium": (
-        "\n\n篇幅适配提示：\n"
-        "- 这是一部中篇小说（15-50万字），角色数量适中\n"
-        "- 重要配角 2-3 个\n"
-        "- 可以有层次更丰富的角色关系网"
-    ),
-    "long": "",  # 长篇保持原样
-}
+
+def _append_soft_length_hint(instruction: str, length_preset: LengthPresetKey) -> str:
+    return instruction + _build_soft_length_hint(length_preset)
+
+
+_OUTLINE_MASTER_INSTRUCTION = (
+    "请基于简介、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
+    "生成前先做隐式判断，不要把判断过程写出来：\n"
+    "- 先判断这本书当前真正靠什么让人继续看下去，是局势压迫、关系拉扯、机制兑现还是身份翻盘\n"
+    "- 围绕同一条主爽点主线组织推进，不要为了显得更大而额外加设定\n\n"
+    "以「阶段」为单位规划，每个阶段用二级标题，包含：\n"
+    "- **阶段名称与核心命题**\n"
+    "- **核心局面/场景**（这一阶段读者主要在追什么局）\n"
+    "- **阶段核心对手或阻力**（冲突类型和压迫方式）\n"
+    "- **主角地位/掌控力变化**（本阶段如何从被动到主动，或从边缘到核心）\n"
+    "- **核心爽点事件**（1-2 个，必须服务主爽点）\n"
+    "- **阶段末推动点**（悬念、反转、兑现或新压力）\n\n"
+    "全局节奏要求：\n"
+    "- 遵循「小高潮-缓冲-大高潮」循环\n"
+    "- 开篇尽快建立核心冲突与角色魅力\n"
+    "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
+    "- 不要为了拉大规模而额外铺地图、体系、势力层级"
+)
+
+_OUTLINE_DETAIL_INSTRUCTION = (
+    "请基于总纲和已有上下文，展开规划结构与章节细纲。\n\n"
+    "每个规划块用二级标题（## ）标注该阶段、卷或幕的名称与主题，必要时可在标题下补一行引用（> ）说明当前局面。\n"
+    "需要拆到章节时，再在对应规划块下使用三级标题（### ）列出章节。\n"
+    "不要求固定写成三幕、几卷或多少章，应由故事实际推进需要决定结构层级。\n\n"
+    "每章必须包含：\n"
+    "- **章节标题**\n"
+    "- **核心事件**（2-3 句话概括）\n"
+    "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」）\n"
+    "- **章末钩子**（可以是悬念、反转、新压力、关系变化或阶段性兑现）\n\n"
+    "节奏规则：\n"
+    "- 同一规划块内的章节情绪应有起伏，避免连续多章同一情绪\n"
+    "- 该收束时安排伏笔回收和主线收口，但不要机械地按篇幅预设倒推结构\n"
+    "- 不必每章硬凹爆点，只要让局面继续向前推"
+)
+
+_VOLUME_GENERATE_INSTRUCTION = (
+    "请基于总纲，设计整体规划结构。\n\n"
+    "每个规划块用二级标题（## ）标注该阶段、卷或幕的名称，必要时可在标题下使用引用行（> ）补充主题、局势或阶段说明。\n"
+    "不要求固定写成三幕、几卷或多少个阶段，应按总纲中的实际推进自然拆分。\n\n"
+    "示例格式：\n"
+    "## 第一阶段：入局\n"
+    "> 主题：故事正式启动 | 当前压力：旧案逼近\n"
+)
 
 _GROUNDED_INTERPRETATION_GUARDRAIL = (
     "\n\n题材收束提醒：\n"
@@ -262,7 +183,7 @@ _SECTION_META: dict[str, dict[str, str]] = {
             "- **最能兑现爽点的核心优势/筹码**：是什么、如何取得、眼下能怎么用\n"
             "- **行事逻辑**：利益、情感、危险面前最常见的选择方式\n"
             "- **当前最缺什么**：他要补的短板、软肋或代价\n\n"
-            "## 关键角色（2-4 个，按需要取舍）\n"
+            "## 关键角色（按需要取舍）\n"
             "每个角色写：\n"
             "- 与主角的关系定位\n"
             "- 他掌握的筹码 / 压力来源 / 可交换利益\n"
@@ -277,11 +198,11 @@ _SECTION_META: dict[str, dict[str, str]] = {
     },
     "outline_master": {
         "label": "总纲",
-        "instruction": _OUTLINE_MASTER_INSTRUCTIONS["long"],
+        "instruction": _OUTLINE_MASTER_INSTRUCTION,
     },
     "outline_detail": {
         "label": "分卷与章节细纲",
-        "instruction": _OUTLINE_DETAIL_INSTRUCTIONS["long"],
+        "instruction": _OUTLINE_DETAIL_INSTRUCTION,
     },
     "runtime_state": {
         "label": "运行时状态",
@@ -325,23 +246,17 @@ def build_section_system_prompt(
     """构建区块生成的系统提示词（篇幅感知）。"""
     meta = _SECTION_META[section]
 
-    # 按 preset 选择 instruction 变体
+    # 规划层统一使用主模板，只保留软性的篇幅提示。
     if section == "outline_master":
-        instruction = _OUTLINE_MASTER_INSTRUCTIONS.get(
-            length_preset, _OUTLINE_MASTER_INSTRUCTIONS["long"]
-        )
+        instruction = _append_soft_length_hint(meta["instruction"], length_preset)
         instruction += _GROUNDED_INTERPRETATION_GUARDRAIL
     elif section == "outline_detail":
-        instruction = _OUTLINE_DETAIL_INSTRUCTIONS.get(
-            length_preset, _OUTLINE_DETAIL_INSTRUCTIONS["long"]
-        )
+        instruction = _append_soft_length_hint(meta["instruction"], length_preset)
     else:
         instruction = meta["instruction"]
-        # 为世界观和角色追加篇幅提示
-        if section == "world_building":
-            instruction += _WORLD_BUILDING_SUFFIX.get(length_preset, "")
-        elif section == "characters":
-            instruction += _CHARACTERS_SUFFIX.get(length_preset, "")
+        if section in {"world_building", "characters"}:
+            instruction = _append_soft_length_hint(instruction, length_preset)
+        if section == "characters":
             instruction += _GROUNDED_INTERPRETATION_GUARDRAIL
 
     parts: list[str] = []
@@ -398,41 +313,6 @@ def build_section_user_message(
     return "\n\n---\n\n".join(parts)
 
 
-# --------------------------------------------------------------------------- #
-#  Volume-level generation prompts                                             #
-# --------------------------------------------------------------------------- #
-
-_VOLUME_GENERATE_INSTRUCTIONS: dict[str, str] = {
-    "short": (
-        "请基于总纲，设计三幕结构。\n\n"
-        "只输出幕级结构，不要输出章节。格式要求：\n"
-        "每幕用二级标题（## ），紧跟引用行（> ）标注主题和字数范围。\n\n"
-        "示例格式：\n"
-        "## 第一幕：建置\n"
-        "> 主题：故事起点 | 字数范围：0-3万字\n\n"
-        "目标篇幅：5-15 万字，建议 3 幕。"
-    ),
-    "medium": (
-        "请基于总纲，设计分卷结构。\n\n"
-        "只输出卷级结构，不要输出章节。格式要求：\n"
-        "每卷用二级标题（## ），紧跟引用行（> ）标注主题和字数范围。\n\n"
-        "示例格式：\n"
-        "## 第一卷：卷名\n"
-        "> 主题：xxx | 字数范围：0-10万字\n\n"
-        "目标篇幅：15-50 万字，建议 2-4 卷。"
-    ),
-    "long": (
-        "请基于总纲，设计分卷结构。\n\n"
-        "只输出卷级结构，不要输出章节。格式要求：\n"
-        "每卷用二级标题（## ），紧跟引用行（> ）标注主题和字数范围。\n\n"
-        "示例格式：\n"
-        "## 第一卷：卷名\n"
-        "> 主题：xxx | 字数范围：0-15万字\n\n"
-        "根据总纲中的阶段划分来确定卷数。"
-    ),
-}
-
-
 def build_volume_generate_system_prompt(
     length_preset: LengthPresetKey = "long",
     style_prompt: str | None = None,
@@ -440,9 +320,7 @@ def build_volume_generate_system_prompt(
     regenerating: bool = False,
 ) -> str:
     """构建卷级结构生成的系统提示词。"""
-    instruction = _VOLUME_GENERATE_INSTRUCTIONS.get(
-        length_preset, _VOLUME_GENERATE_INSTRUCTIONS["long"]
-    )
+    instruction = _append_soft_length_hint(_VOLUME_GENERATE_INSTRUCTION, length_preset)
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
@@ -451,11 +329,11 @@ def build_volume_generate_system_prompt(
         parts.append(plot_prompt)
         parts.append("\n\n---\n")
     parts.append(
-        "你是一位起点白金作家，正在为自己的长篇新书做分卷规划。\n\n"
+        "你是一位起点白金作家，正在为自己的新书规划整体结构，梳理分卷规划。\n\n"
         f"{instruction}\n\n"
         "输出要求：\n"
         "- 使用 Markdown 格式\n"
-        "- 只输出分卷结构，不要输出任何章节内容\n"
+        "- 只输出规划结构，不要输出任何章节内容\n"
         "- 直接输出内容，不要添加解释性前言或总结"
     )
     if regenerating:
