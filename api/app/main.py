@@ -1,5 +1,3 @@
-# 未来语法导入：让Python支持更新的类型注解语法，兼容旧版本Python
-# 这行是Python 3.7+的特性，用于解决类型注解的前向引用问题
 from __future__ import annotations
 
 from contextlib import asynccontextmanager

@@ -1,8 +1,5 @@
-# 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
-# 导入SQLAlchemy的声明式基类
-# DeclarativeBase是SQLAlchemy 2.0的新API，替代了旧版的declarative_base()函数
 from sqlalchemy.orm import DeclarativeBase
 
 

@@ -1,5 +1,3 @@
-# 未来语法导入：让 Python 支持更新的类型注解语法，兼容旧版本 Python
-# 这行是 Python 3.7+ 的特性，用于解决类型注解的前向引用问题
 from __future__ import annotations
 
 # asyncio：用于异步并发、任务调度、事件通知（Event）和超时等待等

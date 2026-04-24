@@ -129,9 +129,6 @@ class PlotAnalysisJobRepository:
             payload_column=PlotAnalysisJob.prompt_pack_payload,
         )
 
-    async def get_status_and_payload(self, *args, **kwargs):  # pragma: no cover - compatibility guard
-        return await self._get_status_and_payload(*args, **kwargs)
-
     async def get_for_delete(
         self,
         session: AsyncSession,

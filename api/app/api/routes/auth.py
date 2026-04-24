@@ -1,4 +1,3 @@
-# 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response, status

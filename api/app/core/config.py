@@ -1,4 +1,3 @@
-# 未来语法导入：支持前向引用的类型注解
 from __future__ import annotations
 
 # 导入LRU缓存装饰器 - 用于缓存函数返回值，避免重复计算
