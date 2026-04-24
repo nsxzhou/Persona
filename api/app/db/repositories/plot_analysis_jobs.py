@@ -8,6 +8,8 @@ from sqlalchemy.orm import defer, joinedload
 
 from app.db.models import PlotAnalysisJob, PlotProfile, PlotSampleFile
 
+STALE_JOB_RETRY_EXHAUSTED_MESSAGE = "分析任务重试次数已用尽，请重新提交"
+
 
 class PlotAnalysisJobRepository:
     async def list(
@@ -310,7 +312,10 @@ class PlotAnalysisJobRepository:
                     else_=pending_status,
                 ),
                 stage=None,
-                error_message=None,
+                error_message=case(
+                    (PlotAnalysisJob.attempt_count >= max_attempts, STALE_JOB_RETRY_EXHAUSTED_MESSAGE),
+                    else_=None,
+                ),
                 started_at=None,
                 completed_at=case(
                     (PlotAnalysisJob.attempt_count >= max_attempts, now),
@@ -380,7 +385,10 @@ class PlotAnalysisJobRepository:
                     else_=pending_status,
                 ),
                 stage=None,
-                error_message=None,
+                error_message=case(
+                    (PlotAnalysisJob.attempt_count >= max_attempts, STALE_JOB_RETRY_EXHAUSTED_MESSAGE),
+                    else_=None,
+                ),
                 started_at=None,
                 completed_at=case(
                     (PlotAnalysisJob.attempt_count >= max_attempts, now),

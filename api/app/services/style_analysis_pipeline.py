@@ -180,7 +180,7 @@ class StyleAnalysisPipeline:
         final_state = await self.graph.ainvoke(graph_input, config)
 
         # 通知回调流水线已完成
-        await self._set_stage(None)
+        await self._clear_stage_on_completion()
 
         # 反序列化最终状态中的所有产物，返回给调用方
         return StyleAnalysisPipelineResult(
@@ -517,6 +517,10 @@ class StyleAnalysisPipeline:
         self._raise_if_paused()
         if self.stage_callback is not None:
             await self.stage_callback(stage)
+
+    async def _clear_stage_on_completion(self) -> None:
+        if self.stage_callback is not None:
+            await self.stage_callback(None)
 
     def _raise_if_paused(self) -> None:
         if self.should_pause is not None and self.should_pause():

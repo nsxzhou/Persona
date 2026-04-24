@@ -205,7 +205,7 @@ class PlotAnalysisPipeline:
         checkpoint_state = await self.graph.aget_state(config)
         graph_input = None if checkpoint_state.next else initial_state
         final_state = await self.graph.ainvoke(graph_input, config)
-        await self._set_stage(None)
+        await self._clear_stage_on_completion()
 
         return PlotAnalysisPipelineResult(
             analysis_meta=PlotAnalysisMeta.model_validate(final_state["analysis_meta"]),
@@ -740,6 +740,10 @@ class PlotAnalysisPipeline:
         self._raise_if_paused()
         if self.stage_callback is not None:
             await self.stage_callback(stage)
+
+    async def _clear_stage_on_completion(self) -> None:
+        if self.stage_callback is not None:
+            await self.stage_callback(None)
 
     def _raise_if_paused(self) -> None:
         if self.should_pause is not None and self.should_pause():

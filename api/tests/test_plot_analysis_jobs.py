@@ -399,6 +399,49 @@ async def test_get_plot_status_reconciles_stale_running_job_back_to_pending(
 
 
 @pytest.mark.asyncio
+async def test_get_plot_status_reconciles_exhausted_stale_job_to_failed_with_message(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS", "1")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/plot-analysis-jobs",
+        data={"plot_name": "陈旧运行失败", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    stale_at = datetime.now(UTC) - timedelta(minutes=10)
+    async with app_with_db.state.session_factory() as session:
+        job = await PlotAnalysisJobService().get_or_404(session, job_id)
+        job.status = "running"
+        job.stage = "analyzing_focus_chunks"
+        job.locked_by = "dead-worker"
+        job.locked_at = stale_at
+        job.last_heartbeat_at = stale_at
+        job.attempt_count = 1
+        await session.commit()
+
+    status_response = await initialized_client.get(f"/api/v1/plot-analysis-jobs/{job_id}/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "failed"
+    assert status_response.json()["error_message"] == "分析任务重试次数已用尽，请重新提交"
+
+    async with app_with_db.state.session_factory() as session:
+        job = await session.scalar(select(PlotAnalysisJob).where(PlotAnalysisJob.id == job_id))
+        assert job is not None
+        assert job.status == "failed"
+        assert job.error_message == "分析任务重试次数已用尽，请重新提交"
+
+    get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
 async def test_worker_entrypoint_isolates_lane_failures_and_restarts_only_failed_lane(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
