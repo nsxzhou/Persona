@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.core.redaction import summarize_exception
 from app.db.models import ProviderConfig
 from app.services.llm_model_factory import build_chat_model
+from app.services.prompt_injection import PromptInjectionMode, inject_first_human_message
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +52,13 @@ class LLMProviderService:
         provider_config: ProviderConfig,
         system_prompt: str,
         user_context: str,
+        injection_mode: PromptInjectionMode = "analysis",
     ) -> AsyncGenerator[str, None]:
         model = self._build_model(provider_config)
-        messages = [
+        messages = inject_first_human_message([
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_context),
-        ]
+        ], injection_mode)
         async for chunk in model.astream(messages):
             if chunk.content:
                 yield chunk.content
@@ -65,8 +67,10 @@ class LLMProviderService:
         self,
         provider_config: ProviderConfig,
         messages: list[Any],
+        injection_mode: PromptInjectionMode = "analysis",
     ) -> AsyncGenerator[str, None]:
         model = self._build_model(provider_config)
+        messages = inject_first_human_message(messages, injection_mode)
         async for chunk in model.astream(messages):
             if chunk.content:
                 yield chunk.content
@@ -77,12 +81,13 @@ class LLMProviderService:
         system_prompt: str,
         user_context: str,
         model_name: str | None = None,
+        injection_mode: PromptInjectionMode = "analysis",
     ) -> str:
         """Non-streaming single LLM call; returns the full text."""
         model = self._build_model(provider_config, model_name=model_name)
-        messages = [
+        messages = inject_first_human_message([
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_context),
-        ]
+        ], injection_mode)
         response = await model.ainvoke(messages)
         return str(response.content)

@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage
 
 from app.db.models import ProviderConfig
 from app.services.llm_model_factory import build_chat_model
+from app.services.prompt_injection import PromptInjectionMode, inject_prompt_marker
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,7 @@ class MarkdownLLMClient:
         prompt: str,
         provider: ProviderConfig | Any | None = None,
         model_name: str | None = None,
+        injection_mode: PromptInjectionMode = "analysis",
     ) -> str:
         total_attempts = max(
             len(_EMPTY_RESPONSE_BACKOFF_SECONDS),
@@ -132,6 +134,7 @@ class MarkdownLLMClient:
         ) + 1
         last_diagnostics: dict[str, Any] | None = None
         provider_base_url = getattr(provider, "base_url", None)
+        prompt = inject_prompt_marker(prompt, injection_mode)
 
         for attempt in range(1, total_attempts + 1):
             try:
