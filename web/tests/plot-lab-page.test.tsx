@@ -202,6 +202,9 @@ test("plot lab wizard saves profile and mounts project", async () => {
   renderWizard();
 
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
+  fireEvent.change(screen.getByLabelText("全书骨架 Markdown"), {
+    target: { value: "# 全书骨架\n- 新骨架\n" },
+  });
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
   fireEvent.click(await screen.findByRole("button", { name: "确认摘要，下一步" }));
   fireEvent.change(screen.getByLabelText("Prompt Pack Markdown"), {
@@ -217,8 +220,61 @@ test("plot lab wizard saves profile and mounts project", async () => {
         job_id: "job-1",
         plot_name: "已完成任务",
         plot_summary_markdown: buildSummary(),
+        plot_skeleton_markdown: "# 全书骨架\n- 新骨架\n",
         prompt_pack_markdown: "# Shared Constraints\n不要洗白主角\n",
         mount_project_id: "project-1",
+      }),
+    ),
+  );
+});
+
+test("plot lab profile view shows and updates skeleton markdown", async () => {
+  apiMock.getPlotAnalysisJob.mockResolvedValueOnce(
+    buildSucceededJob({
+      plot_profile_id: "plot-profile-1",
+    }),
+  );
+  apiMock.getPlotProfile.mockResolvedValueOnce({
+    id: "plot-profile-1",
+    source_job_id: "job-1",
+    provider_id: "provider-1",
+    model_name: "gpt-4.1-mini",
+    source_filename: "sample.txt",
+    plot_name: "已保存情节档案",
+    analysis_report_markdown: buildReport(),
+    plot_summary_markdown: buildSummary("已保存情节档案"),
+    plot_skeleton_markdown: "# 全书骨架\n- 已保存骨架\n",
+    prompt_pack_markdown: buildPromptPack(),
+    created_at: "2026-04-09T00:00:00Z",
+    updated_at: "2026-04-09T00:01:00Z",
+  });
+  apiMock.updatePlotProfile.mockResolvedValueOnce({
+    id: "plot-profile-1",
+  });
+
+  renderWizard();
+
+  expect(await screen.findByText("已保存情节档案")).toBeInTheDocument();
+  const skeletonTab = screen.getByRole("tab", { name: "全书骨架" });
+  expect(skeletonTab).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "编辑档案" }));
+  fireEvent.mouseDown(skeletonTab);
+  fireEvent.click(skeletonTab);
+  await waitFor(() => expect(skeletonTab).toHaveAttribute("aria-selected", "true"));
+  fireEvent.change(screen.getByLabelText("全书骨架 Markdown"), {
+    target: { value: "# 全书骨架\n- 更新后的骨架\n" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+  await waitFor(() =>
+    expect(apiMock.updatePlotProfile).toHaveBeenCalledWith(
+      "plot-profile-1",
+      expect.objectContaining({
+        plot_name: "已保存情节档案",
+        plot_summary_markdown: buildSummary("已保存情节档案"),
+        plot_skeleton_markdown: "# 全书骨架\n- 更新后的骨架\n",
+        prompt_pack_markdown: buildPromptPack(),
       }),
     ),
   );
