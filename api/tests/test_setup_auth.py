@@ -10,6 +10,17 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 
 
+@pytest.fixture
+def clear_live_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "PERSONA_TEST_PROVIDER_LABEL",
+        "PERSONA_TEST_PROVIDER_BASE_URL",
+        "PERSONA_TEST_PROVIDER_API_KEY",
+        "PERSONA_TEST_PROVIDER_MODEL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 def test_auth_service_supports_repository_injection() -> None:
     from app.db.repositories.auth import AuthRepository
     from app.services.auth import AuthService
@@ -32,6 +43,22 @@ def test_auth_and_setup_routes_use_annotated_dependency_aliases() -> None:
     assert login_hints["auth_service"] == AuthServiceDep
     assert setup_hints["db_session"] == DbSessionDep
     assert setup_hints["auth_service"] == AuthServiceDep
+
+
+@pytest.mark.asyncio
+async def test_initialized_client_uses_non_live_default_provider_without_live_env(
+    clear_live_provider_env,
+    initialized_client: AsyncClient,
+) -> None:
+    providers_response = await initialized_client.get("/api/v1/provider-configs")
+
+    assert providers_response.status_code == 200
+    providers = providers_response.json()
+    assert len(providers) == 1
+    assert providers[0]["label"] == "Test Provider"
+    assert providers[0]["base_url"] == "https://api.example.test/v1"
+    assert providers[0]["default_model"] == "gpt-4.1-mini"
+    assert providers[0]["api_key_hint"] == "****1234"
 
 
 @pytest.mark.asyncio

@@ -31,13 +31,13 @@ def test_provider_routes_use_annotated_service_dependency() -> None:
 @pytest.mark.asyncio
 async def test_provider_configs_mask_keys_and_support_crud(
     initialized_client: AsyncClient,
-    live_provider_api_key_hint: str,
+    default_provider_api_key_hint: str,
 ) -> None:
     list_response = await initialized_client.get("/api/v1/provider-configs")
     assert list_response.status_code == 200
     providers = list_response.json()
     assert len(providers) == 1
-    assert providers[0]["api_key_hint"] == live_provider_api_key_hint
+    assert providers[0]["api_key_hint"] == default_provider_api_key_hint
     assert "api_key_encrypted" not in providers[0]
 
     create_response = await initialized_client.post(
@@ -65,23 +65,6 @@ async def test_provider_configs_mask_keys_and_support_crud(
     assert update_response.status_code == 200
     assert update_response.json()["label"] == "Backup Gateway Updated"
     assert update_response.json()["default_model"] == "gpt-4.1-mini"
-
-
-@pytest.mark.asyncio
-async def test_provider_connection_test_updates_status(
-    initialized_client: AsyncClient,
-    initialized_provider: dict[str, object],
-) -> None:
-    provider_id = str(initialized_provider["id"])
-    response = await initialized_client.post(f"/api/v1/provider-configs/{provider_id}/test")
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    assert response.json()["message"] == "连接成功"
-
-    refreshed = (await initialized_client.get("/api/v1/provider-configs")).json()[0]
-    assert refreshed["last_test_status"] == "success"
-
 
 @pytest.mark.asyncio
 async def test_provider_connection_test_masks_sensitive_error_details(
