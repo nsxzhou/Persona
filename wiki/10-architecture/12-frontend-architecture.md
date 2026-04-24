@@ -2,7 +2,7 @@
 
 ## 要解决什么问题
 
-Next.js 15 App Router + React 19 把"怎么写 React 应用"重新讲了一遍：
+Next.js 16 App Router + React 19 把"怎么写 React 应用"重新讲了一遍：
 
 - 页面默认是 **Server Components**（RSC），不再是 "browser 先拿到 HTML 空壳、再拉 JS 填充"
 - 表单变更有三条路：**Server Actions**、**REST API**、**TanStack Query Mutation**——三者如何搭配？
@@ -81,20 +81,28 @@ import { cookies } from "next/headers";
 ```
 web/app/
 ├── layout.tsx                  # 根 layout（Server）→ 挂 AppProviders
-├── page.tsx                    # 首页
+├── template.tsx                # 根模板（Client）→ framer-motion 切页淡入
+├── page.tsx                    # 首页 → redirect("/projects")
 ├── login/page.tsx              # 登录页（未鉴权可访问）
 ├── setup/page.tsx              # 首次初始化向导
 ├── (workspace)/                # 路由分组（不影响 URL）
 │   ├── layout.tsx              # 工作区 layout → 鉴权 + HydrationBoundary
 │   ├── projects/
 │   │   ├── page.tsx            # 项目列表
+│   │   ├── new/page.tsx        # 概念抽卡 / 新项目入口
 │   │   ├── actions.ts          # Server Actions（'use server'）
 │   │   └── [id]/
 │   │       ├── page.tsx        # 项目详情
 │   │       └── editor/page.tsx # Zen Editor
-│   ├── style-lab/…
-│   └── settings/…
-└── (marketing)/                # 可选：展示页分组
+│   ├── style-lab/
+│   │   ├── page.tsx            # Style Lab Dashboard
+│   │   └── [id]/page.tsx       # Style Lab Wizard / Profile
+│   ├── plot-lab/
+│   │   ├── page.tsx            # Plot Lab Dashboard
+│   │   └── [id]/page.tsx       # Plot Lab Wizard / Profile
+│   └── settings/
+│       ├── models/page.tsx     # Provider / 模型配置
+│       └── account/page.tsx    # 账户设置
 ```
 
 关键：
@@ -102,6 +110,7 @@ web/app/
 - **分组 `(workspace)`**：仅影响目录组织，不出现在 URL；常用于"某一组页面共享 layout"
 - **`actions.ts`**：惯例文件名，Server Actions 的栖所
 - **路由段和文件同名**：`projects/[id]/page.tsx` = `/projects/:id`
+- **Server 包 Client 是当前常态**：例如 `projects/new`、`style-lab/[id]`、`plot-lab/[id]` 都是 Server 入口页，只负责拿 `params` 或首屏数据，再把控制权交给 Client View
 
 ### 根 Layout + Providers 分工
 

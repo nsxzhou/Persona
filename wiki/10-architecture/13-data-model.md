@@ -321,8 +321,8 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `provider_id` | String(36) | FK `provider_configs.id` | 使用的 Provider |
 | `model_name` | String(100) | not null | 模型名 |
 | `sample_file_id` | String(36) | FK CASCADE + Unique | 绑定的样本（1:1） |
-| `status` | String(16) | not null, Index, default `pending` | `pending` / `processing` / `completed` / `failed` / `paused` |
-| `stage` | String(32) | nullable | 当前阶段（`extracting` / `analyzing` / `summarizing` / `generating`） |
+| `status` | String(16) | not null, Index, default `pending` | `pending` / `running` / `paused` / `succeeded` / `failed` |
+| `stage` | String(32) | nullable | 当前阶段（`preparing_input` / `analyzing_chunks` / `aggregating` / `reporting` / `postprocessing`） |
 | `error_message` | Text | nullable | 失败原因 |
 | `analysis_meta_payload` | **JSON** | nullable | 分析元数据（分块数、字符数、分类等） |
 | `analysis_report_payload` | Text | nullable | 分析报告 Markdown |
@@ -334,8 +334,8 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `pause_requested_at` | DateTime(tz) | nullable | 用户请求暂停的时间 |
 | `paused_at` | DateTime(tz) | nullable | 实际暂停生效时间 |
 | `attempt_count` | Integer | not null, default 0 | 重试次数 |
-| `started_at` | DateTime(tz) | nullable | 首次进入 `processing` |
-| `completed_at` | DateTime(tz) | nullable | 首次进入 `completed` |
+| `started_at` | DateTime(tz) | nullable | 首次进入 `running` |
+| `completed_at` | DateTime(tz) | nullable | 首次进入 `succeeded` |
 
 **索引**（表级定义在 `models.py:231-247`）：
 
@@ -363,6 +363,76 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `prompt_pack_payload` | Text | not null | Prompt Pack（可编辑） |
 
 挂载后，`Project.style_profile_id` 指向它；Editor 续写时自动注入 `prompt_pack_payload`。
+
+#### `plot_sample_files`
+
+结构与 `style_sample_files` 基本对称，只是服务于 Plot Lab：
+
+| 字段 | 类型 | 约束 | 用途 |
+| --- | --- | --- | --- |
+| `id` | String(36) | PK | 样本 ID |
+| `user_id` | String(36) | FK CASCADE + Index | 所属用户 |
+| `original_filename` | String(255) | not null | 上传时文件名 |
+| `content_type` | String(100) | nullable | MIME 类型 |
+| `storage_path` | Text | not null | 本机绝对/相对路径（`PERSONA_STORAGE_DIR/...`） |
+| `byte_size` | Integer | not null | 文件字节数 |
+| `character_count` | Integer | nullable | 字符数 |
+| `checksum_sha256` | String(64) | not null | SHA256 校验 |
+
+和 Style Lab 一样，原始 TXT 不入库，只存本地文件路径与元数据。
+
+#### `plot_analysis_jobs`
+
+| 字段 | 类型 | 约束 | 用途 |
+| --- | --- | --- | --- |
+| `id` | String(36) | PK | 任务 ID |
+| `user_id` | String(36) | FK CASCADE + Index | 所属用户 |
+| `plot_name` | String(120) | not null | 用户命名 |
+| `provider_id` | String(36) | FK `provider_configs.id` | 使用的 Provider |
+| `model_name` | String(100) | not null | 模型名 |
+| `sample_file_id` | String(36) | FK CASCADE + Unique | 绑定的样本（1:1） |
+| `status` | String(16) | not null, Index, default `pending` | `pending` / `running` / `paused` / `succeeded` / `failed` |
+| `stage` | String(32) | nullable | 当前阶段（`preparing_input` / `building_skeleton` / `selecting_focus_chunks` / `analyzing_focus_chunks` / `aggregating` / `reporting` / `postprocessing`） |
+| `error_message` | Text | nullable | 失败原因 |
+| `analysis_meta_payload` | **JSON** | nullable | 分析元数据（分块数、字符数、分类等） |
+| `analysis_report_payload` | Text | nullable | 情节分析报告 Markdown |
+| `plot_summary_payload` | Text | nullable | 剧情摘要 Markdown |
+| `prompt_pack_payload` | Text | nullable | Plot Prompt Pack Markdown |
+| `plot_skeleton_payload` | Text | nullable | 全书骨架 Markdown |
+| `locked_by` | String(64) | nullable | 当前持有者 Worker ID |
+| `locked_at` | DateTime(tz) | nullable | 锁获取时间 |
+| `last_heartbeat_at` | DateTime(tz) | nullable | 最近心跳 |
+| `pause_requested_at` | DateTime(tz) | nullable | 用户请求暂停的时间 |
+| `paused_at` | DateTime(tz) | nullable | 实际暂停生效时间 |
+| `attempt_count` | Integer | not null, default 0 | 重试次数 |
+| `started_at` | DateTime(tz) | nullable | 首次进入 `running` |
+| `completed_at` | DateTime(tz) | nullable | 首次进入 `succeeded` |
+
+**索引**（表级定义在 `models.py` 的 `PlotAnalysisJob.__table_args__`）：
+
+- `ix_plot_analysis_jobs_status_created_at`：Worker claim 扫描用
+- `ix_plot_analysis_jobs_status_attempt_count_created_at`：重试计数策略用
+- `ix_plot_analysis_jobs_status_last_heartbeat_at`：卡死检测（`fail_stale_running_jobs`）用
+
+这张表与 `style_analysis_jobs` 一样承担“数据库内任务队列”的职责，但多了一份 `plot_skeleton_payload`，用于把全书骨架沉淀到任务结果和后续 profile 中。
+
+#### `plot_profiles`
+
+| 字段 | 类型 | 约束 | 用途 |
+| --- | --- | --- | --- |
+| `id` | String(36) | PK | 档案 ID |
+| `user_id` | String(36) | FK CASCADE + Index | 所属用户 |
+| `source_job_id` | String(36) | FK + Unique | 来源任务（1:1） |
+| `provider_id` | String(36) | FK + Index | 生成所用 Provider |
+| `model_name` | String(100) | not null | 模型名 |
+| `source_filename` | String(255) | not null | 样本文件名（快照） |
+| `plot_name` | String(120) | not null | 用户命名 |
+| `analysis_report_payload` | Text | not null | 情节分析报告（快照） |
+| `plot_summary_payload` | Text | not null | 剧情摘要（可编辑） |
+| `prompt_pack_payload` | Text | not null | Plot Prompt Pack（可编辑） |
+| `plot_skeleton_payload` | Text | nullable | 全书骨架（可编辑或留空） |
+
+挂载后，`Project.plot_profile_id` 指向它；规划和写作链路都会把其中的情节 Prompt Pack 作为约束输入。
 
 ### 横切约束：`user_id` scope
 
@@ -443,7 +513,7 @@ Persona 里的"长文本"大多是 Markdown（`analysis_report_payload` / `promp
 | 增量 diff 有语义（Markdown 行级） | 整块替换 |
 | Prompt 模板直接注入 | 需要子字段独立查询 |
 
-当前唯一一处 JSON 是 `style_analysis_jobs.analysis_meta_payload`（`models.py:270`）——**分析元数据**（分块数、字符数、输入分类字典），程序读为主，没有人工编辑需求。
+当前主要的 JSON 列是 `style_analysis_jobs.analysis_meta_payload` 与 `plot_analysis_jobs.analysis_meta_payload`——都属于**分析元数据**（分块数、字符数、输入分类字典），程序读为主，没有人工编辑需求。
 
 **反模式**：用 Text 存 JSON 串再 `json.loads(...)`——Pydantic V2 + 原生 JSON 列能在 DB 层保持结构化，应用层直接拿 dict。
 

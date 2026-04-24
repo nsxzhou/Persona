@@ -2,7 +2,7 @@
 
 ## 一句话定义 + 价值
 
-Project 是 Persona 的业务根对象。它把“默认 Provider、可选 Style Profile、蓝图字段、运行时记忆、章节树入口”收拢成一个可持续迭代的创作容器。
+Project 是 Persona 的业务根对象。它把“默认 Provider、可选 Style / Plot Profile、Project Bible 与章节树入口”收拢成一个可持续迭代的创作容器。
 
 ## 用户视角流程
 
@@ -40,17 +40,15 @@ Project 是 Persona 的业务根对象。它把“默认 Provider、可选 Style
 
 HTTP 路由集中在 `api/app/api/routes/projects.py`：
 
-- 列表：`api/app/api/routes/projects.py:29`
-- 创建：`api/app/api/routes/projects.py:48`
-- 详情：`api/app/api/routes/projects.py:63`
-- 更新：`api/app/api/routes/projects.py:78`
-- 归档 / 恢复：`api/app/api/routes/projects.py:95` 与 `api/app/api/routes/projects.py:110`
-- 删除：`api/app/api/routes/projects.py:125`
+- 项目 CRUD：`list_projects()` / `create_project()` / `get_project()` / `update_project()`
+- Bible 读取与更新：`get_project_bible()` / `update_project_bible()`
+- 归档 / 恢复 / 删除：`archive_project()` / `restore_project()` / `delete_project()`
 
 Service 层在 `api/app/services/projects.py`：
 
 - `create()` 会先校验默认 Provider 已启用，并按需校验 `style_profile_id` 与 `plot_profile_id`，见 `ProjectService.create()`
 - `update()` 会处理 Provider 切换、模型兜底、Style / Plot Profile 重挂载与可编辑字段白名单，见 `ProjectService.update()`
+- `get_bible_or_404()` / `update_bible()` 负责 `project_bibles` 的读取与落库
 - `archive()` / `restore()` 只是切 `archived_at`，并没有独立归档表，见 `api/app/services/projects.py:151`
 
 Repository 层在 `api/app/db/repositories/projects.py`：

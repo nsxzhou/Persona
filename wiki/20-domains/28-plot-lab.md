@@ -99,7 +99,7 @@ Plot Lab 不是一次 LLM 调用，而是多阶段流水线，管道节点顺序
 
 `sketch → skeleton` 这一前置预览是 Plot Lab 相对 Style Lab 的核心架构差异：情节维度（阶段划分、主爽点兑现节奏、主角能力走向、关系演变、结局形状）几乎都需要全书视角，而文风是 chunk-local 的。
 
-Prompt 模板与构造器都集中在 `api/app/services/plot_analysis_prompts.py`，核心 8 个 builder：
+Prompt 模板与构造器的实际实现集中在 `api/app/prompts/plot_analysis.py`；流水线通过 `api/app/services/plot_analysis_prompts.py` 的兼容导出层引用这些 builder。核心 8 个 builder 如下：
 
 - `build_sketch_prompt()`（`:161`）——分块速写，**全文件唯一允许 JSON 输出的分支**，见模块里与 `SHARED_ANALYSIS_RULES` 并列的 `SKETCH_ANALYSIS_RULES`（`:21`）
 - `build_skeleton_reduce_prompt()`（`:206`）——把 sketches 归约成 ≤2500 tokens 的 `plot-skeleton.md`
@@ -110,7 +110,7 @@ Prompt 模板与构造器都集中在 `api/app/services/plot_analysis_prompts.py
 - `build_plot_summary_prompt()`（`:334`）——剧情摘要
 - `build_prompt_pack_prompt()`（`:349`）——Plot Prompt Pack
 
-`_format_skeleton_context()`（`api/app/services/plot_analysis_prompts.py:35`）是三条下游 builder（chunk 分析 / merge / report）的共享拼接器，会在输入前注入一节 `## 全书骨架（参考上下文）` 并附带反伪造声明（“骨架仅用于定位与上下文参考；所有结论仍须以本 chunk 证据为准，不得引用骨架外的事件”）。
+`_format_skeleton_context()`（定义在 `api/app/prompts/plot_analysis.py`）是三条下游 builder（chunk 分析 / merge / report）的共享拼接器，会在输入前注入一节 `## 全书骨架（参考上下文）` 并附带反伪造声明（“骨架仅用于定位与上下文参考；所有结论仍须以本 chunk 证据为准，不得引用骨架外的事件”）。
 
 管道编排与阶段 / 状态常量定义在 `api/app/schemas/plot_analysis_jobs.py:119` 之后，报告结构 `PLOT_ANALYSIS_REPORT_SECTIONS` 锁定 3.1-3.12 共 12 个情节维度子标题。管道具体实现与节点拓扑见下一章 [29 Plot Analysis 管道（LangGraph）](./29-plot-analysis-pipeline.md)。
 
@@ -130,7 +130,7 @@ Prompt 模板与构造器都集中在 `api/app/services/plot_analysis_prompts.py
 - `api/app/api/routes/plot_profiles.py`
 - `api/app/services/plot_analysis_jobs.py`
 - `api/app/services/plot_profiles.py`
-- `api/app/services/plot_analysis_prompts.py`
+- `api/app/prompts/plot_analysis.py`
 - `api/app/db/models.py`（`PlotSampleFile` / `PlotAnalysisJob` / `PlotProfile`）
 
 ## 相关章节

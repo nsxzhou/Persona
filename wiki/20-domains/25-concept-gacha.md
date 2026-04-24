@@ -38,7 +38,7 @@ Service 在 `api/app/services/editor.py:325`：
 - 再拼装概念生成 system prompt 与 user message
 - 最后用 `LLMProviderService.invoke_completion()` 做一次非流式调用
 
-响应解析在 `api/app/services/editor_prompts.py:19`：
+响应解析在 `api/app/prompts/editor.py` 的 `parse_concept_response()`：
 
 - 约定模型输出形如 `### 标题` + 简介
 - 解析失败直接抛 `UnprocessableEntityError`
@@ -59,7 +59,7 @@ Concept Gacha 没有独立表。它的产物是一个普通 `Project`：
 
 ## Prompt / LLM 调用要点
 
-概念抽卡的 Prompt 设计集中在 `api/app/services/editor_prompts.py:704`：
+概念抽卡的 Prompt 设计集中在 `api/app/prompts/editor.py`：
 
 - 3 张卡共享同一故事主轴，不能写成 3 本完全不同的小说
 - 差异化来自不同卖点切口，而不是固定平台流派标签
@@ -76,7 +76,7 @@ Concept Gacha 没有独立表。它的产物是一个普通 `Project`：
 - 示例用于学习节奏与包装方式，不允许照搬示例设定
 - 标题和简介都要保持网文味，但优先自然，不要生硬
 
-用户消息非常简单，只传灵感和目标数量，见 `api/app/services/editor_prompts.py:727`。差异化主要靠 system prompt 完成。
+用户消息非常简单，只传灵感和目标数量，由 `build_concept_generate_user_message()` 负责。差异化主要靠 system prompt 完成。
 
 ## 关键文件索引
 
@@ -86,7 +86,7 @@ Concept Gacha 没有独立表。它的产物是一个普通 `Project`：
 - `web/lib/api-client.ts`
 - `api/app/api/routes/editor.py`
 - `api/app/services/editor.py`
-- `api/app/services/editor_prompts.py`
+- `api/app/prompts/editor.py`
 - `api/app/services/projects.py`
 
 ## 相关章节

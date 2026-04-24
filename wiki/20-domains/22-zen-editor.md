@@ -55,7 +55,7 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 真正的写作 Prompt 组装逻辑在 `api/app/services/editor.py:96`：
 
 - `stream_completion()` 会先检查项目已挂载风格档案
-- 再从 `projects` 表读出蓝图字段和活态字段
+- 再读取 `ProjectBible` 中的蓝图字段和活态字段
 - 调用 `assemble_writing_context()` 构造完整系统提示词，见 `api/app/services/context_assembly.py:49`
 - 最后把消息交给 `LLMProviderService.stream_messages()`
 
@@ -77,7 +77,7 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 编辑器是 Prompt 工程最密集的领域之一：
 
 - `api/app/services/context_assembly.py:49` 把 `prompt_pack_payload` 与 Bible 各区块拼成系统提示词
-- `api/app/services/editor.py:115` 把 `inspiration / world_building / characters / outline_master / outline_detail / runtime_state / runtime_threads` 全部注入
+- `WritingEditorService.stream_completion()` 会把 `inspiration / world_building / characters / outline_master / outline_detail / runtime_state / runtime_threads` 全部注入
 - `web/hooks/use-editor-completion.ts:46` 只把光标前文本送给模型，不会把光标后文本当成写作上下文
 
 这里的核心哲学是：续写不是“随便让模型接着写”，而是“让模型在完整风格 + 完整约束 + 局部上下文下写”。

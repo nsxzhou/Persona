@@ -110,51 +110,51 @@ Plot Worker 直接复用 Style 侧的共享组件：
 
 `PlotProfile`（`api/app/db/models.py:461`）镜像其中 4 份 Markdown 资产，骨架字段在 `api/app/db/models.py:480`。
 
-状态常量与 stage 常量定义在 `api/app/schemas/plot_analysis_jobs.py:119` 与 `api/app/schemas/plot_analysis_jobs.py:125`。执行顺序如下：
+状态常量与 stage 常量定义在 `api/app/schemas/plot_analysis_jobs.py`。当前执行顺序如下：
 
 1. `preparing_input`
-2. `building_skeleton`（**新阶段**：sketch fan-out + skeleton reduce 都归到这个 stage 标签下）
-3. `analyzing_chunks`
-4. `aggregating`
-5. `reporting`
-6. `summarizing`
-7. `composing_prompt_pack`
+2. `building_skeleton`（sketch fan-out + skeleton reduce 都归到这个 stage 标签下）
+3. `selecting_focus_chunks`
+4. `analyzing_focus_chunks`
+5. `aggregating`
+6. `reporting`
+7. `postprocessing`
 
 ## Prompt / LLM 调用要点
 
 ### 分析 Prompt 全是 Markdown-First，唯一例外是 sketch
 
-模板集中在 `api/app/services/plot_analysis_prompts.py`：
+模板实际实现集中在 `api/app/prompts/plot_analysis.py`；`api/app/services/plot_analysis_prompts.py` 只是流水线导入用的兼容层：
 
-- `SHARED_ANALYSIS_RULES` 强制证据优先、中文 Markdown、章节顺序固定，见 `api/app/services/plot_analysis_prompts.py:8`
-- `SKETCH_ANALYSIS_RULES`（`:21`）是**唯一一处本地反转**：sketch 必须输出合法 JSON 以便下游聚合，显式禁止 Markdown 与代码块
+- `SHARED_ANALYSIS_RULES` 强制证据优先、中文 Markdown、章节顺序固定
+- `SKETCH_ANALYSIS_RULES` 是**唯一一处本地反转**：sketch 必须输出合法 JSON 以便下游聚合，显式禁止 Markdown 与代码块
 - `PLOT_ANALYSIS_REPORT_SECTIONS` 定义固定的 3.1-3.12 共 12 节结构，见 `api/app/schemas/plot_analysis_jobs.py:11`
-- `PLOT_REPORT_TEMPLATE` / `PLOT_SUMMARY_TEMPLATE` / `PLOT_PROMPT_PACK_TEMPLATE` / `PLOT_SKELETON_TEMPLATE` 把最终输出格式全部锁死，见 `api/app/services/plot_analysis_prompts.py:54`、`84`、`110`、`135`
+- `PLOT_REPORT_TEMPLATE` / `PLOT_SUMMARY_TEMPLATE` / `PLOT_PROMPT_PACK_TEMPLATE` / `PLOT_SKELETON_TEMPLATE` 把最终输出格式全部锁死
 
 ### 8 个 Builder 与骨架注入
 
-| Builder | 位置 | 阶段 | 骨架参数 |
+| Builder | 定义位置 | 阶段 | 骨架参数 |
 | --- | --- | --- | --- |
-| `build_sketch_prompt()` | `:161` | sketch_chunk | — |
-| `build_skeleton_reduce_prompt()` | `:206` | build_skeleton | — |
-| `build_skeleton_group_reduce_prompt()` | `:237` | build_skeleton（分层兜底） | — |
-| `build_chunk_analysis_prompt()` | `:268` | analyze_chunk | `plot_skeleton: str \| None` |
-| `build_merge_prompt()` | `:291` | merge_chunks | `plot_skeleton: str \| None` |
-| `build_report_prompt()` | `:310` | build_report | `plot_skeleton: str \| None` |
-| `build_plot_summary_prompt()` | `:334` | build_summary | — |
-| `build_prompt_pack_prompt()` | `:349` | build_prompt_pack | — |
+| `build_sketch_prompt()` | `api/app/prompts/plot_analysis.py` | sketch_chunk | — |
+| `build_skeleton_reduce_prompt()` | `api/app/prompts/plot_analysis.py` | build_skeleton | — |
+| `build_skeleton_group_reduce_prompt()` | `api/app/prompts/plot_analysis.py` | build_skeleton（分层兜底） | — |
+| `build_chunk_analysis_prompt()` | `api/app/prompts/plot_analysis.py` | analyze_chunk | `plot_skeleton: str \| None` |
+| `build_merge_prompt()` | `api/app/prompts/plot_analysis.py` | merge_chunks | `plot_skeleton: str \| None` |
+| `build_report_prompt()` | `api/app/prompts/plot_analysis.py` | build_report | `plot_skeleton: str \| None` |
+| `build_plot_summary_prompt()` | `api/app/prompts/plot_analysis.py` | build_summary | — |
+| `build_prompt_pack_prompt()` | `api/app/prompts/plot_analysis.py` | build_prompt_pack | — |
 
-骨架注入由 `_format_skeleton_context()`（`api/app/services/plot_analysis_prompts.py:35`）统一拼接：在主输入前插入一节 `## 全书骨架（参考上下文）`，并附加反伪造声明“骨架仅用于定位与上下文参考；所有结论仍须以本 chunk 证据为准，不得引用骨架外的事件”。
+骨架注入由 `_format_skeleton_context()`（定义在 `api/app/prompts/plot_analysis.py`）统一拼接：在主输入前插入一节 `## 全书骨架（参考上下文）`，并附加反伪造声明“骨架仅用于定位与上下文参考；所有结论仍须以本 chunk 证据为准，不得引用骨架外的事件”。
 
-`build_report_prompt()` 在骨架存在时还会额外提示“3.1 阶段划分、3.2 主爽点线兑现节奏、3.11 结局形状应优先参考骨架的阶段与节奏判断”（`api/app/services/plot_analysis_prompts.py:317`）。
+`build_report_prompt()` 在骨架存在时还会额外提示“3.1 阶段划分、3.2 主爽点线兑现节奏、3.11 结局形状应优先参考骨架的阶段与节奏判断”。
 
 ### ≤2500 tokens 的骨架硬约束
 
-`build_skeleton_reduce_prompt()` 明确要求“整份骨架合计不得超过约 2500 tokens”（`api/app/services/plot_analysis_prompts.py:223`），这是为了让骨架可以整段注入到每个下游 chunk prompt 而不爆上下文。输出模板固定在 `PLOT_SKELETON_TEMPLATE`：阶段划分 / 主线推进链 / 爽点兑现节奏 / 角色登场 & 主角能力阶梯 / 时间线结构 / 结局形状线索 / 证据不足项。
+`build_skeleton_reduce_prompt()` 明确要求“整份骨架合计不得超过约 2500 tokens”，这是为了让骨架可以整段注入到每个下游 chunk prompt 而不爆上下文。输出模板固定在 `PLOT_SKELETON_TEMPLATE`：阶段划分 / 主线推进链 / 爽点兑现节奏 / 角色登场 & 主角能力阶梯 / 时间线结构 / 结局形状线索 / 证据不足项。
 
 ### 分层归约兜底
 
-当 sketch 规模的估算 token 数超过 `SKELETON_HIERARCHICAL_TOKEN_THRESHOLD = 80_000`（`api/app/services/plot_analysis_pipeline.py:47`），`_build_skeleton()` 会走 `_build_skeleton_hierarchical()`：把 sketches 按 `SKELETON_GROUP_SIZE = 40` 分组，先生成一批 sub-skeleton Markdown，再由 `build_skeleton_reduce_prompt()` 做二次归约。`build_skeleton_reduce_prompt` 显式兼容两种输入形状（sketch JSON 或 sub-skeleton 对象），见 `api/app/services/plot_analysis_prompts.py:226`。
+当 sketch 规模的估算 token 数超过 `SKELETON_HIERARCHICAL_TOKEN_THRESHOLD = 80_000`（定义在 `api/app/services/plot_analysis_pipeline.py`），`_build_skeleton()` 会走 `_build_skeleton_hierarchical()`：把 sketches 按 `SKELETON_GROUP_SIZE = 40` 分组，先生成一批 sub-skeleton Markdown，再由 `build_skeleton_reduce_prompt()` 做二次归约。`build_skeleton_reduce_prompt()` 显式兼容两种输入形状（sketch JSON 或 sub-skeleton 对象）。
 
 ### LLM 调用复用 Style 侧
 
@@ -192,7 +192,7 @@ flowchart TD
 
 - `api/app/services/plot_analysis_pipeline.py`
 - `api/app/services/plot_analysis_worker.py`
-- `api/app/services/plot_analysis_prompts.py`
+- `api/app/prompts/plot_analysis.py`
 - `api/app/services/plot_analysis_storage.py`（包含 sketch artifact 读写与 stage markdown helper）
 - `api/app/services/plot_analysis_checkpointer.py`
 - `api/app/services/plot_analysis_jobs.py`

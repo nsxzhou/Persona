@@ -53,7 +53,7 @@ Service 在 `api/app/services/editor.py:230`：
 - 再用 `build_bible_update_system_prompt()` 与 `build_bible_update_user_message()` 构造 Prompt
 - 最后调用 `invoke_completion()` 返回完整候选文本
 
-Prompt 规则定义在 `api/app/services/editor_prompts.py:490` 与 `api/app/services/editor_prompts.py:546`。解析逻辑在 `api/app/services/editor_prompts.py:524`：
+Prompt 规则定义在 `api/app/prompts/editor.py` 的 `build_bible_update_system_prompt()` 与 `build_bible_update_user_message()`。解析逻辑在同文件的 `parse_bible_update_response()`：
 
 - 如果模型输出了两个 `##` 区块，就拆成 `runtime_state` 与 `runtime_threads`
 - 如果格式退化，所有内容都进 `runtime_state`
@@ -87,7 +87,7 @@ Prompt 规则定义在 `api/app/services/editor_prompts.py:490` 与 `api/app/ser
 - 它也不是生成剧情摘要
 - 它只提炼“后文必须继续遵守或继续追踪的持续性变化”
 
-`_BIBLE_UPDATE_SYSTEM` 在 `api/app/services/editor_prompts.py:490` 明确要求：
+`_BIBLE_UPDATE_SYSTEM` 在 `api/app/prompts/editor.py` 里明确要求：
 
 - 只保留持续性变化
 - 不记录一次性动作和气氛描写
@@ -105,7 +105,7 @@ Prompt 规则定义在 `api/app/services/editor_prompts.py:490` 与 `api/app/ser
 - `web/lib/diff-utils.ts`
 - `api/app/api/routes/editor.py`
 - `api/app/services/editor.py`
-- `api/app/services/editor_prompts.py`
+- `api/app/prompts/editor.py`
 - `api/app/services/project_chapters.py`
 - `api/app/db/models.py`
 

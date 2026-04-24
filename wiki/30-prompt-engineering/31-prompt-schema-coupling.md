@@ -32,11 +32,11 @@ Schema 定义在 `api/app/schemas/editor.py`：
 - `BibleUpdateRequest`，见 `api/app/schemas/editor.py:30`
 - `BibleUpdateResponse`，见 `api/app/schemas/editor.py:37`
 
-对应 Prompt 构建在 `api/app/services/editor_prompts.py`：
+对应 Prompt 构建在 `api/app/prompts/editor.py`：
 
-- system prompt：`build_bible_update_system_prompt()`，见 `api/app/services/editor_prompts.py:542`
-- user message：`build_bible_update_user_message()`，见 `api/app/services/editor_prompts.py:546`
-- output 解析：`parse_bible_update_response()`，见 `api/app/services/editor_prompts.py:524`
+- system prompt：`build_bible_update_system_prompt()`
+- user message：`build_bible_update_user_message()`
+- output 解析：`parse_bible_update_response()`
 
 这里的强绑定关系是：
 
@@ -54,11 +54,11 @@ Style Lab 的几个输出类型被封装成 RootModel：
 - `StyleSummaryMarkdown`，见 `api/app/schemas/style_analysis_jobs.py:34`
 - `PromptPackMarkdown`，见 `api/app/schemas/style_analysis_jobs.py:41`
 
-它们对应的 Prompt 模板在 `api/app/services/style_analysis_prompts.py`：
+它们对应的 Prompt 模板在 `api/app/prompts/style_analysis.py`：
 
-- `REPORT_TEMPLATE`，见 `api/app/services/style_analysis_prompts.py:22`
-- `STYLE_SUMMARY_TEMPLATE`，见 `api/app/services/style_analysis_prompts.py:52`
-- `PROMPT_PACK_TEMPLATE`，见 `api/app/services/style_analysis_prompts.py:85`
+- `REPORT_TEMPLATE`
+- `STYLE_SUMMARY_TEMPLATE`
+- `PROMPT_PACK_TEMPLATE`
 
 这说明 Persona 选择的是 **Markdown-First** 契约，而不是 JSON-first：
 
@@ -74,6 +74,7 @@ Style Lab 的几个输出类型被封装成 RootModel：
 
 - Provider 表单校验：`web/lib/validations/provider.ts:12`
 - Style Lab 保存表单校验：`web/lib/validations/style-lab.ts:3`
+- Plot Lab 保存表单校验：`web/lib/validations/plot-lab.ts:3`
 
 例如 Style Lab 保存档案时，前端要求：
 
@@ -98,9 +99,9 @@ Style Lab 的几个输出类型被封装成 RootModel：
 
 | Prompt 文件 | 对应契约 |
 | --- | --- |
-| `api/app/services/editor_prompts.py` | `api/app/schemas/editor.py`、`web/lib/api/generated/openapi.ts` |
-| `api/app/services/style_analysis_prompts.py` | `api/app/schemas/style_analysis_jobs.py` |
-| `api/app/services/editor_prompts.py` 中档案保存相关 Prompt | `api/app/schemas/style_profiles.py`、`web/lib/validations/style-lab.ts` |
+| `api/app/prompts/editor.py` | `api/app/schemas/editor.py`、`web/lib/api/generated/openapi.ts` |
+| `api/app/prompts/style_analysis.py` | `api/app/schemas/style_analysis_jobs.py` |
+| `api/app/prompts/plot_analysis.py` | `api/app/schemas/plot_analysis_jobs.py` |
 
 ### 修改时最容易漏掉的地方
 
@@ -113,7 +114,7 @@ Style Lab 的几个输出类型被封装成 RootModel：
 | 症状 | 常见原因 | 先看哪里 |
 | --- | --- | --- |
 | 模型输出看起来“差不多”，但接口 500 | parser 仍按旧标题/旧字段切分 | `editor_prompts.py` / `style_analysis_prompts.py` |
-| 前端表单能保存，后端却 422 | Zod 与 Pydantic 约束不一致 | `web/lib/validations/*` 与 `api/app/schemas/*` |
+| 前端表单能保存，后端却 422 | Zod 与 Pydantic 约束不一致 | `web/lib/validations/` 与 `api/app/schemas/` |
 | OpenAPI 类型和后端实际不一致 | 后端改了没重新 codegen | `web/package.json:9` |
 
 ## 相关章节

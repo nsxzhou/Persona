@@ -4,7 +4,7 @@
 
 Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目标不是"一键写小说"，而是把大模型变成一个**受审美约束、有记忆、可驯化**的文字执行器。前后端全部开源在同一仓库内：
 
-- **前端**：Next.js 15 App Router + React 19 + TypeScript + Tailwind 4 + shadcn/ui + TanStack Query + React Hook Form + Zod
+- **前端**：Next.js 16 App Router + React 19 + TypeScript + Tailwind 4 + shadcn/ui + TanStack Query + React Hook Form + Zod
 - **后端**：FastAPI + SQLAlchemy 2 (async) + Alembic + Pydantic V2 + LangChain + LangGraph
 - **存储**：Postgres（开发可用 SQLite）+ 本地文件系统（样本 TXT、原始资产）
 - **运行时**：`make dev` 一键拉起 Postgres、后端 API、前端 Next.js，首次会自动 `uv sync` / `pnpm install`

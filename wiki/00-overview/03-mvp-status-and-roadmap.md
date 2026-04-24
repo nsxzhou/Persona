@@ -122,7 +122,7 @@
 
 | 功能 | 状态 | 入口 |
 | --- | --- | --- |
-| Plot Lab Dashboard / Wizard / Profile UI | ✅ | `web/app/(workspace)/plot-lab/`、`web/components/plot-lab-*.tsx` |
+| Plot Lab Dashboard / Wizard / Profile UI | ✅ | `web/app/(workspace)/plot-lab/page.tsx`、`web/app/(workspace)/plot-lab/[id]/page.tsx`、`web/components/plot-lab-wizard-view.tsx`、`web/components/plot-lab-profile-view.tsx` |
 | `plot_sample_files` / `plot_analysis_jobs` / `plot_profiles` 三表 | ✅ | `api/app/db/models.py` |
 | Plot 分析管道（sketch → skeleton → report → summary → prompt pack） | ✅ | `api/app/services/plot_analysis_pipeline.py` |
 | Plot 任务暂停 / 恢复 / stale recovery 状态机 | ✅ | `api/app/services/plot_analysis_worker.py`、`api/app/main.py` |
@@ -144,7 +144,7 @@
 | --- | --- | --- |
 | 上下文组装（蓝图 + 活态 + 前 3 章 + 当前章大纲） | ✅ | `api/app/services/context_assembly.py` |
 | Prompt Caching 策略 | ✅ | 靠"前段不变 + 后段动态"的自然 cache key |
-| Editor Prompts（续写 / 改写 / 摘要等） | ✅ | `api/app/services/editor_prompts.py` |
+| 运行时 Prompt 模板（Editor / Style / Plot） | ✅ | `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py` |
 | Length Presets（生成长度预设） | ✅ | `api/app/core/length_presets.py`、`web/lib/length-presets.ts` |
 | Redaction（日志脱敏） | ✅ | `api/app/core/redaction.py` |
 | SSE 流式响应 + 错误恢复 | ✅ | `api/app/api/sse.py`、`web/lib/sse.ts` |
@@ -227,7 +227,7 @@
 
 1. 先查本表——如果标记 ✅ 或 🧪，基本能用
 2. 去对应的 Wiki 章节看实现细节（例如 "Style Lab" → `20-domains/26-style-lab.md`）
-3. 跑一下相关测试（`api/tests/test_*.py` 或 `web/tests/*.test.tsx`），通过的测试代表当前实现保底
+3. 跑一下相关测试（`api/tests/` 或 `web/tests/`），通过的测试代表当前实现保底
 4. 启动 `make dev`，在浏览器里实际点一下——比读代码更快
 
 ---

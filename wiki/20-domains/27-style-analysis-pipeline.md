@@ -84,11 +84,11 @@
 
 ### 分析 Prompt 全是 Markdown-First
 
-模板集中在 `api/app/services/style_analysis_prompts.py`：
+模板实际实现集中在 `api/app/prompts/style_analysis.py`；`api/app/services/style_analysis_prompts.py` 只是运行时导出的兼容层：
 
-- `SHARED_ANALYSIS_RULES` 强制证据优先、中文 Markdown、章节顺序固定，见 `api/app/services/style_analysis_prompts.py:8`
+- `SHARED_ANALYSIS_RULES` 强制证据优先、中文 Markdown、章节顺序固定
 - `STYLE_ANALYSIS_REPORT_SECTIONS` 定义固定的 3.1-3.12 结构，见 `api/app/schemas/style_analysis_jobs.py:11`
-- `REPORT_TEMPLATE`、`STYLE_SUMMARY_TEMPLATE`、`PROMPT_PACK_TEMPLATE` 把最终输出格式锁死，见 `api/app/services/style_analysis_prompts.py:22`、`52`、`85`
+- `REPORT_TEMPLATE`、`STYLE_SUMMARY_TEMPLATE`、`PROMPT_PACK_TEMPLATE` 把最终输出格式锁死
 
 ### LLM 调用有“空响应重试”和非标准字段兜底
 
@@ -135,7 +135,7 @@ flowchart TD
 - `api/app/services/style_analysis_pipeline.py`
 - `api/app/services/style_analysis_worker.py`
 - `api/app/services/style_analysis_text.py`
-- `api/app/services/style_analysis_prompts.py`
+- `api/app/prompts/style_analysis.py`
 - `api/app/services/style_analysis_llm.py`
 - `api/app/services/style_analysis_checkpointer.py`
 - `api/app/services/style_analysis_storage.py`

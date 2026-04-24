@@ -121,7 +121,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 | 坑 | 为什么危险 | 参考修法 |
 | --- | --- | --- |
-| 手写一套和 OpenAPI 同构的 TS 类型 | 迟早漂移 | 走 `web/lib/api/generated/*` |
+| 手写一套和 OpenAPI 同构的 TS 类型 | 迟早漂移 | 走 `web/lib/api/generated/openapi.ts` |
 | 在 LangGraph state 里塞 DB session | 无法序列化、断点恢复失效 | 只存纯数据字段 |
 | 在项目列表查询里把大 Text 全部带出来 | 列表页性能变差 | 参考 `list_summaries()` |
 | 前端组件顶层一把 `'use client'` | JS 体积膨胀、边界变脏 | 把状态往叶子压 |

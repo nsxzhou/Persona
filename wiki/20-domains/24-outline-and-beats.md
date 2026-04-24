@@ -64,16 +64,16 @@
 
 这一领域的 Prompt 层分工很清楚：
 
-- `build_volume_generate_system_prompt()` 生成卷级骨架，见 `api/app/services/editor_prompts.py:414`
-- `build_volume_chapters_system_prompt()` 生成单卷章节，见 `api/app/services/editor_prompts.py:459`
-- `build_beat_generate_system_prompt()` 生成 beats，见 `api/app/services/editor_prompts.py:589`
-- `build_beat_expand_system_prompt()` 展开单个 beat，见 `api/app/services/editor_prompts.py:645`
+- `build_volume_generate_system_prompt()` 生成卷级骨架，实现位于 `api/app/prompts/editor.py`
+- `build_volume_chapters_system_prompt()` 生成单卷章节，实现位于 `api/app/prompts/editor.py`
+- `build_beat_generate_system_prompt()` 生成 beats，实现位于 `api/app/prompts/editor.py`
+- `build_beat_expand_system_prompt()` 展开单个 beat，实现位于 `api/app/prompts/editor.py`
 
 几个重要约束：
 
-- 节拍生成一定会带上 `runtime_state` 和 `runtime_threads`，见 `api/app/services/editor_prompts.py:598`
-- 逐拍展开会把“本轮已生成的内容”也作为上下文，避免每一拍像重新开写，见 `api/app/services/editor_prompts.py:657`
-- `length_preset` 会影响卷级规划、节拍数量默认值与收束提醒，见 `api/app/services/editor.py:281`
+- 节拍生成的 user message 会显式带上 `runtime_state`、`runtime_threads`、当前章上下文与前序章节上下文
+- 逐拍展开会把 `preceding_beats_prose` 和“本轮已生成的内容”也作为上下文，避免每一拍像重新开写
+- `length_preset` 会影响卷级规划、节拍数量默认值与收束提醒，逻辑集中在 `PlanningEditorService.generate_beats()`
 
 ## 关键文件索引
 
@@ -83,7 +83,7 @@
 - `web/lib/outline-parser.ts`
 - `api/app/api/routes/editor.py`
 - `api/app/services/editor.py`
-- `api/app/services/editor_prompts.py`
+- `api/app/prompts/editor.py`
 - `api/app/services/outline_parser.py`
 - `api/app/services/project_chapters.py`
 - `api/app/db/models.py`

@@ -32,7 +32,12 @@ Bible 的字段元数据集中在 `web/lib/bible-fields.ts:35`：
 
 ## 后端接口 / Service / Repository 链路
 
-蓝图字段本身没有专门 Router，它们直接作为 `Project` 的文本列，经 `PATCH /api/v1/projects/{id}` 更新，入口见 `api/app/api/routes/projects.py:78`。
+Bible 字段有专门的读取/更新入口，位于 `api/app/api/routes/projects.py`：
+
+- `GET /api/v1/projects/{id}/bible`
+- `PATCH /api/v1/projects/{id}/bible`
+
+项目元数据（名称、默认 Provider、挂载档案等）仍然走 `PATCH /api/v1/projects/{id}`；Bible 长文本本体不再混在 `projects` 表里。
 
 AI 生成蓝图字段与活态初稿走 editor route：
 
@@ -41,8 +46,8 @@ AI 生成蓝图字段与活态初稿走 editor route：
 生成逻辑在 `api/app/services/editor.py:150`：
 
 - `_get_style_prompt()` 先取挂载的风格约束
-- `build_section_system_prompt()` 按字段名选择不同的 Prompt 模板，见 `api/app/services/editor_prompts.py:316`
-- `build_section_user_message()` 把其它 Bible 区块作为上下文注入，见 `api/app/services/editor_prompts.py:363`
+- `build_section_system_prompt()` 按字段名选择不同的 Prompt 模板，实现位于 `api/app/prompts/editor.py`
+- `build_section_user_message()` 把其它 Bible 区块作为上下文注入，实现位于 `api/app/prompts/editor.py`
 
 ## 数据模型
 
@@ -62,8 +67,8 @@ Bible 已拆成独立的 `ProjectBible` 表，与 `Project` 形成 1:1 关系。
 Bible 是 Prompt 组装的主燃料：
 
 - `api/app/services/context_assembly.py:49` 会按 `BIBLE_SECTION_ORDER` 把非空字段依次拼进系统提示词
-- `api/app/services/editor_prompts.py:180` 开始的 `_SECTION_META` 为每个字段定义不同的生成任务
-- `world_building` 和 `characters` 还会附带“题材收束提醒”，避免模型凭空补完一套超自然体系，见 `api/app/services/editor_prompts.py:171`
+- `api/app/prompts/editor.py` 中的 `_SECTION_META` 为每个字段定义不同的生成任务
+- `world_building` 和 `characters` 还会附带“题材收束提醒”，避免模型凭空补完一套超自然体系，相关约束同样定义在 `api/app/prompts/editor.py`
 
 其中最重要的边界是：
 
@@ -79,13 +84,13 @@ Bible 是 Prompt 组装的主燃料：
 - `api/app/api/routes/projects.py`
 - `api/app/api/routes/editor.py`
 - `api/app/services/editor.py`
-- `api/app/services/editor_prompts.py`
+- `api/app/prompts/editor.py`
 - `api/app/services/context_assembly.py`
 - `api/app/db/models.py`
 
 ## 相关章节
 
-- [20 项目](./20-projects.md) — Bible 字段都挂在 `projects` 上
+- [20 项目](./20-projects.md) — Project 与 `ProjectBible` 的 1:1 业务关系
 - [22 Zen Editor](./22-zen-editor.md) — 编辑器如何消费这些字段
 - [24 大纲与节拍](./24-outline-and-beats.md) — `outline_master` / `outline_detail` 的专门链路
 - [30 记忆同步](./30-memory-sync.md) — 活态字段如何由正文回写
