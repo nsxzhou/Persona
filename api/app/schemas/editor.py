@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel, Field
 
 from app.schemas.projects import ConceptGenerateRequest, ConceptGenerateResponse
 
@@ -31,7 +31,7 @@ class EditorCompletionRequest(BaseModel):
 
 class SectionGenerateRequest(_RegenerationFields):
     section: str = Field(description="要生成的区块名称")
-    description: str = Field(default="", validation_alias=AliasChoices("description", "inspiration"))
+    description: str = ""
     world_building: str = ""
     characters: str = ""
     outline_master: str = ""
