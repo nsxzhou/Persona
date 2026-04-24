@@ -56,6 +56,7 @@ from app.services.editor_prompts import (
 from app.services.llm_provider import LLMProviderService
 from app.services.outline_parser import parse_outline
 from app.services.plot_profiles import PlotProfileService
+from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_profiles import StyleProfileService
@@ -172,7 +173,7 @@ class WritingEditorService(_EditorServiceBase):
         return self.llm_service.stream_messages(
             project.provider,
             messages,
-            injection_mode="immersion",
+            injection_task=PromptInjectionTask.EDITOR_CONTINUATION,
         )
 
     async def stream_section_generation(
@@ -222,7 +223,11 @@ class WritingEditorService(_EditorServiceBase):
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_message),
         ]
-        return self.llm_service.stream_messages(project.provider, messages)
+        return self.llm_service.stream_messages(
+            project.provider,
+            messages,
+            injection_task=PromptInjectionTask.EDITOR_SECTION_GENERATION,
+        )
 
     async def stream_beat_expansion(
         self,
@@ -270,7 +275,7 @@ class WritingEditorService(_EditorServiceBase):
         return self.llm_service.stream_messages(
             project.provider,
             messages,
-            injection_mode="immersion",
+            injection_task=PromptInjectionTask.EDITOR_BEAT_EXPANSION,
         )
 
 
@@ -303,6 +308,7 @@ class MemoryEditorService(_EditorServiceBase):
             provider_config=project.provider,
             system_prompt=system_prompt,
             user_context=user_message,
+            injection_task=PromptInjectionTask.EDITOR_BIBLE_UPDATE,
         )
         proposed_state, proposed_threads = parse_bible_update_response(raw)
         changed = (
@@ -370,6 +376,7 @@ class PlanningEditorService(_EditorServiceBase):
             provider_config=project.provider,
             system_prompt=system_prompt,
             user_context=user_message,
+            injection_task=PromptInjectionTask.EDITOR_BEAT_GENERATION,
         )
 
         beats = [
@@ -403,6 +410,7 @@ class PlanningEditorService(_EditorServiceBase):
             system_prompt=system_prompt,
             user_context=user_message,
             model_name=payload.model,
+            injection_task=PromptInjectionTask.EDITOR_CONCEPT_GENERATION,
         )
 
         return parse_concept_response(raw, payload.count)
@@ -446,7 +454,11 @@ class PlanningEditorService(_EditorServiceBase):
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_message),
         ]
-        return self.llm_service.stream_messages(project.provider, messages)
+        return self.llm_service.stream_messages(
+            project.provider,
+            messages,
+            injection_task=PromptInjectionTask.EDITOR_VOLUME_GENERATION,
+        )
 
     async def stream_volume_chapters_generation(
         self,
@@ -506,7 +518,11 @@ class PlanningEditorService(_EditorServiceBase):
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_message),
         ]
-        return self.llm_service.stream_messages(project.provider, messages)
+        return self.llm_service.stream_messages(
+            project.provider,
+            messages,
+            injection_task=PromptInjectionTask.EDITOR_VOLUME_CHAPTERS_GENERATION,
+        )
 
 
 class EditorService:

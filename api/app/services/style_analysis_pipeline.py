@@ -20,6 +20,7 @@ from app.schemas.style_analysis_jobs import (
     STYLE_ANALYSIS_JOB_STAGE_REPORTING,
 )
 from app.services.style_analysis_llm import MarkdownLLMClient
+from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.style_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
@@ -278,6 +279,7 @@ class StyleAnalysisPipeline:
             prompt=prompt,
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.STYLE_ANALYSIS_CHUNK,
         )
 
         # 将分析结果写入存储，供后续 merge 阶段读取
@@ -364,6 +366,7 @@ class StyleAnalysisPipeline:
                 ),
                 provider=self.provider,
                 model_name=self.model_name,
+                injection_task=PromptInjectionTask.STYLE_ANALYSIS_MERGE,
             )
             merged = MergedAnalysis(
                 classification=state["classification"],
@@ -409,6 +412,7 @@ class StyleAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.STYLE_ANALYSIS_REPORT,
         )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -441,6 +445,7 @@ class StyleAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.STYLE_ANALYSIS_SUMMARY,
         )
 
         stripped = summary_markdown.lstrip()
@@ -484,6 +489,7 @@ class StyleAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.STYLE_ANALYSIS_PROMPT_PACK,
         )
 
         await self.storage_service.write_stage_markdown_artifact(

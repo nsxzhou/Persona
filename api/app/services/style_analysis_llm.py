@@ -11,6 +11,10 @@ from langchain_core.messages import HumanMessage
 from app.db.models import ProviderConfig
 from app.services.llm_model_factory import build_chat_model
 from app.services.prompt_injection import PromptInjectionMode, inject_prompt_marker
+from app.services.prompt_injection_policy import (
+    PromptInjectionTask,
+    resolve_injection_mode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +130,8 @@ class MarkdownLLMClient:
         prompt: str,
         provider: ProviderConfig | Any | None = None,
         model_name: str | None = None,
-        injection_mode: PromptInjectionMode = "analysis",
+        injection_task: PromptInjectionTask | None = None,
+        injection_mode: PromptInjectionMode | None = None,
     ) -> str:
         total_attempts = max(
             len(_EMPTY_RESPONSE_BACKOFF_SECONDS),
@@ -134,7 +139,13 @@ class MarkdownLLMClient:
         ) + 1
         last_diagnostics: dict[str, Any] | None = None
         provider_base_url = getattr(provider, "base_url", None)
-        prompt = inject_prompt_marker(prompt, injection_mode)
+        prompt = inject_prompt_marker(
+            prompt,
+            self._resolve_injection_mode(
+                injection_task=injection_task,
+                injection_mode=injection_mode,
+            ),
+        )
 
         for attempt in range(1, total_attempts + 1):
             try:
@@ -247,6 +258,18 @@ class MarkdownLLMClient:
             },
         )
         raise EmptyMarkdownResponseError(message)
+
+    def _resolve_injection_mode(
+        self,
+        *,
+        injection_task: PromptInjectionTask | None = None,
+        injection_mode: PromptInjectionMode | None = None,
+    ) -> PromptInjectionMode:
+        if injection_task is not None:
+            return resolve_injection_mode(injection_task)
+        if injection_mode is not None:
+            return injection_mode
+        return "analysis"
 
     def _is_retryable_permission_error(self, exc: PermissionDeniedError) -> bool:
         message = str(exc).lower()

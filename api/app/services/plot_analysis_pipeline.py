@@ -25,6 +25,7 @@ from app.schemas.plot_analysis_jobs import (
     PLOT_ANALYSIS_JOB_STAGE_SELECTING_FOCUS_CHUNKS,
 )
 from app.services.style_analysis_llm import MarkdownLLMClient
+from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.plot_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
@@ -301,6 +302,7 @@ class PlotAnalysisPipeline:
             prompt=prompt,
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKETCH,
         )
 
         try:
@@ -378,6 +380,7 @@ class PlotAnalysisPipeline:
                 ),
                 provider=self.provider,
                 model_name=self.model_name,
+                injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
             )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -408,6 +411,7 @@ class PlotAnalysisPipeline:
                 ),
                 provider=self.provider,
                 model_name=self.model_name,
+                injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
             )
         sub_skeletons: list[str] = []
         for idx, group in enumerate(groups):
@@ -426,6 +430,7 @@ class PlotAnalysisPipeline:
                 ),
                 provider=self.provider,
                 model_name=self.model_name,
+                injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON_GROUP,
             )
             sub_skeletons.append(sub_md)
 
@@ -443,6 +448,7 @@ class PlotAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
         )
         return final_md
 
@@ -564,6 +570,7 @@ class PlotAnalysisPipeline:
             prompt=prompt,
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_CHUNK,
         )
 
         await self.storage_service.write_chunk_analysis_artifact(
@@ -631,6 +638,7 @@ class PlotAnalysisPipeline:
                 ),
                 provider=self.provider,
                 model_name=self.model_name,
+                injection_task=PromptInjectionTask.PLOT_ANALYSIS_MERGE,
             )
             merged = PlotMergedAnalysis(
                 classification=state["classification"],
@@ -668,6 +676,7 @@ class PlotAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_REPORT,
         )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -692,6 +701,7 @@ class PlotAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_SUMMARY,
         )
 
         await self.storage_service.write_stage_markdown_artifact(
@@ -716,6 +726,7 @@ class PlotAnalysisPipeline:
             ),
             provider=self.provider,
             model_name=self.model_name,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_PROMPT_PACK,
         )
         prompt_pack_markdown = self._normalize_prompt_pack_markdown(prompt_pack_markdown)
 
