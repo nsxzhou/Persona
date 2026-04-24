@@ -18,13 +18,13 @@ flowchart LR
         Browser[浏览器]
     end
 
-    subgraph Next.js Web<br/>端口 3000
+    subgraph nextjs["Next.js Web 端口 3000"]
         RSC[Server Components<br/>+ Server Actions]
         RCC[Client Components<br/>+ TanStack Query]
         SSEClient[useStreamingText<br/>SSE 客户端]
     end
 
-    subgraph FastAPI API 进程<br/>端口 8000
+    subgraph fastapi["FastAPI API 进程 端口 8000"]
         Router[Routers<br/>/api/v1/*]
         Svc[Services]
         Repo[Repositories]
@@ -32,13 +32,13 @@ flowchart LR
         Lifespan[lifespan hook<br/>fail_stale_running_jobs]
     end
 
-    subgraph Background Worker<br/>独立进程（已接入 Style + Plot）
+    subgraph worker["Background Worker 独立进程（已接入 Style + Plot）"]
         WorkerLoop[Worker Loop<br/>claim → lease → run]
         LangGraph[LangGraph Pipeline<br/>prepare→analyze→merge→report→summary→pack→persist]
         Checkpointer[Checkpointer<br/>SQLite/Postgres]
     end
 
-    subgraph Postgres 容器<br/>端口 5432
+    subgraph postgres["Postgres 容器 端口 5432"]
         DB[(业务表 + style_* / plot_* 表)]
         Ckpt[(LangGraph checkpoints)]
     end

@@ -17,7 +17,7 @@ flowchart LR
     Hook[useStreamingText]
     Parser[consumeTextEventStream]
     Fetch[fetch Response.body]
-    SSE[sse_response()]
+    SSE["sse_response()"]
     Editor[Editor routes]
     Service[EditorService / LLMProviderService]
     LLM[LLM Provider]
