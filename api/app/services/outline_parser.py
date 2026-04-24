@@ -34,6 +34,14 @@ def _extract_field(text: str, field_name: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+def _extract_first_field(text: str, field_names: tuple[str, ...]) -> str:
+    for field_name in field_names:
+        value = _extract_field(text, field_name)
+        if value:
+            return value
+    return ""
+
+
 def parse_outline(markdown: str) -> ParsedOutline:
     """解析 outline_detail Markdown 为结构化卷/章数据。"""
     if not markdown.strip():
@@ -68,7 +76,10 @@ def parse_outline(markdown: str) -> ParsedOutline:
                 "title": ch_title,
                 "core_event": _extract_field(ch_block, "核心事件"),
                 "emotion_arc": _extract_field(ch_block, "情绪走向"),
-                "chapter_hook": _extract_field(ch_block, "章末钩子"),
+                "chapter_hook": _extract_first_field(
+                    ch_block,
+                    ("章末钩子", "章节末推动点"),
+                ),
                 "raw_markdown": ch_block.strip(),
             })
 

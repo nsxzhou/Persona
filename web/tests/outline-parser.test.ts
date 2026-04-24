@@ -156,4 +156,18 @@ describe("parseOutline", () => {
     expect(ch.emotionArc).toBe("测试");
     expect(ch.chapterHook).toBe("完成");
   });
+
+  test("legacy 章节末推动点 field is parsed as chapterHook", () => {
+    const md = `## 第一卷：旧格式
+
+### 第 1 章：兼容测试
+- **核心事件**：旧格式事件
+- **情绪走向**：平静 → 紧张
+- **章节末推动点**：旧字段兼容成功`;
+
+    const result = parseOutline(md);
+
+    expect(result.volumes).toHaveLength(1);
+    expect(result.volumes[0].chapters[0].chapterHook).toBe("旧字段兼容成功");
+  });
 });

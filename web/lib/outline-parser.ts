@@ -23,6 +23,14 @@ function extractField(text: string, fieldName: string): string {
   return m ? m[1].trim() : "";
 }
 
+function extractFirstField(text: string, fieldNames: string[]): string {
+  for (const fieldName of fieldNames) {
+    const value = extractField(text, fieldName);
+    if (value) return value;
+  }
+  return "";
+}
+
 function parseChapter(block: string): ParsedChapter {
   const lines = block.split("\n");
   const titleLine = lines[0] ?? "";
@@ -32,7 +40,7 @@ function parseChapter(block: string): ParsedChapter {
     title,
     coreEvent: extractField(block, "核心事件"),
     emotionArc: extractField(block, "情绪走向"),
-    chapterHook: extractField(block, "章末钩子"),
+    chapterHook: extractFirstField(block, ["章末钩子", "章节末推动点"]),
     rawMarkdown: block.trim(),
   };
 }
