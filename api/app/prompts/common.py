@@ -21,7 +21,6 @@ class PromptSpec:
     id: str
     lane: PromptLane
     output_contract: str
-    compatibility_entrypoint: str
     test_focus: str
 
 
