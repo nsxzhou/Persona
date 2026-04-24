@@ -268,12 +268,14 @@ function usePlotLabWizardState({
   jobId,
   job,
   existingProfile,
+  skeletonMarkdown,
   summaryMarkdown,
   promptPackMarkdown,
 }: {
   jobId: string;
   job: PlotAnalysisJob | null;
   existingProfile: PlotProfile | null;
+  skeletonMarkdown: string | null;
   summaryMarkdown: string | null;
   promptPackMarkdown: string | null;
 }) {
@@ -300,21 +302,23 @@ function usePlotLabWizardState({
       form.reset({
         plotName: existingProfile.plot_name,
         plotSummaryMarkdown: existingProfile.plot_summary_markdown,
+        plotSkeletonMarkdown: existingProfile.plot_skeleton_markdown ?? "",
         promptPackMarkdown: existingProfile.prompt_pack_markdown,
       });
       initializedJobId.current = jobId;
       return;
     }
 
-    if (job?.status === "succeeded" && summaryMarkdown && promptPackMarkdown) {
+    if (job?.status === "succeeded" && summaryMarkdown && skeletonMarkdown && promptPackMarkdown) {
       form.reset({
         plotName: job.plot_name,
         plotSummaryMarkdown: summaryMarkdown,
+        plotSkeletonMarkdown: skeletonMarkdown,
         promptPackMarkdown,
       });
       initializedJobId.current = jobId;
     }
-  }, [existingProfile, form, job, jobId, promptPackMarkdown, summaryMarkdown]);
+  }, [existingProfile, form, job, jobId, promptPackMarkdown, skeletonMarkdown, summaryMarkdown]);
 
   return {
     step,
@@ -350,6 +354,7 @@ function useSavePlotProfileMutation({
         ...mountPayload,
         plot_name: values.plotName,
         plot_summary_markdown: values.plotSummaryMarkdown,
+        plot_skeleton_markdown: values.plotSkeletonMarkdown,
         prompt_pack_markdown: values.promptPackMarkdown,
       };
 
@@ -455,6 +460,7 @@ export function usePlotLabWizardLogic(jobId: string) {
     jobId,
     job: detail.job,
     existingProfile: detail.existingProfile,
+    skeletonMarkdown: detail.skeletonResource.data,
     summaryMarkdown: detail.summaryResource.data,
     promptPackMarkdown: detail.promptPackResource.data,
   });

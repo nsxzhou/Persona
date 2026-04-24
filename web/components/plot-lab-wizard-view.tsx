@@ -145,6 +145,7 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
           isLoading={skeletonResource.isLoading}
           isError={skeletonResource.isError}
           errorMessage={skeletonResource.error?.message}
+          form={form}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
         />

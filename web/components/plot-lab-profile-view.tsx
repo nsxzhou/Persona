@@ -36,6 +36,7 @@ export function PlotLabProfileView({
   const [activeTab, setActiveTab] = React.useState("summary");
   const plotNameField = form.register("plotName");
   const plotSummaryField = form.register("plotSummaryMarkdown");
+  const plotSkeletonField = form.register("plotSkeletonMarkdown");
   const promptPackField = form.register("promptPackMarkdown");
 
   React.useEffect(() => {
@@ -43,6 +44,7 @@ export function PlotLabProfileView({
       form.reset({
         plotName: profile.plot_name,
         plotSummaryMarkdown: profile.plot_summary_markdown,
+        plotSkeletonMarkdown: profile.plot_skeleton_markdown ?? "",
         promptPackMarkdown: profile.prompt_pack_markdown,
       });
     }
@@ -115,6 +117,9 @@ export function PlotLabProfileView({
               <TabsTrigger value="prompt" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground">
                 提示词资产
               </TabsTrigger>
+              <TabsTrigger value="skeleton" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground">
+                全书骨架
+              </TabsTrigger>
               <TabsTrigger value="report" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground">
                 原始分析报告
               </TabsTrigger>
@@ -182,6 +187,31 @@ export function PlotLabProfileView({
                   </Button>
                   <span className="text-muted-foreground block mb-6 select-none border-b border-border/50 pb-2">/* Plot Prompt */</span>
                   <div className="whitespace-pre-wrap">{profile.prompt_pack_markdown || "暂无提示词"}</div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="skeleton" className="focus-visible:outline-none max-w-3xl mx-auto">
+              {isEditing ? (
+                <div className="space-y-6">
+                  <div className="grid gap-2">
+                    <Label htmlFor="plot-skeleton-markdown">全书骨架 Markdown</Label>
+                    <Textarea
+                      id="plot-skeleton-markdown"
+                      aria-label="全书骨架 Markdown"
+                      className="min-h-[400px] font-mono text-sm leading-relaxed"
+                      placeholder="暂无骨架数据。"
+                      {...plotSkeletonField}
+                      onChange={(e) => {
+                        plotSkeletonField.onChange(e);
+                        adjustHeight(e);
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-muted/10 p-8 rounded-xl border border-border/30 text-base text-foreground/80 leading-relaxed whitespace-pre-wrap font-[family:var(--font-prose)]">
+                  {profile.plot_skeleton_markdown || "暂无骨架"}
                 </div>
               )}
             </TabsContent>
