@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 import httpx
 from openai import PermissionDeniedError
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pydantic import ValidationError
 
 from app.core.config import get_settings
@@ -18,6 +18,7 @@ from app.schemas.style_analysis_jobs import (
 )
 from app.services import llm_model_factory as llm_model_factory_module
 from app.services.llm_provider import LLMProviderService
+from app.services.prompt_injection import INNER_OS_MARKER, NO_INNER_OS_MARKER
 from app.services.style_analysis_llm import EmptyMarkdownResponseError, MarkdownLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import read_chunks_and_classification
@@ -106,7 +107,8 @@ async def test_structured_llm_client_extracts_markdown_text(
     class FakeModel:
         async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
             assert len(messages) == 1
-            assert messages[0].content == "生成报告"
+            assert str(messages[0].content).startswith("生成报告")
+            assert NO_INNER_OS_MARKER in str(messages[0].content)
             return AIMessage(content="# 标题\n正文")
 
     provider = SimpleNamespace(
@@ -139,6 +141,60 @@ async def test_structured_llm_client_extracts_markdown_text(
         }
     ]
     get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_markdown_llm_client_supports_injection_modes() -> None:
+    seen_prompts: list[str] = []
+
+    class FakeModel:
+        async def ainvoke(self, messages: list[HumanMessage]) -> AIMessage:
+            seen_prompts.append(str(messages[0].content))
+            return AIMessage(content="# OK")
+
+    model = FakeModel()
+    client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
+
+    await client.ainvoke_markdown(model=model, prompt="分析任务")
+    await client.ainvoke_markdown(model=model, prompt="正文任务", injection_mode="immersion")
+    await client.ainvoke_markdown(model=model, prompt="连接测试", injection_mode="none")
+
+    assert NO_INNER_OS_MARKER in seen_prompts[0]
+    assert INNER_OS_MARKER in seen_prompts[1]
+    assert seen_prompts[2] == "连接测试"
+
+
+@pytest.mark.asyncio
+async def test_llm_provider_service_injects_markers_into_first_human_message() -> None:
+    captured_messages: list[list[object]] = []
+
+    class FakeModel:
+        async def ainvoke(self, messages: list[object]) -> AIMessage:
+            captured_messages.append(messages)
+            return AIMessage(content="OK")
+
+        async def astream(self, messages: list[object]):
+            captured_messages.append(messages)
+            if False:
+                yield AIMessage(content="")
+
+    provider = SimpleNamespace()
+    service = LLMProviderService()
+    service._build_model = lambda *args, **kwargs: FakeModel()  # type: ignore[method-assign]
+
+    await service.invoke_completion(provider, "system", "分析")
+    await service.invoke_completion(provider, "system", "正文", injection_mode="immersion")
+    await service.invoke_completion(provider, "system", "无注入", injection_mode="none")
+    async for _ in service.stream_messages(
+        provider,
+        [SystemMessage(content="system"), HumanMessage(content="流式")],
+    ):
+        pass
+
+    assert NO_INNER_OS_MARKER in str(captured_messages[0][1].content)
+    assert INNER_OS_MARKER in str(captured_messages[1][1].content)
+    assert str(captured_messages[2][1].content) == "无注入"
+    assert NO_INNER_OS_MARKER in str(captured_messages[3][1].content)
 
 
 def test_llm_provider_service_uses_configured_timeout(

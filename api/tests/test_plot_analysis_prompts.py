@@ -434,6 +434,28 @@ def test_build_prompt_pack_prompt_forbids_explanatory_preface_and_requires_direc
     assert "不得依赖“分析报告”这一上文存在" in prompt
 
 
+def test_build_prompt_pack_prompt_template_covers_bible_and_writing_contexts() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_summary_markdown=_PLOT_SUMMARY_MARKDOWN,
+    )
+
+    for heading in (
+        "# Worldbuilding Prompt",
+        "# Character Cards Prompt",
+        "# Outline Master Prompt",
+        "# Volume Planning Prompt",
+        "# Chapter Outline Prompt",
+        "# Beat Planning Prompt",
+        "# Continuation Guardrails",
+    ):
+        assert heading in prompt
+
+    assert "世界观设定、角色卡、总纲、分卷规划、章节细纲、节拍规划和正文续写" in prompt
+    assert "Plot 是结构约束，不是内容模板" in prompt
+    assert "不得照搬样本角色、设定、事件" in prompt
+
+
 def test_build_prompt_pack_prompt_requires_de_sampling_and_prototype_rewrites() -> None:
     prompt = build_prompt_pack_prompt(
         report_markdown=_REPORT_MARKDOWN,
