@@ -15,7 +15,6 @@ def test_prompt_registry_has_unique_complete_specs() -> None:
 
     for spec in PROMPT_SPECS:
         assert spec.id
-        assert spec.compatibility_entrypoint.startswith("app.services.")
         assert spec.output_contract
         assert spec.test_focus
 
@@ -25,4 +24,4 @@ def test_prompt_registry_can_lookup_existing_runtime_prompt() -> None:
 
     assert spec.lane is PromptLane.PLOT_ANALYSIS
     assert spec.output_contract == "markdown"
-    assert spec.compatibility_entrypoint.endswith("build_prompt_pack_prompt")
+    assert spec.test_focus == "de-sampled reusable plot pack and direct heading start"

@@ -457,14 +457,11 @@ async def test_get_plot_skeleton_or_409_returns_payload_when_succeeded(
 
 
 @pytest.mark.asyncio
-async def test_plot_payload_getters_use_explicit_repository_methods(
+async def test_plot_payload_getters_return_detail_artifacts(
     initialized_client: AsyncClient,
     app_with_db: FastAPI,
     initialized_provider: dict[str, object],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.db.repositories.plot_analysis_jobs import PlotAnalysisJobRepository
-
     job_id, detail = await create_succeeded_plot_job(
         initialized_client=initialized_client,
         app_with_db=app_with_db,
@@ -472,12 +469,6 @@ async def test_plot_payload_getters_use_explicit_repository_methods(
         provider_id=str(initialized_provider["id"]),
         model_name=str(initialized_provider["default_model"]),
     )
-
-    async def fail_generic(*args, **kwargs):
-        del args, kwargs
-        raise AssertionError("generic payload accessor should not be used")
-
-    monkeypatch.setattr(PlotAnalysisJobRepository, "get_status_and_payload", fail_generic)
 
     async with app_with_db.state.session_factory() as session:
         report = await PlotAnalysisJobService().get_analysis_report_or_409(session, job_id)

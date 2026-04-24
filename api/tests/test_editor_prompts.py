@@ -386,20 +386,20 @@ def test_creative_fixed_prompts_remove_old_external_helper_language() -> None:
         assert "小说执笔者" not in prompt
 
 
-def test_section_generate_request_accepts_description_and_legacy_inspiration_alias() -> None:
+def test_section_generate_request_only_uses_description_field() -> None:
     adapter = TypeAdapter(SectionGenerateRequest)
 
     from_description = adapter.validate_python({
         "section": "world_building",
         "description": "新的简介",
     })
-    from_legacy = adapter.validate_python({
+    from_inspiration_only = adapter.validate_python({
         "section": "world_building",
         "inspiration": "旧字段",
     })
 
     assert from_description.description == "新的简介"
-    assert from_legacy.description == "旧字段"
+    assert from_inspiration_only.description == ""
 
 
 # --------------------------------------------------------------------------- #

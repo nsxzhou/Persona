@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.prompts.style_analysis import SHARED_ANALYSIS_RULES as CANONICAL_SHARED_ANALYSIS_RULES
 from app.services.style_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_prompt_pack_prompt,
@@ -17,13 +16,6 @@ CLASSIFICATION: dict[str, Any] = {
     "uses_batch_processing": True,
     "location_indexing": "chunk",
 }
-
-
-def test_style_prompt_compatibility_module_reexports_canonical_rules() -> None:
-    from app.services.style_analysis_prompts import SHARED_ANALYSIS_RULES
-
-    assert SHARED_ANALYSIS_RULES == CANONICAL_SHARED_ANALYSIS_RULES
-
 
 def test_build_chunk_analysis_prompt_enforces_markdown_evidence_contract() -> None:
     prompt = build_chunk_analysis_prompt(

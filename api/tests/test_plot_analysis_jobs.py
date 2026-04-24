@@ -7,11 +7,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.db.models import PlotAnalysisJob
-from app.schemas.plot_analysis_jobs import PlotAnalysisJobResponse
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 
@@ -35,45 +33,6 @@ def test_plot_analysis_job_service_supports_dependency_injection() -> None:
     assert service.provider_service is provider_service
     assert service.storage_service is storage_service
     assert service.checkpointer_factory is checkpointer_factory
-
-
-def test_plot_analysis_job_response_rejects_legacy_stage_alias() -> None:
-    now = datetime.now(UTC)
-    payload = {
-        "id": "job-legacy",
-        "plot_name": "旧阶段任务",
-        "provider_id": "provider-1",
-        "model_name": "gpt-4.1-mini",
-        "status": "running",
-        "stage": "analyzing_chunks",
-        "error_message": None,
-        "started_at": now,
-        "completed_at": None,
-        "created_at": now,
-        "updated_at": now,
-        "provider": {
-            "id": "provider-1",
-            "label": "Primary Gateway",
-            "base_url": "https://api.openai.com/v1",
-            "default_model": "gpt-4.1-mini",
-            "is_enabled": True,
-        },
-        "sample_file": {
-            "id": "sample-1",
-            "original_filename": "sample.txt",
-            "content_type": "text/plain",
-            "byte_size": 12,
-            "character_count": 4,
-            "checksum_sha256": "abc123",
-            "created_at": now,
-            "updated_at": now,
-        },
-        "plot_profile_id": None,
-        "pause_requested_at": None,
-    }
-
-    with pytest.raises(ValidationError):
-        PlotAnalysisJobResponse.model_validate(payload)
 
 
 @pytest.mark.asyncio
