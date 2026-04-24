@@ -173,3 +173,63 @@ async def test_pipeline_graph_resumes_failed_report_without_reanalyzing_chunks(
     assert client.report_calls == 2
     assert result.prompt_pack_markdown.startswith("# System Prompt")
     get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_run_clears_final_stage_without_honoring_late_pause(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    client = PipelineLLMStub()
+    pipeline = build_pipeline(client, InMemorySaver())
+    pause_requested = False
+
+    class FakeGraph:
+        async def aget_state(self, config):
+            return SimpleNamespace(next=())
+
+        async def ainvoke(self, graph_input, config):
+            nonlocal pause_requested
+            pause_requested = True
+            return {
+                "analysis_meta": {
+                    "source_filename": "sample.txt",
+                    "model_name": "gpt-4.1-mini",
+                    "text_type": "章节正文",
+                    "has_timestamps": False,
+                    "has_speaker_labels": False,
+                    "has_noise_markers": False,
+                    "uses_batch_processing": False,
+                    "location_indexing": "章节或段落位置",
+                    "chunk_count": 1,
+                },
+                "analysis_report_markdown": build_report_markdown(),
+                "style_summary_markdown": build_style_summary_markdown("古龙风格实验"),
+                "prompt_pack_markdown": build_prompt_pack_markdown(),
+            }
+
+    pipeline.graph = FakeGraph()
+    pipeline.should_pause = lambda: pause_requested
+
+    result = await pipeline.run(
+        job_id="job-final-pause-style",
+        chunk_count=1,
+        classification={
+            "text_type": "章节正文",
+            "has_timestamps": False,
+            "has_speaker_labels": False,
+            "has_noise_markers": False,
+            "uses_batch_processing": False,
+            "location_indexing": "章节或段落位置",
+        },
+        max_concurrency=1,
+    )
+
+    assert result.analysis_report_markdown.startswith("# 执行摘要")
+    assert result.style_summary_markdown.startswith("# 风格名称")
+    assert result.prompt_pack_markdown.startswith("# System Prompt")
+
+    get_settings.cache_clear()

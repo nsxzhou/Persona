@@ -655,3 +655,64 @@ async def test_pipeline_graph_resumes_from_existing_skeleton_artifact_without_ca
     for chunk_prompt in client.chunk_analysis_prompts:
         assert _SKELETON_SIGNATURE in chunk_prompt
     get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_run_clears_final_stage_without_honoring_late_pause(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    pipeline = build_pipeline(PipelineLLMStub(), InMemorySaver())
+    pause_requested = False
+
+    class FakeGraph:
+        async def aget_state(self, config):
+            return SimpleNamespace(next=())
+
+        async def ainvoke(self, graph_input, config):
+            nonlocal pause_requested
+            pause_requested = True
+            return {
+                "analysis_meta": {
+                    "source_filename": "sample.txt",
+                    "model_name": "gpt-4.1-mini",
+                    "text_type": "章节正文",
+                    "has_timestamps": False,
+                    "has_speaker_labels": False,
+                    "has_noise_markers": False,
+                    "uses_batch_processing": False,
+                    "location_indexing": "章节或段落位置",
+                    "chunk_count": 1,
+                },
+                "analysis_report_markdown": "# 执行摘要\n最终报告",
+                "plot_summary_markdown": "# 剧情定位\n摘要内容",
+                "prompt_pack_markdown": "# Shared Constraints\n包内容",
+                "plot_skeleton_markdown": _SKELETON_MARKDOWN,
+            }
+
+    pipeline.graph = FakeGraph()
+    pipeline.should_pause = lambda: pause_requested
+
+    result = await pipeline.run(
+        job_id="job-final-pause-plot",
+        chunk_count=1,
+        classification={
+            "text_type": "章节正文",
+            "has_timestamps": False,
+            "has_speaker_labels": False,
+            "has_noise_markers": False,
+            "uses_batch_processing": False,
+            "location_indexing": "章节或段落位置",
+        },
+        max_concurrency=1,
+    )
+
+    assert result.analysis_report_markdown.startswith("# 执行摘要")
+    assert result.plot_summary_markdown.startswith("# 剧情定位")
+    assert result.prompt_pack_markdown.startswith("# Shared Constraints")
+    assert result.plot_skeleton_markdown == _SKELETON_MARKDOWN
+
+    get_settings.cache_clear()
