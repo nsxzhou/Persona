@@ -61,7 +61,17 @@ def build_fake_style_summary(style_name: str) -> dict:
 
 
 def build_fake_prompt_pack() -> dict:
-    return "# System Prompt\n以冷峻、克制、留白明显的中文小说文风进行创作。\n"
+    return (
+        "# Shared Style Rules\n- 以冷峻、克制、留白明显的中文小说文风进行创作。\n\n"
+        "# Style Transfer Prompt\n- 用短句和留白推进叙事。\n\n"
+        "# Scene Prompts\n## Dialogue\n- 对话节制。\n## Action\n- 动作短促。\n"
+        "## Environment\n- 偏冷感意象。\n\n"
+        "# Anti-Pattern Guardrails\n- 不要复用样本专名或样本剧情。\n\n"
+        "# Style Controls\n## Tone\n- 冷峻克制。\n## Rhythm\n- 短句推进。\n"
+        "## Evidence Anchor\n- 所有判断都要有证据锚点。\n\n"
+        "# Few-shot Slots\n## Slot 1\n- Label: 冷感主视角\n- Type: narration\n"
+        "- Purpose: 稳定语感\n- Text: 他抬眼看去，夜色像刀一样薄。\n"
+    )
 
 
 def build_style_analysis_job_response_payload() -> dict:
@@ -298,8 +308,11 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
     assert detail["analysis_report_markdown"].startswith("# 执行摘要")
     assert "## 3.1 口头禅与常用表达" in detail["analysis_report_markdown"]
     assert detail["style_summary_markdown"].startswith("# 风格名称")
+    assert "# 风格定位" in detail["style_summary_markdown"]
     assert "古龙风格实验" in detail["style_summary_markdown"]
-    assert detail["prompt_pack_markdown"].startswith("# System Prompt")
+    assert detail["prompt_pack_markdown"].startswith("# Shared Style Rules")
+    assert "# Style Transfer Prompt" in detail["prompt_pack_markdown"]
+    assert "# Few-shot Slots" in detail["prompt_pack_markdown"]
     assert detail["style_profile"] is None
 
     meta_response = await initialized_live_client.get(
@@ -326,7 +339,8 @@ async def test_process_next_pending_job_generates_analysis_bundle_and_updates_jo
         f"/api/v1/style-analysis-jobs/{job_id}/prompt-pack"
     )
     assert prompt_pack_response.status_code == 200
-    assert prompt_pack_response.json().startswith("# System Prompt")
+    assert prompt_pack_response.json().startswith("# Shared Style Rules")
+    assert "# Anti-Pattern Guardrails" in prompt_pack_response.json()
     artifact_dir = Path(get_settings().storage_dir) / "style-analysis-artifacts" / job_id
     assert artifact_dir.exists() is False
 

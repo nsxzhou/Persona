@@ -766,7 +766,12 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
 
 
 @pytest.mark.asyncio
-async def test_style_pipeline_sets_postprocessing_stage_for_summary_and_prompt_pack() -> None:
+async def test_style_pipeline_sets_postprocessing_stage_for_summary_and_prompt_pack(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
     seen_stages: list[str | None] = []
 
     class FakeClient:
@@ -784,9 +789,19 @@ async def test_style_pipeline_sets_postprocessing_stage_for_summary_and_prompt_p
         ) -> str:
             del model, provider, model_name, injection_task
             if "可编辑风格摘要" in prompt:
-                return "# 风格名称\n古龙风格实验\n"
+                return "# 风格名称\n古龙风格实验\n\n# 风格定位\n冷峻、克制、短句驱动。\n"
             if "全局可复用的 Markdown 风格母 prompt 包" in prompt:
-                return "# System Prompt\n保持冷峻克制\n"
+                return (
+                    "# Shared Style Rules\n- 保持冷峻克制\n\n"
+                    "# Style Transfer Prompt\n- 用短句推进叙事。\n\n"
+                    "# Scene Prompts\n## Dialogue\n- 对话节制。\n## Action\n- 动作短促。\n"
+                    "## Environment\n- 冷感环境描写。\n\n"
+                    "# Anti-Pattern Guardrails\n- 不要复用样本专名。\n\n"
+                    "# Style Controls\n## Tone\n- 冷峻克制。\n## Rhythm\n- 短句推进。\n"
+                    "## Evidence Anchor\n- 所有判断需有证据。\n\n"
+                    "# Few-shot Slots\n## Slot 1\n- Label: 冷感主视角\n- Type: narration\n"
+                    "- Purpose: 稳定语感\n- Text: 他抬眼看去，夜色像刀一样薄。\n"
+                )
             raise AssertionError(f"unexpected prompt: {prompt[:80]}")
 
     pipeline = StyleAnalysisPipeline(
@@ -821,5 +836,9 @@ async def test_style_pipeline_sets_postprocessing_stage_for_summary_and_prompt_p
     prompt_result = await pipeline._build_prompt_pack({**state, **summary_result})
 
     assert summary_result["style_summary_markdown"].startswith("# 风格名称")
-    assert prompt_result["prompt_pack_markdown"].startswith("# System Prompt")
+    assert "# 风格定位" in summary_result["style_summary_markdown"]
+    assert prompt_result["prompt_pack_markdown"].startswith("# Shared Style Rules")
+    assert "# Style Transfer Prompt" in prompt_result["prompt_pack_markdown"]
+    assert "# Few-shot Slots" in prompt_result["prompt_pack_markdown"]
     assert seen_stages == ["postprocessing", "postprocessing"]
+    get_settings.cache_clear()

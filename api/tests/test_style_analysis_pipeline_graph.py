@@ -26,7 +26,17 @@ def build_style_summary_markdown(style_name: str) -> str:
 
 
 def build_prompt_pack_markdown() -> str:
-    return "# System Prompt\n以冷峻、克制的中文小说文风进行创作。\n"
+    return (
+        "# Shared Style Rules\n- 保持冷峻、克制、留白明显的中文小说文风。\n\n"
+        "# Style Transfer Prompt\n- 用冷感短句与克制留白组织叙事。\n\n"
+        "# Scene Prompts\n## Dialogue\n- 对话节制，避免解释性铺陈。\n"
+        "## Action\n- 动作短促直接。\n## Environment\n- 环境描写偏冷感意象。\n\n"
+        "# Anti-Pattern Guardrails\n- 不要照搬样本专名或剧情设定。\n\n"
+        "# Style Controls\n## Tone\n- 冷峻克制。\n## Rhythm\n- 短句推进。\n"
+        "## Evidence Anchor\n- 所有判断都要落回样本证据。\n\n"
+        "# Few-shot Slots\n## Slot 1\n- Label: 冷感主视角\n- Type: narration\n"
+        "- Purpose: 稳定主视角语感\n- Text: 他抬眼看去，夜色像刀一样薄。\n"
+    )
 
 
 class PipelineLLMStub:
@@ -64,10 +74,10 @@ class PipelineLLMStub:
             if self.fail_report_once and self.report_calls == 1:
                 raise RuntimeError("report transient failure")
             return build_report_markdown()
-        if "风格摘要" in prompt:
-            return build_prompt_pack_markdown()
-        if "风格名称" in prompt and "分析报告" in prompt:
+        if "可编辑风格摘要" in prompt:
             return build_style_summary_markdown("古龙风格实验")
+        if "当前风格摘要" in prompt:
+            return build_prompt_pack_markdown()
         return build_report_markdown()
 
 
@@ -126,6 +136,8 @@ async def test_pipeline_graph_limits_chunk_concurrency_with_stubbed_llm(
         chunk_count=10,
     )
     assert result.analysis_report_markdown.startswith("# 执行摘要")
+    assert "# 风格定位" in result.style_summary_markdown
+    assert "# Style Transfer Prompt" in result.prompt_pack_markdown
     get_settings.cache_clear()
 
 
@@ -172,7 +184,8 @@ async def test_pipeline_graph_resumes_failed_report_without_reanalyzing_chunks(
 
     assert client.chunk_calls == 3
     assert client.report_calls == 2
-    assert result.prompt_pack_markdown.startswith("# System Prompt")
+    assert result.prompt_pack_markdown.startswith("# Shared Style Rules")
+    assert "# Anti-Pattern Guardrails" in result.prompt_pack_markdown
     get_settings.cache_clear()
 
 
@@ -231,6 +244,7 @@ async def test_pipeline_run_clears_final_stage_without_honoring_late_pause(
 
     assert result.analysis_report_markdown.startswith("# 执行摘要")
     assert result.style_summary_markdown.startswith("# 风格名称")
-    assert result.prompt_pack_markdown.startswith("# System Prompt")
+    assert result.prompt_pack_markdown.startswith("# Shared Style Rules")
+    assert "# Few-shot Slots" in result.prompt_pack_markdown
 
     get_settings.cache_clear()
