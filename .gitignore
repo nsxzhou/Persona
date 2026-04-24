@@ -23,7 +23,5 @@ api/storage/
 storage/
 **/storage/
 小说/
-/简历.md
-/Persona-项目面试准备.md
 .claude/
 .pnpm-store/
