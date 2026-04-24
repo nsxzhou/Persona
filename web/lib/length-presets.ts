@@ -18,7 +18,7 @@ export interface LengthPresetConfig {
 export const LENGTH_PRESETS: Record<LengthPresetKey, LengthPresetConfig> = {
   short: {
     label: "短篇",
-    description: "紧凑叙事，一个核心矛盾，适合单元故事",
+    description: "紧凑体量，适合聚焦核心矛盾与快速兑现",
     targetMin: 50_000,
     targetMax: 150_000,
     recommendedChapters: [8, 20],
@@ -26,7 +26,7 @@ export const LENGTH_PRESETS: Record<LengthPresetKey, LengthPresetConfig> = {
   },
   medium: {
     label: "中篇",
-    description: "多线叙事，2-4 卷结构，可以展开世界观",
+    description: "中等体量，可适度展开关系、局势与支线",
     targetMin: 150_000,
     targetMax: 500_000,
     recommendedChapters: [30, 80],
@@ -34,7 +34,7 @@ export const LENGTH_PRESETS: Record<LengthPresetKey, LengthPresetConfig> = {
   },
   long: {
     label: "长篇",
-    description: "完整网文体量，分卷推进，深度世界构建",
+    description: "长体量连载，适合分阶段推进和逐步展开",
     targetMin: 500_000,
     targetMax: 2_000_000,
     recommendedChapters: [100, 400],
