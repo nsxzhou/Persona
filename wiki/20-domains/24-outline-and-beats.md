@@ -73,7 +73,7 @@
 
 - 节拍生成的 user message 会显式带上 `runtime_state`、`runtime_threads`、当前章上下文与前序章节上下文
 - 逐拍展开会把 `preceding_beats_prose` 和“本轮已生成的内容”也作为上下文，避免每一拍像重新开写
-- `length_preset` 会影响卷级规划、节拍数量默认值与收束提醒，逻辑集中在 `PlanningEditorService.generate_beats()`
+- `length_preset` 在规划层只作为弱提示，不再切换世界观/角色/总纲/细纲的硬分支模板；运行期仍会影响节拍数量默认值、展开字数与收束提醒
 
 ## 关键文件索引
 
