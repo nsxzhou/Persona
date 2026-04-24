@@ -19,6 +19,7 @@ from app.schemas.style_analysis_jobs import (
 from app.services import llm_model_factory as llm_model_factory_module
 from app.services.llm_provider import LLMProviderService
 from app.services.prompt_injection import INNER_OS_MARKER, NO_INNER_OS_MARKER
+from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.style_analysis_llm import EmptyMarkdownResponseError, MarkdownLLMClient
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import read_chunks_and_classification
@@ -144,7 +145,7 @@ async def test_structured_llm_client_extracts_markdown_text(
 
 
 @pytest.mark.asyncio
-async def test_markdown_llm_client_supports_injection_modes() -> None:
+async def test_markdown_llm_client_routes_injection_by_task() -> None:
     seen_prompts: list[str] = []
 
     class FakeModel:
@@ -155,17 +156,29 @@ async def test_markdown_llm_client_supports_injection_modes() -> None:
     model = FakeModel()
     client = MarkdownLLMClient(model_factory=lambda **_: model, secret_decrypter=lambda value: value)
 
-    await client.ainvoke_markdown(model=model, prompt="分析任务")
-    await client.ainvoke_markdown(model=model, prompt="正文任务", injection_mode="immersion")
-    await client.ainvoke_markdown(model=model, prompt="连接测试", injection_mode="none")
+    await client.ainvoke_markdown(
+        model=model,
+        prompt="分析任务",
+        injection_task=PromptInjectionTask.STYLE_ANALYSIS_REPORT,
+    )
+    await client.ainvoke_markdown(
+        model=model,
+        prompt="正文任务",
+        injection_task=PromptInjectionTask.EDITOR_CONTINUATION,
+    )
+    await client.ainvoke_markdown(
+        model=model,
+        prompt="JSON任务",
+        injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKETCH,
+    )
 
     assert NO_INNER_OS_MARKER in seen_prompts[0]
     assert INNER_OS_MARKER in seen_prompts[1]
-    assert seen_prompts[2] == "连接测试"
+    assert seen_prompts[2] == "JSON任务"
 
 
 @pytest.mark.asyncio
-async def test_llm_provider_service_injects_markers_into_first_human_message() -> None:
+async def test_llm_provider_service_routes_injection_by_task() -> None:
     captured_messages: list[list[object]] = []
 
     class FakeModel:
@@ -182,12 +195,28 @@ async def test_llm_provider_service_injects_markers_into_first_human_message() -
     service = LLMProviderService()
     service._build_model = lambda *args, **kwargs: FakeModel()  # type: ignore[method-assign]
 
-    await service.invoke_completion(provider, "system", "分析")
-    await service.invoke_completion(provider, "system", "正文", injection_mode="immersion")
-    await service.invoke_completion(provider, "system", "无注入", injection_mode="none")
+    await service.invoke_completion(
+        provider,
+        "system",
+        "分析",
+        injection_task=PromptInjectionTask.EDITOR_SECTION_GENERATION,
+    )
+    await service.invoke_completion(
+        provider,
+        "system",
+        "正文",
+        injection_task=PromptInjectionTask.EDITOR_CONTINUATION,
+    )
+    await service.invoke_completion(
+        provider,
+        "system",
+        "无注入",
+        injection_task=PromptInjectionTask.PROVIDER_CONNECTION_TEST,
+    )
     async for _ in service.stream_messages(
         provider,
         [SystemMessage(content="system"), HumanMessage(content="流式")],
+        injection_task=PromptInjectionTask.STYLE_ANALYSIS_REPORT,
     ):
         pass
 
@@ -697,8 +726,9 @@ async def test_pipeline_merge_chunks_reduces_batches_incrementally() -> None:
             prompt: str,
             provider: object | None = None,
             model_name: str | None = None,
+            injection_task: object | None = None,
         ) -> str:
-            del model, prompt, provider, model_name
+            del model, prompt, provider, model_name, injection_task
             self.merge_calls += 1
             return build_chunk_markdown(f"merge-{self.merge_calls}")
 
@@ -750,8 +780,9 @@ async def test_style_pipeline_sets_postprocessing_stage_for_summary_and_prompt_p
             prompt: str,
             provider: object | None = None,
             model_name: str | None = None,
+            injection_task: object | None = None,
         ) -> str:
-            del model, provider, model_name
+            del model, provider, model_name, injection_task
             if "可编辑风格摘要" in prompt:
                 return "# 风格名称\n古龙风格实验\n"
             if "全局可复用的 Markdown 风格母 prompt 包" in prompt:

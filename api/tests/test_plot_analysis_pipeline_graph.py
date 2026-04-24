@@ -76,8 +76,9 @@ class PipelineLLMStub:
         prompt: str,
         provider: object | None = None,
         model_name: str | None = None,
+        injection_task: object | None = None,
     ) -> str:
-        del model, provider, model_name
+        del model, provider, model_name, injection_task
         if "Plot Lab 的分块速写阶段" in prompt:
             match = re.search(r"chunk_index=(\d+), chunk_count=(\d+)", prompt)
             assert match is not None, "sketch prompt must expose chunk_index/chunk_count"
@@ -116,9 +117,10 @@ class NoisyPromptPackLLMStub(PipelineLLMStub):
         prompt: str,
         provider: object | None = None,
         model_name: str | None = None,
+        injection_task: object | None = None,
     ) -> str:
         if "Markdown 情节 prompt 包" in prompt:
-            del model, provider, model_name
+            del model, provider, model_name, injection_task
             self.pack_prompts.append(prompt)
             return (
                 "好的，遵照您的要求。作为小说情节 prompt 编排器，我已基于您提供的完整 Plot Lab 分析报告和当前剧情摘要，"
@@ -158,6 +160,7 @@ class NoisyPromptPackLLMStub(PipelineLLMStub):
             prompt=prompt,
             provider=provider,
             model_name=model_name,
+            injection_task=injection_task,
         )
 
 

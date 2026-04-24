@@ -1055,9 +1055,10 @@ async def test_process_next_pending_job_resumes_retryable_checkpoint_without_rea
             prompt: str,
             provider=None,
             model_name: str | None = None,
+            injection_task: object | None = None,
             injection_mode: str = "analysis",
         ):
-            del model, provider, model_name, injection_mode
+            del model, provider, model_name, injection_task, injection_mode
             if "聚合结果" in prompt:
                 self.report_calls += 1
                 if self.report_calls == 1:
@@ -1158,9 +1159,10 @@ async def test_resume_endpoint_allows_continuing_from_failed_job_without_reinvok
             prompt: str,
             provider=None,
             model_name: str | None = None,
+            injection_task: object | None = None,
             injection_mode: str = "analysis",
         ):
-            del model, provider, model_name, injection_mode
+            del model, provider, model_name, injection_task, injection_mode
             if "聚合结果" in prompt:
                 self.report_calls += 1
                 if self.report_calls == 1:

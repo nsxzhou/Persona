@@ -47,8 +47,9 @@ class PipelineLLMStub:
         prompt: str,
         provider: object | None = None,
         model_name: str | None = None,
+        injection_task: object | None = None,
     ) -> str:
-        del model, provider, model_name
+        del model, provider, model_name, injection_task
         if "当前 chunk：" in prompt:
             match = re.search(r"当前 chunk：(\d+)/(\d+)", prompt)
             assert match is not None
