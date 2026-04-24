@@ -49,6 +49,7 @@ class WritingContextSections:
 def assemble_writing_context(
     style_prompt: str,
     *,
+    plot_prompt: str | None = None,
     sections: WritingContextSections | None = None,
     length_preset: LengthPresetKey = "long",
     content_length: int = 0,
@@ -66,6 +67,14 @@ def assemble_writing_context(
     }
 
     parts = [style_prompt]
+    if plot_prompt and plot_prompt.strip():
+        parts.append(
+            "\n\n---\n\n"
+            "# Plot Prompt Pack（情节结构约束）\n\n"
+            f"{plot_prompt.strip()}\n\n"
+            "使用方式：Plot 是结构约束，不是内容模板；必须服从当前项目已有世界观、角色卡、细纲和正文上下文，"
+            "不得照搬样本角色、设定、事件或桥段。"
+        )
 
     sections: list[str] = []
     for label, key in BIBLE_SECTION_ORDER:

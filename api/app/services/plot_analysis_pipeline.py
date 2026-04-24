@@ -54,9 +54,13 @@ _PROMPT_PACK_SECTION_HEADERS = (
     "# Shared Constraints",
     "# Tone Lock",
     "# Anti-Whitewash Guardrails",
+    "# Worldbuilding Prompt",
+    "# Character Cards Prompt",
     "# Outline Master Prompt",
     "# Volume Planning Prompt",
     "# Chapter Outline Prompt",
+    "# Beat Planning Prompt",
+    "# Continuation Guardrails",
     "# Few-shot Slots",
 )
 

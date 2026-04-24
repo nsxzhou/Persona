@@ -134,8 +134,10 @@ class WritingEditorService(_EditorServiceBase):
             project.style_profile_id,
             user_id=user_id,
         )
+        plot_prompt = await self._get_plot_prompt(session, project, user_id)
         system_prompt = assemble_writing_context(
             style_profile.prompt_pack_payload,
+            plot_prompt=plot_prompt,
             sections=WritingContextSections(
                 description=project.description,
                 world_building=bible.world_building,
@@ -167,7 +169,11 @@ class WritingEditorService(_EditorServiceBase):
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_context),
         ]
-        return self.llm_service.stream_messages(project.provider, messages)
+        return self.llm_service.stream_messages(
+            project.provider,
+            messages,
+            injection_mode="immersion",
+        )
 
     async def stream_section_generation(
         self,
@@ -232,11 +238,13 @@ class WritingEditorService(_EditorServiceBase):
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
+        plot_prompt = await self._get_plot_prompt(session, project, user_id)
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_beat_expand_system_prompt(
             style_prompt,
+            plot_prompt,
             beat_expand_chars=preset_cfg["beat_expand_chars"],
             regenerating=regenerating,
         )
@@ -259,7 +267,11 @@ class WritingEditorService(_EditorServiceBase):
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_message),
         ]
-        return self.llm_service.stream_messages(project.provider, messages)
+        return self.llm_service.stream_messages(
+            project.provider,
+            messages,
+            injection_mode="immersion",
+        )
 
 
 class MemoryEditorService(_EditorServiceBase):
@@ -315,6 +327,7 @@ class PlanningEditorService(_EditorServiceBase):
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
+        plot_prompt = await self._get_plot_prompt(session, project, user_id)
 
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
         num_beats = payload.num_beats
@@ -337,6 +350,7 @@ class PlanningEditorService(_EditorServiceBase):
 
         system_prompt = build_beat_generate_system_prompt(
             style_prompt,
+            plot_prompt,
             regenerating=bool(payload.previous_output or payload.user_feedback),
         )
         user_message = build_beat_generate_user_message(
