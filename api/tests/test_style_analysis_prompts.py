@@ -81,6 +81,18 @@ def test_build_prompt_pack_prompt_rejects_meta_openers_and_named_few_shots() -> 
     assert "不得写成样本摘录、样本改写或实名化示例" in prompt
 
 
+def test_build_prompt_pack_prompt_keeps_adult_material_as_style_not_content_target() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown="# 执行摘要\n样本包含暧昧推拉和成人禁忌氛围。",
+        style_summary_markdown="# Style Summary\n克制、危险吸引、留白明显。",
+    )
+
+    assert "成人相关内容只能迁移为语气、节奏、对话潜台词、镜头距离和留白方式" in prompt
+    assert "不得把样本中的成人桥段、关系禁忌或擦边场景写成后续项目必须生成的内容目标" in prompt
+    assert "不得要求生成露骨性描写、具体性行为、色情器官化描写、强迫、催眠/精神控制、药物控制、未成年或乱伦内容" in prompt
+    assert "如需保留刺激感，只能写成成年人之间的克制暧昧、危险吸引、身份差、利益交换、误会、嫉妒或镜头外留白" in prompt
+
+
 def test_prompt_pack_template_remains_fillable_skeleton() -> None:
     assert PROMPT_PACK_TEMPLATE.startswith("# Shared Style Rules")
     assert "- Rule 1:" in PROMPT_PACK_TEMPLATE

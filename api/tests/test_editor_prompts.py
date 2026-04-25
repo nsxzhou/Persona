@@ -94,6 +94,34 @@ def test_world_building_prompt_explicitly_blocks_over_generation() -> None:
     assert "不要拿设定规模、世界分层或古老秘闻数量冒充故事深度或爽点" in prompt
 
 
+def test_world_building_prompt_ties_setting_to_reader_desire_supply() -> None:
+    prompt = build_section_system_prompt("world_building", length_preset="long")
+
+    assert "世界观不是资料库，而是主角欲望和读者期待的供给系统" in prompt
+    assert "持续制造资源稀缺、身份秩序、关系博弈或压迫来源" in prompt
+    assert "读者接下来最想看主角拿到什么、压过谁或逼近谁" in prompt
+
+
+def test_editor_prompts_enforce_publishable_adult_tension_boundary() -> None:
+    prompts = [
+        build_concept_generate_system_prompt(),
+        build_section_system_prompt("world_building", length_preset="long"),
+        build_section_system_prompt("characters", length_preset="long"),
+        build_section_system_prompt("outline_master", length_preset="long"),
+        build_section_system_prompt("outline_detail", length_preset="long"),
+        build_volume_generate_system_prompt(length_preset="long"),
+        build_volume_chapters_system_prompt(),
+        build_beat_generate_system_prompt(),
+        build_beat_expand_system_prompt(),
+    ]
+
+    for prompt in prompts:
+        assert "平台可发布边界" in prompt
+        assert "成年人之间的危险吸引、身份差、利益交换、暧昧推拉、嫉妒、误会、克制的身体距离和镜头外留白" in prompt
+        assert "不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化作为生成目标" in prompt
+        assert "把高风险成人桥段改写为成年自愿的关系博弈、权力试探、情绪压迫、名分/利益交换或镜头外留白" in prompt
+
+
 def test_adjacent_prompts_preserve_grounded_reading() -> None:
     characters_prompt = build_section_system_prompt("characters", length_preset="long")
     outline_prompt = build_section_system_prompt("outline_master", length_preset="long")
@@ -150,6 +178,14 @@ def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None
     assert "阶段性反派（至少 1 个）" not in prompt
 
 
+def test_character_prompt_assigns_reader_hook_functions() -> None:
+    prompt = build_section_system_prompt("characters", length_preset="long")
+
+    assert "奖励源、阻力源、压迫源、反转源、情绪牵引源" in prompt
+    assert "这个角色能让读者期待主角得到什么、失去什么、压过什么或靠近谁" in prompt
+    assert "避免只写人设标签或空泛魅力描述" in prompt
+
+
 @pytest.mark.parametrize("length_preset", ["short", "medium", "long"])
 def test_planning_prompts_use_soft_length_hints_without_hard_branching(
     length_preset: str,
@@ -183,6 +219,15 @@ def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() ->
     assert "以「阶段」为单位规划" in prompt
     assert "地图换挡" not in prompt
     assert "阶段 Boss/核心对手" not in prompt
+
+
+def test_outline_master_prompt_requires_driver_axis_payoff_and_hook_types() -> None:
+    prompt = build_section_system_prompt("outline_master", length_preset="long")
+
+    assert "主驱动轴" in prompt
+    assert "当前阶段的核心兑现物" in prompt
+    assert "读者下一阶段最想看主角拿到什么、压过谁、反制谁或逼近谁" in prompt
+    assert "钩子类型" in prompt
 
 
 def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -219,6 +264,14 @@ def test_outline_detail_prompt_uses_stable_markdown_structure() -> None:
     assert "短篇不设分卷，直接列出章节" not in prompt
 
 
+def test_outline_detail_prompt_targets_next_chapter_reader_payoff() -> None:
+    prompt = build_section_system_prompt("outline_detail", length_preset="long")
+
+    assert "每章都要回答：下一章读者到底在等什么兑现" in prompt
+    assert "拿到资源、完成打脸、扳回压制、逼近关系、揭开真相或迎来更大失控" in prompt
+    assert "不要只写“有悬念”而不说明悬念具体勾着什么欲望" in prompt
+
+
 def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None:
     prompt = build_volume_generate_system_prompt(
         length_preset="long",
@@ -240,6 +293,15 @@ def test_volume_generate_prompt_uses_neutral_project_wording_and_stable_structur
     assert "只输出规划结构，不要输出任何章节内容" in prompt
     assert "不要求固定写成三幕、几卷或多少个阶段" in prompt
     assert "长篇新书" not in prompt
+
+
+def test_volume_generate_prompt_requires_driver_axis_and_payoff_rhythm() -> None:
+    prompt = build_volume_generate_system_prompt(length_preset="long")
+
+    assert "每一卷都要围绕同一条主驱动轴推进" in prompt
+    assert "本卷主打的兑现物" in prompt
+    assert "压制后兑现、兑现后反噬" in prompt
+    assert "不要把分卷写成只有地图扩大、势力变多的目录扩写" in prompt
 
 
 def test_volume_chapters_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -327,6 +389,14 @@ def test_bible_update_system_prompt_prefers_minimal_persistent_memory() -> None:
     assert "不要把本章剧情改写成摘要" in system_prompt
 
 
+def test_bible_update_prompt_tracks_only_persistent_compliant_tension() -> None:
+    system_prompt = build_bible_update_system_prompt()
+
+    assert "只记录会持续影响后续选择的关系变化、未兑现承诺、身份压力、名分压力、利益交换或克制暧昧" in system_prompt
+    assert "不要把一次性的身体描写、擦边氛围或不可发布成人细节写入长期记忆" in system_prompt
+    assert "若新增内容涉及高风险成人桥段，只保留其合规后的剧情功能" in system_prompt
+
+
 def test_concept_generate_prompt_prefers_compact_project_intro_over_long_packaging() -> None:
     prompt = build_concept_generate_system_prompt()
 
@@ -345,6 +415,15 @@ def test_concept_generate_prompt_uses_shared_story_spine_strategy() -> None:
     assert "差异优先体现在主角切口、局势压力、关系张力、破局手段或兑现方式" in prompt
     assert "不要为了拉开差异，硬把同一主轴写成更大的体系、更多的势力或更高的世界层级" in prompt
     assert "世界展开规模" not in prompt
+
+
+def test_concept_generate_prompt_requires_reader_retention_diagnosis_and_driver_variants() -> None:
+    prompt = build_concept_generate_system_prompt()
+
+    assert "读者为什么会点进来并继续追" in prompt
+    assert "主驱动轴" in prompt
+    assert "升级/权力扩张、局势反压、身份逆转、资源掠夺、关系张力、暧昧兑现" in prompt
+    assert "不是只换标题和设定表皮" in prompt
 
 
 def test_concept_generate_prompt_removes_fixed_three_lane_labels() -> None:
@@ -404,6 +483,22 @@ def test_beat_prompts_use_tomato_author_persona() -> None:
     assert "番茄金番作家" in beat_expand_prompt
     assert "小说执笔者" not in beat_expand_prompt
     assert "正在帮助作者" not in beat_generate_prompt
+
+
+def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_emotion() -> None:
+    prompt = build_beat_generate_system_prompt()
+
+    assert "不要只写情绪变化，还要写清这一拍具体让读者追什么" in prompt
+    assert "压制、夺回、反制、试探、地位逆转、关系升温" in prompt
+    assert "最后一拍要明确勾住下一拍最想看的兑现" in prompt
+
+
+def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:
+    prompt = build_beat_expand_system_prompt()
+
+    assert "每一段都要落下可感知的读者奖励或新压力" in prompt
+    assert "不能只有文风、五感、气氛和潜台词，却没有局面推进" in prompt
+    assert "让读者看见主角是在接近兑现、遭遇反噬，还是逼近下一次反制" in prompt
 
 
 def test_bible_update_prompt_uses_serial_author_maintenance_persona() -> None:

@@ -8,6 +8,7 @@ import pytest
 from app.services.plot_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
+    build_plot_summary_prompt,
     build_prompt_pack_prompt,
     build_report_prompt,
     build_skeleton_group_reduce_prompt,
@@ -293,6 +294,37 @@ def test_build_skeleton_group_reduce_prompt_serialises_group_sketches() -> None:
 
 
 # --------------------------------------------------------------------------- #
+#  build_plot_summary_prompt                                                  #
+# --------------------------------------------------------------------------- #
+
+
+def test_build_plot_summary_prompt_requires_reader_hook_formula_extraction() -> None:
+    prompt = build_plot_summary_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_name="男频样本",
+    )
+
+    assert "情节档案名称：男频样本" in prompt
+    assert "# 读者追读抓手" in prompt
+    assert "# 主驱动轴与兑现物" in prompt
+    assert "# 压迫与反制公式" in prompt
+    assert "# 关系张力来源" in prompt
+    assert "# 常用钩子类型" in prompt
+    assert "# 生成禁区" in prompt
+
+
+def test_build_plot_summary_prompt_converts_risky_adult_material_to_publishable_tension() -> None:
+    prompt = build_plot_summary_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_name="男频样本",
+    )
+
+    assert "报告层可以识别胁迫、控制、失身交易等样本事实" in prompt
+    assert "摘要层必须转写为可发布的关系张力、压力机制、利益交换、身份压迫或镜头外留白" in prompt
+    assert "不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化提炼为生成目标" in prompt
+
+
+# --------------------------------------------------------------------------- #
 #  build_chunk_analysis_prompt — extended with plot_skeleton                  #
 # --------------------------------------------------------------------------- #
 
@@ -460,6 +492,31 @@ def test_build_prompt_pack_prompt_template_covers_bible_and_writing_contexts() -
     assert "不得照搬样本角色、设定、事件" in prompt
 
 
+def test_build_prompt_pack_prompt_requires_market_hook_abstractions() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_summary_markdown=_PLOT_SUMMARY_MARKDOWN,
+    )
+
+    assert "主驱动轴、核心兑现物、典型压迫方式、关系张力来源、常用钩子类型、禁区" in prompt
+    assert "Shared Constraints 要能回答“读者到底在追什么”" in prompt
+    assert "Outline Master Prompt 要围绕同一条主驱动轴组织阶段推进" in prompt
+    assert "Beat Planning Prompt 要约束压制、夺回、反制、试探、地位逆转、关系升温等可追读动作" in prompt
+    assert "Continuation Guardrails 要防止正文只剩气氛、文风和暧昧，而没有兑现或新压力" in prompt
+
+
+def test_build_prompt_pack_prompt_preserves_publishable_adult_tension_boundary() -> None:
+    prompt = build_prompt_pack_prompt(
+        report_markdown=_REPORT_MARKDOWN,
+        plot_summary_markdown=_PLOT_SUMMARY_MARKDOWN,
+    )
+
+    assert "Prompt Pack 层不得复制、放大或教学化样本中的高风险成人桥段" in prompt
+    assert "必须把它们改写为可发布的成人关系张力、权力试探、利益交换、名分压力、克制暧昧或镜头外留白" in prompt
+    assert "允许成年人之间的危险吸引、身份差、占有欲、嫉妒、误会和背德氛围" in prompt
+    assert "不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化作为生成目标" in prompt
+
+
 def test_build_prompt_pack_prompt_requires_de_sampling_and_prototype_rewrites() -> None:
     prompt = build_prompt_pack_prompt(
         report_markdown=_REPORT_MARKDOWN,
@@ -472,7 +529,7 @@ def test_build_prompt_pack_prompt_requires_de_sampling_and_prototype_rewrites() 
     assert "禁止保留章节号、chunk 编号、样本专名、原作特有固有名词" in prompt
     assert "师门权威、高位女性角色、异族继承者、竞争型反派、指导型强者" in prompt
     assert "核心稀缺资源、身份逆转筹码、境界突破媒介、血脉级利益" in prompt
-    assert "胁迫性绑定、被迫接受的契约、资源争夺引发的反转、由信息差触发的控制关系" in prompt
+    assert "身份压迫下的利益交换、名分/阵营带来的选择压力、资源争夺引发的反转、由信息差触发的权力试探" in prompt
 
 
 def test_build_prompt_pack_prompt_limits_few_shot_to_abstract_prototypes_and_slots() -> None:
