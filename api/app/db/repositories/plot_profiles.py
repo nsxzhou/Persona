@@ -17,7 +17,6 @@ class PlotProfileCreateData:
     source_filename: str
     plot_name: str
     analysis_report_payload: str
-    plot_summary_payload: str
     prompt_pack_payload: str
     user_id: str
     plot_skeleton_payload: str | None = None
@@ -122,7 +121,7 @@ class PlotProfileRepository:
             source_filename=data.source_filename,
             plot_name=data.plot_name,
             analysis_report_payload=data.analysis_report_payload,
-            plot_summary_payload=data.plot_summary_payload,
+            plot_summary_payload="",
             prompt_pack_payload=data.prompt_pack_payload,
             plot_skeleton_payload=data.plot_skeleton_payload,
             user_id=data.user_id,

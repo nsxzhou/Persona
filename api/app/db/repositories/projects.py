@@ -61,6 +61,7 @@ class ProjectRepository:
         default_model: str,
         style_profile_id: str | None,
         plot_profile_id: str | None,
+        generation_profile_payload: dict | None,
         length_preset: str,
         auto_sync_memory: bool,
     ) -> Project:
@@ -72,6 +73,7 @@ class ProjectRepository:
             default_model=default_model,
             style_profile_id=style_profile_id,
             plot_profile_id=plot_profile_id,
+            generation_profile_payload=generation_profile_payload,
             length_preset=length_preset,
             auto_sync_memory=auto_sync_memory,
             user_id=user_id,

@@ -28,7 +28,6 @@ class StyleProfileCreateData:
     source_filename: str
     style_name: str
     analysis_report_payload: str
-    style_summary_payload: str
     prompt_pack_payload: str
     user_id: str
 
@@ -172,7 +171,7 @@ class StyleProfileRepository:
             source_filename=data.source_filename,
             style_name=data.style_name,
             analysis_report_payload=data.analysis_report_payload,
-            style_summary_payload=data.style_summary_payload,
+            style_summary_payload="",
             prompt_pack_payload=data.prompt_pack_payload,
             user_id=data.user_id,
         )
