@@ -23,15 +23,13 @@ def test_prompt_injection_policy_routes_analysis_tasks_to_analysis() -> None:
         PromptInjectionTask.STYLE_ANALYSIS_CHUNK,
         PromptInjectionTask.STYLE_ANALYSIS_MERGE,
         PromptInjectionTask.STYLE_ANALYSIS_REPORT,
-        PromptInjectionTask.STYLE_ANALYSIS_SUMMARY,
-        PromptInjectionTask.STYLE_ANALYSIS_PROMPT_PACK,
+        PromptInjectionTask.STYLE_ANALYSIS_VOICE_PROFILE,
         PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
         PromptInjectionTask.PLOT_ANALYSIS_SKELETON_GROUP,
         PromptInjectionTask.PLOT_ANALYSIS_CHUNK,
         PromptInjectionTask.PLOT_ANALYSIS_MERGE,
         PromptInjectionTask.PLOT_ANALYSIS_REPORT,
-        PromptInjectionTask.PLOT_ANALYSIS_SUMMARY,
-        PromptInjectionTask.PLOT_ANALYSIS_PROMPT_PACK,
+        PromptInjectionTask.PLOT_ANALYSIS_STORY_ENGINE,
     ]
 
     for task in analysis_tasks:

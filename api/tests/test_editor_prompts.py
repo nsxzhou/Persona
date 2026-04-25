@@ -117,17 +117,18 @@ def test_editor_prompts_enforce_publishable_adult_tension_boundary() -> None:
 
     for prompt in prompts:
         assert "平台可发布边界" in prompt
-        assert "成年人之间的危险吸引、身份差、利益交换、暧昧推拉、嫉妒、误会、克制的身体距离和镜头外留白" in prompt
-        assert "不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化作为生成目标" in prompt
-        assert "把高风险成人桥段改写为成年自愿的关系博弈、权力试探、情绪压迫、名分/利益交换或镜头外留白" in prompt
+        assert "成年人之间的危险吸引、身份差、利益交换、暧昧推拉、嫉妒、误会、背德氛围，以及呼吸、体温、气息、视线停顿、心跳失衡、掌心温度、衣料摩擦、手背/腰背/衣袖/发丝接触等隐晦身体与感官暗示" in prompt
+        assert "未成年相关性内容是绝对禁区" in prompt
+        assert "高风险成人素材，不得直接写成事件过程、色情目标或可模仿桥段" in prompt
+        assert "可以把高风险成人素材转写为成年人之间的禁忌氛围、关系博弈、权力试探、情绪压迫、边界变化、呼吸交错、体温变化、掌心温度、衣料摩擦、靠近与迟疑、双修引发的情感失衡、后果反噬与事后尴尬" in prompt
 
 
 def test_adjacent_prompts_preserve_grounded_reading() -> None:
     characters_prompt = build_section_system_prompt("characters", length_preset="long")
     outline_prompt = build_section_system_prompt("outline_master", length_preset="long")
 
-    assert "沿用世界观已确定的题材解释，不得把现实权谋误写为超自然机制或秘密体系" in characters_prompt
-    assert "沿用世界观已确定的题材解释，不得把现实权谋误写为超自然机制或秘密体系" in outline_prompt
+    assert "沿用世界观已确定的题材解释，不得臆想毫无根据的设定" in characters_prompt
+    assert "沿用世界观已确定的题材解释，不得臆想毫无根据的设定" in outline_prompt
 
 
 def test_creative_planning_sections_prefer_useful_detail_over_maximal_fill() -> None:
@@ -164,6 +165,85 @@ def test_bible_generation_sections_inject_plot_prompt_after_style_prompt() -> No
     )
     assert "# Plot Prompt\n情节约束" in characters_prompt
     assert "不得照搬样本角色、设定、事件" in characters_prompt
+
+
+def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
+    prompts = [
+        build_concept_generate_system_prompt(
+            style_prompt="# Style Prompt\n风格约束\n",
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+        ),
+        build_section_system_prompt(
+            "world_building",
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+            length_preset="long",
+        ),
+        build_section_system_prompt(
+            "characters",
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+            length_preset="long",
+        ),
+        build_section_system_prompt(
+            "outline_master",
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+            length_preset="long",
+        ),
+        build_section_system_prompt(
+            "outline_detail",
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+            length_preset="long",
+        ),
+        build_volume_generate_system_prompt(
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+            length_preset="long",
+        ),
+        build_volume_chapters_system_prompt(
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+        ),
+        build_beat_generate_system_prompt(
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+        ),
+        build_beat_expand_system_prompt(
+            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+        ),
+    ]
+
+    for prompt in prompts:
+        assert "Plot 指纹落地契约" in prompt
+        assert "核心驱动轴" in prompt
+        assert "信息差/利益绑定/资源兑现/关系重组/新压力" in prompt
+        assert "输出中必须让读者看见 Plot Pack 如何改变当前项目" in prompt
+        assert "不能只把 Plot Pack 当作背景参考" in prompt
+        assert "成年人的关系张力" in prompt
+        assert "呼吸、体温、气息、视线停顿、心跳失衡、掌心温度、衣料摩擦、手背/腰背/衣袖/发丝接触等隐晦身体与感官暗示" in prompt
+
+
+def test_plot_prompt_contract_keeps_old_terms_out_of_direct_generation_targets() -> None:
+    prompt = build_beat_expand_system_prompt(
+        plot_prompt=(
+            "# Plot Prompt\n"
+            "旧模板：公共情欲压迫、密室双修、催眠控制、药物控制、未经同意越界。\n"
+        )
+    )
+
+    assert "旧模板：公共情欲压迫、密室双修、催眠控制、药物控制、未经同意越界。" in prompt
+    assert "高风险成人素材，不得直接写成事件过程、色情目标或可模仿桥段" in prompt
+    assert "呼吸交错、体温变化、掌心温度、衣料摩擦、靠近与迟疑、双修引发的情感失衡、后果反噬与事后尴尬" in prompt
+    assert "遗留高风险 Plot Pack 抽象化" not in prompt
+
+
+def test_concept_generate_prompt_injects_style_and_plot_profiles_before_role_prompt() -> None:
+    prompt = build_concept_generate_system_prompt(
+        style_prompt="# Style Prompt\n冷白、短句、压迫感\n",
+        plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
+    )
+
+    assert "# Style Prompt\n冷白、短句、压迫感" in prompt
+    assert "# Plot Prompt\n核心驱动轴" in prompt
+    assert prompt.index("# Style Prompt\n冷白、短句、压迫感") < prompt.index("# Plot Prompt\n核心驱动轴")
+    assert prompt.index("# Plot Prompt\n核心驱动轴") < prompt.index("你是一位深耕网文市场")
+    assert "概念生成阶段也必须应用已选 Plot/Style Profile" in prompt
+    assert "标题和简介要体现 Plot Pack 的主驱动轴、读者追读问题和角色功能位" in prompt
 
 
 def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None:
@@ -392,8 +472,8 @@ def test_bible_update_system_prompt_prefers_minimal_persistent_memory() -> None:
 def test_bible_update_prompt_tracks_only_persistent_compliant_tension() -> None:
     system_prompt = build_bible_update_system_prompt()
 
-    assert "只记录会持续影响后续选择的关系变化、未兑现承诺、身份压力、名分压力、利益交换或克制暧昧" in system_prompt
-    assert "不要把一次性的身体描写、擦边氛围或不可发布成人细节写入长期记忆" in system_prompt
+    assert "只记录会持续影响后续选择的关系变化、未兑现承诺、身份压力、名分压力、利益交换，或会改变角色默认边界的隐晦亲密张力" in system_prompt
+    assert "只有当呼吸、体温、接触、视线停顿或情感失衡明确改变后续关系默认值时，才写入长期记忆" in system_prompt
     assert "若新增内容涉及高风险成人桥段，只保留其合规后的剧情功能" in system_prompt
 
 
@@ -758,10 +838,24 @@ def test_request_schemas_default_regeneration_fields_to_none(
 
     assert parsed.previous_output is None
     assert parsed.user_feedback is None
+    if model_cls is ConceptGenerateRequest:
+        assert parsed.style_profile_id is None
+        assert parsed.plot_profile_id is None
 
     parsed_with_regen = adapter.validate_python(
-        {**base_payload, "previous_output": "旧稿", "user_feedback": "意见"},
+        {
+            **base_payload,
+            "previous_output": "旧稿",
+            "user_feedback": "意见",
+            "style_profile_id": "style-1",
+            "plot_profile_id": "plot-1",
+        }
+        if model_cls is ConceptGenerateRequest
+        else {**base_payload, "previous_output": "旧稿", "user_feedback": "意见"},
     )
 
     assert parsed_with_regen.previous_output == "旧稿"
     assert parsed_with_regen.user_feedback == "意见"
+    if model_cls is ConceptGenerateRequest:
+        assert parsed_with_regen.style_profile_id == "style-1"
+        assert parsed_with_regen.plot_profile_id == "plot-1"

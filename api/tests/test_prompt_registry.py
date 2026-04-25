@@ -20,8 +20,8 @@ def test_prompt_registry_has_unique_complete_specs() -> None:
 
 
 def test_prompt_registry_can_lookup_existing_runtime_prompt() -> None:
-    spec = get_prompt_spec("plot.prompt_pack")
+    spec = get_prompt_spec("plot.story_engine")
 
     assert spec.lane is PromptLane.PLOT_ANALYSIS
     assert spec.output_contract == "markdown"
-    assert spec.test_focus == "de-sampled reusable plot pack and direct heading start"
+    assert spec.test_focus == "story engine profile with fixed pursuit mechanics and overlay suggestions"
