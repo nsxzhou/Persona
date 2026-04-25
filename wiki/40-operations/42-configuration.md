@@ -4,7 +4,7 @@
 
 Persona 的运行配置主要分成三类：
 
-- 后端核心配置：数据库、加密、Session、LLM、Style Lab Worker
+- 后端核心配置：数据库、加密、Session、LLM、统一分析 Worker
 - 前端配置：API Base URL
 - 安全相关配置：Cookie、脱敏、API Key 加密
 
@@ -14,30 +14,32 @@ Persona 的运行配置主要分成三类：
 
 ### 后端配置唯一入口是 `Settings`
 
-所有后端环境变量最终都收口到 `api/app/core/config.py:16` 的 `Settings`：
+所有后端环境变量最终都收口到 `api/app/core/config.py` 的 `Settings`：
 
 - `database_url`：`PERSONA_DATABASE_URL`
 - `encryption_key`：`PERSONA_ENCRYPTION_KEY`
-- `session_cookie_name` / `session_cookie_secure` / `session_ttl_hours`
+- `session_cookie_name` / `session_cookie_secure` / `session_ttl_hours` / `session_secret`
 - `cors_allowed_origins`
 - `llm_timeout_seconds` / `llm_max_retries`
 - `storage_dir`
-- `style_analysis_*` 一组 Worker 与管道参数
+- `style_analysis_*` 一组分析任务运行参数
 - `analysis_pause_confirm_timeout_seconds`
 
-`get_settings()` 通过 `@lru_cache` 做单例缓存，见 `api/app/core/config.py:110`。
+`get_settings()` 通过 `@lru_cache` 做单例缓存。
 
 ### `.env.example` 是最可信的字段清单
 
 `api/.env.example` 覆盖了运行时最常用的变量：
 
-- 数据库与加密：`api/.env.example:6`
-- Session 与 CORS：`api/.env.example:16`
-- LLM 超时与重试：`api/.env.example:31`
-- Storage 与 Style Analysis：`api/.env.example:41`
-- 真实 Provider 集成测试专用变量：`api/.env.example:65`
+- 数据库与加密
+- Session 与 CORS
+- LLM 超时与重试
+- Storage 与分析 Worker 常用参数
+- 真实 Provider 集成测试专用变量
 
-前端只有一个强依赖变量：`NEXT_PUBLIC_API_BASE_URL`，见 `web/.env.local.example:6`。
+前端只有一个强依赖变量：`NEXT_PUBLIC_API_BASE_URL`，见 `web/.env.local.example`。
+
+少数“有默认值、只在调优时才会碰”的字段目前只定义在 `Settings` 里，不会出现在示例 env 里，例如 `PERSONA_ANALYSIS_PAUSE_CONFIRM_TIMEOUT_SECONDS`。
 
 ### 加密与脱敏是两件不同的事
 
@@ -51,9 +53,9 @@ Persona 的运行配置主要分成三类：
 - 只加密不脱敏，日志里仍可能泄露 token
 - 只脱敏不加密，数据库泄露时仍是明文风险
 
-### Style Lab 有自己的一组运行参数
+### 统一分析 Worker 复用一组运行参数
 
-`Settings` 里和 Style Lab 直接相关的变量包括：
+`Settings` 里这组变量名字虽然仍以 `style_analysis_*` 命名，但当前实现已经被 `api/app/worker.py`、`api/app/services/style_analysis_jobs.py` 和 `api/app/services/plot_analysis_jobs.py` 共同复用，用来驱动 Style Lab 与 Plot Lab 两条后台执行链路：
 
 - `PERSONA_STYLE_ANALYSIS_MAX_UPLOAD_BYTES`
 - `PERSONA_STYLE_ANALYSIS_WORKER_ENABLED`
@@ -66,14 +68,14 @@ Persona 的运行配置主要分成三类：
 
 它们分别影响：
 
-- 上传体积上限
-- Worker 是否启用
-- 轮询频率
-- 陈旧任务判定
-- Chunk 并发数
-- 重试次数
-- Checkpointer 存储位置
-- 暂停请求转为真正 `paused` 的确认窗口
+- Style Lab 上传体积上限
+- 统一 Worker 是否启用（Style / Plot 两条 lane 都会受影响）
+- Style / Plot 两类任务的轮询频率
+- Style / Plot 两类任务的陈旧任务判定
+- Style Lab chunk 并发数
+- Style / Plot 两类任务的最大尝试次数
+- Style / Plot LangGraph Checkpointer 存储位置
+- Style / Plot 暂停请求转为真正 `paused` 的确认窗口
 
 ## 实现位置与扩展点
 
@@ -83,7 +85,7 @@ Persona 的运行配置主要分成三类：
 | --- | --- |
 | 本地开发 | `PERSONA_SESSION_COOKIE_SECURE=false`、`NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` |
 | SQLite 兜底 | `PERSONA_DATABASE_URL=sqlite+aiosqlite:///./persona.db` |
-| Worker 暂时关闭 | `PERSONA_STYLE_ANALYSIS_WORKER_ENABLED=false` |
+| Worker 暂时关闭 | `PERSONA_STYLE_ANALYSIS_WORKER_ENABLED=false`（会同时停掉 Style / Plot 两条后台消费） |
 | 独立 checkpoint 库 | 设置 `PERSONA_STYLE_ANALYSIS_CHECKPOINT_URL` |
 
 ### 新增配置项时的推荐落点
@@ -98,11 +100,11 @@ Persona 的运行配置主要分成三类：
 
 | 症状 | 常见原因 | 先看哪里 |
 | --- | --- | --- |
-| 后端启动即报缺少加密密钥 | `PERSONA_ENCRYPTION_KEY` 未设置 | `api/app/core/config.py:101` |
+| 后端启动即报缺少加密密钥 | `PERSONA_ENCRYPTION_KEY` 未设置 | `api/app/core/config.py` 里的 `Settings._validate_encryption_key()` |
 | 登录接口成功，但浏览器不带 Cookie | `PERSONA_SESSION_COOKIE_SECURE=true` 且本地走 HTTP | `api/.env.example:16` |
-| 本地 3000 调 8000 被浏览器拦 | CORS 白名单未包含前端地址 | `api/app/core/config.py:42` |
-| Style Lab 任务一直卡住 | Worker 被禁用或轮询间隔过大 | `api/app/core/config.py:62` |
-| Provider 报超时 | `PERSONA_LLM_TIMEOUT_SECONDS` 太小 | `api/app/core/config.py:49` |
+| 本地 3000 调 8000 被浏览器拦 | CORS 白名单未包含前端地址 | `api/app/core/config.py` 的 `Settings.cors_allowed_origins` |
+| Style Lab 或 Plot Lab 任务一直卡住 | 统一 Worker 被禁用、轮询间隔过大，或 stale timeout 配得太激进 | `api/app/worker.py` 与 `api/app/core/config.py` |
+| Provider 报超时 | `PERSONA_LLM_TIMEOUT_SECONDS` 太小 | `api/app/core/config.py` 的 `Settings.llm_timeout_seconds` |
 
 ## 相关章节
 
