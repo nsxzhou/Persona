@@ -160,6 +160,7 @@ class Project(TimestampMixin, Base):
     plot_profile_id: Mapped[str | None] = mapped_column(
         ForeignKey("plot_profiles.id"), nullable=True, index=True
     )
+    generation_profile_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # short / medium / long
     length_preset: Mapped[str] = mapped_column(String(16), nullable=False, default="short")
     # 逐拍写作完成时是否静默自动同步记忆
@@ -184,6 +185,10 @@ class Project(TimestampMixin, Base):
     chapters: Mapped[list["ProjectChapter"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+
+    @property
+    def generation_profile(self) -> dict | None:
+        return self.generation_profile_payload
 
 
 class ProjectBible(TimestampMixin, Base):
