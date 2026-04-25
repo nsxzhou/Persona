@@ -52,6 +52,20 @@ def _format_skeleton_context(plot_skeleton: str | None) -> str:
     )
 
 
+def _format_plot_chunk_input(
+    *,
+    chunk: str,
+    overlap_before: str,
+    overlap_after: str,
+) -> str:
+    sections = ["主分析文本（当前 chunk，结论优先以此为准）:\n" + chunk]
+    if overlap_before.strip():
+        sections.append("前邻接上下文（仅用于跨边界补全）:\n" + overlap_before)
+    if overlap_after.strip():
+        sections.append("后邻接上下文（仅用于跨边界补全）:\n" + overlap_after)
+    return "\n\n".join(sections)
+
+
 PLOT_REPORT_TEMPLATE = """
 # 执行摘要
 用 1-3 段总结这本书真正依赖什么推进读者追读。
@@ -173,6 +187,8 @@ def build_sketch_prompt(
     chunk_index: int,
     chunk_count: int,
     classification: dict[str, Any],
+    overlap_before: str = "",
+    overlap_after: str = "",
 ) -> str:
     """Prompt for the per-chunk "sketch" pre-pass that feeds skeleton reduction.
 
@@ -192,6 +208,7 @@ def build_sketch_prompt(
         f"{SKETCH_ANALYSIS_RULES}\n\n"
         "你正在执行 Plot Lab 的分块速写阶段（sketch pass）。请基于当前 chunk 产出一份"
         "用于后续搭建全书骨架的紧凑 JSON 摘要，整份内容合计不得超过 200 个汉字。\n"
+        "如果提供了邻接上下文，它们只用于补全跨边界信息，不应把纯邻接上下文中的事件重复记为当前 chunk 的独立事件。\n"
         "字段定义（字段名必须保持英文原样，不要翻译）：\n"
         "- `chunk_index`：当前 chunk 的零基索引，必须等于传入值。\n"
         "- `chunk_count`：本次任务的 chunk 总数，必须等于传入值。\n"
@@ -208,7 +225,7 @@ def build_sketch_prompt(
         "输出形状示例（仅用于说明 JSON 字段形状，不要照搬其中内容）：\n"
         f"{example_json}\n\n"
         "请仅输出符合上述要求的 JSON 对象，不要输出任何其他字符。\n\n"
-        f"样本文本：\n{chunk}"
+        f"{_format_plot_chunk_input(chunk=chunk, overlap_before=overlap_before, overlap_after=overlap_after)}"
     )
 
 
@@ -281,19 +298,22 @@ def build_chunk_analysis_prompt(
     classification: dict[str, Any],
     chunk_count: int,
     plot_skeleton: str | None = None,
+    overlap_before: str = "",
+    overlap_after: str = "",
 ) -> str:
     skeleton_block = _format_skeleton_context(plot_skeleton)
     return (
         f"{SHARED_ANALYSIS_RULES}\n\n"
         "你正在执行 Plot Lab 的分块分析阶段。请基于当前 chunk 提取情节推进信息，而不是语言文风。\n"
         "要求：保留全部 12 个情节章节，每节写 1-3 个要点；优先提取事件链、关系变化、压力来源、爽点兑现和主角道德口径。\n"
+        "如果提供了邻接上下文，它们只用于跨边界补全；不要把纯邻接上下文中的事件重复记为当前 chunk 的独立事件。\n"
         "明确区分：1）叙事出现顺序；2）若证据充分，可推断的真实时序。\n\n"
         f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
         f"当前 chunk：{chunk_index + 1}/{chunk_count}\n"
         f"固定章节：\n{_format_sections()}\n\n"
         f"输出模板：\n{PLOT_REPORT_TEMPLATE}\n\n"
         f"{skeleton_block}"
-        f"样本文本：\n{chunk}"
+        f"{_format_plot_chunk_input(chunk=chunk, overlap_before=overlap_before, overlap_after=overlap_after)}"
     )
 
 

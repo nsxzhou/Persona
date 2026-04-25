@@ -12,6 +12,8 @@ import aiofiles
 
 from app.core.config import get_settings
 from app.core.domain_errors import UnprocessableEntityError
+from app.services.plot_analysis_chunking import PlotChunkContext
+from app.services.plot_analysis_text import PlotChunkManifestEntry
 
 
 class PlotAnalysisStorageService:
@@ -95,6 +97,48 @@ class PlotAnalysisStorageService:
         path = self._chunk_artifact_path(job_id, chunk_index)
         async with aiofiles.open(path, "r", encoding="utf-8") as handle:
             return await handle.read()
+
+    async def write_chunk_manifest(
+        self,
+        job_id: str,
+        manifest: list[PlotChunkManifestEntry],
+    ) -> None:
+        await self.write_json_artifact(job_id, name="chunk-manifest", payload={"chunks": manifest})
+
+    async def read_chunk_manifest(self, job_id: str) -> list[PlotChunkManifestEntry]:
+        if not self.json_artifact_exists(job_id, name="chunk-manifest"):
+            return []
+        payload = await self.read_json_artifact(job_id, name="chunk-manifest")
+        chunks = payload.get("chunks")
+        if not isinstance(chunks, list):
+            return []
+        return [item for item in chunks if isinstance(item, dict)]
+
+    async def read_chunk_with_overlap_context(
+        self,
+        job_id: str,
+        chunk_index: int,
+    ) -> PlotChunkContext:
+        primary_text = await self.read_chunk_artifact(job_id, chunk_index)
+        manifest = await self.read_chunk_manifest(job_id)
+        if not manifest or chunk_index >= len(manifest):
+            return PlotChunkContext(primary_text=primary_text)
+        entry = manifest[chunk_index]
+        overlap_before = ""
+        overlap_after = ""
+        overlap_before_chars = int(entry.get("overlap_before_chars", 0) or 0)
+        overlap_after_chars = int(entry.get("overlap_after_chars", 0) or 0)
+        if overlap_before_chars > 0 and chunk_index > 0:
+            previous_text = await self.read_chunk_artifact(job_id, chunk_index - 1)
+            overlap_before = previous_text[-overlap_before_chars:]
+        if overlap_after_chars > 0 and chunk_index + 1 < len(manifest):
+            next_text = await self.read_chunk_artifact(job_id, chunk_index + 1)
+            overlap_after = next_text[:overlap_after_chars]
+        return PlotChunkContext(
+            primary_text=primary_text,
+            overlap_before=overlap_before,
+            overlap_after=overlap_after,
+        )
 
     async def write_chunk_analysis_artifact(
         self,

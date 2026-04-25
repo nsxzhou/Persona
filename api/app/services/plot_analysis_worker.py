@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
-from typing import cast
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import cast
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -21,8 +22,9 @@ from app.services.plot_analysis_pipeline import (
     PlotAnalysisPipelineResult,
 )
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
+from app.services.plot_analysis_text import PlotBoundaryDetector, read_plot_chunks_and_classification
 from app.services.style_analysis_llm import MarkdownLLMClient
-from app.services.style_analysis_text import InputClassification, read_chunks_and_classification
+from app.services.style_analysis_text import InputClassification
 
 logger = logging.getLogger(__name__)
 
@@ -220,9 +222,13 @@ class PlotAnalysisJobExecutor:
             async def persist_chunk(index: int, chunk_text: str) -> None:
                 await self.storage_service.write_chunk_artifact(job_id, index, chunk_text)
 
-            chunk_count, character_count, base_classification = await read_chunks_and_classification(
+            chunk_count, character_count, base_classification, manifest = await read_plot_chunks_and_classification(
                 self.storage_service.stream_file(job.sample_file.id),
                 on_chunk=persist_chunk if existing_chunk_count == 0 else None,
+                boundary_detector=self._build_boundary_detector(
+                    provider=job.provider,
+                    model_name=job.model_name,
+                ),
             )
             if existing_chunk_count and chunk_count != existing_chunk_count:
                 raise RuntimeError("检测到已存在的切片与当前切片规则不一致，请删除任务后重试")
@@ -236,6 +242,8 @@ class PlotAnalysisJobExecutor:
             }
             job.sample_file.character_count = character_count
             await session.commit()
+            if existing_chunk_count == 0:
+                await self.storage_service.write_chunk_manifest(job_id, manifest)
             await self.storage_service.write_json_artifact(
                 job_id,
                 name="input-classification",
@@ -252,6 +260,53 @@ class PlotAnalysisJobExecutor:
                 chunk_count=chunk_count,
                 classification=classification,
             )
+
+    def _build_boundary_detector(
+        self,
+        *,
+        provider: ProviderConfig,
+        model_name: str,
+    ) -> PlotBoundaryDetector | None:
+        configured_model = (get_settings().plot_analysis_boundary_model or "").strip()
+        if not configured_model:
+            return None
+        llm_client = MarkdownLLMClient()
+        boundary_model = llm_client.build_model(provider=provider, model_name=configured_model)
+
+        async def detect(paragraphs: list[str]) -> list[int] | None:
+            prompt = (
+                "你是 Plot Lab 的场景边界判定器。输入是一段超长连续正文的段落列表，请找出适合切分为多个叙事单元的边界。\n"
+                "返回 JSON，且只能返回 JSON。格式：{\"boundaries\":[3,5]}。\n"
+                "规则：\n"
+                "- 边界索引表示“在第 N 段之后切开”，所以取值范围必须是 1 到 段落总数-1。\n"
+                "- 只在明显的时间跳转、地点切换、视角转换、冲突阶段切换处切。\n"
+                "- 如果没有明显边界，返回 {\"boundaries\":[]}。\n\n"
+                f"段落总数：{len(paragraphs)}\n"
+                f"段落列表：{json.dumps(paragraphs, ensure_ascii=False)}"
+            )
+            raw = await llm_client.ainvoke_markdown(
+                model=boundary_model,
+                prompt=prompt,
+                provider=provider,
+                model_name=configured_model,
+                injection_mode="analysis",
+            )
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                logger.warning("Plot boundary detector returned invalid JSON")
+                return None
+            if isinstance(parsed, list):
+                candidates = parsed
+            elif isinstance(parsed, dict):
+                candidates = parsed.get("boundaries")
+            else:
+                return None
+            if not isinstance(candidates, list):
+                return None
+            return [candidate for candidate in candidates if isinstance(candidate, int)]
+
+        return detect
 
     async def _build_pipeline(
         self,

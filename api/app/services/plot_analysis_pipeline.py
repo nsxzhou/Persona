@@ -288,13 +288,18 @@ class PlotAnalysisPipeline:
         )
         if self.storage_service.sketch_artifact_exists(state["job_id"], state["chunk_index"]):
             return {}
-        chunk = await self.storage_service.read_chunk_artifact(state["job_id"], state["chunk_index"])
+        chunk_context = await self.storage_service.read_chunk_with_overlap_context(
+            state["job_id"],
+            state["chunk_index"],
+        )
 
         prompt = build_sketch_prompt(
-            chunk=chunk,
+            chunk=chunk_context.primary_text,
             chunk_index=state["chunk_index"],
             chunk_count=state["chunk_count"],
             classification=state["classification"],
+            overlap_before=chunk_context.overlap_before,
+            overlap_after=chunk_context.overlap_after,
         )
 
         raw = await self.llm_client.ainvoke_markdown(
@@ -554,15 +559,20 @@ class PlotAnalysisPipeline:
         )
         if self.storage_service.chunk_analysis_artifact_exists(state["job_id"], state["chunk_index"]):
             return {}
-        chunk = await self.storage_service.read_chunk_artifact(state["job_id"], state["chunk_index"])
+        chunk_context = await self.storage_service.read_chunk_with_overlap_context(
+            state["job_id"],
+            state["chunk_index"],
+        )
         plot_skeleton_markdown = await self._get_plot_skeleton_markdown(state["job_id"])
 
         prompt = build_chunk_analysis_prompt(
-            chunk=chunk,
+            chunk=chunk_context.primary_text,
             chunk_index=state["chunk_index"],
             classification=state["classification"],
             chunk_count=state["chunk_count"],
             plot_skeleton=plot_skeleton_markdown,
+            overlap_before=chunk_context.overlap_before,
+            overlap_after=chunk_context.overlap_after,
         )
 
         markdown = await self.llm_client.ainvoke_markdown(
