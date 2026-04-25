@@ -6,6 +6,7 @@ from typing import Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from app.schemas.analysis_common import InputClassificationSchema
+from app.schemas.prompt_profiles import DesireOverlay, StoryEngineProfile
 from app.schemas.provider_configs import ProviderSummary
 
 
@@ -39,17 +40,10 @@ class PlotSkeletonMarkdown(RootModel[str]):
     )
 
 
-class PlotSummaryMarkdown(RootModel[str]):
+class StoryEngineMarkdown(RootModel[str]):
     root: str = Field(
         min_length=1,
-        description="Editable markdown plot summary.",
-    )
-
-
-class PlotPromptPackMarkdown(RootModel[str]):
-    root: str = Field(
-        min_length=1,
-        description="Reusable markdown plot prompt pack.",
+        description="Reusable markdown story engine profile.",
     )
 
 
@@ -178,9 +172,10 @@ class PlotAnalysisJobBaseResponse(BaseModel):
 class PlotAnalysisJobResponse(PlotAnalysisJobBaseResponse):
     plot_profile: PlotProfileEmbeddedResponse | None = None
     analysis_report_markdown: str | None = None
-    plot_summary_markdown: str | None = None
-    prompt_pack_markdown: str | None = None
     plot_skeleton_markdown: str | None = None
+    story_engine_payload: StoryEngineProfile | None = None
+    story_engine_markdown: str | None = None
+    suggested_overlays: list[DesireOverlay] = Field(default_factory=list)
 
 
 class PlotAnalysisJobStatusResponse(BaseModel):

@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.provider_configs import ProviderSummary
+from app.schemas.prompt_profiles import GenerationProfile
 
 
 ProjectStatus = Literal["draft", "active", "paused"]
@@ -20,6 +21,7 @@ class ProjectCreate(BaseModel):
     default_model: str | None = None
     style_profile_id: str | None = None
     plot_profile_id: str | None = None
+    generation_profile: GenerationProfile | None = None
     length_preset: LengthPreset = "short"
     auto_sync_memory: bool = False
 
@@ -32,6 +34,7 @@ class ProjectUpdate(BaseModel):
     default_model: str | None = None
     style_profile_id: str | None = None
     plot_profile_id: str | None = None
+    generation_profile: GenerationProfile | None = None
     length_preset: LengthPreset | None = None
     auto_sync_memory: bool | None = None
 
@@ -47,6 +50,7 @@ class ProjectResponse(BaseModel):
     default_model: str
     style_profile_id: str | None
     plot_profile_id: str | None
+    generation_profile: GenerationProfile | None = None
     length_preset: str
     auto_sync_memory: bool
     archived_at: datetime | None
@@ -94,6 +98,7 @@ class ProjectSummaryResponse(BaseModel):
     default_model: str
     style_profile_id: str | None
     plot_profile_id: str | None
+    generation_profile: GenerationProfile | None = None
     length_preset: str
     archived_at: datetime | None
     created_at: datetime
@@ -105,6 +110,9 @@ class ConceptGenerateRequest(BaseModel):
     inspiration: str = Field(min_length=1, max_length=8000, description="用户灵感描述文本")
     provider_id: str = Field(description="AI 服务商 ID")
     model: str | None = Field(default=None, description="可选模型覆盖")
+    generation_profile: GenerationProfile | None = None
+    style_profile_id: str | None = Field(default=None, description="可选风格档案 ID")
+    plot_profile_id: str | None = Field(default=None, description="可选情节档案 ID")
     count: int = Field(default=3, ge=1, le=5, description="生成候选数量")
     previous_output: str | None = Field(
         default=None,

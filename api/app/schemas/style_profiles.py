@@ -4,20 +4,19 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.prompt_profiles import VoiceProfile
 
 class StyleProfileCreate(BaseModel):
     job_id: str
     style_name: str = Field(min_length=1, max_length=120)
     mount_project_id: str | None = None
-    style_summary_markdown: str = Field(min_length=1)
-    prompt_pack_markdown: str = Field(min_length=1)
+    voice_profile_markdown: str = Field(min_length=1)
 
 
 class StyleProfileUpdate(BaseModel):
     style_name: str = Field(min_length=1, max_length=120)
     mount_project_id: str | None = None
-    style_summary_markdown: str = Field(min_length=1)
-    prompt_pack_markdown: str = Field(min_length=1)
+    voice_profile_markdown: str = Field(min_length=1)
 
 
 class StyleProfileResponse(BaseModel):
@@ -30,8 +29,8 @@ class StyleProfileResponse(BaseModel):
     source_filename: str
     style_name: str
     analysis_report_markdown: str
-    style_summary_markdown: str
-    prompt_pack_markdown: str
+    voice_profile_payload: VoiceProfile
+    voice_profile_markdown: str
     created_at: datetime
     updated_at: datetime
 

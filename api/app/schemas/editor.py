@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.projects import ConceptGenerateRequest, ConceptGenerateResponse
+from app.schemas.prompt_profiles import GenerationProfile
 
 MemorySyncScope = Literal["generated_fragment", "chapter_full"]
 
@@ -27,6 +28,7 @@ class EditorCompletionRequest(BaseModel):
     current_chapter_context: str = ""
     previous_chapter_context: str = ""
     total_content_length: int = Field(default=0, ge=0)
+    generation_profile: GenerationProfile | None = None
 
 
 class SectionGenerateRequest(_RegenerationFields):

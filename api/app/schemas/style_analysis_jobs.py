@@ -6,6 +6,7 @@ from typing import Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from app.schemas.analysis_common import InputClassificationSchema
+from app.schemas.prompt_profiles import VoiceProfile
 from app.schemas.provider_configs import ProviderSummary
 
 
@@ -32,17 +33,10 @@ class AnalysisReportMarkdown(RootModel[str]):
     )
 
 
-class StyleSummaryMarkdown(RootModel[str]):
+class VoiceProfileMarkdown(RootModel[str]):
     root: str = Field(
         min_length=1,
-        description="Editable markdown style summary.",
-    )
-
-
-class PromptPackMarkdown(RootModel[str]):
-    root: str = Field(
-        min_length=1,
-        description="Reusable markdown prompt pack.",
+        description="Reusable markdown voice profile.",
     )
 
 
@@ -150,8 +144,8 @@ class StyleAnalysisJobResponse(StyleAnalysisJobBaseResponse):
     style_profile: StyleProfileEmbeddedResponse | None = None
     analysis_meta: AnalysisMeta | None = None
     analysis_report_markdown: str | None = None
-    style_summary_markdown: str | None = None
-    prompt_pack_markdown: str | None = None
+    voice_profile_payload: VoiceProfile | None = None
+    voice_profile_markdown: str | None = None
 
 
 class StyleAnalysisJobStatusResponse(BaseModel):
