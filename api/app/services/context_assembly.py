@@ -1,6 +1,6 @@
 """上下文组装服务。
 
-将风格母 Prompt 和故事圣经各区块组装为完整的 LLM 系统提示词。
+将 Voice Profile、Story Engine、Intensity Profile 和项目上下文组装为完整的 LLM 系统提示词。
 """
 
 from __future__ import annotations
@@ -9,15 +9,31 @@ from dataclasses import dataclass
 
 from app.core.bible_fields import BIBLE_SECTION_ORDER
 from app.core.length_presets import LengthPresetKey, get_progress
+from app.schemas.prompt_profiles import (
+    ChapterObjectiveCard,
+    GenerationProfile,
+    IntensityProfile,
+    StoryEngineProfile,
+    VoiceProfile,
+    build_chapter_objective_card,
+    build_intensity_profile,
+    default_generation_profile,
+    derive_story_engine_profile,
+    derive_voice_profile,
+)
+
+
+_PLOT_APPLICATION_RULES = """
+
+- 不要把 Story Engine 当成背景参考；每次续写都要让它显式改变当前章节的推进选择。
+- 每次续写至少推进信息差、利益绑定、资源兑现、关系重组或新压力中的一项。
+- 关系张力必须承担剧情功能：奖励源、阻力源、情绪牵引源、身份压迫源或未兑现承诺。
+- 强度档位改变欲望的落地方式，不改变剧情推进义务。
+"""
 
 
 _WRITING_RULES = """
 
----
-
-## 写作核心规则
-
-### 叙事原则
 - 展示不讲述（Show, Don't Tell）：用动作、对话、细节展现情感和性格
 - 对话要有潜台词：每句对话应揭示角色性格或推动情节，禁止纯信息传递的水词
 - 五感沉浸：每个新场景至少调用 2 种感官描写
@@ -47,14 +63,19 @@ class WritingContextSections:
 
 
 def assemble_writing_context(
-    style_prompt: str,
+    style_prompt: str | None = None,
     *,
     plot_prompt: str | None = None,
+    voice_profile_markdown: str | None = None,
+    story_engine_markdown: str | None = None,
+    intensity_profile: IntensityProfile | None = None,
+    generation_profile: GenerationProfile | None = None,
+    chapter_objective_card: ChapterObjectiveCard | None = None,
     sections: WritingContextSections | None = None,
     length_preset: LengthPresetKey = "long",
     content_length: int = 0,
 ) -> str:
-    """组装写作系统提示词：风格母Prompt + 各区块 + 写作规则 + 收束引导。"""
+    """组装写作系统提示词：六段固定顺序，不再依赖巨型总 prompt。"""
     resolved_sections = sections or WritingContextSections()
     values = {
         "description": resolved_sections.description,
@@ -66,33 +87,69 @@ def assemble_writing_context(
         "runtime_threads": resolved_sections.runtime_threads,
     }
 
-    parts = [style_prompt]
-    if plot_prompt and plot_prompt.strip():
-        parts.append(
-            "\n\n---\n\n"
-            "# Plot Prompt Pack（情节结构约束）\n\n"
-            f"{plot_prompt.strip()}\n\n"
-            "使用方式：Plot 是结构约束，不是内容模板；必须服从当前项目已有世界观、角色卡、细纲和正文上下文，"
-            "不得照搬样本角色、设定、事件或桥段。"
-        )
+    resolved_voice_markdown = (voice_profile_markdown or style_prompt or "").strip()
+    resolved_story_markdown = (story_engine_markdown or plot_prompt or "").strip()
+    resolved_voice_payload: VoiceProfile = derive_voice_profile(resolved_voice_markdown)
+    resolved_story_payload: StoryEngineProfile = derive_story_engine_profile(resolved_story_markdown)
+    resolved_generation_profile = generation_profile or default_generation_profile(resolved_story_payload)
+    resolved_intensity_profile = intensity_profile or build_intensity_profile(resolved_generation_profile)
+    resolved_objective_card = chapter_objective_card or build_chapter_objective_card(
+        resolved_generation_profile,
+        current_chapter_context=resolved_sections.outline_detail,
+        outline_detail=resolved_sections.outline_detail,
+    )
 
-    sections: list[str] = []
+    context_sections: list[str] = []
     for label, key in BIBLE_SECTION_ORDER:
         text = values[key].strip()
         if text:
-            sections.append(f"# {label}\n\n{text}")
+            context_sections.append(f"## {label}\n\n{text}")
 
-    if sections:
-        parts.append("\n\n---\n\n" + "\n\n".join(sections))
+    parts: list[str] = [
+        "# Output Contract\n"
+        "- 直接输出正文。\n"
+        "- 禁止前言、自述、总结、初始化说明、显式 thinking。\n"
+        "- 不要解释你如何理解规则，不要输出任何元评论。",
+        "# Chapter Objective Card\n"
+        + _format_mapping(
+            {
+                "chapter_goal": resolved_objective_card.chapter_goal,
+                "payoff_target": resolved_objective_card.payoff_target,
+                "pressure_source": resolved_objective_card.pressure_source,
+                "relationship_delta": resolved_objective_card.relationship_delta,
+                "adult_expression_mode": resolved_objective_card.adult_expression_mode,
+                "hook_type": resolved_objective_card.hook_type,
+            }
+        ),
+        "# Voice Profile\n" + _strip_duplicate_top_heading(resolved_voice_markdown, "# Voice Profile"),
+        "# Story Engine Profile\n"
+        + _strip_duplicate_top_heading(resolved_story_markdown, "# Story Engine Profile")
+        + "\n\n## Runtime Guardrails\n"
+        + _PLOT_APPLICATION_RULES.strip(),
+        "# Intensity Profile\n"
+        + _format_mapping(
+            {
+                "genre_mother": resolved_generation_profile.genre_mother,
+                "intensity_level": resolved_intensity_profile.intensity_level,
+                "desire_overlays": ", ".join(resolved_intensity_profile.desire_overlays) or "none",
+                "expression_focus": "; ".join(resolved_intensity_profile.expression_focus),
+                "boundary_rules": "; ".join(resolved_intensity_profile.boundary_rules),
+                "soft_conflicts": "; ".join(resolved_intensity_profile.soft_conflicts) or "none",
+            }
+        ),
+    ]
 
-    parts.append(_WRITING_RULES)
+    project_context_parts: list[str] = []
+    if context_sections:
+        project_context_parts.append("\n\n".join(context_sections))
+    project_context_parts.append("## Writing Rules\n" + _WRITING_RULES.strip())
 
     # 收束引导：根据进度 phase 追加提示
     if content_length > 0:
         progress = get_progress(content_length, length_preset)
         if progress["phase"] == "ending_zone":
-            parts.append(
-                f"\n\n## 收束引导\n\n"
+            project_context_parts.append(
+                f"## 收束引导\n\n"
                 f"当前进度已达目标篇幅的 {progress['percentage']}%，"
                 f"请开始引导故事走向结局：\n"
                 f"- 不要开启新的情节线或引入新角色\n"
@@ -101,8 +158,8 @@ def assemble_writing_context(
                 f"- 节奏可以适当加快，推向高潮"
             )
         elif progress["phase"] == "over_target":
-            parts.append(
-                f"\n\n## 超出目标提醒\n\n"
+            project_context_parts.append(
+                f"## 超出目标提醒\n\n"
                 f"已超出目标篇幅上限（{progress['target_max']:,} 字），"
                 f"请尽快收束故事：\n"
                 f"- 必须在接下来的内容中完成结局\n"
@@ -110,4 +167,17 @@ def assemble_writing_context(
                 f"- 直接推进到最终结局"
             )
 
+    parts.append("# Project Context\n" + "\n\n".join(project_context_parts))
+
     return "\n".join(parts)
+
+
+def _strip_duplicate_top_heading(markdown: str, heading: str) -> str:
+    stripped = markdown.strip()
+    if stripped.startswith(heading):
+        return stripped[len(heading):].lstrip()
+    return stripped
+
+
+def _format_mapping(values: dict[str, str]) -> str:
+    return "\n".join(f"{key}: {value}" for key, value in values.items())

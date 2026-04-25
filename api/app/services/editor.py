@@ -34,6 +34,11 @@ from app.services.context_assembly import (
     WritingContextSections,
     assemble_writing_context,
 )
+from app.schemas.prompt_profiles import (
+    GenerationProfile,
+    build_chapter_objective_card,
+    build_intensity_profile,
+)
 from app.services.editor_prompts import (
     VALID_SECTIONS,
     build_beat_expand_system_prompt,
@@ -112,6 +117,48 @@ class _EditorServiceBase:
         )
         return plot_profile.prompt_pack_payload
 
+    async def _get_style_prompt_by_id(
+        self,
+        session: AsyncSession,
+        style_profile_id: str | None,
+        user_id: str,
+    ) -> str | None:
+        if not style_profile_id:
+            return None
+        style_profile = await self.style_profile_service.get_or_404(
+            session,
+            style_profile_id,
+            user_id=user_id,
+        )
+        return style_profile.prompt_pack_payload
+
+    async def _get_plot_prompt_by_id(
+        self,
+        session: AsyncSession,
+        plot_profile_id: str | None,
+        user_id: str,
+    ) -> str | None:
+        if not plot_profile_id:
+            return None
+        plot_profile = await self.plot_profile_service.get_or_404(
+            session,
+            plot_profile_id,
+            user_id=user_id,
+        )
+        return plot_profile.prompt_pack_payload
+
+    def _require_generation_profile(
+        self,
+        *,
+        explicit_profile: GenerationProfile | None,
+        project=None,
+    ) -> GenerationProfile:
+        if explicit_profile is not None:
+            return explicit_profile
+        if project is not None and getattr(project, "generation_profile_payload", None) is not None:
+            return GenerationProfile.model_validate(project.generation_profile_payload)
+        raise BadRequestError("项目未配置 generation_profile，无法进行正式生成")
+
 
 class WritingEditorService(_EditorServiceBase):
     async def stream_completion(
@@ -136,9 +183,21 @@ class WritingEditorService(_EditorServiceBase):
             user_id=user_id,
         )
         plot_prompt = await self._get_plot_prompt(session, project, user_id)
+        generation_profile = self._require_generation_profile(
+            explicit_profile=payload.generation_profile,
+            project=project,
+        )
+        chapter_objective_card = build_chapter_objective_card(
+            generation_profile,
+            current_chapter_context=payload.current_chapter_context,
+            outline_detail=bible.outline_detail,
+        )
         system_prompt = assemble_writing_context(
-            style_profile.prompt_pack_payload,
-            plot_prompt=plot_prompt,
+            voice_profile_markdown=style_profile.prompt_pack_payload,
+            story_engine_markdown=plot_prompt,
+            generation_profile=generation_profile,
+            intensity_profile=build_intensity_profile(generation_profile),
+            chapter_objective_card=chapter_objective_card,
             sections=WritingContextSections(
                 description=project.description,
                 world_building=bible.world_building,
@@ -195,12 +254,17 @@ class WritingEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
         plot_prompt = await self._get_plot_prompt(session, project, user_id)
+        generation_profile = self._require_generation_profile(
+            explicit_profile=None,
+            project=project,
+        )
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_section_system_prompt(
             payload.section,
             style_prompt,
             plot_prompt,
+            generation_profile=generation_profile,
             length_preset=project.length_preset,
             regenerating=regenerating,
         )
@@ -244,12 +308,17 @@ class WritingEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
         plot_prompt = await self._get_plot_prompt(session, project, user_id)
+        generation_profile = self._require_generation_profile(
+            explicit_profile=None,
+            project=project,
+        )
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_beat_expand_system_prompt(
             style_prompt,
             plot_prompt,
+            generation_profile=generation_profile,
             beat_expand_chars=preset_cfg["beat_expand_chars"],
             regenerating=regenerating,
         )
@@ -334,6 +403,10 @@ class PlanningEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
         plot_prompt = await self._get_plot_prompt(session, project, user_id)
+        generation_profile = self._require_generation_profile(
+            explicit_profile=None,
+            project=project,
+        )
 
         preset_cfg = LENGTH_PRESETS.get(project.length_preset, LENGTH_PRESETS["long"])
         num_beats = payload.num_beats
@@ -357,6 +430,7 @@ class PlanningEditorService(_EditorServiceBase):
         system_prompt = build_beat_generate_system_prompt(
             style_prompt,
             plot_prompt,
+            generation_profile=generation_profile,
             regenerating=bool(payload.previous_output or payload.user_feedback),
         )
         user_message = build_beat_generate_user_message(
@@ -395,9 +469,27 @@ class PlanningEditorService(_EditorServiceBase):
         provider = await self.provider_config_service.ensure_enabled(
             session, payload.provider_id, user_id=user_id,
         )
+        style_prompt = await self._get_style_prompt_by_id(
+            session,
+            payload.style_profile_id,
+            user_id,
+        )
+        plot_prompt = await self._get_plot_prompt_by_id(
+            session,
+            payload.plot_profile_id,
+            user_id,
+        )
+        generation_profile = self._require_generation_profile(
+            explicit_profile=payload.generation_profile,
+        )
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
-        system_prompt = build_concept_generate_system_prompt(regenerating=regenerating)
+        system_prompt = build_concept_generate_system_prompt(
+            style_prompt=style_prompt,
+            plot_prompt=plot_prompt,
+            generation_profile=generation_profile,
+            regenerating=regenerating,
+        )
         user_message = build_concept_generate_user_message(
             payload.inspiration,
             payload.count,
@@ -433,6 +525,10 @@ class PlanningEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
         plot_prompt = await self._get_plot_prompt(session, project, user_id)
+        generation_profile = self._require_generation_profile(
+            explicit_profile=None,
+            project=project,
+        )
 
         previous_output = payload.previous_output if payload else None
         user_feedback = payload.user_feedback if payload else None
@@ -442,6 +538,7 @@ class PlanningEditorService(_EditorServiceBase):
             length_preset=project.length_preset,
             style_prompt=style_prompt,
             plot_prompt=plot_prompt,
+            generation_profile=generation_profile,
             regenerating=regenerating,
         )
         user_message = build_volume_generate_user_message(
@@ -498,11 +595,16 @@ class PlanningEditorService(_EditorServiceBase):
 
         style_prompt = await self._get_style_prompt(session, project, user_id)
         plot_prompt = await self._get_plot_prompt(session, project, user_id)
+        generation_profile = self._require_generation_profile(
+            explicit_profile=None,
+            project=project,
+        )
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_volume_chapters_system_prompt(
             style_prompt,
             plot_prompt,
+            generation_profile=generation_profile,
             regenerating=regenerating,
         )
         user_message = build_volume_chapters_user_message(
