@@ -24,9 +24,8 @@ from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.style_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
-    build_prompt_pack_prompt,
     build_report_prompt,
-    build_style_summary_prompt,
+    build_voice_profile_prompt,
 )
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
@@ -55,8 +54,7 @@ class StyleAnalysisState(TypedDict):
 
     merged_analysis_markdown: NotRequired[str]
     analysis_report_markdown: NotRequired[str]
-    style_summary_markdown: NotRequired[str]
-    prompt_pack_markdown: NotRequired[str]
+    voice_profile_markdown: NotRequired[str]
     analysis_meta: NotRequired[dict[str, Any]]
 
 
@@ -80,8 +78,7 @@ class ChunkMapState(TypedDict):
 class StyleAnalysisPipelineResult:
     analysis_meta: AnalysisMeta
     analysis_report_markdown: str
-    style_summary_markdown: str
-    prompt_pack_markdown: str
+    voice_profile_markdown: str
 
 
 # 阶段切换回调：流水线进入新阶段时触发，用于更新 DB 里的 job.stage
@@ -98,7 +95,7 @@ class StyleAnalysisPipeline:
 
     执行流程：
     prepare_input → [并行 N 个 analyze_chunk] → merge_chunks →
-    build_report → build_summary → build_prompt_pack → persist_result
+    build_report → build_voice_profile → persist_result
 
     特性：
     - 可并行的分块深度分析
@@ -187,8 +184,7 @@ class StyleAnalysisPipeline:
         return StyleAnalysisPipelineResult(
             analysis_meta=AnalysisMeta.model_validate(final_state["analysis_meta"]),
             analysis_report_markdown=str(final_state["analysis_report_markdown"]),
-            style_summary_markdown=str(final_state["style_summary_markdown"]),
-            prompt_pack_markdown=str(final_state["prompt_pack_markdown"]),
+            voice_profile_markdown=str(final_state["voice_profile_markdown"]),
         )
 
     def _build_graph(self):
@@ -199,8 +195,7 @@ class StyleAnalysisPipeline:
         builder.add_node("analyze_chunk", self._analyze_chunk)
         builder.add_node("merge_chunks", self._merge_chunks)
         builder.add_node("build_report", self._build_report)
-        builder.add_node("build_summary", self._build_summary)
-        builder.add_node("build_prompt_pack", self._build_prompt_pack)
+        builder.add_node("build_voice_profile", self._build_voice_profile)
         builder.add_node("persist_result", self._persist_result)
 
         builder.add_edge(START, "prepare_input")
@@ -210,9 +205,8 @@ class StyleAnalysisPipeline:
         )
         builder.add_edge("analyze_chunk", "merge_chunks")
         builder.add_edge("merge_chunks", "build_report")
-        builder.add_edge("build_report", "build_summary")
-        builder.add_edge("build_summary", "build_prompt_pack")
-        builder.add_edge("build_prompt_pack", "persist_result")
+        builder.add_edge("build_report", "build_voice_profile")
+        builder.add_edge("build_voice_profile", "persist_result")
         builder.add_edge("persist_result", END)
 
         return builder.compile(checkpointer=self.checkpointer)
@@ -420,82 +414,41 @@ class StyleAnalysisPipeline:
         )
         return {"analysis_report_markdown": report_markdown}
 
-    async def _build_summary(self, state: StyleAnalysisState) -> dict[str, Any]:
-        """Distill the style summary (精简的风格特征) from the report."""
+    async def _build_voice_profile(self, state: StyleAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()
         await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING)
         await self.storage_service.append_job_log(
             state["job_id"],
-            "[System] 正在提炼风格特征，生成摘要..."
+            "[System] 正在提炼 Voice Profile..."
         )
 
         if self.storage_service.stage_markdown_artifact_exists(
-            state["job_id"], name="style-summary"
+            state["job_id"], name="voice-profile"
         ):
             markdown = await self.storage_service.read_stage_markdown_artifact(
-                state["job_id"], name="style-summary"
+                state["job_id"], name="voice-profile"
             )
-            return {"style_summary_markdown": markdown}
+            return {"voice_profile_markdown": markdown}
 
-        summary_markdown = await self.llm_client.ainvoke_markdown(
+        voice_profile_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
-            prompt=build_style_summary_prompt(
+            prompt=build_voice_profile_prompt(
                 report_markdown=state["analysis_report_markdown"],
                 style_name=state["style_name"],
             ),
             provider=self.provider,
             model_name=self.model_name,
-            injection_task=PromptInjectionTask.STYLE_ANALYSIS_SUMMARY,
+            injection_task=PromptInjectionTask.STYLE_ANALYSIS_VOICE_PROFILE,
         )
 
-        stripped = summary_markdown.lstrip()
-        if not stripped.startswith("# 风格名称"):
-            expected_title = f"# {state['style_name']}"
-            if stripped.startswith(expected_title):
-                remainder = stripped[len(expected_title) :].lstrip("\n")
-                summary_markdown = f"# 风格名称\n{state['style_name']}\n\n{remainder}".rstrip()
-            else:
-                summary_markdown = (
-                    f"# 风格名称\n{state['style_name']}\n\n{summary_markdown}".rstrip()
-                )
+        stripped = voice_profile_markdown.lstrip()
+        if not stripped.startswith("# Voice Profile"):
+            voice_profile_markdown = f"# Voice Profile\n\n{voice_profile_markdown}".rstrip()
 
         await self.storage_service.write_stage_markdown_artifact(
-            state["job_id"], name="style-summary", markdown=summary_markdown
+            state["job_id"], name="voice-profile", markdown=voice_profile_markdown
         )
-        return {"style_summary_markdown": summary_markdown}
-
-    async def _build_prompt_pack(self, state: StyleAnalysisState) -> dict[str, Any]:
-        """Compose the final prompt pack combining report and summary."""
-        self._raise_if_paused()
-        await self._set_stage(STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING)
-        await self.storage_service.append_job_log(
-            state["job_id"],
-            "[System] 正在构建最终的母 Prompt 包..."
-        )
-
-        if self.storage_service.stage_markdown_artifact_exists(
-            state["job_id"], name="prompt-pack"
-        ):
-            markdown = await self.storage_service.read_stage_markdown_artifact(
-                state["job_id"], name="prompt-pack"
-            )
-            return {"prompt_pack_markdown": markdown}
-
-        prompt_pack_markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
-            prompt=build_prompt_pack_prompt(
-                report_markdown=state["analysis_report_markdown"],
-                style_summary_markdown=state["style_summary_markdown"],
-            ),
-            provider=self.provider,
-            model_name=self.model_name,
-            injection_task=PromptInjectionTask.STYLE_ANALYSIS_PROMPT_PACK,
-        )
-
-        await self.storage_service.write_stage_markdown_artifact(
-            state["job_id"], name="prompt-pack", markdown=prompt_pack_markdown
-        )
-        return {"prompt_pack_markdown": prompt_pack_markdown}
+        return {"voice_profile_markdown": voice_profile_markdown}
 
     async def _persist_result(self, state: StyleAnalysisState) -> dict[str, Any]:
         """Assemble analysis metadata; no external IO."""

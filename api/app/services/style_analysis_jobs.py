@@ -392,23 +392,7 @@ class StyleAnalysisJobService:
             not_ready_detail="分析任务尚未完成，暂无法读取分析报告",
         )
 
-    async def get_style_summary_or_409(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> str:
-        return await self._get_payload_or_409(
-            session,
-            job_id,
-            user_id=user_id,
-            payload_column=StyleAnalysisJob.style_summary_payload,
-            parser=str,
-            not_ready_detail="分析任务尚未完成，暂无法读取风格摘要",
-        )
-
-    async def get_prompt_pack_or_409(
+    async def get_voice_profile_or_409(
         self,
         session: AsyncSession,
         job_id: str,
@@ -421,7 +405,7 @@ class StyleAnalysisJobService:
             user_id=user_id,
             payload_column=StyleAnalysisJob.prompt_pack_payload,
             parser=str,
-            not_ready_detail="分析任务尚未完成，暂无法读取 Prompt 包",
+            not_ready_detail="分析任务尚未完成，暂无法读取 Voice Profile",
         )
 
     async def claim_job_for_worker(
@@ -478,14 +462,13 @@ class StyleAnalysisJobService:
         *,
         analysis_meta_payload: dict,
         analysis_report_payload: str,
-        style_summary_payload: str,
-        prompt_pack_payload: str,
+        voice_profile_payload: str,
     ) -> None:
         job = await self.get_or_404(session, job_id)
         job.analysis_meta_payload = analysis_meta_payload
         job.analysis_report_payload = analysis_report_payload
-        job.style_summary_payload = style_summary_payload
-        job.prompt_pack_payload = prompt_pack_payload
+        job.style_summary_payload = None
+        job.prompt_pack_payload = voice_profile_payload
         job.status = STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None
         job.error_message = None

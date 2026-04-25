@@ -365,12 +365,11 @@ class StyleAnalysisJobExecutor:
     ) -> None:
         async with session_factory() as session:
             await self.job_service.mark_job_succeeded(
-                session, 
-                job_id, 
+                session,
+                job_id,
                 analysis_meta_payload=result.analysis_meta.model_dump(mode="json"),
                 analysis_report_payload=result.analysis_report_markdown,
-                style_summary_payload=result.style_summary_markdown,
-                prompt_pack_payload=result.prompt_pack_markdown
+                voice_profile_payload=result.voice_profile_markdown,
             )
             await session.commit()
 
