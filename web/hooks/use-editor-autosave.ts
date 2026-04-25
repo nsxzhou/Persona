@@ -2,14 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type { ProjectChapter } from "@/lib/types";
+import { useEditorStore } from "@/components/editor/editor-store";
 
 type PendingSave = { chapterId: string; content: string };
 
 export function useEditorAutosave(
   projectId: string,
   chapterId: string | null,
-  currentContent: string,
-  savedContent: string,
   disabled: boolean,
   onSaved?: (chapter: ProjectChapter) => void,
 ) {
@@ -73,28 +72,27 @@ export function useEditorAutosave(
   );
 
   useEffect(() => {
-    if (disabled || !chapterId || currentContent === savedContent) {
-      return;
-    }
+    return useEditorStore.subscribe((state) => {
+      const currentContent = state.content;
+      const savedContent = state.savedChapterContent;
 
-    pendingRef.current = { chapterId, content: currentContent };
-    clearPendingTimer();
+      if (disabled || !chapterId || currentContent === savedContent) {
+        return;
+      }
 
-    saveTimeoutRef.current = setTimeout(() => {
-      saveTimeoutRef.current = null;
-      const pending = pendingRef.current;
-      pendingRef.current = null;
-      if (!pending) return;
-      void persistContent(pending.chapterId, pending.content, "自动保存失败").catch(() => {
-        // toast already raised in persistContent
-      });
-    }, 1000);
+      pendingRef.current = { chapterId, content: currentContent };
+      clearPendingTimer();
 
-    return clearPendingTimer;
-  }, [chapterId, currentContent, savedContent, disabled, clearPendingTimer, persistContent]);
+      saveTimeoutRef.current = setTimeout(() => {
+        saveTimeoutRef.current = null;
+        const pending = pendingRef.current;
+        pendingRef.current = null;
+        if (!pending) return;
+        void persistContent(pending.chapterId, pending.content, "自动保存失败").catch(() => {});
+      }, 1000);
+    });
+  }, [chapterId, disabled, clearPendingTimer, persistContent]);
 
-  // Flush pending save whenever the active chapter changes or the hook unmounts,
-  // so unsaved edits are not lost when switching chapters within the debounce window.
   useEffect(() => {
     return () => {
       const pending = pendingRef.current;

@@ -4,12 +4,11 @@ import { Project, ProjectBible } from "@/lib/types";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
 import { useStreamingText } from "@/hooks/use-streaming-text";
+import { useEditorStore } from "@/components/editor/editor-store";
 
 export function useBeatGeneration({
   project,
   projectBible,
-  content,
-  setContent,
   textareaRef,
   isGenerating,
   currentChapterContext,
@@ -20,8 +19,6 @@ export function useBeatGeneration({
 }: {
   project: Project;
   projectBible: ProjectBible;
-  content: string;
-  setContent: (val: string | ((prev: string) => string)) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   isGenerating: boolean;
   currentChapterContext?: string;
@@ -40,6 +37,7 @@ export function useBeatGeneration({
     if (isGeneratingBeats || disabled) return;
     setIsGeneratingBeats(true);
     try {
+      const content = useEditorStore.getState().content;
       const textarea = textareaRef.current;
       const textBeforeCursor = textarea
         ? content.substring(0, textarea.selectionStart)
@@ -67,6 +65,7 @@ export function useBeatGeneration({
   };
 
   const handleStartBeatExpand = async (options?: RegenerateOptions) => {
+    const content = useEditorStore.getState().content;
     if (beats.length === 0 || isExpandingBeat || isGenerating || disabled) return;
     if (!options && content.trim() && !window.confirm("当前章节已有正文，继续将替换本章正文。")) {
       return;
@@ -100,7 +99,7 @@ export function useBeatGeneration({
           response,
           onFlush: (fullText) => {
             const newContent = textBeforeCursor + beatsProse + fullText + textAfterCursor;
-            setContent(newContent);
+            useEditorStore.getState().setContent(newContent);
           },
         });
 

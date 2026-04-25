@@ -3,11 +3,10 @@ import { toast } from "sonner";
 import { Project } from "@/lib/types";
 import { api } from "@/lib/api";
 import { useStreamingText } from "@/hooks/use-streaming-text";
+import { useEditorStore } from "@/components/editor/editor-store";
 
 export function useEditorCompletion({
   project,
-  content,
-  setContent,
   textareaRef,
   onGeneratedContent,
   currentChapterContext = "",
@@ -16,8 +15,6 @@ export function useEditorCompletion({
   disabled = false,
 }: {
   project: Project;
-  content: string;
-  setContent: (val: string | ((prev: string) => string)) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   onGeneratedContent?: (generated: string) => Promise<void> | void;
   currentChapterContext?: string;
@@ -47,6 +44,7 @@ export function useEditorCompletion({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
+    const content = useEditorStore.getState().content;
     const cursorPosition = textarea.selectionStart;
     const textBeforeCursor = content.substring(0, cursorPosition);
     const textAfterCursor = content.substring(cursorPosition);
@@ -66,7 +64,7 @@ export function useEditorCompletion({
       const currentGenerated = await consumeResponse({
         response,
         onFlush: (fullText) => {
-          setContent(`${textBeforeCursor}${fullText}${textAfterCursor}`);
+          useEditorStore.getState().setContent(`${textBeforeCursor}${fullText}${textAfterCursor}`);
         },
       });
 
