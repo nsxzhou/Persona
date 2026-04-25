@@ -104,14 +104,7 @@ async def test_generate_concepts_keeps_profile_lookup_optional() -> None:
             inspiration="一个普通灵感。",
             provider_id="provider-1",
             count=1,
-            generation_profile=GenerationProfile(
-                genre_mother="urban",
-                desire_overlays=[],
-                intensity_level="edge",
-                pov_mode="limited_third",
-                morality_axis="gray_pragmatism",
-                pace_density="balanced",
-            ),
+            generation_profile=None,
         ),
     )
 
