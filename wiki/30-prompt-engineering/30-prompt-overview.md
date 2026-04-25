@@ -2,9 +2,9 @@
 
 ## 要解决什么问题
 
-仓库里同时存在两类 Prompt 资产：
+仓库里同时存在两类资产（Voice Profile 和 Story Engine）：
 
-- `prompts/` 下的 461 份 Markdown 语料：偏“创作素材库 / 提示词资产库”
+- `prompts/` 下的 461 份 Markdown 语料：偏“创作素材库 / Voice Profile 和 Story Engine库”
 - `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py`：偏“生产运行时 Prompt 模板”
 
 本章的目标不是逐文件导读，而是帮你建立两个判断：
@@ -32,16 +32,16 @@
 当前产品主链路真正调用的是两组代码内模板：
 
 - `api/app/prompts/editor.py`：Zen Editor / 概念 / 大纲 / 节拍 / Memory Sync
-- `api/app/prompts/style_analysis.py`：Style Lab 分析 / 聚合 / 报告 / 摘要 / Prompt Pack
-- `api/app/prompts/plot_analysis.py`：Plot Lab sketch / skeleton / 分析 / 摘要 / Plot Prompt Pack
+- `api/app/prompts/style_analysis.py`：Style Lab 分析 / 聚合 / 报告 / Voice Profile
+- `api/app/prompts/plot_analysis.py`：Plot Lab sketch / skeleton / 分析 / Story Engine
 
 例如：
 
 - 概念抽卡：`build_concept_generate_system_prompt()` / `build_concept_generate_user_message()`
 - Bible 更新：`build_bible_update_system_prompt()` / `build_bible_update_user_message()`
 - 节拍生成与逐拍展开：`build_beat_generate_system_prompt()` / `build_beat_expand_system_prompt()`
-- Style Lab 分块分析 / 聚合 / 报告 / 摘要 / Prompt Pack：`build_chunk_analysis_prompt()`、`build_merge_prompt()`、`build_report_prompt()`、`build_style_summary_prompt()`、`build_prompt_pack_prompt()`
-- Plot Lab sketch / skeleton / 报告 / 摘要 / Prompt Pack：`build_sketch_prompt()`、`build_skeleton_reduce_prompt()`、`build_report_prompt()`、`build_plot_summary_prompt()`、`build_prompt_pack_prompt()`
+- Style Lab 分块分析 / 聚合 / 报告 / Voice Profile：`build_chunk_analysis_prompt()`、`build_merge_prompt()`、`build_report_prompt()`、`build_style_summary_prompt()`、`build_prompt_pack_prompt()`
+- Plot Lab sketch / skeleton / 报告 / Story Engine：`build_sketch_prompt()`、`build_skeleton_reduce_prompt()`、`build_report_prompt()`、`build_plot_summary_prompt()`、`build_prompt_pack_prompt()`
 
 所以做开发时要先分清：
 
@@ -123,8 +123,8 @@
 | --- | --- |
 | `prompts/*.md` | 通用创作 Prompt 语料库 |
 | `api/app/prompts/editor.py` | Zen Editor / 概念 / 大纲 / 节拍 / Memory Sync 生产 Prompt |
-| `api/app/prompts/style_analysis.py` | Style Lab 分析、聚合、摘要、Prompt Pack 生产 Prompt |
-| `api/app/prompts/plot_analysis.py` | Plot Lab sketch、骨架、聚合、摘要、Plot Prompt Pack 生产 Prompt |
+| `api/app/prompts/style_analysis.py` | Style Lab 分析、聚合、Voice Profile 生产 Prompt |
+| `api/app/prompts/plot_analysis.py` | Plot Lab sketch、骨架、聚合、Story Engine 生产 Prompt |
 | `api/app/services/editor_prompts.py`、`api/app/services/style_analysis_prompts.py`、`api/app/services/plot_analysis_prompts.py` | 兼容导出层，给 runtime service 保持稳定 import 路径 |
 | `api/app/schemas/editor.py` | Editor 请求 / 响应契约 |
 | `api/app/schemas/style_analysis_jobs.py` | Style Lab 产物 RootModel 与状态常量 |
@@ -133,7 +133,7 @@
 ### 扩展建议
 
 - 新增线上功能 Prompt 时，优先加到 `api/app/prompts/` 下对应模块
-- 只有当 Prompt 资产不直接绑定某个在线接口、而是想沉淀成素材库时，才考虑放进 `prompts/`
+- 只有当 Voice Profile 和 Story Engine不直接绑定某个在线接口、而是想沉淀成素材库时，才考虑放进 `prompts/`
 - 修改线上 Prompt 时，一定同步检查对应 Schema 和测试，不要只改文案
 
 ## 常见坑 / 调试指南
