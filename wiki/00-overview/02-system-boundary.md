@@ -112,7 +112,7 @@
 - 大纲总纲 / 分卷 / 分章 / 节拍
 - 节拍驱动的结对写作
 - 概念抽卡（项目启动期的灵感卡片）
-- Style Lab：单 TXT 深度分析 → 报告 / 摘要 / Prompt Pack → 档案 → 项目挂载
+- Style Lab：单 TXT 深度分析 → 报告 / Voice Profile → 档案 → 项目挂载
 - 章节 → 活态层记忆同步
 - Provider 配置与 BYOK
 - 一次性 setup 与 HttpOnly Session 登录

@@ -27,8 +27,8 @@ flowchart LR
     end
     Sample[长篇 TXT 样本] --> SL
     PlotSample[长篇 TXT 样本] --> PL
-    SL --Prompt Pack--> SP[Style Profile<br/>风格档案]
-    PL --Prompt Pack / Skeleton--> PP[Plot Profile<br/>情节档案]
+    SL --Voice Profile--> SP[Style Profile<br/>风格档案]
+    PL --Story Engine / Skeleton--> PP[Plot Profile<br/>情节档案]
     SP --挂载--> Project[项目]
     PP --挂载--> Project
     Project --> ZE
@@ -47,7 +47,7 @@ flowchart LR
 
 #### Plot Lab — 情节实验室
 
-把长篇小说样本（单个 TXT）拆成**可复用的情节资产**：全书骨架、分析报告、情节摘要、Plot Prompt Pack，并最终保存为可挂载到项目上的 Plot Profile。与 Style Lab 回答“怎么写”不同，Plot Lab 回答的是“讲什么、怎么推进、怎么兑现爽点”。
+把长篇小说样本（单个 TXT）拆成**可复用的情节资产**：全书骨架、分析报告、Story Engine，并最终保存为可挂载到项目上的 Plot Profile。与 Style Lab 回答“怎么写”不同，Plot Lab 回答的是“讲什么、怎么推进、怎么兑现爽点”。
 
 它同样走后台 Worker + LangGraph 流水线，但在前面多了一段 `sketch → skeleton` 的全书骨架归约，用来给后续情节分析提供全局视角。当前默认开发入口 `api/app/worker.py` 已并发接入 Style 与 Plot 两条任务通道。详见 [28 Plot Lab](../20-domains/28-plot-lab.md) 与 [29 Plot Analysis 管道](../20-domains/29-plot-analysis-pipeline.md)。
 
@@ -60,7 +60,7 @@ flowchart LR
 - **大纲面板**：总纲 / 分卷 / 分章 / 节拍四级结构
 - **节拍驱动（Beat-Driven Co-Creation）**：先生成本章 5–10 条节拍，人类确认后再逐段生成正文
 - **蓝图/活态双层架构**：五个蓝图字段 + 两个运行时字段统一落在 `project_bibles`；蓝图层由作者手动维护，AI 只提议更新活态层，差异通过 Diff Dialog 人肉确认
-- **双档案挂载**：项目既可挂载 Style Profile，也可挂载 Plot Profile；前者提供文风约束，后者提供情节骨架与 Plot Prompt 资产，用于生成总纲、细纲等前置创作材料
+- **双档案挂载**：项目既可挂载 Style Profile，也可挂载 Plot Profile；前者提供文风约束，后者提供情节骨架与 Story Engine，用于生成总纲、细纲等前置创作材料
 
 详见 [22 Zen Editor](../20-domains/22-zen-editor.md)。
 
@@ -98,7 +98,7 @@ sequenceDiagram
         API->>DB: style_sample_files + style_analysis_jobs
         API->>Worker: claim Style 任务
         Worker->>LLM: Style LangGraph 多阶段调用
-        LLM-->>Worker: 报告 / 摘要 / Prompt Pack
+        LLM-->>Worker: 报告 / Voice Profile
         Worker->>DB: 回写 style_profiles
         用户->>Web: 查看报告 → 保存风格档案 → 挂载项目
     and 情节资产
@@ -107,7 +107,7 @@ sequenceDiagram
         API->>DB: plot_sample_files + plot_analysis_jobs
         API->>Worker: claim Plot 任务
         Worker->>LLM: Plot LangGraph 多阶段调用
-        LLM-->>Worker: 骨架 / 报告 / 摘要 / Prompt Pack
+        LLM-->>Worker: 骨架 / 报告 / Story Engine
         Worker->>DB: 回写 plot_profiles
         用户->>Web: 查看骨架与报告 → 保存情节档案 → 挂载项目
     end
@@ -135,8 +135,8 @@ sequenceDiagram
 截至当前版本（详见 [03 MVP 现状与 Roadmap](./03-mvp-status-and-roadmap.md)）：
 
 - ✅ 单用户鉴权、Provider 配置、项目 CRUD —— **已完成**
-- ✅ Style Lab 单 TXT 深度分析闭环（上传 → 分析 → 报告 → 摘要 → Prompt Pack → 档案 → 挂载）—— **已完成：深度分析闭环**
-- ✅ Plot Lab 单 TXT 情节分析闭环（上传 → 骨架 → 报告 → 摘要 → Prompt Pack → 档案 → 挂载）—— **已完成**
+- ✅ Style Lab 单 TXT 深度分析闭环（上传 → 分析 → 报告 → Voice Profile → 档案 → 挂载）—— **已完成：深度分析闭环**
+- ✅ Plot Lab 单 TXT 情节分析闭环（上传 → 骨架 → 报告 → Story Engine → 档案 → 挂载）—— **已完成**
 - ✅ Zen Editor 极简编辑器、AI 续写、节拍驱动、蓝图/活态双层架构、Diff 确认 —— **已完成**
 - ✅ 概念抽卡（Concept Gacha）—— **已完成**
 - ✅ 章节记忆同步（chapter → bible 活态层）—— **已完成**

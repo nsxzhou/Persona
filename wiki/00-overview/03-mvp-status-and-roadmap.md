@@ -14,7 +14,7 @@
 | --- | --- |
 | ✅ **已完成** | 功能完整落地，主路径跑通并有测试覆盖 |
 | 🔁 **已完成：MVP 闭环** | 最小可用纵切已打通，但距离长期规划仍有明显差距 |
-| 🧪 **已完成：深度分析闭环** | Style Lab 专项——已具备分阶段分析、结构化报告、风格摘要与 Prompt 包，但未进入完整创作系统阶段 |
+| 🧪 **已完成：深度分析闭环** | Style Lab 专项——已具备分阶段分析、结构化报告、Voice Profile，但未进入完整创作系统阶段 |
 | 🏗️ **已完成：占位** | 信息架构或页面入口已落地，但核心业务流程尚未实现 |
 | ⏳ **未开始** | 代码里没有任何实质性痕迹 |
 
@@ -109,8 +109,7 @@
 | 阶段反馈 + 实时增量日志拉取 | 🧪 | 前端 `/style-lab` 任务列表展示 |
 | 手动暂停 / 恢复任务 | 🧪 | |
 | 完整分析报告只读审阅 | 🧪 | `style-lab-wizard-report-step.tsx` |
-| 风格摘要可编辑 | 🧪 | `style-lab-wizard-summary-step.tsx` |
-| 风格母 Prompt 包可编辑 | 🧪 | `style-lab-wizard-prompt-pack-step.tsx` |
+| Voice Profile可编辑 | 🧪 | `style-lab-wizard-summary-step.tsx` |
 | 保存风格档案 + 覆盖更新 | 🧪 | `api/app/services/style_profiles.py` |
 | 项目挂载风格档案 | 🧪 | |
 | **多 TXT 合并分析** | ⏳ | 数据模型已留 1:N，但实际走的是 1:1 |
