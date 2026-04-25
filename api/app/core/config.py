@@ -110,6 +110,35 @@ class Settings(BaseSettings):
         default=3, alias="PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS"
     )
 
+    plot_analysis_boundary_model: str | None = Field(
+        default=None, alias="PERSONA_PLOT_ANALYSIS_BOUNDARY_MODEL"
+    )
+
+    plot_analysis_chunk_target_chars: int = Field(
+        default=12_000,
+        ge=1_000,
+        alias="PERSONA_PLOT_ANALYSIS_CHUNK_TARGET_CHARS",
+    )
+
+    plot_analysis_chunk_min_chars: int = Field(
+        default=4_000,
+        ge=100,
+        alias="PERSONA_PLOT_ANALYSIS_CHUNK_MIN_CHARS",
+    )
+
+    plot_analysis_chunk_max_chars: int = Field(
+        default=15_000,
+        ge=1_000,
+        alias="PERSONA_PLOT_ANALYSIS_CHUNK_MAX_CHARS",
+    )
+
+    plot_analysis_chunk_overlap_ratio: float = Field(
+        default=0.10,
+        ge=0.0,
+        le=0.5,
+        alias="PERSONA_PLOT_ANALYSIS_CHUNK_OVERLAP_RATIO",
+    )
+
     # Style Lab LangGraph checkpoint 连接串，可覆盖数据库推导逻辑
     style_analysis_checkpoint_url: str | None = Field(
         default=None, alias="PERSONA_STYLE_ANALYSIS_CHECKPOINT_URL"
@@ -132,6 +161,10 @@ class Settings(BaseSettings):
                 "缺少加密密钥：请设置环境变量 PERSONA_ENCRYPTION_KEY（或在 .env 中设置）。"
                 "开发环境可先设置为任意随机字符串（建议长度≥32）；生产环境必须使用强随机值。"
             )
+        if self.plot_analysis_chunk_min_chars >= self.plot_analysis_chunk_target_chars:
+            raise ValueError("PERSONA_PLOT_ANALYSIS_CHUNK_MIN_CHARS 必须小于 target")
+        if self.plot_analysis_chunk_target_chars >= self.plot_analysis_chunk_max_chars:
+            raise ValueError("PERSONA_PLOT_ANALYSIS_CHUNK_TARGET_CHARS 必须小于 max")
         return self
 
 
