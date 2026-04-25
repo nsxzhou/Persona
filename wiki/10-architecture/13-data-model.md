@@ -326,8 +326,8 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `error_message` | Text | nullable | 失败原因 |
 | `analysis_meta_payload` | **JSON** | nullable | 分析元数据（分块数、字符数、分类等） |
 | `analysis_report_payload` | Text | nullable | 分析报告 Markdown |
-| `style_summary_payload` | Text | nullable | 风格摘要 Markdown |
-| `prompt_pack_payload` | Text | nullable | Prompt Pack Markdown |
+| `style_summary_payload` | Text | nullable | Voice Profile Markdown |
+| `prompt_pack_payload` | Text | nullable | Voice Profile Markdown |
 | `locked_by` | String(64) | nullable | 当前持有者 Worker ID |
 | `locked_at` | DateTime(tz) | nullable | 锁获取时间 |
 | `last_heartbeat_at` | DateTime(tz) | nullable | 最近心跳 |
@@ -360,7 +360,7 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `style_name` | String(120) | not null | 用户命名 |
 | `analysis_report_payload` | Text | not null | 分析报告（快照） |
 | `style_summary_payload` | Text | not null | 摘要（可编辑） |
-| `prompt_pack_payload` | Text | not null | Prompt Pack（可编辑） |
+| `prompt_pack_payload` | Text | not null | Voice Profile（可编辑） |
 
 挂载后，`Project.style_profile_id` 指向它；Editor 续写时自动注入 `prompt_pack_payload`。
 
@@ -396,8 +396,8 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `error_message` | Text | nullable | 失败原因 |
 | `analysis_meta_payload` | **JSON** | nullable | 分析元数据（分块数、字符数、分类等） |
 | `analysis_report_payload` | Text | nullable | 情节分析报告 Markdown |
-| `plot_summary_payload` | Text | nullable | 剧情摘要 Markdown |
-| `prompt_pack_payload` | Text | nullable | Plot Prompt Pack Markdown |
+| `plot_summary_payload` | Text | nullable | Story Engine Markdown |
+| `prompt_pack_payload` | Text | nullable | Story Engine Markdown |
 | `plot_skeleton_payload` | Text | nullable | 全书骨架 Markdown |
 | `locked_by` | String(64) | nullable | 当前持有者 Worker ID |
 | `locked_at` | DateTime(tz) | nullable | 锁获取时间 |
@@ -428,11 +428,11 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `source_filename` | String(255) | not null | 样本文件名（快照） |
 | `plot_name` | String(120) | not null | 用户命名 |
 | `analysis_report_payload` | Text | not null | 情节分析报告（快照） |
-| `plot_summary_payload` | Text | not null | 剧情摘要（可编辑） |
-| `prompt_pack_payload` | Text | not null | Plot Prompt Pack（可编辑） |
+| `plot_summary_payload` | Text | not null | Story Engine（可编辑） |
+| `prompt_pack_payload` | Text | not null | Story Engine（可编辑） |
 | `plot_skeleton_payload` | Text | nullable | 全书骨架（可编辑或留空） |
 
-挂载后，`Project.plot_profile_id` 指向它；规划和写作链路都会把其中的情节 Prompt Pack 作为约束输入。
+挂载后，`Project.plot_profile_id` 指向它；规划和写作链路都会把其中的 Story Engine 作为约束输入。
 
 ### 横切约束：`user_id` scope
 
