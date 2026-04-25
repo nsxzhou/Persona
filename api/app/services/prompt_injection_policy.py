@@ -18,16 +18,14 @@ class PromptInjectionTask(StrEnum):
     STYLE_ANALYSIS_CHUNK = "style_analysis.chunk"
     STYLE_ANALYSIS_MERGE = "style_analysis.merge"
     STYLE_ANALYSIS_REPORT = "style_analysis.report"
-    STYLE_ANALYSIS_SUMMARY = "style_analysis.summary"
-    STYLE_ANALYSIS_PROMPT_PACK = "style_analysis.prompt_pack"
+    STYLE_ANALYSIS_VOICE_PROFILE = "style_analysis.voice_profile"
     PLOT_ANALYSIS_SKETCH = "plot_analysis.sketch"
     PLOT_ANALYSIS_SKELETON = "plot_analysis.skeleton"
     PLOT_ANALYSIS_SKELETON_GROUP = "plot_analysis.skeleton_group"
     PLOT_ANALYSIS_CHUNK = "plot_analysis.chunk"
     PLOT_ANALYSIS_MERGE = "plot_analysis.merge"
     PLOT_ANALYSIS_REPORT = "plot_analysis.report"
-    PLOT_ANALYSIS_SUMMARY = "plot_analysis.summary"
-    PLOT_ANALYSIS_PROMPT_PACK = "plot_analysis.prompt_pack"
+    PLOT_ANALYSIS_STORY_ENGINE = "plot_analysis.story_engine"
 
 
 _TASK_TO_MODE: dict[PromptInjectionTask, PromptInjectionMode] = {
@@ -43,16 +41,14 @@ _TASK_TO_MODE: dict[PromptInjectionTask, PromptInjectionMode] = {
     PromptInjectionTask.STYLE_ANALYSIS_CHUNK: "analysis",
     PromptInjectionTask.STYLE_ANALYSIS_MERGE: "analysis",
     PromptInjectionTask.STYLE_ANALYSIS_REPORT: "analysis",
-    PromptInjectionTask.STYLE_ANALYSIS_SUMMARY: "analysis",
-    PromptInjectionTask.STYLE_ANALYSIS_PROMPT_PACK: "analysis",
+    PromptInjectionTask.STYLE_ANALYSIS_VOICE_PROFILE: "analysis",
     PromptInjectionTask.PLOT_ANALYSIS_SKETCH: "none",
     PromptInjectionTask.PLOT_ANALYSIS_SKELETON: "analysis",
     PromptInjectionTask.PLOT_ANALYSIS_SKELETON_GROUP: "analysis",
     PromptInjectionTask.PLOT_ANALYSIS_CHUNK: "analysis",
     PromptInjectionTask.PLOT_ANALYSIS_MERGE: "analysis",
     PromptInjectionTask.PLOT_ANALYSIS_REPORT: "analysis",
-    PromptInjectionTask.PLOT_ANALYSIS_SUMMARY: "analysis",
-    PromptInjectionTask.PLOT_ANALYSIS_PROMPT_PACK: "analysis",
+    PromptInjectionTask.PLOT_ANALYSIS_STORY_ENGINE: "analysis",
 }
 
 
