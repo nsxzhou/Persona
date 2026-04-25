@@ -5,6 +5,7 @@ import { createJsonRequester } from "@/lib/api/transport";
 import type {
   BeatGenerateResponse,
   BibleUpdateResponse,
+  ConceptGeneratePayload,
   PlotProfile,
   SetupResponse,
   SetupStatusResponse,
@@ -53,24 +54,20 @@ describe("API contracts", () => {
     const styleProfileCreatePromise: Promise<StyleProfile> = client.createStyleProfile({
       job_id: "style-job-1",
       style_name: "冷白风",
-      style_summary_markdown: "# 风格摘要",
-      prompt_pack_markdown: "# Prompt Pack",
+      voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 短句推进\n",
     });
     const styleProfileUpdatePromise: Promise<StyleProfile> = client.updateStyleProfile("style-profile-1", {
       style_name: "冷白风终版",
-      style_summary_markdown: "# 风格摘要2",
-      prompt_pack_markdown: "# Prompt Pack2",
+      voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 更碎的短句推进\n",
     });
     const plotProfileCreatePromise: Promise<PlotProfile> = client.createPlotProfile({
       job_id: "plot-job-1",
       plot_name: "反派修罗场",
-      plot_summary_markdown: "# 剧情摘要",
-      prompt_pack_markdown: "# Plot Prompt",
+      story_engine_markdown: "# Story Engine Profile\n## genre_mother\n- xianxia\n",
     });
     const plotProfileUpdatePromise: Promise<PlotProfile> = client.updatePlotProfile("plot-profile-1", {
       plot_name: "反派修罗场终版",
-      plot_summary_markdown: "# 剧情摘要2",
-      prompt_pack_markdown: "# Plot Prompt2",
+      story_engine_markdown: "# Story Engine Profile\n## genre_mother\n- urban\n",
     });
 
     const payload: StyleAnalysisJobCreatePayload = {
@@ -93,6 +90,41 @@ describe("API contracts", () => {
       plotProfileUpdatePromise,
     ]);
     expect(request).toHaveBeenCalled();
+  });
+
+  test("concept generation payload accepts selected profile ids", async () => {
+    const request = vi.fn(async <T,>(_path: string) => ({ concepts: [] }) as T) as unknown as {
+      <T>(path: string, init?: RequestInit): Promise<T>;
+      raw: (path: string, init?: RequestInit) => Promise<Response>;
+    };
+    request.raw = vi.fn(async () => new Response(null, { status: 204 }));
+    const client = createApiClient(request);
+    const payload: ConceptGeneratePayload = {
+      inspiration: "一个被迫冒名顶替入局的寒门书生。",
+      provider_id: "provider-1",
+      model: null,
+      count: 3,
+      generation_profile: {
+        genre_mother: "xianxia",
+        desire_overlays: ["harem_collect"],
+        intensity_level: "explicit",
+        pov_mode: "limited_third",
+        morality_axis: "ruthless_growth",
+        pace_density: "fast",
+      },
+      style_profile_id: "style-1",
+      plot_profile_id: "plot-1",
+    };
+
+    await client.generateConcepts(payload);
+
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/projects/generate-concepts",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    );
   });
 
   test("proposeBibleUpdate sends content_to_check and sync_scope", async () => {

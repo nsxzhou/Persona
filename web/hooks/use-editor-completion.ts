@@ -38,6 +38,10 @@ export function useEditorCompletion({
       toast.error("项目未挂载风格档案，无法进行续写。请先在项目设置中选择风格档案。");
       return;
     }
+    if (!project.generation_profile?.genre_mother || !project.generation_profile?.intensity_level) {
+      toast.error("项目未配置 generation profile，无法进行正式生成。请先在项目设置中完成题材与强度设置。");
+      return;
+    }
     if (isGenerating || disabled) return;
 
     const textarea = textareaRef.current;
@@ -56,6 +60,7 @@ export function useEditorCompletion({
         currentChapterContext,
         previousChapterContext,
         totalContentLength,
+        project.generation_profile,
       );
 
       const currentGenerated = await consumeResponse({

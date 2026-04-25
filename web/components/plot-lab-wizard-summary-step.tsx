@@ -14,7 +14,7 @@ import type { FormValues } from "@/lib/validations/plot-lab";
 export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummaryStep({
   job,
   existingProfile,
-  summaryMarkdown,
+  storyEngineMarkdown,
   isLoading,
   isError,
   errorMessage,
@@ -24,7 +24,7 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
 }: {
   job: PlotAnalysisJob;
   existingProfile: PlotProfile | null;
-  summaryMarkdown: string | null;
+  storyEngineMarkdown: string | null;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
@@ -36,8 +36,8 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
         <CardHeader>
-          <CardTitle>剧情摘要编辑</CardTitle>
-          <CardDescription>直接编辑 Markdown 剧情摘要，这部分将作为生成 Prompt 的核心基础。</CardDescription>
+          <CardTitle>Story Engine Profile 编辑</CardTitle>
+          <CardDescription>直接编辑 Story Engine Profile，定义这类书靠什么推进追读。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
@@ -50,9 +50,9 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
               </div>
               <MarkdownEditorField<FormValues>
                 control={form.control}
-                name="plotSummaryMarkdown"
-                id="plot-summary-markdown"
-                label="剧情摘要 Markdown"
+                name="storyEngineMarkdown"
+                id="story-engine-markdown"
+                label="Story Engine Markdown"
                 minHeight={360}
               />
             </>
@@ -63,7 +63,7 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
             <Button variant="outline" onClick={onBack}>
               上一步
             </Button>
-            <Button onClick={onNext}>确认摘要，下一步</Button>
+            <Button onClick={onNext}>确认 Story Engine</Button>
           </div>
         </CardContent>
       </Card>

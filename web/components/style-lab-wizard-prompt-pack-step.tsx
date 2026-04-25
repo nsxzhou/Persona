@@ -17,7 +17,7 @@ const NONE_VALUE = "__none__";
 export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPromptPackStep({
   job,
   existingProfile,
-  promptPackMarkdown,
+  voiceProfileMarkdown,
   isLoading,
   isError,
   errorMessage,
@@ -31,7 +31,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
 }: {
   job: StyleAnalysisJob;
   existingProfile: StyleProfile | null;
-  promptPackMarkdown: string | null;
+  voiceProfileMarkdown: string | null;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
@@ -45,7 +45,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
 }) {
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const { field } = useController({
-    name: "promptPackMarkdown",
+    name: "voiceProfileMarkdown",
     control: form.control,
   });
 
@@ -68,14 +68,14 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
 
   React.useEffect(() => {
     handleInput();
-  }, [promptPackMarkdown, handleInput]);
+  }, [voiceProfileMarkdown, handleInput]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
         <CardHeader>
-          <CardTitle>母 Prompt 包配置</CardTitle>
-          <CardDescription>最后一步，直接编辑 Markdown 风格母 Prompt 包。</CardDescription>
+          <CardTitle>Voice Profile 配置</CardTitle>
+          <CardDescription>最后一步，直接编辑 Markdown Voice Profile。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
@@ -83,10 +83,10 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
           {job.status === "succeeded" ? (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
+                <Label htmlFor="voice-profile-markdown">Voice Profile Markdown</Label>
                 <ScrollArea className="h-[420px] w-full rounded-md border border-input bg-background" type="auto">
                   <Textarea
-                      id="prompt-pack-markdown"
+                      id="voice-profile-markdown"
                       className="min-h-[480px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
                       {...field}
                       value={field.value ?? ""}
@@ -125,7 +125,7 @@ export const StyleLabWizardPromptPackStep = React.memo(function StyleLabWizardPr
               ) : null}
             </>
           ) : (
-            <p>Prompt 数据尚未准备好。</p>
+            <p>Voice Profile 数据尚未准备好。</p>
           )}
           <div className="flex justify-between pt-4">
             <Button variant="outline" onClick={onBack}>

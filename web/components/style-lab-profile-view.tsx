@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 import { type UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,15 +34,13 @@ export function StyleLabProfileView({
 }) {
   const [activeTab, setActiveTab] = React.useState("summary");
   const styleNameField = form.register("styleName");
-  const styleSummaryField = form.register("styleSummaryMarkdown");
-  const promptPackField = form.register("promptPackMarkdown");
+  const voiceProfileField = form.register("voiceProfileMarkdown");
 
   React.useEffect(() => {
     if (isEditing) {
       form.reset({
         styleName: profile.style_name,
-        styleSummaryMarkdown: profile.style_summary_markdown,
-        promptPackMarkdown: profile.prompt_pack_markdown,
+        voiceProfileMarkdown: profile.voice_profile_markdown,
       });
     }
   }, [isEditing, profile, form]);
@@ -116,13 +113,7 @@ export function StyleLabProfileView({
                 value="summary" 
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground"
               >
-                风格摘要
-              </TabsTrigger>
-              <TabsTrigger 
-                value="prompt" 
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground"
-              >
-                提示词资产
+                Voice Profile
               </TabsTrigger>
               <TabsTrigger 
                 value="report" 
@@ -142,14 +133,14 @@ export function StyleLabProfileView({
                     <Input id="style-name" {...styleNameField} />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="style-summary-markdown">风格摘要 Markdown</Label>
+                    <Label htmlFor="voice-profile-markdown">Voice Profile Markdown</Label>
                     <Textarea
-                      id="style-summary-markdown"
-                      aria-label="风格摘要 Markdown"
+                      id="voice-profile-markdown"
+                      aria-label="Voice Profile Markdown"
                       className="min-h-[300px] font-mono text-sm leading-relaxed"
-                      {...styleSummaryField}
+                      {...voiceProfileField}
                       onChange={(e) => {
-                        styleSummaryField.onChange(e);
+                        voiceProfileField.onChange(e);
                         adjustHeight(e);
                       }}
                     />
@@ -157,43 +148,7 @@ export function StyleLabProfileView({
                 </div>
               ) : (
                 <div className="whitespace-pre-wrap leading-loose text-lg text-foreground/90 font-[family:var(--font-prose)] text-justify max-w-3xl mx-auto">
-                  {profile.style_summary_markdown || "暂无摘要"}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="prompt" className="focus-visible:outline-none max-w-3xl mx-auto">
-              {isEditing ? (
-                <div className="space-y-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
-                    <Textarea
-                      id="prompt-pack-markdown"
-                      aria-label="Prompt Pack Markdown"
-                      className="min-h-[400px] font-mono text-sm leading-relaxed bg-muted/30"
-                      {...promptPackField}
-                      onChange={(e) => {
-                        promptPackField.onChange(e);
-                        adjustHeight(e);
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-muted/30 p-8 rounded-xl font-mono text-sm leading-relaxed text-foreground shadow-sm relative group border border-border/50">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="absolute top-4 right-4 h-8 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-background"
-                    onClick={() => {
-                      navigator.clipboard.writeText(profile.prompt_pack_markdown || "");
-                      toast.success("已复制提示词");
-                    }}
-                  >
-                    <Copy className="w-3 h-3 mr-2" /> COPY
-                  </Button>
-                  <span className="text-muted-foreground block mb-6 select-none border-b border-border/50 pb-2">/* System Prompt */</span>
-                  <div className="whitespace-pre-wrap">{profile.prompt_pack_markdown || "暂无提示词"}</div>
+                  {profile.voice_profile_markdown || "暂无 Voice Profile"}
                 </div>
               )}
             </TabsContent>

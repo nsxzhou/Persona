@@ -58,12 +58,24 @@ test("project form lets user select a style profile and submit it", async () => 
   fireEvent.click(await screen.findByRole("option", { name: "午夜霓虹档案" }));
   fireEvent.click(screen.getByRole("combobox", { name: "情节档案" }));
   fireEvent.click(await screen.findByRole("option", { name: "反派修罗场模板" }));
+  fireEvent.click(screen.getByRole("combobox", { name: "题材母类" }));
+  fireEvent.click(await screen.findByRole("option", { name: "xianxia" }));
+  fireEvent.change(screen.getByLabelText("Overlay（逗号分隔）"), {
+    target: { value: "harem_collect" },
+  });
+  fireEvent.click(screen.getByRole("combobox", { name: "强度档位" }));
+  fireEvent.click(await screen.findByRole("option", { name: "explicit" }));
   fireEvent.click(screen.getByRole("button", { name: "保存项目" }));
 
   await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
     name: "新项目",
     style_profile_id: "profile-1",
     plot_profile_id: "plot-1",
+    generation_profile: expect.objectContaining({
+      genre_mother: "xianxia",
+      desire_overlays: ["harem_collect"],
+      intensity_level: "explicit",
+    }),
   })));
 });
 

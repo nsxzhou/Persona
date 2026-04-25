@@ -27,15 +27,16 @@ export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse"> & ChapterMe
 
 export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
 export type AnalysisReportMarkdown = OpenApiSchema<"AnalysisReportMarkdown">;
-export type StyleSummaryMarkdown = OpenApiSchema<"StyleSummaryMarkdown">;
-export type PromptPackMarkdown = OpenApiSchema<"PromptPackMarkdown">;
+export type VoiceProfile = OpenApiSchema<"VoiceProfile">;
+export type VoiceProfileMarkdown = OpenApiSchema<"VoiceProfileMarkdown">;
 export type StyleAnalysisJobLogs = OpenApiSchema<"StyleAnalysisJobLogsResponse">;
 export type PlotAnalysisMeta = OpenApiSchema<"PlotAnalysisMeta">;
 export type PlotAnalysisReportMarkdown = OpenApiSchema<"PlotAnalysisReportMarkdown">;
-export type PlotSummaryMarkdown = OpenApiSchema<"PlotSummaryMarkdown">;
+export type StoryEngineProfile = OpenApiSchema<"StoryEngineProfile">;
+export type StoryEngineMarkdown = OpenApiSchema<"StoryEngineMarkdown">;
 export type PlotSkeletonMarkdown = OpenApiSchema<"PlotSkeletonMarkdown">;
-export type PlotPromptPackMarkdown = OpenApiSchema<"PlotPromptPackMarkdown">;
 export type PlotAnalysisJobLogs = OpenApiSchema<"PlotAnalysisJobLogsResponse">;
+export type GenerationProfile = OpenApiSchema<"GenerationProfile">;
 
 export type StyleAnalysisJob = OpenApiSchema<"StyleAnalysisJobResponse">;
 export type StyleAnalysisJobListItem = OpenApiSchema<"StyleAnalysisJobBaseResponse">;

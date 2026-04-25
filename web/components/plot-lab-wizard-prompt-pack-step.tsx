@@ -16,7 +16,7 @@ const NONE_VALUE = "__none__";
 export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardPromptPackStep({
   job,
   existingProfile,
-  promptPackMarkdown,
+  storyEngineMarkdown,
   isLoading,
   isError,
   errorMessage,
@@ -30,7 +30,7 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
 }: {
   job: PlotAnalysisJob;
   existingProfile: PlotProfile | null;
-  promptPackMarkdown: string | null;
+  storyEngineMarkdown: string | null;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
@@ -46,8 +46,8 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
         <CardHeader>
-          <CardTitle>Plot Prompt 包配置</CardTitle>
-          <CardDescription>最后一步，直接编辑 Markdown Plot Prompt 包。</CardDescription>
+          <CardTitle>Story Engine 配置</CardTitle>
+          <CardDescription>最后一步，直接编辑 Story Engine Profile 并保存。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
@@ -56,10 +56,10 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
             <>
               <MarkdownEditorField<FormValues>
                 control={form.control}
-                name="promptPackMarkdown"
-                id="prompt-pack-markdown"
-                label="Prompt Pack Markdown"
-                ariaLabel="Prompt Pack Markdown"
+                name="storyEngineMarkdown"
+                id="story-engine-markdown"
+                label="Story Engine Markdown"
+                ariaLabel="Story Engine Markdown"
                 minHeight={420}
               />
 
@@ -89,7 +89,7 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
               ) : null}
             </>
           ) : (
-            <p>Prompt 数据尚未准备好。</p>
+            <p>Story Engine 数据尚未准备好。</p>
           )}
           <div className="flex justify-between pt-4">
             <Button variant="outline" onClick={onBack}>

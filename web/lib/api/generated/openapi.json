@@ -1834,13 +1834,13 @@
         }
       }
     },
-    "/api/v1/style-analysis-jobs/{job_id}/style-summary": {
+    "/api/v1/style-analysis-jobs/{job_id}/voice-profile": {
       "get": {
         "tags": [
           "style-analysis-jobs"
         ],
-        "summary": "Get Style Analysis Job Style Summary",
-        "operationId": "get_style_analysis_job_style_summary_api_v1_style_analysis_jobs__job_id__style_summary_get",
+        "summary": "Get Style Analysis Job Voice Profile",
+        "operationId": "get_style_analysis_job_voice_profile_api_v1_style_analysis_jobs__job_id__voice_profile_get",
         "parameters": [
           {
             "name": "job_id",
@@ -1858,49 +1858,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StyleSummaryMarkdown"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/style-analysis-jobs/{job_id}/prompt-pack": {
-      "get": {
-        "tags": [
-          "style-analysis-jobs"
-        ],
-        "summary": "Get Style Analysis Job Prompt Pack",
-        "operationId": "get_style_analysis_job_prompt_pack_api_v1_style_analysis_jobs__job_id__prompt_pack_get",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PromptPackMarkdown"
+                  "$ref": "#/components/schemas/VoiceProfileMarkdown"
                 }
               }
             }
@@ -2577,13 +2535,13 @@
         }
       }
     },
-    "/api/v1/plot-analysis-jobs/{job_id}/plot-summary": {
+    "/api/v1/plot-analysis-jobs/{job_id}/story-engine": {
       "get": {
         "tags": [
           "plot-analysis-jobs"
         ],
-        "summary": "Get Plot Analysis Job Plot Summary",
-        "operationId": "get_plot_analysis_job_plot_summary_api_v1_plot_analysis_jobs__job_id__plot_summary_get",
+        "summary": "Get Plot Analysis Job Story Engine",
+        "operationId": "get_plot_analysis_job_story_engine_api_v1_plot_analysis_jobs__job_id__story_engine_get",
         "parameters": [
           {
             "name": "job_id",
@@ -2601,49 +2559,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlotSummaryMarkdown"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/plot-analysis-jobs/{job_id}/prompt-pack": {
-      "get": {
-        "tags": [
-          "plot-analysis-jobs"
-        ],
-        "summary": "Get Plot Analysis Job Prompt Pack",
-        "operationId": "get_plot_analysis_job_prompt_pack_api_v1_plot_analysis_jobs__job_id__prompt_pack_get",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlotPromptPackMarkdown"
+                  "$ref": "#/components/schemas/StoryEngineMarkdown"
                 }
               }
             }
@@ -3356,6 +3272,40 @@
             "title": "Model",
             "description": "可选模型覆盖"
           },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id",
+            "description": "可选风格档案 ID"
+          },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id",
+            "description": "可选情节档案 ID"
+          },
           "count": {
             "type": "integer",
             "maximum": 5.0,
@@ -3469,6 +3419,16 @@
             "minimum": 0.0,
             "title": "Total Content Length",
             "default": 0
+          },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3476,6 +3436,84 @@
           "text_before_cursor"
         ],
         "title": "EditorCompletionRequest"
+      },
+      "GenerationProfile": {
+        "properties": {
+          "genre_mother": {
+            "type": "string",
+            "enum": [
+              "xianxia",
+              "urban",
+              "historical_power",
+              "infinite_flow",
+              "gaming"
+            ],
+            "title": "Genre Mother"
+          },
+          "desire_overlays": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "harem_collect",
+                "wife_steal",
+                "reverse_ntr",
+                "hypnosis_control",
+                "corruption_fall",
+                "dominance_capture"
+              ]
+            },
+            "type": "array",
+            "title": "Desire Overlays"
+          },
+          "intensity_level": {
+            "type": "string",
+            "enum": [
+              "plot_only",
+              "edge",
+              "explicit",
+              "graphic",
+              "fetish_extreme"
+            ],
+            "title": "Intensity Level"
+          },
+          "pov_mode": {
+            "type": "string",
+            "enum": [
+              "limited_third",
+              "first_person",
+              "deep_first"
+            ],
+            "title": "Pov Mode"
+          },
+          "morality_axis": {
+            "type": "string",
+            "enum": [
+              "ruthless_growth",
+              "gray_pragmatism",
+              "domination_first",
+              "vengeful"
+            ],
+            "title": "Morality Axis"
+          },
+          "pace_density": {
+            "type": "string",
+            "enum": [
+              "slow",
+              "balanced",
+              "fast"
+            ],
+            "title": "Pace Density"
+          }
+        },
+        "type": "object",
+        "required": [
+          "genre_mother",
+          "intensity_level",
+          "pov_mode",
+          "morality_axis",
+          "pace_density"
+        ],
+        "title": "GenerationProfile"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3825,28 +3863,6 @@
             ],
             "title": "Analysis Report Markdown"
           },
-          "plot_summary_markdown": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plot Summary Markdown"
-          },
-          "prompt_pack_markdown": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prompt Pack Markdown"
-          },
           "plot_skeleton_markdown": {
             "anyOf": [
               {
@@ -3857,6 +3873,42 @@
               }
             ],
             "title": "Plot Skeleton Markdown"
+          },
+          "story_engine_payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryEngineProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "story_engine_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Story Engine Markdown"
+          },
+          "suggested_overlays": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "harem_collect",
+                "wife_steal",
+                "reverse_ntr",
+                "hypnosis_control",
+                "corruption_fall",
+                "dominance_capture"
+              ]
+            },
+            "type": "array",
+            "title": "Suggested Overlays"
           }
         },
         "type": "object",
@@ -4049,15 +4101,25 @@
             ],
             "title": "Mount Project Id"
           },
-          "plot_summary_markdown": {
+          "story_engine_markdown": {
             "type": "string",
             "minLength": 1,
-            "title": "Plot Summary Markdown"
+            "title": "Story Engine Markdown"
           },
-          "prompt_pack_markdown": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Prompt Pack Markdown"
+          "suggested_overlays": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "harem_collect",
+                "wife_steal",
+                "reverse_ntr",
+                "hypnosis_control",
+                "corruption_fall",
+                "dominance_capture"
+              ]
+            },
+            "type": "array",
+            "title": "Suggested Overlays"
           },
           "plot_skeleton_markdown": {
             "anyOf": [
@@ -4075,8 +4137,7 @@
         "required": [
           "job_id",
           "plot_name",
-          "plot_summary_markdown",
-          "prompt_pack_markdown"
+          "story_engine_markdown"
         ],
         "title": "PlotProfileCreate"
       },
@@ -4205,13 +4266,27 @@
             "type": "string",
             "title": "Analysis Report Markdown"
           },
-          "plot_summary_markdown": {
-            "type": "string",
-            "title": "Plot Summary Markdown"
+          "story_engine_payload": {
+            "$ref": "#/components/schemas/StoryEngineProfile"
           },
-          "prompt_pack_markdown": {
+          "story_engine_markdown": {
             "type": "string",
-            "title": "Prompt Pack Markdown"
+            "title": "Story Engine Markdown"
+          },
+          "suggested_overlays": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "harem_collect",
+                "wife_steal",
+                "reverse_ntr",
+                "hypnosis_control",
+                "corruption_fall",
+                "dominance_capture"
+              ]
+            },
+            "type": "array",
+            "title": "Suggested Overlays"
           },
           "plot_skeleton_markdown": {
             "anyOf": [
@@ -4244,8 +4319,8 @@
           "source_filename",
           "plot_name",
           "analysis_report_markdown",
-          "plot_summary_markdown",
-          "prompt_pack_markdown",
+          "story_engine_payload",
+          "story_engine_markdown",
           "created_at",
           "updated_at"
         ],
@@ -4270,15 +4345,25 @@
             ],
             "title": "Mount Project Id"
           },
-          "plot_summary_markdown": {
+          "story_engine_markdown": {
             "type": "string",
             "minLength": 1,
-            "title": "Plot Summary Markdown"
+            "title": "Story Engine Markdown"
           },
-          "prompt_pack_markdown": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Prompt Pack Markdown"
+          "suggested_overlays": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "harem_collect",
+                "wife_steal",
+                "reverse_ntr",
+                "hypnosis_control",
+                "corruption_fall",
+                "dominance_capture"
+              ]
+            },
+            "type": "array",
+            "title": "Suggested Overlays"
           },
           "plot_skeleton_markdown": {
             "anyOf": [
@@ -4295,16 +4380,9 @@
         "type": "object",
         "required": [
           "plot_name",
-          "plot_summary_markdown",
-          "prompt_pack_markdown"
+          "story_engine_markdown"
         ],
         "title": "PlotProfileUpdate"
-      },
-      "PlotPromptPackMarkdown": {
-        "type": "string",
-        "minLength": 1,
-        "title": "PlotPromptPackMarkdown",
-        "description": "Reusable markdown plot prompt pack."
       },
       "PlotSampleFileResponse": {
         "properties": {
@@ -4375,12 +4453,6 @@
         "minLength": 1,
         "title": "PlotSkeletonMarkdown",
         "description": "Markdown plot skeleton providing whole-book context for chunk analysis."
-      },
-      "PlotSummaryMarkdown": {
-        "type": "string",
-        "minLength": 1,
-        "title": "PlotSummaryMarkdown",
-        "description": "Editable markdown plot summary."
       },
       "ProjectBibleResponse": {
         "properties": {
@@ -4871,6 +4943,16 @@
             ],
             "title": "Plot Profile Id"
           },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "length_preset": {
             "type": "string",
             "enum": [
@@ -4946,6 +5028,16 @@
               }
             ],
             "title": "Plot Profile Id"
+          },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "length_preset": {
             "type": "string",
@@ -5052,6 +5144,16 @@
               }
             ],
             "title": "Plot Profile Id"
+          },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "length_preset": {
             "type": "string",
@@ -5189,6 +5291,16 @@
             ],
             "title": "Plot Profile Id"
           },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "length_preset": {
             "anyOf": [
               {
@@ -5219,12 +5331,6 @@
         },
         "type": "object",
         "title": "ProjectUpdate"
-      },
-      "PromptPackMarkdown": {
-        "type": "string",
-        "minLength": 1,
-        "title": "PromptPackMarkdown",
-        "description": "Reusable markdown prompt pack."
       },
       "ProviderConfigCreate": {
         "properties": {
@@ -5584,6 +5690,95 @@
         ],
         "title": "SetupStatusResponse"
       },
+      "StoryEngineMarkdown": {
+        "type": "string",
+        "minLength": 1,
+        "title": "StoryEngineMarkdown",
+        "description": "Reusable markdown story engine profile."
+      },
+      "StoryEngineProfile": {
+        "properties": {
+          "genre_mother": {
+            "type": "string",
+            "enum": [
+              "xianxia",
+              "urban",
+              "historical_power",
+              "infinite_flow",
+              "gaming"
+            ],
+            "title": "Genre Mother"
+          },
+          "drive_axes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Drive Axes"
+          },
+          "payoff_objects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Payoff Objects"
+          },
+          "pressure_formulas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Pressure Formulas"
+          },
+          "relation_roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Relation Roles"
+          },
+          "scene_verbs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Scene Verbs"
+          },
+          "hook_recipes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Hook Recipes"
+          },
+          "anti_drift_guardrails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Anti Drift Guardrails"
+          }
+        },
+        "type": "object",
+        "required": [
+          "genre_mother",
+          "drive_axes",
+          "payoff_objects",
+          "pressure_formulas",
+          "relation_roles",
+          "scene_verbs",
+          "hook_recipes",
+          "anti_drift_guardrails"
+        ],
+        "title": "StoryEngineProfile"
+      },
       "StyleAnalysisJobBaseResponse": {
         "properties": {
           "id": {
@@ -5903,18 +6098,17 @@
             ],
             "title": "Analysis Report Markdown"
           },
-          "style_summary_markdown": {
+          "voice_profile_payload": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/VoiceProfile"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Style Summary Markdown"
+            ]
           },
-          "prompt_pack_markdown": {
+          "voice_profile_markdown": {
             "anyOf": [
               {
                 "type": "string"
@@ -5923,7 +6117,7 @@
                 "type": "null"
               }
             ],
-            "title": "Prompt Pack Markdown"
+            "title": "Voice Profile Markdown"
           }
         },
         "type": "object",
@@ -6041,23 +6235,17 @@
             ],
             "title": "Mount Project Id"
           },
-          "style_summary_markdown": {
+          "voice_profile_markdown": {
             "type": "string",
             "minLength": 1,
-            "title": "Style Summary Markdown"
-          },
-          "prompt_pack_markdown": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Prompt Pack Markdown"
+            "title": "Voice Profile Markdown"
           }
         },
         "type": "object",
         "required": [
           "job_id",
           "style_name",
-          "style_summary_markdown",
-          "prompt_pack_markdown"
+          "voice_profile_markdown"
         ],
         "title": "StyleProfileCreate"
       },
@@ -6186,13 +6374,12 @@
             "type": "string",
             "title": "Analysis Report Markdown"
           },
-          "style_summary_markdown": {
-            "type": "string",
-            "title": "Style Summary Markdown"
+          "voice_profile_payload": {
+            "$ref": "#/components/schemas/VoiceProfile"
           },
-          "prompt_pack_markdown": {
+          "voice_profile_markdown": {
             "type": "string",
-            "title": "Prompt Pack Markdown"
+            "title": "Voice Profile Markdown"
           },
           "created_at": {
             "type": "string",
@@ -6214,8 +6401,8 @@
           "source_filename",
           "style_name",
           "analysis_report_markdown",
-          "style_summary_markdown",
-          "prompt_pack_markdown",
+          "voice_profile_payload",
+          "voice_profile_markdown",
           "created_at",
           "updated_at"
         ],
@@ -6240,22 +6427,16 @@
             ],
             "title": "Mount Project Id"
           },
-          "style_summary_markdown": {
+          "voice_profile_markdown": {
             "type": "string",
             "minLength": 1,
-            "title": "Style Summary Markdown"
-          },
-          "prompt_pack_markdown": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Prompt Pack Markdown"
+            "title": "Voice Profile Markdown"
           }
         },
         "type": "object",
         "required": [
           "style_name",
-          "style_summary_markdown",
-          "prompt_pack_markdown"
+          "voice_profile_markdown"
         ],
         "title": "StyleProfileUpdate"
       },
@@ -6323,12 +6504,6 @@
         ],
         "title": "StyleSampleFileResponse"
       },
-      "StyleSummaryMarkdown": {
-        "type": "string",
-        "minLength": 1,
-        "title": "StyleSummaryMarkdown",
-        "description": "Editable markdown style summary."
-      },
       "UserResponse": {
         "properties": {
           "id": {
@@ -6392,6 +6567,62 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VoiceProfile": {
+        "properties": {
+          "sentence_rhythm": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Sentence Rhythm"
+          },
+          "narrative_distance": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Narrative Distance"
+          },
+          "detail_anchors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Detail Anchors"
+          },
+          "dialogue_aggression": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Dialogue Aggression"
+          },
+          "irregularity_budget": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Irregularity Budget"
+          },
+          "anti_ai_guardrails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Anti Ai Guardrails"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sentence_rhythm",
+          "narrative_distance",
+          "detail_anchors",
+          "dialogue_aggression",
+          "irregularity_budget",
+          "anti_ai_guardrails"
+        ],
+        "title": "VoiceProfile"
+      },
+      "VoiceProfileMarkdown": {
+        "type": "string",
+        "minLength": 1,
+        "title": "VoiceProfileMarkdown",
+        "description": "Reusable markdown voice profile."
       },
       "VolumeChaptersRequest": {
         "properties": {

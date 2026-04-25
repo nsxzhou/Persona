@@ -13,9 +13,7 @@ export const styleLabQueryKeys = {
     logs: (jobId: string) => [...styleLabJobDetailsRoot, jobId, "logs"] as const,
     analysisReport: (jobId: string) =>
       [...styleLabJobDetailsRoot, jobId, "analysis-report"] as const,
-    styleSummary: (jobId: string) =>
-      [...styleLabJobDetailsRoot, jobId, "style-summary"] as const,
-    promptPack: (jobId: string) =>
-      [...styleLabJobDetailsRoot, jobId, "prompt-pack"] as const,
+    voiceProfile: (jobId: string) =>
+      [...styleLabJobDetailsRoot, jobId, "voice-profile"] as const,
   },
 };

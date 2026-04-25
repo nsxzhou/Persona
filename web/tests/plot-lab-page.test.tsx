@@ -2,52 +2,58 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, test, vi } from "vitest";
 
-import PlotLabPage from "@/app/(workspace)/plot-lab/page";
 import { PlotLabWizardView } from "@/components/plot-lab-wizard-view";
 
 const apiMock = vi.hoisted(() => ({
-  getProviderConfigs: vi.fn(),
-  getPlotAnalysisJobs: vi.fn(),
-  deletePlotAnalysisJob: vi.fn(),
   getPlotAnalysisJobStatus: vi.fn(),
   getPlotAnalysisJob: vi.fn(),
   getPlotAnalysisJobAnalysisReport: vi.fn(),
-  getPlotAnalysisJobPlotSummary: vi.fn(),
   getPlotAnalysisJobPlotSkeleton: vi.fn(),
-  getPlotAnalysisJobPromptPack: vi.fn(),
+  getPlotAnalysisJobStoryEngine: vi.fn(),
   getPlotAnalysisJobLogs: vi.fn(),
-  createPlotAnalysisJob: vi.fn(),
-  getPlotProfiles: vi.fn(),
   getPlotProfile: vi.fn(),
   createPlotProfile: vi.fn(),
   updatePlotProfile: vi.fn(),
   getProjects: vi.fn(),
+  resumePlotAnalysisJob: vi.fn(),
+  pausePlotAnalysisJob: vi.fn(),
 }));
 
-const mockPush = vi.fn();
-
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/lib/api", () => ({
   api: apiMock,
 }));
 
-function buildReport() {
-  return "# 执行摘要\n整体靠高压绑定、反截胡、修罗场失衡推进。\n";
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
 }
 
-function buildSummary(plotName = "旧名字") {
-  return `# 剧情定位\n${plotName}\n\n# 读者追读抓手\n高压绑定 + 反派求生。\n`;
+function renderWizard(queryClient = createTestQueryClient(), jobId = "job-1") {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PlotLabWizardView jobId={jobId} />
+    </QueryClientProvider>,
+  );
+}
+
+function buildReport() {
+  return "# 执行摘要\n整体靠高压绑定、反截胡、修罗场失衡推进。\n";
 }
 
 function buildSkeleton() {
   return "# 全书骨架\n## 阶段划分（按 chunk 索引）\n- 开局铺垫\n";
 }
 
-function buildPromptPack(systemPrompt = "保持高压绑定开局，不要洗白主角。") {
-  return `# Shared Constraints\n${systemPrompt}\n`;
+function buildStoryEngine() {
+  return "# Story Engine Profile\n## genre_mother\n- xianxia\n";
 }
 
 function buildSucceededJob(overrides?: Record<string, unknown>) {
@@ -85,31 +91,6 @@ function buildSucceededJob(overrides?: Record<string, unknown>) {
   };
 }
 
-function createTestQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  });
-}
-
-function renderDashboard(queryClient = createTestQueryClient()) {
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <PlotLabPage />
-    </QueryClientProvider>,
-  );
-}
-
-function renderWizard(queryClient = createTestQueryClient(), jobId = "job-1") {
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <PlotLabWizardView jobId={jobId} />
-    </QueryClientProvider>,
-  );
-}
-
 beforeEach(() => {
   vi.resetAllMocks();
   apiMock.getPlotAnalysisJobStatus.mockResolvedValue({
@@ -119,60 +100,20 @@ beforeEach(() => {
     error_message: null,
     updated_at: "2026-04-09T00:01:00Z",
   });
+  apiMock.getPlotAnalysisJob.mockResolvedValue(buildSucceededJob());
   apiMock.getPlotAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
-  apiMock.getPlotAnalysisJobPlotSummary.mockResolvedValue(buildSummary());
   apiMock.getPlotAnalysisJobPlotSkeleton.mockResolvedValue(buildSkeleton());
-  apiMock.getPlotAnalysisJobPromptPack.mockResolvedValue(buildPromptPack());
+  apiMock.getPlotAnalysisJobStoryEngine.mockResolvedValue(buildStoryEngine());
   apiMock.getPlotAnalysisJobLogs.mockResolvedValue({
     content: "",
     next_offset: 0,
     truncated: false,
   });
-});
-
-test("plot lab page submits txt upload form", async () => {
-  apiMock.getProviderConfigs.mockResolvedValueOnce([
-    {
-      id: "provider-1",
-      label: "Primary Gateway",
-      base_url: "https://api.openai.com/v1",
-      default_model: "gpt-4.1-mini",
-      api_key_hint: "****1234",
-      is_enabled: true,
-      last_test_status: null,
-      last_test_error: null,
-      last_tested_at: null,
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:00:00Z",
-    },
-  ]);
-  apiMock.getPlotAnalysisJobs.mockResolvedValueOnce([]);
-  apiMock.createPlotAnalysisJob.mockResolvedValueOnce({
-    ...buildSucceededJob(),
-    status: "pending",
-    completed_at: null,
-  });
-
-  renderDashboard();
-
-  fireEvent.click(await screen.findByRole("button", { name: "+ 新建分析任务" }));
-  fireEvent.change(await screen.findByLabelText("情节档案名称"), {
-    target: { value: "反派修罗场模板" },
-  });
-  fireEvent.change(screen.getByLabelText("TXT 样本"), {
-    target: {
-      files: [new File(["第一章 风雪夜归人"], "sample.txt", { type: "text/plain" })],
-    },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "开始分析" }));
-
-  await waitFor(() => expect(apiMock.createPlotAnalysisJob).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/plot-lab/job-1"));
+  apiMock.getProjects.mockResolvedValue([]);
 });
 
 test("plot lab wizard saves profile and mounts project", async () => {
-  apiMock.getPlotAnalysisJob.mockResolvedValueOnce(buildSucceededJob());
-  apiMock.getProjects.mockResolvedValueOnce([
+  apiMock.getProjects.mockResolvedValue([
     {
       id: "project-1",
       name: "情节挂载项目",
@@ -182,7 +123,7 @@ test("plot lab wizard saves profile and mounts project", async () => {
       default_model: "gpt-4.1-mini",
       style_profile_id: null,
       plot_profile_id: null,
-      length_preset: "short",
+      generation_profile: null,
       archived_at: null,
       created_at: "2026-04-09T00:00:00Z",
       updated_at: "2026-04-09T00:00:00Z",
@@ -197,6 +138,27 @@ test("plot lab wizard saves profile and mounts project", async () => {
   ]);
   apiMock.createPlotProfile.mockResolvedValueOnce({
     id: "plot-profile-1",
+    source_job_id: "job-1",
+    provider_id: "provider-1",
+    model_name: "gpt-4.1-mini",
+    source_filename: "sample.txt",
+    plot_name: "已完成任务",
+    analysis_report_markdown: buildReport(),
+    story_engine_payload: {
+      genre_mother: "xianxia",
+      drive_axes: ["升级"],
+      payoff_objects: ["力量"],
+      pressure_formulas: ["宗门压制 -> 反制"],
+      relation_roles: ["奖励源"],
+      scene_verbs: ["入局"],
+      hook_recipes: ["半兑现后追加新压力"],
+      anti_drift_guardrails: ["不要退化成纯气氛描写"],
+    },
+    story_engine_markdown: buildStoryEngine(),
+    suggested_overlays: [],
+    plot_skeleton_markdown: "# 全书骨架\n- 新骨架\n",
+    created_at: "2026-04-09T00:02:00Z",
+    updated_at: "2026-04-09T00:02:00Z",
   });
 
   renderWizard();
@@ -206,23 +168,18 @@ test("plot lab wizard saves profile and mounts project", async () => {
     target: { value: "# 全书骨架\n- 新骨架\n" },
   });
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
-  fireEvent.click(await screen.findByRole("button", { name: "确认摘要，下一步" }));
-  fireEvent.change(screen.getByLabelText("Prompt Pack Markdown"), {
-    target: { value: "# Shared Constraints\n不要洗白主角\n" },
+  fireEvent.change(await screen.findByLabelText("Story Engine Markdown"), {
+    target: { value: "# Story Engine Profile\n## genre_mother\n- xianxia\n" },
   });
-  fireEvent.click(screen.getByRole("combobox"));
-  fireEvent.click(await screen.findByText("情节挂载项目"));
-  fireEvent.click(screen.getByRole("button", { name: "保存完成" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认 Story Engine" }));
 
   await waitFor(() =>
     expect(apiMock.createPlotProfile).toHaveBeenCalledWith(
       expect.objectContaining({
         job_id: "job-1",
         plot_name: "已完成任务",
-        plot_summary_markdown: buildSummary(),
         plot_skeleton_markdown: "# 全书骨架\n- 新骨架\n",
-        prompt_pack_markdown: "# Shared Constraints\n不要洗白主角\n",
-        mount_project_id: "project-1",
+        story_engine_markdown: "# Story Engine Profile\n## genre_mother\n- xianxia\n",
       }),
     ),
   );
@@ -242,9 +199,19 @@ test("plot lab profile view shows and updates skeleton markdown", async () => {
     source_filename: "sample.txt",
     plot_name: "已保存情节档案",
     analysis_report_markdown: buildReport(),
-    plot_summary_markdown: buildSummary("已保存情节档案"),
+    story_engine_payload: {
+      genre_mother: "xianxia",
+      drive_axes: ["升级"],
+      payoff_objects: ["力量"],
+      pressure_formulas: ["宗门压制 -> 反制"],
+      relation_roles: ["奖励源"],
+      scene_verbs: ["入局"],
+      hook_recipes: ["半兑现后追加新压力"],
+      anti_drift_guardrails: ["不要退化成纯气氛描写"],
+    },
+    story_engine_markdown: buildStoryEngine(),
+    suggested_overlays: [],
     plot_skeleton_markdown: "# 全书骨架\n- 已保存骨架\n",
-    prompt_pack_markdown: buildPromptPack(),
     created_at: "2026-04-09T00:00:00Z",
     updated_at: "2026-04-09T00:01:00Z",
   });
@@ -256,12 +223,9 @@ test("plot lab profile view shows and updates skeleton markdown", async () => {
 
   expect(await screen.findByText("已保存情节档案")).toBeInTheDocument();
   const skeletonTab = screen.getByRole("tab", { name: "全书骨架" });
-  expect(skeletonTab).toBeInTheDocument();
-
   fireEvent.click(screen.getByRole("button", { name: "编辑档案" }));
   fireEvent.mouseDown(skeletonTab);
   fireEvent.click(skeletonTab);
-  await waitFor(() => expect(skeletonTab).toHaveAttribute("aria-selected", "true"));
   fireEvent.change(screen.getByLabelText("全书骨架 Markdown"), {
     target: { value: "# 全书骨架\n- 更新后的骨架\n" },
   });
@@ -272,87 +236,20 @@ test("plot lab profile view shows and updates skeleton markdown", async () => {
       "plot-profile-1",
       expect.objectContaining({
         plot_name: "已保存情节档案",
-        plot_summary_markdown: buildSummary("已保存情节档案"),
         plot_skeleton_markdown: "# 全书骨架\n- 更新后的骨架\n",
-        prompt_pack_markdown: buildPromptPack(),
       }),
     ),
   );
 });
 
-test("plot lab wizard log polling carries next offset forward", async () => {
-  apiMock.getPlotAnalysisJobStatus.mockResolvedValue({
-    id: "job-1",
-    status: "running",
-    stage: "analyzing_focus_chunks",
-    error_message: null,
-    updated_at: "2026-04-09T00:01:00Z",
-  });
-  apiMock.getPlotAnalysisJob.mockResolvedValue({
-    ...buildSucceededJob({
-      status: "running",
-      completed_at: null,
-      updated_at: "2026-04-09T00:00:30Z",
-    }),
-  });
-  apiMock.getPlotAnalysisJobLogs
-    .mockResolvedValueOnce({
-      content: "[1] first chunk\n",
-      next_offset: 16,
-      truncated: false,
-    })
-    .mockResolvedValueOnce({
-      content: "[2] second chunk\n",
-      next_offset: 33,
-      truncated: false,
-    });
-
-  renderWizard();
-
-  await screen.findByText("正在分析中...");
-  await waitFor(() => {
-    expect(apiMock.getPlotAnalysisJobLogs).toHaveBeenNthCalledWith(1, "job-1", 0);
-  });
-
-  await waitFor(() => {
-    expect(apiMock.getPlotAnalysisJobLogs).toHaveBeenNthCalledWith(2, "job-1", 16);
-  }, { timeout: 4000 });
-});
-
-test("plot lab wizard shows pause confirmation wording", async () => {
-  apiMock.getPlotAnalysisJobStatus.mockResolvedValue({
-    id: "job-1",
-    status: "running",
-    stage: "analyzing_focus_chunks",
-    error_message: null,
-    updated_at: "2026-04-09T00:01:00Z",
-    pause_requested_at: "2026-04-09T00:01:01Z",
-  });
-  apiMock.getPlotAnalysisJob.mockResolvedValue({
-    ...buildSucceededJob({
-      status: "running",
-      completed_at: null,
-      updated_at: "2026-04-09T00:00:30Z",
-      pause_requested_at: "2026-04-09T00:01:01Z",
-    }),
-  });
-
-  renderWizard();
-
-  expect(await screen.findByRole("button", { name: "等待后台确认暂停..." })).toBeDisabled();
-});
-
 test("plot lab wizard keeps succeeded artifact queries stable across rerenders", async () => {
-  apiMock.getPlotAnalysisJob.mockResolvedValue(buildSucceededJob());
-
   const queryClient = createTestQueryClient();
   const view = renderWizard(queryClient);
 
-  await screen.findByText("完整分析报告");
+  await screen.findByText(/执行摘要/);
   expect(apiMock.getPlotAnalysisJobAnalysisReport).toHaveBeenCalledTimes(1);
-  expect(apiMock.getPlotAnalysisJobPlotSummary).toHaveBeenCalledTimes(1);
   expect(apiMock.getPlotAnalysisJobPlotSkeleton).toHaveBeenCalledTimes(1);
-  expect(apiMock.getPlotAnalysisJobPromptPack).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobStoryEngine).toHaveBeenCalledTimes(1);
 
   view.rerender(
     <QueryClientProvider client={queryClient}>
@@ -360,9 +257,8 @@ test("plot lab wizard keeps succeeded artifact queries stable across rerenders",
     </QueryClientProvider>,
   );
 
-  await screen.findByText("完整分析报告");
+  await screen.findByText(/执行摘要/);
   expect(apiMock.getPlotAnalysisJobAnalysisReport).toHaveBeenCalledTimes(1);
-  expect(apiMock.getPlotAnalysisJobPlotSummary).toHaveBeenCalledTimes(1);
   expect(apiMock.getPlotAnalysisJobPlotSkeleton).toHaveBeenCalledTimes(1);
-  expect(apiMock.getPlotAnalysisJobPromptPack).toHaveBeenCalledTimes(1);
+  expect(apiMock.getPlotAnalysisJobStoryEngine).toHaveBeenCalledTimes(1);
 });

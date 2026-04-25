@@ -36,7 +36,7 @@ describe("ConceptGachaPage", () => {
     createProjectActionMock.mockReset();
   });
 
-  test("passes selected style profile when creating a project from a concept", async () => {
+  test("passes selected profiles when generating concepts and creating a project", async () => {
     generateConceptsMock.mockResolvedValue({
       concepts: [
         {
@@ -89,6 +89,11 @@ describe("ConceptGachaPage", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("combobox", { name: "风格档案" }));
+    fireEvent.click(await screen.findByRole("option", { name: "午夜霓虹档案" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "情节档案" }));
+    fireEvent.click(await screen.findByRole("option", { name: "反派修罗场模板" }));
+
     fireEvent.change(screen.getByLabelText("你的灵感"), {
       target: { value: "一个被迫冒名顶替入局的寒门书生。" },
     });
@@ -100,17 +105,14 @@ describe("ConceptGachaPage", () => {
         provider_id: "provider-1",
         model: null,
         count: 3,
+        style_profile_id: "profile-1",
+        plot_profile_id: "plot-1",
       },
       undefined,
     );
 
     await screen.findByRole("button", { name: /纸上王朝/ });
     fireEvent.click(screen.getByRole("button", { name: /纸上王朝/ }));
-
-    fireEvent.click(screen.getByRole("combobox", { name: "风格档案" }));
-    fireEvent.click(await screen.findByRole("option", { name: "午夜霓虹档案" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "情节档案" }));
-    fireEvent.click(await screen.findByRole("option", { name: "反派修罗场模板" }));
 
     fireEvent.click(screen.getByRole("button", { name: "确认选择" }));
 

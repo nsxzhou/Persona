@@ -6,8 +6,8 @@ import type {
   ConnectionTestResponse,
   ConceptGeneratePayload,
   ConceptGenerateResult,
+  GenerationProfile,
   LoginPayload,
-  PromptPackMarkdown,
   Project,
   SetupResponse,
   SetupStatusResponse,
@@ -28,9 +28,8 @@ import type {
   PlotProfileCreatePayload,
   PlotProfileListItem,
   PlotProfileUpdatePayload,
-  PlotPromptPackMarkdown,
   PlotSkeletonMarkdown,
-  PlotSummaryMarkdown,
+  StoryEngineMarkdown,
   ProviderConfig,
   ProviderPayload,
   SetupPayload,
@@ -42,7 +41,7 @@ import type {
   StyleProfile,
   StyleProfileCreatePayload,
   StyleProfileListItem,
-  StyleSummaryMarkdown,
+  VoiceProfileMarkdown,
   StyleProfileUpdatePayload,
   User,
 } from "@/lib/types";
@@ -194,10 +193,8 @@ export function createApiClient(request: Requester) {
       request<AnalysisMeta>(`/api/v1/style-analysis-jobs/${id}/analysis-meta`),
     getStyleAnalysisJobAnalysisReport: (id: string) =>
       request<AnalysisReportMarkdown>(`/api/v1/style-analysis-jobs/${id}/analysis-report`),
-    getStyleAnalysisJobStyleSummary: (id: string) =>
-      request<StyleSummaryMarkdown>(`/api/v1/style-analysis-jobs/${id}/style-summary`),
-    getStyleAnalysisJobPromptPack: (id: string) =>
-      request<PromptPackMarkdown>(`/api/v1/style-analysis-jobs/${id}/prompt-pack`),
+    getStyleAnalysisJobVoiceProfile: (id: string) =>
+      request<VoiceProfileMarkdown>(`/api/v1/style-analysis-jobs/${id}/voice-profile`),
     resumeStyleAnalysisJob: (id: string) =>
       request<StyleAnalysisJobStatusSnapshot>(`/api/v1/style-analysis-jobs/${id}/resume`, {
         method: "POST",
@@ -263,12 +260,10 @@ export function createApiClient(request: Requester) {
       request<PlotAnalysisMeta>(`/api/v1/plot-analysis-jobs/${id}/analysis-meta`),
     getPlotAnalysisJobAnalysisReport: (id: string) =>
       request<PlotAnalysisReportMarkdown>(`/api/v1/plot-analysis-jobs/${id}/analysis-report`),
-    getPlotAnalysisJobPlotSummary: (id: string) =>
-      request<PlotSummaryMarkdown>(`/api/v1/plot-analysis-jobs/${id}/plot-summary`),
     getPlotAnalysisJobPlotSkeleton: (id: string) =>
       request<PlotSkeletonMarkdown>(`/api/v1/plot-analysis-jobs/${id}/plot-skeleton`),
-    getPlotAnalysisJobPromptPack: (id: string) =>
-      request<PlotPromptPackMarkdown>(`/api/v1/plot-analysis-jobs/${id}/prompt-pack`),
+    getPlotAnalysisJobStoryEngine: (id: string) =>
+      request<StoryEngineMarkdown>(`/api/v1/plot-analysis-jobs/${id}/story-engine`),
     resumePlotAnalysisJob: (id: string) =>
       request<PlotAnalysisJobStatusSnapshot>(`/api/v1/plot-analysis-jobs/${id}/resume`, {
         method: "POST",
@@ -323,6 +318,7 @@ export function createApiClient(request: Requester) {
       currentChapterContext = "",
       previousChapterContext = "",
       totalContentLength = 0,
+      generationProfile?: GenerationProfile | null,
     ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/complete`, {
         method: "POST",
@@ -331,6 +327,7 @@ export function createApiClient(request: Requester) {
           current_chapter_context: currentChapterContext,
           previous_chapter_context: previousChapterContext,
           total_content_length: totalContentLength,
+          ...(generationProfile ? { generation_profile: generationProfile } : {}),
         }),
       }),
     proposeBibleUpdate: (

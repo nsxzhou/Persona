@@ -1,5 +1,8 @@
 /**
- * 篇幅预设配置 — 与后端 api/app/core/length_presets.py 保持一致。
+ * 篇幅预设配置。
+ *
+ * 数值范围需与后端 api/app/core/length_presets.py 保持一致；
+ * description 展示文案需与 api/app/prompts/editor.py 中的 _LENGTH_HINT_LABELS 保持同步。
  */
 
 export type LengthPresetKey = "short" | "medium" | "long";
@@ -18,7 +21,7 @@ export interface LengthPresetConfig {
 export const LENGTH_PRESETS: Record<LengthPresetKey, LengthPresetConfig> = {
   short: {
     label: "短篇",
-    description: "紧凑体量，适合聚焦核心矛盾与快速兑现",
+    description: "预计体量偏短，几万或者十几万字",
     targetMin: 50_000,
     targetMax: 150_000,
     recommendedChapters: [8, 20],
@@ -26,7 +29,7 @@ export const LENGTH_PRESETS: Record<LengthPresetKey, LengthPresetConfig> = {
   },
   medium: {
     label: "中篇",
-    description: "中等体量，可适度展开关系、局势与支线",
+    description: "预计体量中等，几十万字",
     targetMin: 150_000,
     targetMax: 500_000,
     recommendedChapters: [30, 80],
@@ -34,7 +37,7 @@ export const LENGTH_PRESETS: Record<LengthPresetKey, LengthPresetConfig> = {
   },
   long: {
     label: "长篇",
-    description: "长体量连载，适合分阶段推进和逐步展开",
+    description: "预计体量偏长，百万字",
     targetMin: 500_000,
     targetMax: 2_000_000,
     recommendedChapters: [100, 400],

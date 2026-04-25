@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 import { type UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,17 +34,15 @@ export function PlotLabProfileView({
 }) {
   const [activeTab, setActiveTab] = React.useState("summary");
   const plotNameField = form.register("plotName");
-  const plotSummaryField = form.register("plotSummaryMarkdown");
   const plotSkeletonField = form.register("plotSkeletonMarkdown");
-  const promptPackField = form.register("promptPackMarkdown");
+  const storyEngineField = form.register("storyEngineMarkdown");
 
   React.useEffect(() => {
     if (isEditing) {
       form.reset({
         plotName: profile.plot_name,
-        plotSummaryMarkdown: profile.plot_summary_markdown,
         plotSkeletonMarkdown: profile.plot_skeleton_markdown ?? "",
-        promptPackMarkdown: profile.prompt_pack_markdown,
+        storyEngineMarkdown: profile.story_engine_markdown,
       });
     }
   }, [isEditing, profile, form]);
@@ -112,10 +109,7 @@ export function PlotLabProfileView({
           <div className="flex justify-center mb-8">
             <TabsList className="bg-transparent border-b border-border rounded-none p-0 h-auto space-x-6">
               <TabsTrigger value="summary" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground">
-                剧情摘要
-              </TabsTrigger>
-              <TabsTrigger value="prompt" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground">
-                提示词资产
+                Story Engine
               </TabsTrigger>
               <TabsTrigger value="skeleton" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground">
                 全书骨架
@@ -135,14 +129,14 @@ export function PlotLabProfileView({
                     <Input id="plot-name" {...plotNameField} />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="plot-summary-markdown">剧情摘要 Markdown</Label>
+                    <Label htmlFor="story-engine-markdown">Story Engine Markdown</Label>
                     <Textarea
-                      id="plot-summary-markdown"
-                      aria-label="剧情摘要 Markdown"
+                      id="story-engine-markdown"
+                      aria-label="Story Engine Markdown"
                       className="min-h-[300px] font-mono text-sm leading-relaxed"
-                      {...plotSummaryField}
+                      {...storyEngineField}
                       onChange={(e) => {
-                        plotSummaryField.onChange(e);
+                        storyEngineField.onChange(e);
                         adjustHeight(e);
                       }}
                     />
@@ -150,43 +144,7 @@ export function PlotLabProfileView({
                 </div>
               ) : (
                 <div className="whitespace-pre-wrap leading-loose text-lg text-foreground/90 font-[family:var(--font-prose)] text-justify max-w-3xl mx-auto">
-                  {profile.plot_summary_markdown || "暂无摘要"}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="prompt" className="focus-visible:outline-none max-w-3xl mx-auto">
-              {isEditing ? (
-                <div className="space-y-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="prompt-pack-markdown">Prompt Pack Markdown</Label>
-                    <Textarea
-                      id="prompt-pack-markdown"
-                      aria-label="Prompt Pack Markdown"
-                      className="min-h-[400px] font-mono text-sm leading-relaxed bg-muted/30"
-                      {...promptPackField}
-                      onChange={(e) => {
-                        promptPackField.onChange(e);
-                        adjustHeight(e);
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-muted/30 p-8 rounded-xl font-mono text-sm leading-relaxed text-foreground shadow-sm relative group border border-border/50">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="absolute top-4 right-4 h-8 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-background"
-                    onClick={() => {
-                      navigator.clipboard.writeText(profile.prompt_pack_markdown || "");
-                      toast.success("已复制提示词");
-                    }}
-                  >
-                    <Copy className="w-3 h-3 mr-2" /> COPY
-                  </Button>
-                  <span className="text-muted-foreground block mb-6 select-none border-b border-border/50 pb-2">/* Plot Prompt */</span>
-                  <div className="whitespace-pre-wrap">{profile.prompt_pack_markdown || "暂无提示词"}</div>
+                  {profile.story_engine_markdown || "暂无 Story Engine"}
                 </div>
               )}
             </TabsContent>

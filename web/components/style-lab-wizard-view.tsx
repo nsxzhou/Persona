@@ -26,12 +26,10 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
     projects,
     existingProfile,
     reportResource,
-    summaryResource,
-    promptPackResource,
+    voiceProfileResource,
     saveProfileMutation,
     resumeJobMutation,
     pauseJobMutation,
-    handleStep2Next,
     handleSave,
     handleResume,
     handlePause,
@@ -99,16 +97,9 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <div className={cn("w-16 h-1 mx-2 rounded-full", step >= 2 ? "bg-primary" : "bg-muted")} />
         <div className="flex items-center gap-2">
           <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            {step > 2 ? <CheckCircle2 className="w-5 h-5" /> : 2}
+            2
           </div>
-          <span className={cn("text-sm font-medium", step >= 2 ? "text-foreground" : "text-muted-foreground")}>风格摘要</span>
-        </div>
-        <div className={cn("w-16 h-1 mx-2 rounded-full", step >= 3 ? "bg-primary" : "bg-muted")} />
-        <div className="flex items-center gap-2">
-          <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            3
-          </div>
-          <span className={cn("text-sm font-medium", step >= 3 ? "text-foreground" : "text-muted-foreground")}>母 Prompt</span>
+          <span className={cn("text-sm font-medium", step >= 2 ? "text-foreground" : "text-muted-foreground")}>Voice Profile</span>
         </div>
       </div>
 
@@ -132,31 +123,13 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
         <StyleLabWizardSummaryStep
           job={job}
           existingProfile={existingProfile}
-          summaryMarkdown={summaryResource.data}
-          isLoading={summaryResource.isLoading}
-          isError={summaryResource.isError}
-          errorMessage={summaryResource.error?.message}
+          voiceProfileMarkdown={voiceProfileResource.data}
+          isLoading={voiceProfileResource.isLoading}
+          isError={voiceProfileResource.isError}
+          errorMessage={voiceProfileResource.error?.message}
           form={form}
           onBack={() => setStep(1)}
-          onNext={handleStep2Next}
-        />
-      ) : null}
-
-      {step === 3 ? (
-        <StyleLabWizardPromptPackStep
-          job={job}
-          existingProfile={existingProfile}
-          promptPackMarkdown={promptPackResource.data}
-          isLoading={promptPackResource.isLoading}
-          isError={promptPackResource.isError}
-          errorMessage={promptPackResource.error?.message}
-          projects={projects}
-          mountProjectId={mountProjectId}
-          setMountProjectId={setMountProjectId}
-          form={form}
-          onBack={() => setStep(2)}
-          onSave={handleSave}
-          saving={saveProfileMutation.isPending}
+          onNext={handleSave}
         />
       ) : null}
     </div>

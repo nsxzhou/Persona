@@ -15,7 +15,7 @@ import type { FormValues } from "@/lib/validations/style-lab";
 export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSummaryStep({
   job,
   existingProfile,
-  summaryMarkdown,
+  voiceProfileMarkdown,
   isLoading,
   isError,
   errorMessage,
@@ -25,7 +25,7 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
 }: {
   job: StyleAnalysisJob;
   existingProfile: StyleProfile | null;
-  summaryMarkdown: string | null;
+  voiceProfileMarkdown: string | null;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
@@ -35,7 +35,7 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
 }) {
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const { field } = useController({
-    name: "styleSummaryMarkdown",
+    name: "voiceProfileMarkdown",
     control: form.control,
   });
 
@@ -58,14 +58,14 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
 
   React.useEffect(() => {
     handleInput();
-  }, [summaryMarkdown, handleInput]);
+  }, [voiceProfileMarkdown, handleInput]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
         <CardHeader>
-          <CardTitle>风格摘要编辑</CardTitle>
-          <CardDescription>直接编辑 Markdown 风格摘要，这部分将作为生成 Prompt 的核心基础。</CardDescription>
+          <CardTitle>Voice Profile 编辑</CardTitle>
+          <CardDescription>直接编辑 Markdown Voice Profile，这部分定义“怎么写”，不定义题材推进。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
@@ -77,10 +77,10 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
                 <Input id="style-name" {...form.register("styleName")} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="style-summary-markdown">风格摘要 Markdown</Label>
+                <Label htmlFor="voice-profile-markdown">Voice Profile Markdown</Label>
                 <ScrollArea className="h-[360px] w-full rounded-md border border-input bg-background" type="auto">
                   <Textarea
-                    id="style-summary-markdown"
+                    id="voice-profile-markdown"
                     className="min-h-[360px] w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
                     {...field}
                     value={field.value ?? ""}
@@ -100,7 +100,7 @@ export const StyleLabWizardSummaryStep = React.memo(function StyleLabWizardSumma
             <Button variant="outline" onClick={onBack}>
               上一步
             </Button>
-            <Button onClick={onNext}>确认摘要，下一步</Button>
+            <Button onClick={onNext}>确认 Voice Profile</Button>
           </div>
         </CardContent>
       </Card>

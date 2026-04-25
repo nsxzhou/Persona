@@ -40,6 +40,12 @@ const schema = z.object({
   default_model: z.string().optional(),
   style_profile_id: z.string().nullable(),
   plot_profile_id: z.string().nullable(),
+  generation_genre_mother: z.string().nullable(),
+  generation_desire_overlays: z.string(),
+  generation_intensity_level: z.string().nullable(),
+  generation_pov_mode: z.string(),
+  generation_morality_axis: z.string(),
+  generation_pace_density: z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -73,6 +79,12 @@ export function ProjectForm({
       default_model: "",
       style_profile_id: null,
       plot_profile_id: null,
+      generation_genre_mother: null,
+      generation_desire_overlays: "",
+      generation_intensity_level: null,
+      generation_pov_mode: "limited_third",
+      generation_morality_axis: "gray_pragmatism",
+      generation_pace_density: "balanced",
     },
   });
 
@@ -85,6 +97,12 @@ export function ProjectForm({
       default_model: project?.default_model ?? "",
       style_profile_id: project?.style_profile_id ?? null,
       plot_profile_id: project?.plot_profile_id ?? null,
+      generation_genre_mother: project?.generation_profile?.genre_mother ?? null,
+      generation_desire_overlays: project?.generation_profile?.desire_overlays?.join(", ") ?? "",
+      generation_intensity_level: project?.generation_profile?.intensity_level ?? null,
+      generation_pov_mode: project?.generation_profile?.pov_mode ?? "limited_third",
+      generation_morality_axis: project?.generation_profile?.morality_axis ?? "gray_pragmatism",
+      generation_pace_density: project?.generation_profile?.pace_density ?? "balanced",
     });
   }, [form, project, enabledProviders]);
 
@@ -96,12 +114,37 @@ export function ProjectForm({
     () => providers.find((provider) => provider.id === selectedProviderId),
     [providers, selectedProviderId],
   );
+  const selectedGenreMother = useWatch({ control: form.control, name: "generation_genre_mother" });
+  const selectedIntensityLevel = useWatch({ control: form.control, name: "generation_intensity_level" });
 
   return (
     <form
       onSubmit={form.handleSubmit(
         async (values) => {
-          await onSubmit(values);
+          const overlays = values.generation_desire_overlays
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+          await onSubmit({
+            name: values.name,
+            description: values.description,
+            status: values.status,
+            default_provider_id: values.default_provider_id,
+            default_model: values.default_model,
+            style_profile_id: values.style_profile_id,
+            plot_profile_id: values.plot_profile_id,
+            generation_profile:
+              values.generation_genre_mother && values.generation_intensity_level
+                ? {
+                    genre_mother: values.generation_genre_mother,
+                    desire_overlays: overlays,
+                    intensity_level: values.generation_intensity_level,
+                    pov_mode: values.generation_pov_mode,
+                    morality_axis: values.generation_morality_axis,
+                    pace_density: values.generation_pace_density,
+                  }
+                : null,
+          });
         },
         (errors) => {
           const firstError = Object.values(errors)[0];
@@ -120,6 +163,51 @@ export function ProjectForm({
           <div className="grid gap-2">
             <Label htmlFor="project-description">简介</Label>
             <Textarea id="project-description" className="min-h-[120px]" {...form.register("description")} />
+          </div>
+          <div className="grid gap-4 rounded-lg border p-4">
+            <div className="text-sm font-medium">Generation Profile</div>
+            <div className="grid gap-2">
+              <Label htmlFor="generation-genre">题材母类</Label>
+              <Select
+                value={selectedGenreMother ?? "__none__"}
+                onValueChange={(val) => form.setValue("generation_genre_mother", val === "__none__" ? null : val)}
+              >
+                <SelectTrigger id="generation-genre" aria-label="题材母类">
+                  <SelectValue placeholder="选择题材母类" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">未设置</SelectItem>
+                  <SelectItem value="xianxia">xianxia</SelectItem>
+                  <SelectItem value="urban">urban</SelectItem>
+                  <SelectItem value="historical_power">historical_power</SelectItem>
+                  <SelectItem value="infinite_flow">infinite_flow</SelectItem>
+                  <SelectItem value="gaming">gaming</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="generation-overlays">Overlay（逗号分隔）</Label>
+              <Input id="generation-overlays" {...form.register("generation_desire_overlays")} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="generation-intensity">强度档位</Label>
+              <Select
+                value={selectedIntensityLevel ?? "__none__"}
+                onValueChange={(val) => form.setValue("generation_intensity_level", val === "__none__" ? null : val)}
+              >
+                <SelectTrigger id="generation-intensity" aria-label="强度档位">
+                  <SelectValue placeholder="选择强度档位" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">未设置</SelectItem>
+                  <SelectItem value="plot_only">plot_only</SelectItem>
+                  <SelectItem value="edge">edge</SelectItem>
+                  <SelectItem value="explicit">explicit</SelectItem>
+                  <SelectItem value="graphic">graphic</SelectItem>
+                  <SelectItem value="fetish_extreme">fetish_extreme</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="project-status">状态</Label>

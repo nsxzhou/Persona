@@ -640,32 +640,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/style-analysis-jobs/{job_id}/style-summary": {
+    "/api/v1/style-analysis-jobs/{job_id}/voice-profile": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Style Analysis Job Style Summary */
-        get: operations["get_style_analysis_job_style_summary_api_v1_style_analysis_jobs__job_id__style_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/style-analysis-jobs/{job_id}/prompt-pack": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Style Analysis Job Prompt Pack */
-        get: operations["get_style_analysis_job_prompt_pack_api_v1_style_analysis_jobs__job_id__prompt_pack_get"];
+        /** Get Style Analysis Job Voice Profile */
+        get: operations["get_style_analysis_job_voice_profile_api_v1_style_analysis_jobs__job_id__voice_profile_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -849,32 +832,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/plot-analysis-jobs/{job_id}/plot-summary": {
+    "/api/v1/plot-analysis-jobs/{job_id}/story-engine": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Plot Analysis Job Plot Summary */
-        get: operations["get_plot_analysis_job_plot_summary_api_v1_plot_analysis_jobs__job_id__plot_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/plot-analysis-jobs/{job_id}/prompt-pack": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Plot Analysis Job Prompt Pack */
-        get: operations["get_plot_analysis_job_prompt_pack_api_v1_plot_analysis_jobs__job_id__prompt_pack_get"];
+        /** Get Plot Analysis Job Story Engine */
+        get: operations["get_plot_analysis_job_story_engine_api_v1_plot_analysis_jobs__job_id__story_engine_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1186,6 +1152,17 @@ export interface components {
              * @description 可选模型覆盖
              */
             model?: string | null;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /**
+             * Style Profile Id
+             * @description 可选风格档案 ID
+             */
+            style_profile_id?: string | null;
+            /**
+             * Plot Profile Id
+             * @description 可选情节档案 ID
+             */
+            plot_profile_id?: string | null;
             /**
              * Count
              * @description 生成候选数量
@@ -1241,6 +1218,37 @@ export interface components {
              * @default 0
              */
             total_content_length: number;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+        };
+        /** GenerationProfile */
+        GenerationProfile: {
+            /**
+             * Genre Mother
+             * @enum {string}
+             */
+            genre_mother: "xianxia" | "urban" | "historical_power" | "infinite_flow" | "gaming";
+            /** Desire Overlays */
+            desire_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
+            /**
+             * Intensity Level
+             * @enum {string}
+             */
+            intensity_level: "plot_only" | "edge" | "explicit" | "graphic" | "fetish_extreme";
+            /**
+             * Pov Mode
+             * @enum {string}
+             */
+            pov_mode: "limited_third" | "first_person" | "deep_first";
+            /**
+             * Morality Axis
+             * @enum {string}
+             */
+            morality_axis: "ruthless_growth" | "gray_pragmatism" | "domination_first" | "vengeful";
+            /**
+             * Pace Density
+             * @enum {string}
+             */
+            pace_density: "slow" | "balanced" | "fast";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1355,12 +1363,13 @@ export interface components {
             plot_profile?: components["schemas"]["PlotProfileEmbeddedResponse"] | null;
             /** Analysis Report Markdown */
             analysis_report_markdown?: string | null;
-            /** Plot Summary Markdown */
-            plot_summary_markdown?: string | null;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown?: string | null;
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
+            story_engine_payload?: components["schemas"]["StoryEngineProfile"] | null;
+            /** Story Engine Markdown */
+            story_engine_markdown?: string | null;
+            /** Suggested Overlays */
+            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
         };
         /** PlotAnalysisJobStatusResponse */
         PlotAnalysisJobStatusResponse: {
@@ -1444,10 +1453,10 @@ export interface components {
             plot_name: string;
             /** Mount Project Id */
             mount_project_id?: string | null;
-            /** Plot Summary Markdown */
-            plot_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
+            /** Story Engine Markdown */
+            story_engine_markdown: string;
+            /** Suggested Overlays */
+            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
         };
@@ -1515,10 +1524,11 @@ export interface components {
             plot_name: string;
             /** Analysis Report Markdown */
             analysis_report_markdown: string;
-            /** Plot Summary Markdown */
-            plot_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
+            story_engine_payload: components["schemas"]["StoryEngineProfile"];
+            /** Story Engine Markdown */
+            story_engine_markdown: string;
+            /** Suggested Overlays */
+            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
             /**
@@ -1538,18 +1548,13 @@ export interface components {
             plot_name: string;
             /** Mount Project Id */
             mount_project_id?: string | null;
-            /** Plot Summary Markdown */
-            plot_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
+            /** Story Engine Markdown */
+            story_engine_markdown: string;
+            /** Suggested Overlays */
+            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
         };
-        /**
-         * PlotPromptPackMarkdown
-         * @description Reusable markdown plot prompt pack.
-         */
-        PlotPromptPackMarkdown: string;
         /** PlotSampleFileResponse */
         PlotSampleFileResponse: {
             /** Id */
@@ -1580,11 +1585,6 @@ export interface components {
          * @description Markdown plot skeleton providing whole-book context for chunk analysis.
          */
         PlotSkeletonMarkdown: string;
-        /**
-         * PlotSummaryMarkdown
-         * @description Editable markdown plot summary.
-         */
-        PlotSummaryMarkdown: string;
         /** ProjectBibleResponse */
         ProjectBibleResponse: {
             /** Id */
@@ -1720,6 +1720,7 @@ export interface components {
             style_profile_id?: string | null;
             /** Plot Profile Id */
             plot_profile_id?: string | null;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
             /**
              * Length Preset
              * @default short
@@ -1753,6 +1754,7 @@ export interface components {
             style_profile_id: string | null;
             /** Plot Profile Id */
             plot_profile_id: string | null;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
             /** Length Preset */
             length_preset: string;
             /** Auto Sync Memory */
@@ -1795,6 +1797,7 @@ export interface components {
             style_profile_id: string | null;
             /** Plot Profile Id */
             plot_profile_id: string | null;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
             /** Length Preset */
             length_preset: string;
             /** Archived At */
@@ -1827,16 +1830,12 @@ export interface components {
             style_profile_id?: string | null;
             /** Plot Profile Id */
             plot_profile_id?: string | null;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
             /** Length Preset */
             length_preset?: ("short" | "medium" | "long") | null;
             /** Auto Sync Memory */
             auto_sync_memory?: boolean | null;
         };
-        /**
-         * PromptPackMarkdown
-         * @description Reusable markdown prompt pack.
-         */
-        PromptPackMarkdown: string;
         /** ProviderConfigCreate */
         ProviderConfigCreate: {
             /** Label */
@@ -1981,6 +1980,33 @@ export interface components {
             /** Initialized */
             initialized: boolean;
         };
+        /**
+         * StoryEngineMarkdown
+         * @description Reusable markdown story engine profile.
+         */
+        StoryEngineMarkdown: string;
+        /** StoryEngineProfile */
+        StoryEngineProfile: {
+            /**
+             * Genre Mother
+             * @enum {string}
+             */
+            genre_mother: "xianxia" | "urban" | "historical_power" | "infinite_flow" | "gaming";
+            /** Drive Axes */
+            drive_axes: string[];
+            /** Payoff Objects */
+            payoff_objects: string[];
+            /** Pressure Formulas */
+            pressure_formulas: string[];
+            /** Relation Roles */
+            relation_roles: string[];
+            /** Scene Verbs */
+            scene_verbs: string[];
+            /** Hook Recipes */
+            hook_recipes: string[];
+            /** Anti Drift Guardrails */
+            anti_drift_guardrails: string[];
+        };
         /** StyleAnalysisJobBaseResponse */
         StyleAnalysisJobBaseResponse: {
             /** Id */
@@ -2083,10 +2109,9 @@ export interface components {
             analysis_meta?: components["schemas"]["AnalysisMeta"] | null;
             /** Analysis Report Markdown */
             analysis_report_markdown?: string | null;
-            /** Style Summary Markdown */
-            style_summary_markdown?: string | null;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown?: string | null;
+            voice_profile_payload?: components["schemas"]["VoiceProfile"] | null;
+            /** Voice Profile Markdown */
+            voice_profile_markdown?: string | null;
         };
         /** StyleAnalysisJobStatusResponse */
         StyleAnalysisJobStatusResponse: {
@@ -2117,10 +2142,8 @@ export interface components {
             style_name: string;
             /** Mount Project Id */
             mount_project_id?: string | null;
-            /** Style Summary Markdown */
-            style_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
+            /** Voice Profile Markdown */
+            voice_profile_markdown: string;
         };
         /** StyleProfileEmbeddedResponse */
         StyleProfileEmbeddedResponse: {
@@ -2186,10 +2209,9 @@ export interface components {
             style_name: string;
             /** Analysis Report Markdown */
             analysis_report_markdown: string;
-            /** Style Summary Markdown */
-            style_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
+            voice_profile_payload: components["schemas"]["VoiceProfile"];
+            /** Voice Profile Markdown */
+            voice_profile_markdown: string;
             /**
              * Created At
              * Format: date-time
@@ -2207,10 +2229,8 @@ export interface components {
             style_name: string;
             /** Mount Project Id */
             mount_project_id?: string | null;
-            /** Style Summary Markdown */
-            style_summary_markdown: string;
-            /** Prompt Pack Markdown */
-            prompt_pack_markdown: string;
+            /** Voice Profile Markdown */
+            voice_profile_markdown: string;
         };
         /** StyleSampleFileResponse */
         StyleSampleFileResponse: {
@@ -2237,11 +2257,6 @@ export interface components {
              */
             updated_at: string;
         };
-        /**
-         * StyleSummaryMarkdown
-         * @description Editable markdown style summary.
-         */
-        StyleSummaryMarkdown: string;
         /** UserResponse */
         UserResponse: {
             /** Id */
@@ -2267,6 +2282,26 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VoiceProfile */
+        VoiceProfile: {
+            /** Sentence Rhythm */
+            sentence_rhythm: string;
+            /** Narrative Distance */
+            narrative_distance: string;
+            /** Detail Anchors */
+            detail_anchors: string[];
+            /** Dialogue Aggression */
+            dialogue_aggression: string;
+            /** Irregularity Budget */
+            irregularity_budget: string;
+            /** Anti Ai Guardrails */
+            anti_ai_guardrails: string[];
+        };
+        /**
+         * VoiceProfileMarkdown
+         * @description Reusable markdown voice profile.
+         */
+        VoiceProfileMarkdown: string;
         /** VolumeChaptersRequest */
         VolumeChaptersRequest: {
             /**
@@ -3633,7 +3668,7 @@ export interface operations {
             };
         };
     };
-    get_style_analysis_job_style_summary_api_v1_style_analysis_jobs__job_id__style_summary_get: {
+    get_style_analysis_job_voice_profile_api_v1_style_analysis_jobs__job_id__voice_profile_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3650,38 +3685,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleSummaryMarkdown"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_style_analysis_job_prompt_pack_api_v1_style_analysis_jobs__job_id__prompt_pack_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PromptPackMarkdown"];
+                    "application/json": components["schemas"]["VoiceProfileMarkdown"];
                 };
             };
             /** @description Validation Error */
@@ -4168,7 +4172,7 @@ export interface operations {
             };
         };
     };
-    get_plot_analysis_job_plot_summary_api_v1_plot_analysis_jobs__job_id__plot_summary_get: {
+    get_plot_analysis_job_story_engine_api_v1_plot_analysis_jobs__job_id__story_engine_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4185,38 +4189,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlotSummaryMarkdown"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_plot_analysis_job_prompt_pack_api_v1_plot_analysis_jobs__job_id__prompt_pack_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlotPromptPackMarkdown"];
+                    "application/json": components["schemas"]["StoryEngineMarkdown"];
                 };
             };
             /** @description Validation Error */

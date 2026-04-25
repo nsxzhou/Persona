@@ -16,7 +16,7 @@ import {
   type PlotAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3;
 
 export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   preparing_input: "正在准备输入",
@@ -25,7 +25,7 @@ export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   analyzing_focus_chunks: "正在分析重点章节",
   aggregating: "正在聚合结果",
   reporting: "正在生成报告",
-  postprocessing: "正在生成摘要与 Prompt Pack",
+  postprocessing: "正在生成 Story Engine Profile",
 };
 
 export function formatPlotStageLabel(
@@ -141,21 +141,13 @@ function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) 
 
   const isCompletedAndNoProfile = Boolean(job && job.status === "succeeded" && !job.plot_profile_id);
   const needsReport = isCompletedAndNoProfile;
-  const needsSummary = isCompletedAndNoProfile;
   const needsSkeleton = isCompletedAndNoProfile;
-  const needsPromptPack = isCompletedAndNoProfile;
+  const needsStoryEngine = isCompletedAndNoProfile;
 
   const reportQuery = useQuery({
     queryKey: plotLabQueryKeys.jobs.analysisReport(jobId),
     queryFn: () => api.getPlotAnalysisJobAnalysisReport(jobId),
     enabled: needsReport,
-    ...IMMUTABLE_ARTIFACT_QUERY,
-  });
-
-  const summaryQuery = useQuery({
-    queryKey: plotLabQueryKeys.jobs.plotSummary(jobId),
-    queryFn: () => api.getPlotAnalysisJobPlotSummary(jobId),
-    enabled: needsSummary,
     ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
@@ -166,27 +158,26 @@ function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) 
     ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
-  const promptPackQuery = useQuery({
-    queryKey: plotLabQueryKeys.jobs.promptPack(jobId),
-    queryFn: () => api.getPlotAnalysisJobPromptPack(jobId),
-    enabled: needsPromptPack,
+  const storyEngineQuery = useQuery({
+    queryKey: plotLabQueryKeys.jobs.storyEngine(jobId),
+    queryFn: () => api.getPlotAnalysisJobStoryEngine(jobId),
+    enabled: needsStoryEngine,
     ...IMMUTABLE_ARTIFACT_QUERY,
   });
 
-  return { existingProfileQuery, reportQuery, summaryQuery, skeletonQuery, promptPackQuery };
+  return { existingProfileQuery, reportQuery, skeletonQuery, storyEngineQuery };
 }
 
 function mergeJobResources(
   job: PlotAnalysisJob | null,
   queries: ReturnType<typeof usePlotLabResourcesQueries>
 ) {
-  const { existingProfileQuery, reportQuery, summaryQuery, skeletonQuery, promptPackQuery } = queries;
+  const { existingProfileQuery, reportQuery, skeletonQuery, storyEngineQuery } = queries;
   const existingProfile = existingProfileQuery.data ?? null;
 
   const report = existingProfile?.analysis_report_markdown ?? reportQuery.data ?? null;
-  const summary = existingProfile?.plot_summary_markdown ?? summaryQuery.data ?? null;
   const skeleton = existingProfile?.plot_skeleton_markdown ?? skeletonQuery.data ?? null;
-  const promptPack = existingProfile?.prompt_pack_markdown ?? promptPackQuery.data ?? null;
+  const storyEngine = existingProfile?.story_engine_markdown ?? storyEngineQuery.data ?? null;
 
   const makeRes = (val: string | null, q: ReturnType<typeof useQuery>) => makeDetailResource<string>(val, {
     isLoading: val == null ? (job?.plot_profile_id ? existingProfileQuery.isLoading : q.isLoading) : false,
@@ -197,9 +188,8 @@ function mergeJobResources(
   return {
     existingProfile,
     reportResource: makeRes(report, reportQuery),
-    summaryResource: makeRes(summary, summaryQuery),
     skeletonResource: makeRes(skeleton, skeletonQuery),
-    promptPackResource: makeRes(promptPack, promptPackQuery),
+    storyEngineResource: makeRes(storyEngine, storyEngineQuery),
   };
 }
 
@@ -269,15 +259,13 @@ function usePlotLabWizardState({
   job,
   existingProfile,
   skeletonMarkdown,
-  summaryMarkdown,
-  promptPackMarkdown,
+  storyEngineMarkdown,
 }: {
   jobId: string;
   job: PlotAnalysisJob | null;
   existingProfile: PlotProfile | null;
   skeletonMarkdown: string | null;
-  summaryMarkdown: string | null;
-  promptPackMarkdown: string | null;
+  storyEngineMarkdown: string | null;
 }) {
   const [step, setStep] = React.useState<WizardStep>(1);
   const [mountProjectId, setMountProjectId] = React.useState<string | null>(null);
@@ -301,24 +289,22 @@ function usePlotLabWizardState({
     if (existingProfile) {
       form.reset({
         plotName: existingProfile.plot_name,
-        plotSummaryMarkdown: existingProfile.plot_summary_markdown,
         plotSkeletonMarkdown: existingProfile.plot_skeleton_markdown ?? "",
-        promptPackMarkdown: existingProfile.prompt_pack_markdown,
+        storyEngineMarkdown: existingProfile.story_engine_markdown,
       });
       initializedJobId.current = jobId;
       return;
     }
 
-    if (job?.status === "succeeded" && summaryMarkdown && skeletonMarkdown && promptPackMarkdown) {
+    if (job?.status === "succeeded" && skeletonMarkdown && storyEngineMarkdown) {
       form.reset({
         plotName: job.plot_name,
-        plotSummaryMarkdown: summaryMarkdown,
         plotSkeletonMarkdown: skeletonMarkdown,
-        promptPackMarkdown,
+        storyEngineMarkdown,
       });
       initializedJobId.current = jobId;
     }
-  }, [existingProfile, form, job, jobId, promptPackMarkdown, skeletonMarkdown, summaryMarkdown]);
+  }, [existingProfile, form, job, jobId, skeletonMarkdown, storyEngineMarkdown]);
 
   return {
     step,
@@ -326,7 +312,7 @@ function usePlotLabWizardState({
     mountProjectId,
     setMountProjectId,
     form,
-    handleStep3Next: () => setStep(4),
+    handleStep3Next: () => setStep(3),
   };
 }
 
@@ -353,9 +339,8 @@ function useSavePlotProfileMutation({
       const payload = {
         ...mountPayload,
         plot_name: values.plotName,
-        plot_summary_markdown: values.plotSummaryMarkdown,
         plot_skeleton_markdown: values.plotSkeletonMarkdown,
-        prompt_pack_markdown: values.promptPackMarkdown,
+        story_engine_markdown: values.storyEngineMarkdown,
       };
 
       if (job.plot_profile_id) {
@@ -461,10 +446,9 @@ export function usePlotLabWizardLogic(jobId: string) {
     job: detail.job,
     existingProfile: detail.existingProfile,
     skeletonMarkdown: detail.skeletonResource.data,
-    summaryMarkdown: detail.summaryResource.data,
-    promptPackMarkdown: detail.promptPackResource.data,
+    storyEngineMarkdown: detail.storyEngineResource.data,
   });
-  const shouldLoadProjects = wizardState.step === 4 && !detail.existingProfile;
+  const shouldLoadProjects = wizardState.step === 3 && !detail.existingProfile;
   const { projects } = useMountableProjects(shouldLoadProjects);
   const mutations = usePlotLabWizardMutations(jobId, {
     job: detail.job,
@@ -481,9 +465,8 @@ export function usePlotLabWizardLogic(jobId: string) {
     job: detail.job,
     existingProfile: detail.existingProfile,
     reportResource: detail.reportResource,
-    summaryResource: detail.summaryResource,
     skeletonResource: detail.skeletonResource,
-    promptPackResource: detail.promptPackResource,
+    storyEngineResource: detail.storyEngineResource,
     projects,
     saveProfileMutation: mutations.saveProfileMutation,
     resumeJobMutation: mutations.resumeJobMutation,

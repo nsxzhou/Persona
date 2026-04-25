@@ -27,13 +27,11 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
     projects,
     existingProfile,
     reportResource,
-    summaryResource,
     skeletonResource,
-    promptPackResource,
+    storyEngineResource,
     saveProfileMutation,
     resumeJobMutation,
     pauseJobMutation,
-    handleStep3Next,
     handleSave,
     handleResume,
     handlePause,
@@ -108,16 +106,9 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
         <div className={cn("w-16 h-1 mx-2 rounded-full", step >= 3 ? "bg-primary" : "bg-muted")} />
         <div className="flex items-center gap-2">
           <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            {step > 3 ? <CheckCircle2 className="w-5 h-5" /> : 3}
+            3
           </div>
-          <span className={cn("text-sm font-medium", step >= 3 ? "text-foreground" : "text-muted-foreground")}>剧情摘要</span>
-        </div>
-        <div className={cn("w-16 h-1 mx-2 rounded-full", step >= 4 ? "bg-primary" : "bg-muted")} />
-        <div className="flex items-center gap-2">
-          <div className={cn("flex items-center justify-center w-8 h-8 rounded-full", step >= 4 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            4
-          </div>
-          <span className={cn("text-sm font-medium", step >= 4 ? "text-foreground" : "text-muted-foreground")}>Plot Prompt</span>
+          <span className={cn("text-sm font-medium", step >= 3 ? "text-foreground" : "text-muted-foreground")}>Story Engine</span>
         </div>
       </div>
 
@@ -155,31 +146,13 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
         <PlotLabWizardSummaryStep
           job={job}
           existingProfile={existingProfile}
-          summaryMarkdown={summaryResource.data}
-          isLoading={summaryResource.isLoading}
-          isError={summaryResource.isError}
-          errorMessage={summaryResource.error?.message}
+          storyEngineMarkdown={storyEngineResource.data}
+          isLoading={storyEngineResource.isLoading}
+          isError={storyEngineResource.isError}
+          errorMessage={storyEngineResource.error?.message}
           form={form}
           onBack={() => setStep(2)}
-          onNext={handleStep3Next}
-        />
-      ) : null}
-
-      {step === 4 ? (
-        <PlotLabWizardPromptPackStep
-          job={job}
-          existingProfile={existingProfile}
-          promptPackMarkdown={promptPackResource.data}
-          isLoading={promptPackResource.isLoading}
-          isError={promptPackResource.isError}
-          errorMessage={promptPackResource.error?.message}
-          projects={projects}
-          mountProjectId={mountProjectId}
-          setMountProjectId={setMountProjectId}
-          form={form}
-          onBack={() => setStep(3)}
-          onSave={handleSave}
-          saving={saveProfileMutation.isPending}
+          onNext={handleSave}
         />
       ) : null}
     </div>

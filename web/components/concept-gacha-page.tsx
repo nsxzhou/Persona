@@ -67,6 +67,8 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
           provider_id: providerId,
           model: model.trim() || null,
           count: 3,
+          style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
+          plot_profile_id: plotProfileId === "__none__" ? null : plotProfileId,
         },
         options,
       );
