@@ -33,7 +33,7 @@ export interface BibleSectionMeta {
 
 /** Ordered metadata for all story bible sections (blueprint + runtime). */
 export const BIBLE_SECTION_META: BibleSectionMeta[] = [
-  { key: "description", title: "简介", icon: BookOpen, group: "blueprint" },
+  { key: "description", title: "概览", icon: BookOpen, group: "blueprint" },
   { key: "world_building", title: "世界观设定", icon: Globe, group: "blueprint" },
   { key: "characters", title: "角色卡", icon: Users, group: "blueprint" },
   { key: "outline_master", title: "总纲", icon: ScrollText, group: "blueprint" },
