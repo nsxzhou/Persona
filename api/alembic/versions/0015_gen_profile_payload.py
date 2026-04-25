@@ -1,6 +1,6 @@
 """add generation profile payload
 
-Revision ID: 0015_add_generation_profile_payload
+Revision ID: 0015_gen_profile_payload
 Revises: 0014_analysis_stage_renames
 Create Date: 2026-04-25 22:00:00.000000
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0015_add_generation_profile_payload"
+revision = "0015_gen_profile_payload"
 down_revision = "0014_analysis_stage_renames"
 branch_labels = None
 depends_on = None
