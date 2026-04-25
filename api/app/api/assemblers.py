@@ -13,34 +13,35 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobResponse,
     StyleProfileEmbeddedResponse,
 )
+from app.schemas.prompt_profiles import (
+    derive_story_engine_profile,
+    derive_voice_profile,
+    extract_suggested_overlays,
+)
 
 
 def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
     AnalysisMeta | None,
     str | None,
     str | None,
-    str | None,
 ]:
     if (
         job.analysis_meta_payload
         and job.analysis_report_payload
-        and job.style_summary_payload
         and job.prompt_pack_payload
     ):
         return (
             AnalysisMeta.model_validate(job.analysis_meta_payload),
             job.analysis_report_payload,
-            job.style_summary_payload,
             job.prompt_pack_payload,
         )
 
-    return None, None, None, None
+    return None, None, None
 
 
-def build_profile_result_bundle(profile: StyleProfile) -> tuple[str, str, str]:
+def build_profile_result_bundle(profile: StyleProfile) -> tuple[str, str]:
     return (
         profile.analysis_report_payload,
-        profile.style_summary_payload,
         profile.prompt_pack_payload,
     )
 
@@ -49,36 +50,33 @@ def build_plot_job_result_bundle(job: PlotAnalysisJob) -> tuple[
     PlotAnalysisMeta | None,
     str | None,
     str | None,
-    str | None,
 ]:
     if (
         job.analysis_meta_payload
         and job.analysis_report_payload
-        and job.plot_summary_payload
         and job.prompt_pack_payload
     ):
         return (
             PlotAnalysisMeta.model_validate(job.analysis_meta_payload),
             job.analysis_report_payload,
-            job.plot_summary_payload,
             job.prompt_pack_payload,
         )
 
-    return None, None, None, None
+    return None, None, None
 
 
-def build_plot_profile_result_bundle(profile: PlotProfile) -> tuple[str, str, str]:
+def build_plot_profile_result_bundle(profile: PlotProfile) -> tuple[str, str]:
     return (
         profile.analysis_report_payload,
-        profile.plot_summary_payload,
         profile.prompt_pack_payload,
     )
 
 
 def build_style_profile_response_payload(profile: StyleProfile) -> dict[str, Any]:
-    analysis_report_markdown, style_summary_markdown, prompt_pack_markdown = (
+    analysis_report_markdown, prompt_pack_markdown = (
         build_profile_result_bundle(profile)
     )
+    voice_profile_markdown = prompt_pack_markdown
     return {
         "id": profile.id,
         "source_job_id": profile.source_job_id,
@@ -87,17 +85,19 @@ def build_style_profile_response_payload(profile: StyleProfile) -> dict[str, Any
         "source_filename": profile.source_filename,
         "style_name": profile.style_name,
         "analysis_report_markdown": analysis_report_markdown,
-        "style_summary_markdown": style_summary_markdown,
-        "prompt_pack_markdown": prompt_pack_markdown,
+        "voice_profile_payload": derive_voice_profile(voice_profile_markdown),
+        "voice_profile_markdown": voice_profile_markdown,
         "created_at": profile.created_at,
         "updated_at": profile.updated_at,
     }
 
 
 def build_plot_profile_response_payload(profile: PlotProfile) -> dict[str, Any]:
-    analysis_report_markdown, plot_summary_markdown, prompt_pack_markdown = (
+    analysis_report_markdown, prompt_pack_markdown = (
         build_plot_profile_result_bundle(profile)
     )
+    story_engine_markdown = prompt_pack_markdown
+    suggested_overlays = extract_suggested_overlays(story_engine_markdown)
     return {
         "id": profile.id,
         "source_job_id": profile.source_job_id,
@@ -106,8 +106,9 @@ def build_plot_profile_response_payload(profile: PlotProfile) -> dict[str, Any]:
         "source_filename": profile.source_filename,
         "plot_name": profile.plot_name,
         "analysis_report_markdown": analysis_report_markdown,
-        "plot_summary_markdown": plot_summary_markdown,
-        "prompt_pack_markdown": prompt_pack_markdown,
+        "story_engine_payload": derive_story_engine_profile(story_engine_markdown),
+        "story_engine_markdown": story_engine_markdown,
+        "suggested_overlays": suggested_overlays,
         "plot_skeleton_markdown": profile.plot_skeleton_payload,
         "created_at": profile.created_at,
         "updated_at": profile.updated_at,
@@ -132,9 +133,10 @@ def build_plot_profile_embedded_response(
 
 def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse:
     style_profile = build_style_profile_embedded_response(job.style_profile)
-    analysis_meta, analysis_report_markdown, style_summary_markdown, prompt_pack_markdown = (
+    analysis_meta, analysis_report_markdown, prompt_pack_markdown = (
         build_job_result_bundle(job)
     )
+    voice_profile_markdown = prompt_pack_markdown
     return StyleAnalysisJobResponse(
         id=job.id,
         style_name=job.style_name,
@@ -154,13 +156,19 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
         style_profile=style_profile,
         analysis_meta=analysis_meta,
         analysis_report_markdown=analysis_report_markdown,
-        style_summary_markdown=style_summary_markdown,
-        prompt_pack_markdown=prompt_pack_markdown,
+        voice_profile_payload=(
+            derive_voice_profile(voice_profile_markdown)
+            if voice_profile_markdown is not None
+            else None
+        ),
+        voice_profile_markdown=voice_profile_markdown,
     )
 
 
 def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobResponse:
     plot_profile = build_plot_profile_embedded_response(job.plot_profile)
+    story_engine_markdown = job.prompt_pack_payload
+    suggested_overlays = extract_suggested_overlays(story_engine_markdown)
     return PlotAnalysisJobResponse(
         id=job.id,
         plot_name=job.plot_name,
@@ -179,7 +187,12 @@ def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobRespo
         plot_profile_id=job.plot_profile_id,
         plot_profile=plot_profile,
         analysis_report_markdown=job.analysis_report_payload,
-        plot_summary_markdown=job.plot_summary_payload,
-        prompt_pack_markdown=job.prompt_pack_payload,
+        story_engine_payload=(
+            derive_story_engine_profile(story_engine_markdown)
+            if story_engine_markdown is not None
+            else None
+        ),
+        story_engine_markdown=story_engine_markdown,
+        suggested_overlays=suggested_overlays,
         plot_skeleton_markdown=job.plot_skeleton_payload,
     )

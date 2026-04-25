@@ -13,9 +13,8 @@ from app.schemas.plot_analysis_jobs import (
     PlotAnalysisJobStatusResponse,
     PlotAnalysisMeta,
     PlotAnalysisReportMarkdown,
-    PlotPromptPackMarkdown,
     PlotSkeletonMarkdown,
-    PlotSummaryMarkdown,
+    StoryEngineMarkdown,
 )
 from app.services.style_analysis_text import clean_and_decode_upload
 
@@ -170,28 +169,14 @@ async def get_plot_analysis_job_analysis_report(
     )
 
 
-@router.get("/{job_id}/plot-summary", response_model=PlotSummaryMarkdown)
-async def get_plot_analysis_job_plot_summary(
+@router.get("/{job_id}/story-engine", response_model=StoryEngineMarkdown)
+async def get_plot_analysis_job_story_engine(
     job_id: str,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     job_service: PlotAnalysisJobServiceDep,
 ) -> str:
-    return await job_service.get_plot_summary_or_409(
-        db_session,
-        job_id,
-        user_id=current_user.id,
-    )
-
-
-@router.get("/{job_id}/prompt-pack", response_model=PlotPromptPackMarkdown)
-async def get_plot_analysis_job_prompt_pack(
-    job_id: str,
-    current_user: CurrentUserDep,
-    db_session: DbSessionDep,
-    job_service: PlotAnalysisJobServiceDep,
-) -> str:
-    return await job_service.get_prompt_pack_or_409(
+    return await job_service.get_story_engine_or_409(
         db_session,
         job_id,
         user_id=current_user.id,

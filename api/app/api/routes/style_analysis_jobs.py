@@ -9,12 +9,11 @@ from app.core.config import get_settings
 from app.schemas.style_analysis_jobs import (
     AnalysisReportMarkdown,
     AnalysisMeta,
-    PromptPackMarkdown,
     StyleAnalysisJobLogsResponse,
     StyleAnalysisJobListItemResponse,
     StyleAnalysisJobResponse,
     StyleAnalysisJobStatusResponse,
-    StyleSummaryMarkdown,
+    VoiceProfileMarkdown,
 )
 from app.services.style_analysis_text import clean_and_decode_upload
 
@@ -163,28 +162,14 @@ async def get_style_analysis_job_analysis_report(
     )
 
 
-@router.get("/{job_id}/style-summary", response_model=StyleSummaryMarkdown)
-async def get_style_analysis_job_style_summary(
+@router.get("/{job_id}/voice-profile", response_model=VoiceProfileMarkdown)
+async def get_style_analysis_job_voice_profile(
     job_id: str,
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     job_service: StyleAnalysisJobServiceDep,
 ) -> str:
-    return await job_service.get_style_summary_or_409(
-        db_session,
-        job_id,
-        user_id=current_user.id,
-    )
-
-
-@router.get("/{job_id}/prompt-pack", response_model=PromptPackMarkdown)
-async def get_style_analysis_job_prompt_pack(
-    job_id: str,
-    current_user: CurrentUserDep,
-    db_session: DbSessionDep,
-    job_service: StyleAnalysisJobServiceDep,
-) -> str:
-    return await job_service.get_prompt_pack_or_409(
+    return await job_service.get_voice_profile_or_409(
         db_session,
         job_id,
         user_id=current_user.id,
