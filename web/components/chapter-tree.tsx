@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ParsedOutline } from "@/lib/outline-parser";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface ChapterTreeProps {
   outline: ParsedOutline;
@@ -11,6 +12,12 @@ interface ChapterTreeProps {
   onSelectChapter: (volumeIndex: number, chapterIndex: number) => void;
   onGoGenerateVolume?: (volumeIndex: number) => void;
 }
+
+type FlatItem =
+  | { type: "volume"; vi: number; vol: ParsedOutline["volumes"][0] }
+  | { type: "empty-volume"; vi: number; vol: ParsedOutline["volumes"][0] }
+  | { type: "chapter"; vi: number; ci: number; ch: any }
+  | { type: "chapter-details"; vi: number; ci: number; ch: any };
 
 export function ChapterTree({
   outline,
@@ -30,6 +37,49 @@ export function ChapterTree({
     });
   };
 
+  const flatItems = useMemo(() => {
+    const items: FlatItem[] = [];
+    outline.volumes.forEach((vol, vi) => {
+      items.push({ type: "volume", vi, vol });
+      if (!collapsedVolumes.has(vi)) {
+        if (vol.chapters.length === 0) {
+          items.push({ type: "empty-volume", vi, vol });
+        } else {
+          vol.chapters.forEach((ch, ci) => {
+            items.push({ type: "chapter", vi, ci, ch });
+            const isActive = currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === ci;
+            if (isActive && (ch.coreEvent || ch.emotionArc || ch.chapterHook)) {
+              items.push({ type: "chapter-details", vi, ci, ch });
+            }
+          });
+        }
+      }
+    });
+    return items;
+  }, [outline, collapsedVolumes, currentChapter]);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => {
+      const item = flatItems[index];
+      if (item.type === "volume") return 36;
+      if (item.type === "empty-volume") return 120;
+      if (item.type === "chapter") return 28;
+      if (item.type === "chapter-details") {
+        let lines = 0;
+        if (item.ch.coreEvent) lines++;
+        if (item.ch.emotionArc) lines++;
+        if (item.ch.chapterHook) lines++;
+        return 12 + lines * 20; // Approx height
+      }
+      return 35;
+    },
+    overscan: 10,
+  });
+
   if (outline.volumes.length === 0) {
     return (
       <div className="px-4 py-8 text-center">
@@ -41,35 +91,50 @@ export function ChapterTree({
   }
 
   return (
-    <div className="py-2">
-      {outline.volumes.map((vol, vi) => {
-        const isActiveVolume = currentChapter?.volumeIndex === vi;
-        const isCollapsed = collapsedVolumes.has(vi);
-        const completedCount = vol.chapters.filter((ch) => completedChapters.has(ch.title)).length;
+    <div ref={parentRef} className="h-full w-full overflow-y-auto py-2">
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const item = flatItems[virtualRow.index];
+          const { vi } = item;
 
-        return (
-          <div key={vi}>
-            {/* Volume header */}
-            <button
-              type="button"
-              onClick={() => toggleVolume(vi)}
-              className="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs hover:bg-muted/50 transition-colors"
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
             >
-              {isCollapsed ? (
-                <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-              ) : (
-                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+              {item.type === "volume" && (
+                <button
+                  type="button"
+                  onClick={() => toggleVolume(vi)}
+                  className="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs hover:bg-muted/50 transition-colors h-[36px]"
+                >
+                  {collapsedVolumes.has(vi) ? (
+                    <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="font-semibold text-muted-foreground truncate">{item.vol.title}</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground/60 shrink-0">
+                    {item.vol.chapters.filter((ch) => completedChapters.has(ch.title)).length}/{item.vol.chapters.length} 章
+                  </span>
+                </button>
               )}
-              <span className="font-semibold text-muted-foreground truncate">{vol.title}</span>
-              <span className="ml-auto text-[10px] text-muted-foreground/60 shrink-0">
-                {completedCount}/{vol.chapters.length} 章
-              </span>
-            </button>
 
-            {/* Chapters */}
-            {!isCollapsed &&
-              vol.chapters.length === 0 && (
-                <div className="px-8 py-3 space-y-2 text-xs text-muted-foreground">
+              {item.type === "empty-volume" && (
+                <div className="px-8 py-3 space-y-2 text-xs text-muted-foreground h-[120px]">
                   <p className="font-medium text-foreground">本卷尚未生成章节细纲</p>
                   <p>请先回到「分卷与章节细纲」页为该分卷生成章节细纲</p>
                   {onGoGenerateVolume ? (
@@ -83,74 +148,65 @@ export function ChapterTree({
                   ) : null}
                 </div>
               )}
-            {!isCollapsed &&
-              vol.chapters.length > 0 &&
-              vol.chapters.map((ch, ci) => {
-                const isActive =
-                  currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === ci;
-                const isCompleted = completedChapters.has(ch.title);
 
-                return (
-                  <div key={ci}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectChapter(vi, ci)}
-                      aria-label={ch.title}
-                      className={`flex w-full items-center gap-2 pl-8 pr-4 py-1.5 text-left text-xs transition-colors ${
-                        isActive
-                          ? "border-l-2 border-primary bg-primary/15 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.18)]"
-                          : "hover:bg-muted/30"
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <span className="text-emerald-500 shrink-0">✓</span>
-                      ) : isActive ? (
-                        <span className="text-primary shrink-0">▶</span>
-                      ) : (
-                        <span className="text-muted-foreground/40 shrink-0">○</span>
-                      )}
-                      <span
-                        className={`truncate ${
-                          isCompleted
-                            ? "line-through text-muted-foreground/50"
-                            : isActive
-                              ? "font-semibold text-foreground"
-                              : "text-muted-foreground"
-                        }`}
-                      >
-                        {ch.title}
-                      </span>
-                    </button>
+              {item.type === "chapter" && (
+                <button
+                  type="button"
+                  onClick={() => onSelectChapter(vi, item.ci)}
+                  aria-label={item.ch.title}
+                  className={`flex w-full items-center gap-2 pl-8 pr-4 py-1.5 text-left text-xs transition-colors h-[28px] ${
+                    currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === item.ci
+                      ? "border-l-2 border-primary bg-primary/15 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.18)]"
+                      : "hover:bg-muted/30"
+                  }`}
+                >
+                  {completedChapters.has(item.ch.title) ? (
+                    <span className="text-emerald-500 shrink-0">✓</span>
+                  ) : currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === item.ci ? (
+                    <span className="text-primary shrink-0">▶</span>
+                  ) : (
+                    <span className="text-muted-foreground/40 shrink-0">○</span>
+                  )}
+                  <span
+                    className={`truncate ${
+                      completedChapters.has(item.ch.title)
+                        ? "line-through text-muted-foreground/50"
+                        : currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === item.ci
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {item.ch.title}
+                  </span>
+                </button>
+              )}
 
-                    {/* Active chapter details */}
-                    {isActive && (ch.coreEvent || ch.emotionArc || ch.chapterHook) && (
-                      <div className="pl-12 pr-4 py-1.5 space-y-0.5">
-                        {ch.coreEvent && (
-                          <div className="text-[11px] text-muted-foreground">
-                            <span className="text-violet-400">事件：</span>
-                            {ch.coreEvent}
-                          </div>
-                        )}
-                        {ch.emotionArc && (
-                          <div className="text-[11px] text-muted-foreground">
-                            <span className="text-violet-400">情绪：</span>
-                            {ch.emotionArc}
-                          </div>
-                        )}
-                        {ch.chapterHook && (
-                          <div className="text-[11px] text-muted-foreground">
-                            <span className="text-violet-400">钩子：</span>
-                            {ch.chapterHook}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-        );
-      })}
+              {item.type === "chapter-details" && (
+                <div className="pl-12 pr-4 py-1.5 space-y-0.5 h-full overflow-hidden">
+                  {item.ch.coreEvent && (
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      <span className="text-violet-400">事件：</span>
+                      {item.ch.coreEvent}
+                    </div>
+                  )}
+                  {item.ch.emotionArc && (
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      <span className="text-violet-400">情绪：</span>
+                      {item.ch.emotionArc}
+                    </div>
+                  )}
+                  {item.ch.chapterHook && (
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      <span className="text-violet-400">钩子：</span>
+                      {item.ch.chapterHook}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

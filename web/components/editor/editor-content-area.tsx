@@ -1,7 +1,7 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 import { useEditorContext } from "./editor-context";
+import { useEditorStore } from "./editor-store";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { useEditorCompletion } from "@/hooks/use-editor-completion";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
@@ -19,6 +19,36 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import type { ProjectChapter, ProjectBible } from "@/lib/types";
 
+const EditorTextarea = React.memo(({ 
+  disabled, 
+  placeholder, 
+  className, 
+  handleKeyDown 
+}: { 
+  disabled: boolean; 
+  placeholder: string; 
+  className: string; 
+  handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void; 
+}) => {
+  const content = useEditorStore(s => s.content);
+  const setContent = useEditorStore(s => s.setContent);
+  const textareaRef = useEditorStore(s => s.textareaRef);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={content}
+      onChange={(e) => setContent(e.target.value)}
+      onKeyDown={handleKeyDown}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={className}
+      style={{ fontFamily: "var(--font-serif), serif" }}
+    />
+  );
+});
+EditorTextarea.displayName = "EditorTextarea";
+
 export function EditorContentArea({ 
   activeProfileName, 
   initialProjectBible 
@@ -27,8 +57,8 @@ export function EditorContentArea({
   initialProjectBible?: ProjectBible;
 }) {
   const router = useRouter();
+  const { project: initialProject } = useEditorContext();
   const {
-    project: initialProject,
     chapters,
     setChapters,
     isLoadingChapters,
@@ -39,29 +69,21 @@ export function EditorContentArea({
     setSelectedVolumeIndex,
     chapterFocusMode,
     setChapterFocusMode,
-    content,
-    setContent,
-    savedChapterContent,
-    setSavedChapterContent,
     isLeftExpanded,
     setIsLeftExpanded,
     isRightExpanded,
     setIsRightExpanded,
     leftPanelMode,
     setLeftPanelMode,
-    textareaRef,
-  } = useEditorContext();
+  } = useEditorStore();
+
+  const hasChapterContent = useEditorStore(s => s.content.trim().length > 0);
 
   const { data: project = initialProject } = useProjectQuery(initialProject.id, initialProject);
   const { data: projectBible } = useProjectBibleQuery(initialProject.id, initialProjectBible);
   
   const updateProjectMutation = useUpdateProject();
   const updateProjectBibleMutation = useUpdateProjectBible();
-
-  const contentRef = useRef("");
-  useEffect(() => {
-    contentRef.current = content;
-  }, [content]);
 
   const parsedOutline = useMemo(
     () => parseOutline(projectBible?.outline_detail ?? ""),
@@ -85,11 +107,10 @@ export function EditorContentArea({
   const totalContentLength = useMemo(
     () =>
       chapters.reduce(
-        (sum, chapter) =>
-          sum + (chapter.id === selectedChapterRecord?.id ? content.length : chapter.word_count),
+        (sum, chapter) => sum + chapter.word_count,
         0,
       ),
-    [chapters, content.length, selectedChapterRecord?.id],
+    [chapters],
   );
 
   const currentChapterContext = useMemo(() => {
@@ -126,11 +147,11 @@ export function EditorContentArea({
         ),
       );
       if (selectedChapterRecord?.id === updatedChapter.id) {
-        setSavedChapterContent(updatedChapter.content);
+        useEditorStore.getState().setSavedChapterContent(updatedChapter.content);
       }
       return updatedChapter;
     },
-    [selectedChapterRecord?.id, setChapters, setSavedChapterContent],
+    [selectedChapterRecord?.id, setChapters],
   );
 
   const persistChapterUpdate = useCallback(
@@ -191,7 +212,7 @@ export function EditorContentArea({
     projectId: project.id,
     projectBible: projectBible ?? { runtime_state: "", runtime_threads: "" } as any,
     selectedChapter: selectedChapterRecord,
-    getCurrentContent: () => contentRef.current,
+    getCurrentContent: () => useEditorStore.getState().content,
     persistProjectBibleUpdate,
     persistChapterUpdate,
   });
@@ -217,9 +238,7 @@ export function EditorContentArea({
 
   const { isGenerating: isStreamingCompletion, handleGenerate: handleContinueWrite, handleStop: handleStopWrite } = useEditorCompletion({
     project: project,
-    content,
-    setContent,
-    textareaRef,
+    textareaRef: useEditorStore.getState().textareaRef,
     onGeneratedContent: handleGeneratedContent,
     currentChapterContext,
     previousChapterContext,
@@ -238,9 +257,7 @@ export function EditorContentArea({
   } = useBeatGeneration({
     project: project,
     projectBible: projectBible ?? { runtime_state: "", runtime_threads: "", outline_detail: "" } as any,
-    content,
-    setContent,
-    textareaRef,
+    textareaRef: useEditorStore.getState().textareaRef,
     isGenerating: isStreamingCompletion,
     currentChapterContext,
     previousChapterContext,
@@ -252,13 +269,13 @@ export function EditorContentArea({
   const { isSaving, saveNow, flushPendingSave, clearSaveError } = useEditorAutosave(
     project.id,
     selectedChapterRecord?.id ?? null,
-    content,
-    savedChapterContent,
     isStreamingCompletion || isExpandingBeatProse,
     syncPersistedChapter,
   );
 
   const saveCurrentChapterForSync = useCallback(async () => {
+    const content = useEditorStore.getState().content;
+    const savedChapterContent = useEditorStore.getState().savedChapterContent;
     const hasUnsavedChanges = content !== savedChapterContent;
     if (!hasUnsavedChanges) {
       return content;
@@ -270,10 +287,12 @@ export function EditorContentArea({
       await markSyncFailed(content, "manual", "chapter_full", "保存失败，无法同步记忆");
       return null;
     }
-  }, [content, markSyncFailed, saveNow, savedChapterContent]);
+  }, [markSyncFailed, saveNow]);
 
   const handleManualMemorySync = useCallback(async () => {
     if (!selectedChapterRecord) return;
+    const content = useEditorStore.getState().content;
+    const savedChapterContent = useEditorStore.getState().savedChapterContent;
 
     const hasUnsavedChanges = content !== savedChapterContent;
     if (
@@ -299,10 +318,8 @@ export function EditorContentArea({
     if (checkedContent === null) return;
     await handleManualSync(checkedContent);
   }, [
-    content,
     handleManualSync,
     openStoredDiff,
-    savedChapterContent,
     saveCurrentChapterForSync,
     selectedChapterRecord,
   ]);
@@ -365,13 +382,13 @@ export function EditorContentArea({
 
   useEffect(() => {
     if (!selectedChapterRecord) {
-      setContent("");
-      setSavedChapterContent("");
+      useEditorStore.getState().setContent("");
+      useEditorStore.getState().setSavedChapterContent("");
       return;
     }
-    setContent(selectedChapterRecord.content);
-    setSavedChapterContent(selectedChapterRecord.content);
-  }, [selectedChapterRecord?.id, setContent, setSavedChapterContent]);
+    useEditorStore.getState().setContent(selectedChapterRecord.content);
+    useEditorStore.getState().setSavedChapterContent(selectedChapterRecord.content);
+  }, [selectedChapterRecord?.id, selectedChapterRecord?.content]);
 
   useEffect(() => {
     if (selectedVolumeIndex === null) return;
@@ -477,7 +494,7 @@ export function EditorContentArea({
       ? "max-w-[680px]"
       : "max-w-[720px]";
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Escape" && isStreamingCompletion) {
       e.preventDefault();
       handleStopWrite();
@@ -497,7 +514,7 @@ export function EditorContentArea({
       e.preventDefault();
       handleContinueWrite();
     }
-  };
+  }, [handleContinueWrite, handleStopWrite, isStreamingCompletion, toggleLeft, toggleRight]);
 
   return (
     <>
@@ -571,7 +588,7 @@ export function EditorContentArea({
             }
             onRegenerateExpansion={(feedback) =>
               handleExpandBeats({
-                previousOutput: content || undefined,
+                previousOutput: useEditorStore.getState().content || undefined,
                 userFeedback: feedback || undefined,
               })
             }
@@ -579,7 +596,7 @@ export function EditorContentArea({
             onStartExpand={handleExpandBeats}
             onClose={() => setIsRightExpanded(false)}
             disabled={!selectedChapterRecord}
-            hasChapterContent={content.trim().length > 0}
+            hasChapterContent={hasChapterContent}
           />
         }
         hasBeats={beatList.length > 0}
@@ -587,17 +604,11 @@ export function EditorContentArea({
         totalBeats={beatList.length}
         canOpenRightPanel={Boolean(selectedChapterRecord)}
       >
-        <textarea
-          ref={textareaRef as React.RefObject<HTMLTextAreaElement>}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
+        <EditorTextarea
+          handleKeyDown={handleKeyDown}
           disabled={!selectedChapterRecord || isStreamingCompletion || isExpandingBeatProse}
           placeholder={selectedChapterRecord ? "开始创作... (按 ⌘J 进行 AI 续写)" : "请先选择章节..."}
           className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed`}
-          style={{
-            fontFamily: "var(--font-serif), serif",
-          }}
         />
       </EditorLayout>
 
