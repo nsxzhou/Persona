@@ -8,8 +8,8 @@
 | Project Bible | 与 `Project` 一对一关联的独立表，承载蓝图层与活态层文本字段。 |
 | Style Lab | 上传 TXT 样本、分析文风并生成风格资产的模块。 |
 | Style Analysis Job | 一次后台风格分析任务，对应 `style_analysis_jobs` 记录。 |
-| Style Profile | 可长期复用的风格档案，包含报告、摘要、Prompt Pack。 |
-| Prompt Pack | 会被后续写作系统提示词直接注入的风格母 Prompt。 |
+| Style Profile | 可长期复用的风格档案，包含报告、Voice Profile。 |
+| Voice Profile | 会被后续写作系统提示词直接注入的风格母 Prompt。 |
 | Bible | 项目级创作资产面板；前端表现为工作台里的多个标签页，后端落在 `ProjectBible`。 |
 | 蓝图层 | 作者长期维护的 `inspiration / world_building / characters / outline_*` 等字段。 |
 | 活态层 | 随正文推进而变化的 `runtime_state / runtime_threads`。 |

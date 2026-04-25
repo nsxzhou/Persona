@@ -129,7 +129,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 
 ### 语言与术语
 
-正文中文为主，技术术语保留英文（FastAPI、LangGraph、Zen Editor、Prompt Pack 等）。业务术语（圣经、大纲、节拍、风格档案等）的严格定义请查 [90 术语表](./90-glossary/90-glossary.md)。
+正文中文为主，技术术语保留英文（FastAPI、LangGraph、Zen Editor、Voice Profile 等）。业务术语（圣经、大纲、节拍、风格档案等）的严格定义请查 [90 术语表](./90-glossary/90-glossary.md)。
 
 ### 模板
 
