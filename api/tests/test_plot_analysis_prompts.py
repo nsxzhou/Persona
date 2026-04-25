@@ -115,6 +115,23 @@ def test_build_sketch_prompt_exposes_chunk_position_and_sample_text() -> None:
     assert "独特片段标记：ALPHA-TOKEN" in prompt
 
 
+def test_build_sketch_prompt_separates_primary_text_from_neighbor_context() -> None:
+    prompt = build_sketch_prompt(
+        chunk="主正文片段",
+        chunk_index=1,
+        chunk_count=3,
+        classification=CLASSIFICATION,
+        overlap_before="前文线索",
+        overlap_after="后文线索",
+    )
+
+    assert "主分析文本（当前 chunk，结论优先以此为准）" in prompt
+    assert "前邻接上下文（仅用于跨边界补全）" in prompt
+    assert "后邻接上下文（仅用于跨边界补全）" in prompt
+    assert "前文线索" in prompt
+    assert "后文线索" in prompt
+
+
 def test_build_sketch_prompt_enforces_compactness_constraints() -> None:
     prompt = build_sketch_prompt(
         chunk="片段",
@@ -289,7 +306,7 @@ def test_build_chunk_analysis_prompt_omits_blank_skeleton_context() -> None:
     )
     assert _SKELETON_HEADER not in prompt_default
     assert _SKELETON_CAVEAT not in prompt_default
-    assert "样本文本：\n片段" in prompt_default
+    assert "主分析文本（当前 chunk，结论优先以此为准）:\n片段" in prompt_default
     assert "## 3.1 阶段划分与字数节奏" in prompt_default
 
 
@@ -319,7 +336,24 @@ def test_build_chunk_analysis_prompt_with_skeleton_injects_section_and_caveat() 
     assert "启动期 0-1；上升期 2-3" in prompt
     assert _SKELETON_CAVEAT in prompt
     # Skeleton block must precede the chunk text (the "input fragment")
-    assert prompt.index(_SKELETON_HEADER) < prompt.index("样本文本：")
+    assert prompt.index(_SKELETON_HEADER) < prompt.index("主分析文本（当前 chunk，结论优先以此为准）")
+
+
+def test_build_chunk_analysis_prompt_distinguishes_primary_text_and_neighbor_context() -> None:
+    prompt = build_chunk_analysis_prompt(
+        chunk="主正文片段",
+        chunk_index=0,
+        classification=CLASSIFICATION,
+        chunk_count=1,
+        plot_skeleton=_SAMPLE_SKELETON,
+        overlap_before="前文补充",
+        overlap_after="后文补充",
+    )
+
+    assert "主分析文本（当前 chunk，结论优先以此为准）" in prompt
+    assert "前邻接上下文（仅用于跨边界补全）" in prompt
+    assert "后邻接上下文（仅用于跨边界补全）" in prompt
+    assert "不要把纯邻接上下文中的事件重复记为当前 chunk 的独立事件" in prompt
 
 
 # --------------------------------------------------------------------------- #

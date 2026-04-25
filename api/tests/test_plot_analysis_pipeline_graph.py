@@ -228,8 +228,41 @@ async def test_pipeline_graph_runs_sketch_then_skeleton_and_threads_skeleton_dow
     storage_service = PlotAnalysisStorageService()
     job_id = "job-skeleton-thread"
     chunk_count = 3
-    for index in range(chunk_count):
-        await storage_service.write_chunk_artifact(job_id, index, f"chunk {index} text")
+    await storage_service.write_chunk_artifact(job_id, 0, "before-000 marker")
+    await storage_service.write_chunk_artifact(job_id, 1, "primary-111 marker")
+    await storage_service.write_chunk_artifact(job_id, 2, "after-222 marker")
+    await storage_service.write_json_artifact(
+        job_id,
+        name="chunk-manifest",
+        payload={
+            "chunks": [
+                    {
+                        "index": 0,
+                        "start_paragraph": 0,
+                        "end_paragraph": 1,
+                        "primary_char_count": 10,
+                        "overlap_before_chars": 0,
+                        "overlap_after_chars": 16,
+                    },
+                    {
+                        "index": 1,
+                        "start_paragraph": 1,
+                        "end_paragraph": 2,
+                        "primary_char_count": 10,
+                        "overlap_before_chars": 16,
+                        "overlap_after_chars": 12,
+                    },
+                    {
+                        "index": 2,
+                        "start_paragraph": 2,
+                        "end_paragraph": 3,
+                        "primary_char_count": 10,
+                        "overlap_before_chars": 12,
+                        "overlap_after_chars": 0,
+                    },
+                ]
+            },
+        )
 
     client = PipelineLLMStub()
     pipeline = build_pipeline(client, InMemorySaver())
@@ -243,6 +276,7 @@ async def test_pipeline_graph_runs_sketch_then_skeleton_and_threads_skeleton_dow
 
     # Sketch fan-out ran once per chunk.
     assert len(client.sketch_prompts) == chunk_count
+    assert any("前邻接上下文（仅用于跨边界补全）" in prompt for prompt in client.sketch_prompts)
     # Reduce ran exactly once (below the hierarchical-fallback threshold).
     assert len(client.skeleton_reduce_prompts) == 1
     # Skeleton artifact written to disk.
@@ -258,6 +292,11 @@ async def test_pipeline_graph_runs_sketch_then_skeleton_and_threads_skeleton_dow
         assert _SKELETON_SIGNATURE in chunk_prompt, (
             "chunk analysis prompt should embed the plot skeleton"
         )
+    middle_prompt = next(
+        prompt for prompt in client.chunk_analysis_prompts if "primary-111 marker" in prompt
+    )
+    assert "efore-000 marker" in middle_prompt
+    assert "after-222" in middle_prompt
     # Skeleton threaded into merge prompt (via PlotAnalysisState).
     assert len(client.merge_prompts) >= 1
     for merge_prompt in client.merge_prompts:

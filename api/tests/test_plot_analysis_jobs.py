@@ -10,6 +10,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.db.models import PlotAnalysisJob
+from app.core.config import get_settings
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 
@@ -33,6 +34,74 @@ def test_plot_analysis_job_service_supports_dependency_injection() -> None:
     assert service.provider_service is provider_service
     assert service.storage_service is storage_service
     assert service.checkpointer_factory is checkpointer_factory
+
+
+@pytest.mark.asyncio
+async def test_plot_worker_load_run_context_persists_chunk_manifest_for_new_jobs(
+    initialized_client: AsyncClient,
+    app_with_db: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    provider_id = (await initialized_client.get("/api/v1/provider-configs")).json()[0]["id"]
+    create_response = await initialized_client.post(
+        "/api/v1/plot-analysis-jobs",
+        data={"plot_name": "Manifest 落盘", "provider_id": provider_id},
+        files={"file": ("sample.txt", "第一段。\n\n第二段。".encode("utf-8"), "text/plain")},
+    )
+    job_id = create_response.json()["id"]
+
+    async def fake_read_plot_chunks_and_classification(stream, *, on_chunk=None, boundary_detector=None):
+        del stream, boundary_detector
+        assert on_chunk is not None
+        await on_chunk(0, "chunk-0")
+        await on_chunk(1, "chunk-1")
+        return (
+            2,
+            6,
+            {
+                "text_type": "章节正文",
+                "has_timestamps": False,
+                "has_speaker_labels": False,
+                "has_noise_markers": False,
+                "uses_batch_processing": False,
+                "location_indexing": "章节或段落位置",
+                "noise_notes": "未发现显著噪声。",
+            },
+            [
+                {
+                    "index": 0,
+                    "start_paragraph": 0,
+                    "end_paragraph": 1,
+                    "primary_char_count": 3,
+                    "overlap_before_chars": 0,
+                    "overlap_after_chars": 1,
+                },
+                {
+                    "index": 1,
+                    "start_paragraph": 1,
+                    "end_paragraph": 2,
+                    "primary_char_count": 3,
+                    "overlap_before_chars": 1,
+                    "overlap_after_chars": 0,
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.plot_analysis_worker.read_plot_chunks_and_classification",
+        fake_read_plot_chunks_and_classification,
+    )
+
+    service = PlotAnalysisWorkerService()
+    context = await service._load_run_context(app_with_db.state.session_factory, job_id)  # noqa: SLF001
+    manifest = await service.storage_service.read_chunk_manifest(job_id)
+
+    assert context.chunk_count == 2
+    assert [entry["index"] for entry in manifest] == [0, 1]
+    get_settings.cache_clear()
 
 
 @pytest.mark.asyncio

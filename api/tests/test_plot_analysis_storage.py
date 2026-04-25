@@ -135,3 +135,65 @@ async def test_read_sketch_batches_no_yield_when_directory_missing() -> None:
         async for batch in service.read_sketch_batches("never-written-job", batch_size=2)
     ]
     assert batches == []
+
+
+@pytest.mark.asyncio
+async def test_chunk_manifest_round_trips_and_overlap_context_uses_neighbor_windows() -> None:
+    service = PlotAnalysisStorageService()
+    job_id = "job-manifest-overlap"
+    await service.write_chunk_artifact(job_id, 0, "AAA前情铺垫BBB")
+    await service.write_chunk_artifact(job_id, 1, "CCC当前正文DDD")
+    await service.write_chunk_artifact(job_id, 2, "EEE后续收束FFF")
+    await service.write_json_artifact(
+        job_id,
+        name="chunk-manifest",
+        payload={
+            "chunks": [
+                {
+                    "index": 0,
+                    "start_paragraph": 0,
+                    "end_paragraph": 1,
+                    "primary_char_count": 10,
+                    "overlap_before_chars": 0,
+                    "overlap_after_chars": 3,
+                },
+                {
+                    "index": 1,
+                    "start_paragraph": 1,
+                    "end_paragraph": 2,
+                    "primary_char_count": 10,
+                    "overlap_before_chars": 3,
+                    "overlap_after_chars": 4,
+                },
+                {
+                    "index": 2,
+                    "start_paragraph": 2,
+                    "end_paragraph": 3,
+                    "primary_char_count": 10,
+                    "overlap_before_chars": 4,
+                    "overlap_after_chars": 0,
+                },
+            ]
+        },
+    )
+
+    manifest = await service.read_chunk_manifest(job_id)
+    context = await service.read_chunk_with_overlap_context(job_id, 1)
+
+    assert manifest[1]["index"] == 1
+    assert context.primary_text == "CCC当前正文DDD"
+    assert context.overlap_before == "BBB"
+    assert context.overlap_after == "EEE后"
+
+
+@pytest.mark.asyncio
+async def test_chunk_overlap_context_degrades_gracefully_without_manifest() -> None:
+    service = PlotAnalysisStorageService()
+    job_id = "job-no-manifest"
+    await service.write_chunk_artifact(job_id, 0, "只有主正文")
+
+    context = await service.read_chunk_with_overlap_context(job_id, 0)
+
+    assert context.primary_text == "只有主正文"
+    assert context.overlap_before == ""
+    assert context.overlap_after == ""
