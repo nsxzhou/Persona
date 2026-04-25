@@ -479,9 +479,7 @@ class PlanningEditorService(_EditorServiceBase):
             payload.plot_profile_id,
             user_id,
         )
-        generation_profile = self._require_generation_profile(
-            explicit_profile=payload.generation_profile,
-        )
+        generation_profile = payload.generation_profile
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_concept_generate_system_prompt(
