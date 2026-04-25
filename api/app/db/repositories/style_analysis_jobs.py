@@ -125,6 +125,7 @@ class StyleAnalysisJobRepository:
             )
             .order_by(StyleAnalysisJob.created_at.asc())
             .limit(1)
+            .with_for_update(skip_locked=True)
             .scalar_subquery()
         )
 
@@ -216,103 +217,17 @@ class StyleAnalysisJobRepository:
             )
         )
 
-    async def recover_stale_jobs(
+    async def _apply_stale_recovery(
         self,
         session: AsyncSession,
-        *,
-        cutoff: datetime,
+        stale_condition,
         max_attempts: int,
-        running_status: str,
         paused_status: str,
         failed_status: str,
         pending_status: str,
         now: datetime,
-    ) -> None:
-        stale_condition = (StyleAnalysisJob.status == running_status) & (
-            func.coalesce(
-                StyleAnalysisJob.last_heartbeat_at,
-                StyleAnalysisJob.started_at,
-            )
-            < cutoff
-        )
+    ) -> int:
         pause_condition = stale_condition & (StyleAnalysisJob.pause_requested_at.is_not(None))
-
-        await session.execute(
-            update(StyleAnalysisJob)
-            .where(pause_condition)
-            .values(
-                status=paused_status,
-                paused_at=now,
-                pause_requested_at=None,
-                locked_by=None,
-                locked_at=None,
-                last_heartbeat_at=None,
-                attempt_count=case(
-                    (StyleAnalysisJob.attempt_count > 0, StyleAnalysisJob.attempt_count - 1),
-                    else_=0,
-                ),
-            )
-        )
-        await session.execute(
-            update(StyleAnalysisJob)
-            .where(
-                stale_condition,
-                StyleAnalysisJob.pause_requested_at.is_(None),
-                StyleAnalysisJob.attempt_count >= max_attempts,
-            )
-            .values(
-                status=failed_status,
-                error_message="分析任务重试次数已用尽，请重新提交",
-                completed_at=now,
-                stage=None,
-                locked_by=None,
-                locked_at=None,
-                last_heartbeat_at=None,
-            )
-        )
-        await session.execute(
-            update(StyleAnalysisJob)
-            .where(
-                stale_condition,
-                StyleAnalysisJob.pause_requested_at.is_(None),
-                StyleAnalysisJob.attempt_count < max_attempts,
-            )
-            .values(
-                status=pending_status,
-                stage=None,
-                error_message=None,
-                locked_by=None,
-                locked_at=None,
-                last_heartbeat_at=None,
-            )
-        )
-
-    async def reconcile_stale_job(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        cutoff: datetime,
-        max_attempts: int,
-        running_status: str,
-        paused_status: str,
-        failed_status: str,
-        pending_status: str,
-        now: datetime,
-    ) -> bool:
-        stale_condition = (
-            (StyleAnalysisJob.id == job_id)
-            & (StyleAnalysisJob.status == running_status)
-            & (
-                func.coalesce(
-                    StyleAnalysisJob.last_heartbeat_at,
-                    StyleAnalysisJob.started_at,
-                )
-                < cutoff
-            )
-        )
-        pause_condition = stale_condition & (StyleAnalysisJob.pause_requested_at.is_not(None))
-
         affected_rows = 0
 
         result = await session.execute(
@@ -369,6 +284,70 @@ class StyleAnalysisJobRepository:
             )
         )
         affected_rows += result.rowcount or 0
+        return affected_rows
+
+    async def recover_stale_jobs(
+        self,
+        session: AsyncSession,
+        *,
+        cutoff: datetime,
+        max_attempts: int,
+        running_status: str,
+        paused_status: str,
+        failed_status: str,
+        pending_status: str,
+        now: datetime,
+    ) -> None:
+        stale_condition = (StyleAnalysisJob.status == running_status) & (
+            func.coalesce(
+                StyleAnalysisJob.last_heartbeat_at,
+                StyleAnalysisJob.started_at,
+            )
+            < cutoff
+        )
+        await self._apply_stale_recovery(
+            session=session,
+            stale_condition=stale_condition,
+            max_attempts=max_attempts,
+            paused_status=paused_status,
+            failed_status=failed_status,
+            pending_status=pending_status,
+            now=now,
+        )
+
+    async def reconcile_stale_job(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        cutoff: datetime,
+        max_attempts: int,
+        running_status: str,
+        paused_status: str,
+        failed_status: str,
+        pending_status: str,
+        now: datetime,
+    ) -> bool:
+        stale_condition = (
+            (StyleAnalysisJob.id == job_id)
+            & (StyleAnalysisJob.status == running_status)
+            & (
+                func.coalesce(
+                    StyleAnalysisJob.last_heartbeat_at,
+                    StyleAnalysisJob.started_at,
+                )
+                < cutoff
+            )
+        )
+        affected_rows = await self._apply_stale_recovery(
+            session=session,
+            stale_condition=stale_condition,
+            max_attempts=max_attempts,
+            paused_status=paused_status,
+            failed_status=failed_status,
+            pending_status=pending_status,
+            now=now,
+        )
         return affected_rows > 0
 
     async def create_sample_file(
