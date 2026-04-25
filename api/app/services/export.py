@@ -13,21 +13,18 @@ from app.db.models import Project, ProjectChapter
 
 class ExportService:
     @staticmethod
-    def generate_txt_export(project: Project, chapters: list[ProjectChapter]) -> bytes:
-        lines = []
-        lines.append(f"{project.name}\n")
-        lines.append("=" * 40 + "\n\n")
+    async def generate_txt_export(project: Project, chapters: list[ProjectChapter]):
+        yield f"{project.name}\n".encode("utf-8")
+        yield ("=" * 40 + "\n\n").encode("utf-8")
 
         current_volume = -1
         for chapter in chapters:
             if chapter.volume_index != current_volume:
                 current_volume = chapter.volume_index
-                lines.append(f"## 第 {current_volume + 1} 卷\n\n")
-            lines.append(f"### 第 {chapter.chapter_index + 1} 章 {chapter.title}\n\n")
+                yield f"## 第 {current_volume + 1} 卷\n\n".encode("utf-8")
+            yield f"### 第 {chapter.chapter_index + 1} 章 {chapter.title}\n\n".encode("utf-8")
             if chapter.content:
-                lines.append(f"{chapter.content}\n\n")
-
-        return "".join(lines).encode("utf-8")
+                yield f"{chapter.content}\n\n".encode("utf-8")
 
     @staticmethod
     def generate_epub_export(project: Project, chapters: list[ProjectChapter]) -> bytes:
@@ -90,15 +87,17 @@ class ExportService:
         if fmt == "epub":
             content = ExportService.generate_epub_export(project, chapters)
             media_type = "application/epub+zip"
+            def iterfile():
+                yield content
+            return StreamingResponse(
+                iterfile(),
+                media_type=media_type,
+                headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
+            )
         else:
-            content = ExportService.generate_txt_export(project, chapters)
             media_type = "text/plain; charset=utf-8"
-
-        def iterfile():
-            yield content
-
-        return StreamingResponse(
-            iterfile(),
-            media_type=media_type,
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
-        )
+            return StreamingResponse(
+                ExportService.generate_txt_export(project, chapters),
+                media_type=media_type,
+                headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
+            )
