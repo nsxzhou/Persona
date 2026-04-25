@@ -400,25 +400,7 @@ class PlotAnalysisJobService:
             not_ready_detail="分析任务尚未完成，暂无法读取全书骨架",
         )
 
-    async def get_plot_summary_or_409(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> str:
-        result = await self.repository.get_status_and_plot_summary(
-            session,
-            job_id,
-            user_id=user_id,
-        )
-        return await self._resolve_payload_result_or_409(
-            result=result,
-            parser=str,
-            not_ready_detail="分析任务尚未完成，暂无法读取情节摘要",
-        )
-
-    async def get_prompt_pack_or_409(
+    async def get_story_engine_or_409(
         self,
         session: AsyncSession,
         job_id: str,
@@ -433,7 +415,7 @@ class PlotAnalysisJobService:
         return await self._resolve_payload_result_or_409(
             result=result,
             parser=str,
-            not_ready_detail="分析任务尚未完成，暂无法读取 Prompt 包",
+            not_ready_detail="分析任务尚未完成，暂无法读取 Story Engine Profile",
         )
 
     async def claim_job_for_worker(
@@ -490,15 +472,14 @@ class PlotAnalysisJobService:
         *,
         analysis_meta_payload: dict,
         analysis_report_payload: str,
-        plot_summary_payload: str,
-        prompt_pack_payload: str,
+        story_engine_payload: str,
         plot_skeleton_payload: str,
     ) -> None:
         job = await self.get_or_404(session, job_id)
         job.analysis_meta_payload = analysis_meta_payload
         job.analysis_report_payload = analysis_report_payload
-        job.plot_summary_payload = plot_summary_payload
-        job.prompt_pack_payload = prompt_pack_payload
+        job.plot_summary_payload = None
+        job.prompt_pack_payload = story_engine_payload
         job.plot_skeleton_payload = plot_skeleton_payload
         job.status = PLOT_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None

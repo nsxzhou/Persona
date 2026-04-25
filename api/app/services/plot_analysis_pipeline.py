@@ -29,15 +29,15 @@ from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.plot_analysis_prompts import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
-    build_prompt_pack_prompt,
     build_report_prompt,
-    build_plot_summary_prompt,
     build_sketch_prompt,
     build_skeleton_group_reduce_prompt,
     build_skeleton_reduce_prompt,
+    build_story_engine_prompt,
 )
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
+from app.schemas.prompt_profiles import DesireOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -51,18 +51,17 @@ SKELETON_HIERARCHICAL_TOKEN_THRESHOLD = 80_000
 # Group size for the hierarchical group-reduce step. Also monkeypatch-able.
 SKELETON_GROUP_SIZE = 40
 
-_PROMPT_PACK_SECTION_HEADERS = (
-    "# Shared Constraints",
-    "# Tone Lock",
-    "# Anti-Whitewash Guardrails",
-    "# Worldbuilding Prompt",
-    "# Character Cards Prompt",
-    "# Outline Master Prompt",
-    "# Volume Planning Prompt",
-    "# Chapter Outline Prompt",
-    "# Beat Planning Prompt",
-    "# Continuation Guardrails",
-    "# Few-shot Slots",
+_STORY_ENGINE_SECTION_HEADERS = (
+    "# Story Engine Profile",
+    "## genre_mother",
+    "## drive_axes",
+    "## payoff_objects",
+    "## pressure_formulas",
+    "## relation_roles",
+    "## scene_verbs",
+    "## hook_recipes",
+    "## anti_drift_guardrails",
+    "## suggested_overlays",
 )
 
 
@@ -82,8 +81,8 @@ class PlotAnalysisState(TypedDict):
     plot_skeleton_markdown: NotRequired[str]
     merged_analysis_markdown: NotRequired[str]
     analysis_report_markdown: NotRequired[str]
-    plot_summary_markdown: NotRequired[str]
-    prompt_pack_markdown: NotRequired[str]
+    story_engine_markdown: NotRequired[str]
+    suggested_overlays: NotRequired[list[DesireOverlay]]
     analysis_meta: NotRequired[dict[str, Any]]
 
 
@@ -109,8 +108,8 @@ class ChunkMapState(TypedDict):
 class PlotAnalysisPipelineResult:
     analysis_meta: PlotAnalysisMeta
     analysis_report_markdown: str
-    plot_summary_markdown: str
-    prompt_pack_markdown: str
+    story_engine_markdown: str
+    suggested_overlays: list[DesireOverlay]
     plot_skeleton_markdown: str
 
 
@@ -158,18 +157,18 @@ class PlotAnalysisPipeline:
         self.graph = self._build_graph()
 
     @staticmethod
-    def _normalize_prompt_pack_markdown(markdown: str) -> str:
+    def _normalize_story_engine_markdown(markdown: str) -> str:
         stripped = markdown.strip()
         if not stripped:
             return stripped
 
-        first_header = _PROMPT_PACK_SECTION_HEADERS[0]
+        first_header = _STORY_ENGINE_SECTION_HEADERS[0]
         start = stripped.find(first_header)
         if start >= 0:
             stripped = stripped[start:]
 
         matches = list(
-            re.finditer(r"^# [^\n]+", stripped, flags=re.MULTILINE)
+            re.finditer(r"^(#|##) [^\n]+", stripped, flags=re.MULTILINE)
         )
         if not matches:
             return stripped
@@ -177,7 +176,7 @@ class PlotAnalysisPipeline:
         sections: list[str] = []
         for index, match in enumerate(matches):
             header = match.group(0).strip()
-            if header not in _PROMPT_PACK_SECTION_HEADERS:
+            if header not in _STORY_ENGINE_SECTION_HEADERS:
                 continue
             section_end = matches[index + 1].start() if index + 1 < len(matches) else len(stripped)
             section_body = stripped[match.start():section_end].strip()
@@ -215,8 +214,8 @@ class PlotAnalysisPipeline:
         return PlotAnalysisPipelineResult(
             analysis_meta=PlotAnalysisMeta.model_validate(final_state["analysis_meta"]),
             analysis_report_markdown=str(final_state["analysis_report_markdown"]),
-            plot_summary_markdown=str(final_state["plot_summary_markdown"]),
-            prompt_pack_markdown=str(final_state["prompt_pack_markdown"]),
+            story_engine_markdown=str(final_state["story_engine_markdown"]),
+            suggested_overlays=list(final_state["suggested_overlays"]),
             plot_skeleton_markdown=str(final_state["plot_skeleton_markdown"]),
         )
 
@@ -230,8 +229,7 @@ class PlotAnalysisPipeline:
         builder.add_node("analyze_chunk", self._analyze_chunk)
         builder.add_node("merge_chunks", self._merge_chunks)
         builder.add_node("build_report", self._build_report)
-        builder.add_node("build_summary", self._build_summary)
-        builder.add_node("build_prompt_pack", self._build_prompt_pack)
+        builder.add_node("build_story_engine", self._build_story_engine)
         builder.add_node("persist_result", self._persist_result)
 
         builder.add_edge(START, "prepare_input")
@@ -241,9 +239,8 @@ class PlotAnalysisPipeline:
         builder.add_conditional_edges("select_focus_chunks", self._route_chunks, ["analyze_chunk"])
         builder.add_edge("analyze_chunk", "merge_chunks")
         builder.add_edge("merge_chunks", "build_report")
-        builder.add_edge("build_report", "build_summary")
-        builder.add_edge("build_summary", "build_prompt_pack")
-        builder.add_edge("build_prompt_pack", "persist_result")
+        builder.add_edge("build_report", "build_story_engine")
+        builder.add_edge("build_story_engine", "persist_result")
         builder.add_edge("persist_result", END)
 
         return builder.compile(checkpointer=self.checkpointer)
@@ -694,56 +691,65 @@ class PlotAnalysisPipeline:
         )
         return {"analysis_report_markdown": report_markdown}
 
-    async def _build_summary(self, state: PlotAnalysisState) -> dict[str, Any]:
+    async def _build_story_engine(self, state: PlotAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()
         await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING)
-        await self.storage_service.append_job_log(state["job_id"], "[System] 正在提炼情节特征，生成摘要...")
+        await self.storage_service.append_job_log(state["job_id"], "[System] 正在提炼 Story Engine Profile...")
 
-        if self.storage_service.stage_markdown_artifact_exists(state["job_id"], name="plot-summary"):
-            markdown = await self.storage_service.read_stage_markdown_artifact(state["job_id"], name="plot-summary")
-            return {"plot_summary_markdown": markdown}
+        if self.storage_service.stage_markdown_artifact_exists(state["job_id"], name="story-engine"):
+            markdown = await self.storage_service.read_stage_markdown_artifact(state["job_id"], name="story-engine")
+            return {
+                "story_engine_markdown": markdown,
+                "suggested_overlays": self._extract_suggested_overlays(markdown),
+            }
 
-        summary_markdown = await self.llm_client.ainvoke_markdown(
+        story_engine_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
-            prompt=build_plot_summary_prompt(
+            prompt=build_story_engine_prompt(
                 report_markdown=state["analysis_report_markdown"],
                 plot_name=state["plot_name"],
             ),
             provider=self.provider,
             model_name=self.model_name,
-            injection_task=PromptInjectionTask.PLOT_ANALYSIS_SUMMARY,
+            injection_task=PromptInjectionTask.PLOT_ANALYSIS_STORY_ENGINE,
         )
+        story_engine_markdown = self._normalize_story_engine_markdown(story_engine_markdown)
+        suggested_overlays = self._extract_suggested_overlays(story_engine_markdown)
 
         await self.storage_service.write_stage_markdown_artifact(
-            state["job_id"], name="plot-summary", markdown=summary_markdown
+            state["job_id"], name="story-engine", markdown=story_engine_markdown
         )
-        return {"plot_summary_markdown": summary_markdown}
+        return {
+            "story_engine_markdown": story_engine_markdown,
+            "suggested_overlays": suggested_overlays,
+        }
 
-    async def _build_prompt_pack(self, state: PlotAnalysisState) -> dict[str, Any]:
-        self._raise_if_paused()
-        await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING)
-        await self.storage_service.append_job_log(state["job_id"], "[System] 正在构建最终的 Plot Prompt 包...")
-
-        if self.storage_service.stage_markdown_artifact_exists(state["job_id"], name="prompt-pack"):
-            markdown = await self.storage_service.read_stage_markdown_artifact(state["job_id"], name="prompt-pack")
-            return {"prompt_pack_markdown": markdown}
-
-        prompt_pack_markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
-            prompt=build_prompt_pack_prompt(
-                report_markdown=state["analysis_report_markdown"],
-                plot_summary_markdown=state["plot_summary_markdown"],
-            ),
-            provider=self.provider,
-            model_name=self.model_name,
-            injection_task=PromptInjectionTask.PLOT_ANALYSIS_PROMPT_PACK,
+    @staticmethod
+    def _extract_suggested_overlays(markdown: str) -> list[DesireOverlay]:
+        allowed = {
+            "harem_collect",
+            "wife_steal",
+            "reverse_ntr",
+            "hypnosis_control",
+            "corruption_fall",
+            "dominance_capture",
+        }
+        match = re.search(
+            r"^## suggested_overlays\s*$\n(?P<body>.*?)(?=^## |\Z)",
+            markdown,
+            flags=re.MULTILINE | re.DOTALL,
         )
-        prompt_pack_markdown = self._normalize_prompt_pack_markdown(prompt_pack_markdown)
-
-        await self.storage_service.write_stage_markdown_artifact(
-            state["job_id"], name="prompt-pack", markdown=prompt_pack_markdown
-        )
-        return {"prompt_pack_markdown": prompt_pack_markdown}
+        if not match:
+            return []
+        overlays: list[DesireOverlay] = []
+        for line in match.group("body").splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("-"):
+                continue
+            candidate = stripped[1:].strip()
+            if candidate in allowed:
+                overlays.append(candidate)  # type: ignore[arg-type]
+        return overlays
 
     async def _persist_result(self, state: PlotAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()
