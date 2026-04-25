@@ -94,6 +94,11 @@ class ProjectService:
             default_model=payload.default_model,
             style_profile_id=payload.style_profile_id,
             plot_profile_id=payload.plot_profile_id,
+            generation_profile_payload=(
+                payload.generation_profile.model_dump(mode="json")
+                if payload.generation_profile is not None
+                else None
+            ),
             length_preset=payload.length_preset,
             auto_sync_memory=payload.auto_sync_memory,
         )
@@ -146,6 +151,14 @@ class ProjectService:
         if "default_model" in data:
             default_model = (data.pop("default_model") or "").strip()
             project.default_model = default_model or project.provider.default_model
+
+        if "generation_profile" in data:
+            generation_profile = data.pop("generation_profile")
+            project.generation_profile_payload = (
+                generation_profile.model_dump(mode="json")
+                if generation_profile is not None
+                else None
+            )
 
         _ASSIGNABLE_FIELDS = {
             "name", "description", "status", "length_preset",

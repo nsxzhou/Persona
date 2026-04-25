@@ -92,7 +92,6 @@ class PlotProfileService:
             if payload.plot_skeleton_markdown is not None
             else job.plot_skeleton_payload
         )
-
         profile = await self.repository.create(
             session,
             data=PlotProfileCreateData(
@@ -102,8 +101,7 @@ class PlotProfileService:
                 source_filename=job.sample_file.original_filename,
                 plot_name=payload.plot_name,
                 analysis_report_payload=analysis_report,
-                plot_summary_payload=payload.plot_summary_markdown,
-                prompt_pack_payload=payload.prompt_pack_markdown,
+                prompt_pack_payload=payload.story_engine_markdown,
                 plot_skeleton_payload=skeleton_payload,
                 user_id=resolved_user_id,
             ),
@@ -126,8 +124,7 @@ class PlotProfileService:
     ) -> PlotProfile:
         profile = await self.get_or_404(session, profile_id, user_id=user_id)
         profile.plot_name = payload.plot_name
-        profile.plot_summary_payload = payload.plot_summary_markdown
-        profile.prompt_pack_payload = payload.prompt_pack_markdown
+        profile.prompt_pack_payload = payload.story_engine_markdown
         if payload.plot_skeleton_markdown is not None:
             profile.plot_skeleton_payload = payload.plot_skeleton_markdown
         await self.repository.flush(session)
