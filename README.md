@@ -9,8 +9,8 @@ Persona 是一个面向长篇小说创作的本地优先工作台。它不追求
 ## 核心能力
 
 - **BYOK Provider 配置中心**：统一维护 OpenAI-compatible 网关、默认模型与 API Key 掩码，支持测试连接。
-- **Style Lab**：把单个 TXT 样本沉淀为分析报告、风格摘要和 Prompt Pack，并保存为可挂载的 Style Profile。
-- **Plot Lab**：把单个 TXT 样本沉淀为全书骨架、剧情摘要和 Plot Prompt，并保存为可挂载的 Plot Profile。
+- **Style Lab**：把单个 TXT 样本沉淀为分析报告和 Voice Profile，并保存为可挂载的 Style Profile。
+- **Plot Lab**：把单个 TXT 样本沉淀为全书骨架、分析报告和 Story Engine，并保存为可挂载的 Plot Profile。
 - **Project Workbench / Zen Editor**：围绕蓝图、章节、运行时状态、AI 续写、记忆同步与导出组织完整创作流程。
 
 ## 典型工作流
@@ -31,17 +31,21 @@ Persona 是一个面向长篇小说创作的本地优先工作台。它不追求
 
 ![全局 Provider 配置](./img/FireShot%20Capture%20234%20-%20Persona%20-%20%5Blocalhost%5D.png)
 
-### Style Lab 档案 / Prompt 资产
+### Style Lab 档案 / Voice Profile
 
-风格分析完成后，可以直接审阅风格摘要与 Prompt 资产，并保存成可复用的 Style Profile。
+风格分析包含并发处理的分块分析与后处理生成。完成后，可以直接审阅原始分析报告与 Voice Profile，并保存成可复用的 Style Profile。
 
-![Style Lab 档案 / Prompt 资产](./img/FireShot%20Capture%20223%20-%20Persona%20-%20%5Blocalhost%5D.png)
+![Style Lab 分析过程](./img/FireShot%20Capture%20237%20-%20Persona%20-%20%5Blocalhost%5D.png)
 
-### Plot Lab 档案 / Prompt 资产
+![Style Lab 档案 / Voice Profile](./img/FireShot%20Capture%20239%20-%20Persona%20-%20%5Blocalhost%5D.png)
 
-Plot Profile 会把剧情摘要、Plot Prompt 与全书骨架集中在一起，方便后续项目直接挂载和复用。
+### Plot Lab 档案 / Story Engine
 
-![Plot Lab 档案 / Prompt 资产](./img/FireShot%20Capture%20233%20-%20Persona%20-%20%5Blocalhost%5D.png)
+情节分析包含全书骨架构建与核心驱动力提取。Plot Profile 会把原始分析报告、全书骨架与 Story Engine 集中在一起，方便后续项目直接挂载和复用。
+
+![Plot Lab 分析过程](./img/FireShot%20Capture%20238%20-%20Persona%20-%20%5Blocalhost%5D.png)
+
+![Plot Lab 档案 / Story Engine](./img/FireShot%20Capture%20240%20-%20Persona%20-%20%5Blocalhost%5D.png)
 
 ### 项目工作台
 
