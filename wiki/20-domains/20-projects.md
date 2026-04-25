@@ -77,8 +77,8 @@ Repository 层在 `api/app/db/repositories/projects.py`：
 项目 CRUD 本身不直接调用 LLM，但它决定了后续所有 AI 能力的运行参数：
 
 - `default_provider_id` 和 `default_model` 是编辑器、节拍、大纲生成与 Style Lab 之外的一切写作默认入口
-- `style_profile_id` 决定风格 Prompt Pack 是否会被注入到写作系统提示词中
-- `plot_profile_id` 决定情节 Prompt Pack 是否会被注入到规划和写作链路中
+- `style_profile_id` 决定 Voice Profile 是否会被注入到写作系统提示词中
+- `plot_profile_id` 决定 Story Engine 是否会被注入到规划和写作链路中
 - `length_preset` 会影响大纲、节拍和续写时的篇幅感知，见 `api/app/services/context_assembly.py:49`
 
 换句话说，Project 不是“纯表单对象”，它是后续 Prompt 组装的主配置源。

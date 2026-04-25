@@ -84,7 +84,7 @@ Prompt 规则定义在 `api/app/prompts/editor.py` 的 `build_bible_update_syste
 记忆同步 Prompt 和普通写作 Prompt 的目标完全不同：
 
 - 它不是续写正文
-- 它也不是生成剧情摘要
+- 它也不是生成Story Engine
 - 它只提炼“后文必须继续遵守或继续追踪的持续性变化”
 
 `_BIBLE_UPDATE_SYSTEM` 在 `api/app/prompts/editor.py` 里明确要求：

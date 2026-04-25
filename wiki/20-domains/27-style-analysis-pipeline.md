@@ -9,14 +9,14 @@
 1. 用户在 Style Lab 上传 TXT 并创建任务。
 2. 任务先进入 `pending`，随后被独立 Worker claim。
 3. Worker 先切片并判定文本类型，再驱动 LangGraph 逐阶段运行。
-4. 前端 Wizard 轮询状态、拉取日志，并在成功后读取报告/摘要/Prompt Pack。
+4. 前端 Wizard 轮询状态、拉取日志，并在成功后读取报告/Voice Profile。
 5. 用户确认后把结果保存成 Style Profile。
 
 ## 前端入口与组件链路
 
 这个子系统没有独立的“管道页面”，它通过 Style Lab Wizard 侧向暴露：
 
-- `web/components/style-lab-wizard-view.tsx:18` 决定当前展示报告、摘要还是 Prompt Pack
+- `web/components/style-lab-wizard-view.tsx:18` 决定当前展示报告、摘要还是 Voice Profile
 - `web/components/style-lab-wizard-report-step.tsx:15` 在运行期显示日志与阶段状态
 - `web/hooks/use-style-lab-wizard-logic.ts:65` 轮询 status
 - `web/hooks/use-style-lab-wizard-logic.ts:80` 增量拉取 execution logs
