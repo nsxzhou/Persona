@@ -50,74 +50,26 @@ REPORT_TEMPLATE = """
 """.strip()
 
 
-STYLE_SUMMARY_TEMPLATE = """
-# 风格名称
+VOICE_PROFILE_TEMPLATE = """
+# Voice Profile
 
-# 风格定位
-
-# 核心特征
+## sentence_rhythm
 - 
 
-# 词汇偏好
+## narrative_distance
 - 
 
-# 节奏画像
+## detail_anchors
 - 
 
-# 标点画像
+## dialogue_aggression
 - 
 
-# 意象与主题
+## irregularity_budget
 - 
 
-# 场景策略
-## 对白
-## 动作
-## 环境
-
-# 避免或少用
+## anti_ai_guardrails
 - 
-
-# 生成备注
-- 
-""".strip()
-
-
-PROMPT_PACK_TEMPLATE = """
-# Shared Style Rules
-- Rule 1:
-- Rule 2:
-
-# Style Transfer Prompt
-- Core Transfer:
-- Conditional Preferences:
-
-# Scene Prompts
-## Dialogue
-- Strategy:
-## Action
-- Strategy:
-## Environment
-- Strategy:
-
-# Anti-Pattern Guardrails
-- Guardrail 1:
-- Guardrail 2:
-
-# Style Controls
-## Tone
-- Control:
-## Rhythm
-- Control:
-## Evidence Anchor
-- Control:
-
-# Few-shot Slots
-## Slot 1
-- Label:
-- Type:
-- Purpose:
-- Text:
 """.strip()
 
 
@@ -170,57 +122,34 @@ def build_report_prompt(
     )
 
 
-def build_style_summary_prompt(
+def build_voice_profile_prompt(
     *,
     report_markdown: str,
     style_name: str,
 ) -> str:
     return (
         f"{SHARED_ANALYSIS_RULES}\n\n"
-        "你正在从完整分析报告提炼可编辑风格摘要。输出必须是 Markdown 文档。\n"
-        "不要引入报告中不存在的结论；尽量高密度、可用于后续生成。\n\n"
+        "你正在从完整分析报告生成一个可复用的 Voice Profile。输出必须是 Markdown 文档。\n"
+        "Voice Profile 只回答“这个作者怎么写”，不要回答“写什么题材”“要推进什么剧情”“成人强度开到什么档位”。\n\n"
         f"风格名称：{style_name}\n"
-        f"输出模板：\n{STYLE_SUMMARY_TEMPLATE}\n\n"
-        f"分析报告：\n{report_markdown}"
-    )
-
-
-def build_prompt_pack_prompt(
-    *,
-    report_markdown: str,
-    style_summary_markdown: str,
-) -> str:
-    return (
-        "你是一位小说写作 prompt 编排器。"
-        "请基于完整分析报告和当前风格摘要，生成一个全局可复用的 Markdown 风格母 prompt 包，可脱离原始样本单独注入。"
-        "不要绑定具体项目剧情，不要引入报告中没有的结论。\n\n"
         "输出起始规则：\n"
-        "- 输出必须直接从 `# Shared Style Rules` 开始。\n"
+        "- 输出必须直接从 `# Voice Profile` 开始。\n"
         "- 不要输出任何前言、任务说明、来源说明或总结。\n"
         "- 不要写“作为”开头的身份化句式。\n"
-        "- 不要写“好的”“下面是”“基于你提供的报告/摘要”“作为……我将……”这类解释性或身份化开场。\n"
-        "- 最终产物必须可单独阅读，不得依赖“分析报告”这一上文存在。\n\n"
-        "去样本化规则：\n"
-        "- 不要保留样本人物名、地名、组织名、专属设定词、事件名。\n"
-        "- 具体角色关系必须改写为角色原型，例如：轻快少女角色、权威上位者、理性吐槽型主视角、调侃型友人。\n"
-        "- 具体冲突必须改写为冲突原型，例如：价值观碰撞、利益交换、身份压制、规则错位。\n"
-        "- 具体世界词必须改写为语义类别，例如：能力体系词、行业黑话、阶层秩序词、标志性意象词。\n"
-        "- 不要把样本主角模板、题材设定、叙事人称直接写成全局硬约束。\n"
-        "- 只有当样本证据非常明确且跨段稳定时，才可以把强风格锚点写成“优先采用的偏好”；不要写成所有文本都必须满足的硬约束。\n"
-        "- 禁止保留章节号、chunk 编号、样本专名、原作特有固有名词。\n\n"
-        "成人内容迁移边界：\n"
-        "- 成人相关内容只能迁移为语气、节奏、对话潜台词、镜头距离和留白方式。\n"
-        "- 不得把样本中的成人桥段、关系禁忌或擦边场景写成后续项目必须生成的内容目标。\n"
-        "- 不得要求生成露骨性描写、具体性行为、色情器官化描写、强迫、催眠/精神控制、药物控制、未成年或乱伦内容。\n"
-        "- 如需保留刺激感，只能写成成年人之间的克制暧昧、危险吸引、身份差、利益交换、误会、嫉妒或镜头外留白。\n\n"
-        "结构规则：\n"
-        "- Shared Style Rules 只写跨作品稳定成立的风格机制，不写剧情设定、人物履历或样本世界观。\n"
-        "- Style Transfer Prompt 只描述写法迁移规则，不锁死具体世界观、主角身份、固定人称或题材前提。\n"
-        "- Scene Prompts 允许描述“当样本出现某类场景时如何写”，不允许默认某个既有世界观前提。\n"
-        "- Anti-Pattern Guardrails 只写风格禁区，不写原作专属角色、势力、桥段或价值判断标签。\n"
-        "- Style Controls 只保留 Tone、Rhythm、Evidence Anchor 的执行控制，不扩展成剧情说明。\n"
-        "- Few-shot Slots 只保留角色原型 + 通用示例，不得写成样本摘录、样本改写或实名化示例。\n\n"
-        f"输出模板：\n{PROMPT_PACK_TEMPLATE}\n\n"
-        f"分析报告：\n{report_markdown}\n\n"
-        f"当前风格摘要：\n{style_summary_markdown}"
+        "- 不要写“好的”“下面是”“基于你提供的报告”这类解释性开场。\n\n"
+        "硬性范围限制：\n"
+        "- 只允许输出 6 个二级标题：`sentence_rhythm`、`narrative_distance`、`detail_anchors`、`dialogue_aggression`、`irregularity_budget`、`anti_ai_guardrails`。\n"
+        "- 不要写题材推进、成人强度、overlay 名称或剧情目标。\n"
+        "- 明确排除这些控制项：`genre_mother`、`intensity_level`、`desire_overlays`、`chapter_goal`。\n"
+        "- 这些 overlay 名称只能作为排除项示例，不得写进结果正文：`harem_collect`、`wife_steal`、`reverse_ntr`、`hypnosis_control`、`corruption_fall`、`dominance_capture`。\n"
+        "- 即便样本里含有后宫、催眠、堕落等内容，也只能提炼成写法上的距离、节奏、细节锚点和反 AI 约束，不得把它们写成生成目标。\n\n"
+        "字段要求：\n"
+        "- `sentence_rhythm`：说明句长、断裂点、回勾和段落呼吸。\n"
+        "- `narrative_distance`：说明叙述是否贴近主角即时感官/判断，还是偏外视角。\n"
+        "- `detail_anchors`：列 3-8 个稳定出现的感官/动作锚点。\n"
+        "- `dialogue_aggression`：说明对白是否抢拍、试探、压迫、戏谑、轻蔑。\n"
+        "- `irregularity_budget`：说明允许的轻微不规整，不得鼓励低级错误。\n"
+        "- `anti_ai_guardrails`：列出 3-8 条明确禁止的 AI 腔，例如解释腔、总结腔、模板示范腔、过度对称句式。\n\n"
+        f"输出模板：\n{VOICE_PROFILE_TEMPLATE}\n\n"
+        f"分析报告：\n{report_markdown}"
     )

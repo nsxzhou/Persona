@@ -42,10 +42,10 @@ PROMPT_SPECS: tuple[PromptSpec, ...] = (
         test_focus="markdown-only style evidence sections and chunk context",
     ),
     PromptSpec(
-        id="style.prompt_pack",
+        id="style.voice_profile",
         lane=PromptLane.STYLE_ANALYSIS,
         output_contract="markdown",
-        test_focus="reusable style pack without unsupported claims",
+        test_focus="voice profile with fixed writing-only sections and no story controls",
     ),
     PromptSpec(
         id="plot.sketch",
@@ -60,10 +60,10 @@ PROMPT_SPECS: tuple[PromptSpec, ...] = (
         test_focus="markdown plot evidence sections and skeleton context",
     ),
     PromptSpec(
-        id="plot.prompt_pack",
+        id="plot.story_engine",
         lane=PromptLane.PLOT_ANALYSIS,
         output_contract="markdown",
-        test_focus="de-sampled reusable plot pack and direct heading start",
+        test_focus="story engine profile with fixed pursuit mechanics and overlay suggestions",
     ),
 )
 

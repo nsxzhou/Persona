@@ -11,6 +11,7 @@ from app.core.bible_fields import BIBLE_FIELD_KEYS, BIBLE_FIELD_LABELS
 from app.core.domain_errors import UnprocessableEntityError
 from app.core.length_presets import LengthPresetKey
 from app.schemas.projects import ConceptItem
+from app.schemas.prompt_profiles import GenerationProfile
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 
 BEAT_GENERATE_CONTEXT_CHARS = 2000
@@ -73,12 +74,51 @@ _READER_HOOK_FRAMEWORK = (
     "- 先判断当前故事的主驱动轴：升级/权力扩张、局势反压、身份逆转、资源掠夺、关系张力、暧昧兑现\n"
     "- 再判断当前阶段读者为什么会继续追：主角下一步最可能拿到什么、压过谁、反制谁、逼近谁或失控什么\n"
     "- 节奏上优先安排压制后兑现、兑现后反噬、短兑现长代价，以及关系推进与利益推进交叉\n"
-    "- 允许欲望、征服感、关系博弈、暧昧和占有感作为张力来源，但默认不要把露骨成人内容写成显式输出目标\n\n"
-    "平台可发布边界：\n"
-    "- 允许成年人之间的危险吸引、身份差、利益交换、暧昧推拉、嫉妒、误会、克制的身体距离和镜头外留白\n"
-    "- 不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化作为生成目标\n"
-    "- 把高风险成人桥段改写为成年自愿的关系博弈、权力试探、情绪压迫、名分/利益交换或镜头外留白"
+    "- 欲望、征服感、关系博弈、暧昧、占有、控制和堕落都可以成为张力来源，但必须服从当前题材母类、overlay、强度档位与剧情推进目标\n\n"
+    "统一强模式约束：\n"
+    "- 未成年相关内容绝对禁止\n"
+    "- overlay 与 intensity 由显式配置决定，不要自行降级成旧版边界话术\n"
+    "- 关系、身体、控制、堕落相关内容必须承担剧情功能：推进、收割、反噬、绑定、逆转或新压力\n"
 )
+
+
+_PLOT_FINGERPRINT_CONTRACT = (
+    "\n\nPlot 指纹落地契约：\n"
+    "- 输出中必须让读者看见 Plot Pack 如何改变当前项目，不能只把 Plot Pack 当作背景参考。\n"
+    "- 隐式提取并应用 Plot Pack 的核心驱动轴、读者追读问题、节奏约束、角色功能位和禁区。\n"
+    "- 每个规划单元都要落到信息差/利益绑定/资源兑现/关系重组/新压力中的至少一项推进。\n"
+    "- 关系张力必须写成剧情功能：奖励源、阻力源、情绪牵引源、身份压迫源或未兑现承诺。\n"
+    "- 成年人的关系张力优先通过身份差、利益交换、名分压力、嫉妒误会、暧昧推拉，以及呼吸、体温、气息、视线停顿、心跳失衡、掌心温度、衣料摩擦、手背/腰背/衣袖/发丝接触等隐晦身体与感官暗示呈现。\n"
+    "- 正文与节拍遵循压制 → 试探 → 兑现 → 反噬 → 新压力的循环，避免只有氛围、文风和暧昧。\n"
+)
+
+
+def _format_plot_prompt_pack(
+    plot_prompt: str,
+    *,
+    usage: str,
+) -> str:
+    return (
+        "# Plot Prompt Pack（情节结构约束）\n\n"
+        f"{plot_prompt.strip()}\n\n"
+        f"使用方式：Plot 是结构约束，不是内容模板；{usage}"
+        f"{_PLOT_FINGERPRINT_CONTRACT}"
+    )
+
+
+def _format_generation_profile(generation_profile: GenerationProfile | None) -> str:
+    if generation_profile is None:
+        return ""
+    return (
+        "# Generation Profile（运行时生成约束）\n\n"
+        f"genre_mother: {generation_profile.genre_mother}\n"
+        f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
+        f"intensity_level: {generation_profile.intensity_level}\n"
+        f"pov_mode: {generation_profile.pov_mode}\n"
+        f"morality_axis: {generation_profile.morality_axis}\n"
+        f"pace_density: {generation_profile.pace_density}\n\n"
+        "这些字段是显式创作目标，必须直接作用于规划与续写。"
+    )
 
 
 _GROUNDED_INTERPRETATION_GUARDRAIL = (
@@ -245,6 +285,7 @@ def build_section_system_prompt(
     section: str,
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
+    generation_profile: GenerationProfile | None = None,
     length_preset: LengthPresetKey = "long",
     regenerating: bool = False,
 ) -> str:
@@ -270,10 +311,18 @@ def build_section_system_prompt(
         parts.append("\n\n---\n")
     if plot_prompt and section in {"world_building", "characters", "outline_master", "outline_detail"}:
         parts.append(
-            f"{plot_prompt}\n\n"
-            "使用方式：Plot 是结构约束，不是内容模板；只吸收压力系统、推进节奏、角色功能位和兑现逻辑，"
-            "不得照搬样本角色、设定、事件。"
+            _format_plot_prompt_pack(
+                plot_prompt,
+                usage=(
+                    "只吸收压力系统、推进节奏、角色功能位和兑现逻辑，"
+                    "不得照搬样本角色、设定、事件。"
+                ),
+            )
         )
+        parts.append("\n\n---\n")
+    generation_profile_block = _format_generation_profile(generation_profile)
+    if generation_profile_block:
+        parts.append(generation_profile_block)
         parts.append("\n\n---\n")
     role_prefix = (
         "你是一位起点白金作家，正在为自己的新书只保留真正必要的设定"
@@ -322,6 +371,7 @@ def build_volume_generate_system_prompt(
     length_preset: LengthPresetKey = "long",
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
+    generation_profile: GenerationProfile | None = None,
     regenerating: bool = False,
 ) -> str:
     """构建卷级结构生成的系统提示词。"""
@@ -331,7 +381,16 @@ def build_volume_generate_system_prompt(
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     if plot_prompt:
-        parts.append(plot_prompt)
+        parts.append(
+            _format_plot_prompt_pack(
+                plot_prompt,
+                usage="用它规划分卷压力阶梯、兑现节奏、关系状态变化和卷尾新压力，不得照搬样本桥段。",
+            )
+        )
+        parts.append("\n\n---\n")
+    generation_profile_block = _format_generation_profile(generation_profile)
+    if generation_profile_block:
+        parts.append(generation_profile_block)
         parts.append("\n\n---\n")
     parts.append(
         "你是一位起点白金作家，正在为自己的新书规划整体结构，梳理分卷规划。\n\n"
@@ -381,6 +440,7 @@ _VOLUME_CHAPTERS_SYSTEM = (
 def build_volume_chapters_system_prompt(
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
+    generation_profile: GenerationProfile | None = None,
     regenerating: bool = False,
 ) -> str:
     """构建单卷章节生成的系统提示词。"""
@@ -389,7 +449,16 @@ def build_volume_chapters_system_prompt(
         parts.append(style_prompt)
         parts.append("\n\n---\n")
     if plot_prompt:
-        parts.append(plot_prompt)
+        parts.append(
+            _format_plot_prompt_pack(
+                plot_prompt,
+                usage="用它拆章节闭环、章末推动点和关系/资源状态变化，不得照搬样本桥段。",
+            )
+        )
+        parts.append("\n\n---\n")
+    generation_profile_block = _format_generation_profile(generation_profile)
+    if generation_profile_block:
+        parts.append(generation_profile_block)
         parts.append("\n\n---\n")
     parts.append(_VOLUME_CHAPTERS_SYSTEM)
     if regenerating:
@@ -441,9 +510,9 @@ _BIBLE_UPDATE_SYSTEM = (
     "更新规则：\n"
     "- 优先判断是否无需更新；如果没有新的持续性变化，直接输出与当前文档等价的最终版本\n"
     "- 只保留会影响后续章节的持续性变化，宁可少记，也不要把本章剧情改写成摘要\n"
-    "- 只记录会持续影响后续选择的关系变化、未兑现承诺、身份压力、名分压力、利益交换或克制暧昧\n"
-    "- 不要把一次性的身体描写、擦边氛围或不可发布成人细节写入长期记忆\n"
-    "- 若新增内容涉及高风险成人桥段，只保留其合规后的剧情功能\n"
+    "- 只记录会持续影响后续选择的关系变化、未兑现承诺、身份压力、名分压力、利益交换，或会改变角色默认边界的隐晦亲密张力\n"
+    "- 只有当呼吸、体温、接触、视线停顿或情感失衡明确改变后续关系默认值时，才写入长期记忆\n"
+    "- 若新增内容涉及强控制、堕落或极端关系桥段，只保留其对后续剧情持续有效的功能结果\n"
     "- 不要记录一次性动作、气氛描写、普通情绪波动、无后续影响的细节\n"
     "- 基于现有文档与新正文，输出两个区块的完整最终版本（可直接替换旧文档）\n"
     "- 保留有效旧信息时，必须直接写入最终文本\n"
@@ -536,6 +605,7 @@ _BEAT_GENERATE_SYSTEM = (
 def build_beat_generate_system_prompt(
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
+    generation_profile: GenerationProfile | None = None,
     regenerating: bool = False,
 ) -> str:
     parts: list[str] = []
@@ -544,10 +614,15 @@ def build_beat_generate_system_prompt(
         parts.append("\n\n---\n")
     if plot_prompt:
         parts.append(
-            f"{plot_prompt}\n\n"
-            "使用方式：Plot 是结构约束，不是内容模板；用它规划压力递进、兑现节奏和章末推动点，"
-            "不得替当前项目发明或照搬样本桥段。"
+            _format_plot_prompt_pack(
+                plot_prompt,
+                usage="用它规划压力递进、兑现节奏和章末推动点，不得替当前项目发明或照搬样本桥段。",
+            )
         )
+        parts.append("\n\n---\n")
+    generation_profile_block = _format_generation_profile(generation_profile)
+    if generation_profile_block:
+        parts.append(generation_profile_block)
         parts.append("\n\n---\n")
     parts.append(_BEAT_GENERATE_SYSTEM)
     if regenerating:
@@ -616,6 +691,7 @@ def _build_beat_expand_system(beat_expand_chars: int = 500) -> str:
 def build_beat_expand_system_prompt(
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
+    generation_profile: GenerationProfile | None = None,
     beat_expand_chars: int = 500,
     regenerating: bool = False,
 ) -> str:
@@ -625,10 +701,15 @@ def build_beat_expand_system_prompt(
         parts.append("\n\n---\n")
     if plot_prompt:
         parts.append(
-            f"{plot_prompt}\n\n"
-            "使用方式：Plot 是结构约束，不是内容模板；续写只用于防止情节跑偏和洗白，"
-            "不得复制样本角色、设定、事件或桥段。"
+            _format_plot_prompt_pack(
+                plot_prompt,
+                usage="续写只用于防止情节跑偏和洗白，不得复制样本角色、设定、事件或桥段。",
+            )
         )
+        parts.append("\n\n---\n")
+    generation_profile_block = _format_generation_profile(generation_profile)
+    if generation_profile_block:
+        parts.append(generation_profile_block)
         parts.append("\n\n---\n")
     parts.append(_build_beat_expand_system(beat_expand_chars))
     if regenerating:
@@ -761,10 +842,45 @@ _CONCEPT_GENERATE_SYSTEM = (
 )
 
 
-def build_concept_generate_system_prompt(regenerating: bool = False) -> str:
+def build_concept_generate_system_prompt(
+    style_prompt: str | None = None,
+    plot_prompt: str | None = None,
+    generation_profile: GenerationProfile | None = None,
+    regenerating: bool = False,
+) -> str:
+    parts: list[str] = []
+    if style_prompt:
+        parts.append("# Style Prompt Pack（风格约束）\n\n")
+        parts.append(style_prompt.strip())
+        parts.append("\n\n---\n")
+    if plot_prompt:
+        parts.append(
+            _format_plot_prompt_pack(
+                plot_prompt,
+                usage=(
+                    "概念生成阶段也必须应用已选 Plot/Style Profile；"
+                    "标题和简介要体现 Plot Pack 的主驱动轴、读者追读问题和角色功能位，"
+                    "但不得复制样本桥段或升级成人内容目标。"
+                ),
+            )
+        )
+        parts.append("\n\n---\n")
+    if generation_profile:
+        parts.append(
+            "# Generation Profile（运行时生成约束）\n\n"
+            f"genre_mother: {generation_profile.genre_mother}\n"
+            f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
+            f"intensity_level: {generation_profile.intensity_level}\n"
+            f"pov_mode: {generation_profile.pov_mode}\n"
+            f"morality_axis: {generation_profile.morality_axis}\n"
+            f"pace_density: {generation_profile.pace_density}\n\n"
+            "这些字段是显式创作目标，不要弱化或改写成旧版平台边界语言。"
+        )
+        parts.append("\n\n---\n")
+    parts.append(_CONCEPT_GENERATE_SYSTEM)
     if regenerating:
-        return _CONCEPT_GENERATE_SYSTEM + _REGENERATION_GUIDANCE
-    return _CONCEPT_GENERATE_SYSTEM
+        parts.append(_REGENERATION_GUIDANCE)
+    return "\n".join(parts)
 
 
 def build_concept_generate_user_message(

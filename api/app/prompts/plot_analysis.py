@@ -96,68 +96,35 @@ PLOT_REPORT_TEMPLATE = """
 """.strip()
 
 
-PLOT_SUMMARY_TEMPLATE = """
-# 剧情定位
+STORY_ENGINE_TEMPLATE = """
+# Story Engine Profile
 
-# 读者追读抓手
+## genre_mother
 - 
 
-# 主驱动轴与兑现物
--
-
-# 压迫与反制公式
--
-
-# 主角道德边界
+## drive_axes
 - 
 
-# 阶段推进骨架
+## payoff_objects
 - 
 
-# 关系张力来源
+## pressure_formulas
 - 
 
-# 常用钩子类型
+## relation_roles
 - 
 
-# 必有场景
+## scene_verbs
 - 
 
-# 生成禁区
-- 
-""".strip()
-
-
-PLOT_PROMPT_PACK_TEMPLATE = """
-# Shared Constraints
+## hook_recipes
 - 
 
-# Tone Lock
+## anti_drift_guardrails
 - 
 
-# Anti-Whitewash Guardrails
+## suggested_overlays
 - 
-
-# Worldbuilding Prompt
-
-# Character Cards Prompt
-
-# Outline Master Prompt
-
-# Volume Planning Prompt
-
-# Chapter Outline Prompt
-
-# Beat Planning Prompt
-
-# Continuation Guardrails
-
-# Few-shot Slots
-## Slot 1
-- Label:
-- Type:
-- Purpose:
-- Text:
 """.strip()
 
 
@@ -366,69 +333,30 @@ def build_report_prompt(
     )
 
 
-def build_plot_summary_prompt(
+def build_story_engine_prompt(
     *,
     report_markdown: str,
     plot_name: str,
 ) -> str:
     return (
         f"{SHARED_ANALYSIS_RULES}\n\n"
-        "你正在从完整 Plot Lab 报告提炼可编辑的剧情摘要。输出必须是 Markdown 文档。\n"
-        "不要引入报告中不存在的结论；尽量高密度、可用于后续总纲/分卷/章节细纲生成。\n"
-        "必须显式抽取这类故事让读者继续追的公式：主驱动轴、核心兑现物、典型压迫方式、关系张力来源、常用钩子类型、禁区。\n\n"
-        "成人内容抽象规则：\n"
-        "- 报告层可以识别胁迫、控制、失身交易等样本事实，但摘要层必须转写为可发布的关系张力、压力机制、利益交换、身份压迫或镜头外留白。\n"
-        "- 不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化提炼为生成目标。\n\n"
+        "你正在从完整 Plot Lab 报告生成一个可复用的 Story Engine Profile。输出必须是 Markdown 文档。\n"
+        "Story Engine 只回答“这类书靠什么推进追读”，不要写续写模板口吻，不要写旧式 Prompt Pack 分区。\n\n"
         f"情节档案名称：{plot_name}\n"
-        f"输出模板：\n{PLOT_SUMMARY_TEMPLATE}\n\n"
-        f"分析报告：\n{report_markdown}"
-    )
-
-
-def build_prompt_pack_prompt(
-    *,
-    report_markdown: str,
-    plot_summary_markdown: str,
-) -> str:
-    return (
-        "请基于完整 Plot Lab 分析报告和当前剧情摘要，生成一个全局可复用、可脱离原始样本单独注入的 Markdown 情节 prompt 包。"
-        "输出必须覆盖 Shared Constraints、Tone Lock、Anti-Whitewash Guardrails，以及分别给世界观设定、角色卡、总纲、分卷规划、章节细纲、节拍规划和正文续写使用的子 Prompt。"
-        "不要引入报告中没有的结论。\n\n"
-        "整份 prompt pack 必须把这类作品的市场骨架抽象出来：主驱动轴、核心兑现物、典型压迫方式、关系张力来源、常用钩子类型、禁区。\n\n"
-        "可发布成人张力边界：\n"
-        "- Prompt Pack 层不得复制、放大或教学化样本中的高风险成人桥段。\n"
-        "- 必须把它们改写为可发布的成人关系张力、权力试探、利益交换、名分压力、克制暧昧或镜头外留白。\n"
-        "- 允许成年人之间的危险吸引、身份差、占有欲、嫉妒、误会和背德氛围。\n"
-        "- 不得把未成年、乱伦、强迫、催眠/精神控制、药物控制、具体性行为、色情器官化描写、羞辱物化作为生成目标。\n\n"
         "输出起始规则：\n"
-        "- 输出必须直接从 `# Shared Constraints` 开始。\n"
+        "- 输出必须直接从 `# Story Engine Profile` 开始。\n"
         "- 不要输出任何前言、任务说明、来源说明或总结。\n"
         "- 不要写“作为”开头的身份化句式。\n"
-        "- 不要写“好的”“下面是”“基于你提供的报告/摘要”“作为……我将……”这类解释性或身份化开场。\n"
-        "- 最终产物必须可单独阅读，不得依赖“分析报告”这一上文存在。\n\n"
-        "去样本化规则：\n"
-        "- 不要绑定具体项目剧情，不要保留样本人物名、地名、势力名、事件名、世界观专属名词。\n"
-        "- 人物名必须改写为角色原型，例如：师门权威、高位女性角色、异族继承者、竞争型反派、指导型强者。\n"
-        "- 专属资源必须改写为资源原型，例如：核心稀缺资源、身份逆转筹码、境界突破媒介、血脉级利益。\n"
-        "- 专属事件必须改写为冲突原型，例如：身份压迫下的利益交换、名分/阵营带来的选择压力、资源争夺引发的反转、由信息差触发的权力试探。\n"
-        "- 禁止保留章节号、chunk 编号、样本专名、原作特有固有名词。\n"
-        "- 整份 prompt pack 都必须使用可迁移、可复用的抽象表达，尤其是 Anti-Whitewash Guardrails 与 Few-shot Slots。\n\n"
-        "结构规则：\n"
-        "- Shared Constraints 只保留跨项目可复用的叙事约束，不出现具体人物或样本事件；Shared Constraints 要能回答“读者到底在追什么”。\n"
-        "- Tone Lock 只描述叙事视角、主角逻辑、关系基调、爽点核心，不指向具体样本角色。\n"
-        "- Anti-Whitewash Guardrails 只写什么关系或行为不能被浪漫化或洗白，不写样本中的具体人物、师徒关系或事件名。\n"
-        "- Worldbuilding Prompt 只提炼压力系统、资源稀缺、身份秩序、冲突土壤，Plot 是结构约束，不是内容模板；不得照搬样本角色、设定、事件。\n"
-        "- Character Cards Prompt 只提炼角色功能位、冲突职责、关系推进作用，不得复制样本人物关系或人物履历。\n"
-        "- Outline Master Prompt、Volume Planning Prompt、Chapter Outline Prompt 必须写成适用于任意项目上下文的子模板，不得默认某个既有世界观；Outline Master Prompt 要围绕同一条主驱动轴组织阶段推进。\n"
-        "- Beat Planning Prompt 只约束节拍推进、压力递增、兑现节奏和章末推动点，不替用户项目发明具体桥段；Beat Planning Prompt 要约束压制、夺回、反制、试探、地位逆转、关系升温等可追读动作。\n"
-        "- Continuation Guardrails 只约束正文续写不跑偏、不洗白、不复制样本桥段，必须服从当前项目已有世界观、角色卡和细纲；Continuation Guardrails 要防止正文只剩气氛、文风和暧昧，而没有兑现或新压力。\n"
-        "- Few-shot Slots 保留抽象示例，不得写成样本摘录或样本改写。\n\n"
-        "Few-shot 规则：\n"
-        "- Few-shot 只允许使用原型词与显式槽位。\n"
-        "- 允许的原型词示例：高位角色、反派、关键关系对象、宗门权威、核心资源、绑定关系、突破机会。\n"
-        "- 允许的显式槽位示例：`[角色A]`、`[高位角色B]`、`[资源C]`、`[场景D]`、`[弱点E]`。\n"
-        "- 禁止出现原样本人物名、原样本事件名、原样本世界观专属名词，以及只有读过报告才看得懂的隐含指代。\n\n"
-        f"输出模板：\n{PLOT_PROMPT_PACK_TEMPLATE}\n\n"
-        f"分析报告：\n{report_markdown}\n\n"
-        f"当前剧情摘要：\n{plot_summary_markdown}"
+        "- 不要写旧 Prompt Pack 分区名或类似的约束口号。\n\n"
+        "硬性结构：\n"
+        "- 只允许输出 9 个二级标题：`genre_mother`、`drive_axes`、`payoff_objects`、`pressure_formulas`、`relation_roles`、`scene_verbs`、`hook_recipes`、`anti_drift_guardrails`、`suggested_overlays`。\n"
+        "- `genre_mother` 必须在 `xianxia`、`urban`、`historical_power`、`infinite_flow`、`gaming` 中选一。\n"
+        "- `suggested_overlays` 只输出倾向推荐，不输出执行指令；允许的 overlay 名称：`harem_collect`、`wife_steal`、`reverse_ntr`、`hypnosis_control`、`corruption_fall`、`dominance_capture`。\n\n"
+        "抽象要求：\n"
+        "- 明确提炼主驱动轴、兑现物、压迫公式、关系功能位、场景动作和钩子配方。\n"
+        "- 不要使用旧版成人边界收束语言。\n"
+        "- 可以显式识别并输出可能的 overlay 倾向，但不得把它写成完整续写脚本。\n"
+        "- 不要保留样本人物名、事件名、势力名、世界专名或章节号。\n\n"
+        f"输出模板：\n{STORY_ENGINE_TEMPLATE}\n\n"
+        f"分析报告：\n{report_markdown}"
     )
