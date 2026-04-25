@@ -8,22 +8,11 @@ export type Project = OpenApiSchema<"ProjectResponse">;
 export type ProjectSummary = OpenApiSchema<"ProjectSummaryResponse">;
 export type ProjectBible = OpenApiSchema<"ProjectBibleResponse">;
 export type ProjectBibleUpdate = OpenApiSchema<"ProjectBibleUpdate">;
-export type MemorySyncStatus = "checking" | "pending_review" | "synced" | "no_change" | "failed";
-export type MemorySyncSource = "auto" | "manual";
-export type MemorySyncScope = "generated_fragment" | "chapter_full";
+export type MemorySyncStatus = NonNullable<ProjectChapter["memory_sync_status"]>;
+export type MemorySyncSource = NonNullable<ProjectChapter["memory_sync_source"]>;
+export type MemorySyncScope = NonNullable<ProjectChapter["memory_sync_scope"]>;
 
-export type ChapterMemorySyncSnapshot = {
-  memory_sync_status: MemorySyncStatus | null;
-  memory_sync_source: MemorySyncSource | null;
-  memory_sync_scope: MemorySyncScope | null;
-  memory_sync_checked_at: string | null;
-  memory_sync_checked_content_hash: string | null;
-  memory_sync_error_message: string | null;
-  memory_sync_proposed_state: string | null;
-  memory_sync_proposed_threads: string | null;
-};
-
-export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse"> & ChapterMemorySyncSnapshot;
+export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse">;
 
 export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
 export type AnalysisReportMarkdown = OpenApiSchema<"AnalysisReportMarkdown">;
@@ -63,16 +52,13 @@ export type PlotAnalysisJobCreatePayload =
     file: File;
   };
 export type BeatGenerateResponse = OpenApiSchema<"BeatGenerateResponse">;
-export type BibleUpdateResponse = OpenApiSchema<"BibleUpdateResponse"> & {
-  changed: boolean;
-};
+export type BibleUpdateResponse = OpenApiSchema<"BibleUpdateResponse">;
 export type ConnectionTestResponse = OpenApiSchema<"ConnectionTestResponse">;
 
 export type SetupPayload = components["schemas"]["SetupRequest"];
 export type LoginPayload = components["schemas"]["LoginRequest"];
 export type ProjectPayload = components["schemas"]["ProjectCreate"];
-export type ProjectChapterUpdate = Partial<components["schemas"]["ProjectChapterUpdate"]> &
-  Partial<ChapterMemorySyncSnapshot>;
+export type ProjectChapterUpdate = components["schemas"]["ProjectChapterUpdate"];
 export type ProviderPayload = components["schemas"]["ProviderConfigCreate"];
 
 export type StyleProfileCreatePayload = components["schemas"]["StyleProfileCreate"];
