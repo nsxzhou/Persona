@@ -69,7 +69,16 @@ def _append_soft_length_hint(instruction: str, length_preset: LengthPresetKey) -
     return instruction + _build_soft_length_hint(length_preset)
 
 
-_READER_HOOK_FRAMEWORK = (
+_MAINSTREAM_HOOK_FRAMEWORK = (
+    "\n\n男频核心驱动框架（力量与权力的扩张）：\n"
+    "- 明确本阶段的多巴胺来源：极致打脸逆袭、阶级跃升的掌控感。\n"
+    "- 明确本阶段的核心期待：主角何时能获得金钱、权力、地位的绝对扩张。\n"
+    "统一强模式约束：\n"
+    "- 未成年相关内容绝对禁止\n"
+    "- 保持爽文节奏，重点突出升级、暴富、打脸、长生等核心爽点。\n"
+)
+
+_NSFW_HOOK_FRAMEWORK = (
     "\n\n男频核心驱动框架（力量扩张与欲望满足）：\n"
     "- 明确本阶段的多巴胺来源：极致打脸逆袭、阶级跃升的掌控感、或打破禁忌的背德感。\n"
     "- 明确本阶段的核心期待：主角何时能把高冷/难以企及的角色推倒，或何时将金钱与武力转化为交配权的绝对扩张。\n"
@@ -80,6 +89,12 @@ _READER_HOOK_FRAMEWORK = (
     "- overlay 与 intensity 由显式配置决定，完全拥抱该档位的全部感官与欲望表现，不要自行降级。\n"
     "- 充分发挥“安全地打破禁忌”带来的背德刺激，满足强烈的反差感和征服欲。\n"
 )
+
+def _get_hook_framework(generation_profile: GenerationProfile | None) -> str:
+    target_market = generation_profile.target_market if generation_profile else "mainstream"
+    if target_market == "nsfw":
+        return _NSFW_HOOK_FRAMEWORK
+    return _MAINSTREAM_HOOK_FRAMEWORK
 
 
 _PLOT_FINGERPRINT_CONTRACT = (
@@ -109,6 +124,7 @@ def _format_generation_profile(generation_profile: GenerationProfile | None) -> 
         return ""
     return (
         "# Generation Profile（运行时生成约束）\n\n"
+        f"target_market: {generation_profile.target_market}\n"
         f"genre_mother: {generation_profile.genre_mother}\n"
         f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
         f"intensity_level: {generation_profile.intensity_level}\n"
@@ -124,7 +140,7 @@ _GROUNDED_INTERPRETATION_GUARDRAIL = (
 )
 
 
-_OUTLINE_MASTER_INSTRUCTION = (
+_OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
     "请基于简介、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
     "生成前先做隐式判断，不要把判断过程写出来：\n"
     "- 先判断这本书当前真正靠什么让人继续看下去，是力量与权力的扩张还是欲望的满足\n"
@@ -145,10 +161,10 @@ _OUTLINE_MASTER_INSTRUCTION = (
     "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
     "- 读者下一阶段最想看主角拿到什么、压过谁、推倒谁、彻底征服谁，必须写清楚\n"
     "- 允许将核心爽点完全聚焦于极致打脸、后宫扩张或打破禁忌的欲望满足上"
-    f"{_READER_HOOK_FRAMEWORK}"
+    "{hook_framework}"
 )
 
-_OUTLINE_DETAIL_INSTRUCTION = (
+_OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
     "请基于总纲和已有上下文，展开规划结构与章节细纲。\n\n"
     "每个规划块用二级标题（## ）标注该阶段、卷或幕的名称与主题，必要时可在标题下补一行引用（> ）说明当前局面。\n"
     "需要拆到章节时，再在对应规划块下使用三级标题（### ）列出章节。\n"
@@ -165,10 +181,10 @@ _OUTLINE_DETAIL_INSTRUCTION = (
     "- 每章都要回答：下一章读者到底在等什么兑现\n"
     "- 兑现可以是拿到资源、完成打脸、扳回压制、彻底推倒、精神与肉体双重控制或阶层跃升\n"
     "- 悬念必须明确勾着特定的多巴胺反馈、征服欲或生理/情感期待"
-    f"{_READER_HOOK_FRAMEWORK}"
+    "{hook_framework}"
 )
 
-_VOLUME_GENERATE_INSTRUCTION = (
+_VOLUME_GENERATE_INSTRUCTION_TEMPLATE = (
     "请基于总纲，设计整体规划结构。\n\n"
     "每个规划块用二级标题（## ）标注该阶段、卷或幕的名称，必要时可在标题下使用引用行（> ）补充主题、局势或阶段说明。\n"
     "不要求固定写成三幕、几卷或多少个阶段，应按总纲中的实际推进自然拆分。\n\n"
@@ -180,7 +196,7 @@ _VOLUME_GENERATE_INSTRUCTION = (
     "示例格式：\n"
     "## 第一阶段：入局\n"
     "> 主题：故事正式启动 | 当前压力：旧案逼近\n"
-    f"{_READER_HOOK_FRAMEWORK}"
+    "{hook_framework}"
 )
 
 # --------------------------------------------------------------------------- #
@@ -190,7 +206,7 @@ _VOLUME_GENERATE_INSTRUCTION = (
 _SECTION_META: dict[str, dict[str, str]] = {
     "world_building": {
         "label": "世界观设定",
-        "instruction": (
+        "instruction_template": (
             "请基于简介和已有上下文，生成一份足以支撑人物、冲突和前期展开的必要设定。\n\n"
             "生成前先做隐式判断，不要把判断过程写出来：\n"
             "1. 先判断这部作品更接近哪种题材；"
@@ -213,12 +229,12 @@ _SECTION_META: dict[str, dict[str, str]] = {
             "- 资源争夺并非主线时，不要专门发明货币、修炼材料、交易媒介\n"
             "- 不要为了显得完整而补完世界\n"
             "- 不要发明暂时不会进入剧情的设定\n"
-            f"{_READER_HOOK_FRAMEWORK}\n"
+            "{hook_framework}\n"
         ),
     },
     "characters": {
         "label": "角色设定",
-        "instruction": (
+        "instruction_template": (
             "请基于简介、世界观设定和已有上下文，设计这部小说的主要角色。\n\n"
             "角色信息优先回答以下问题：\n"
             "- 他是谁，为什么此刻会入局\n"
@@ -231,20 +247,20 @@ _SECTION_META: dict[str, dict[str, str]] = {
             "- 允许角色功能完全定位于“满足特定的征服欲”、“XP/欲望投射”或“提供绝对的陪伴与爽感”\n"
             "- 避免只写人设标签或空泛魅力描述\n\n"
             "每个角色用二级标题分隔，内部用结构化列表。"
-            f"{_READER_HOOK_FRAMEWORK}"
+            "{hook_framework}"
         ),
     },
     "outline_master": {
         "label": "总纲",
-        "instruction": _OUTLINE_MASTER_INSTRUCTION,
+        "instruction_template": _OUTLINE_MASTER_INSTRUCTION_TEMPLATE,
     },
     "outline_detail": {
         "label": "分卷与章节细纲",
-        "instruction": _OUTLINE_DETAIL_INSTRUCTION,
+        "instruction_template": _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE,
     },
     "runtime_state": {
         "label": "运行时状态",
-        "instruction": (
+        "instruction_template": (
             "请基于已有上下文，生成一份初始的运行时状态追踪文档。\n\n"
             "必须包含以下部分：\n"
             "1. **时间线** — 关键事件按时序排列\n"
@@ -256,7 +272,7 @@ _SECTION_META: dict[str, dict[str, str]] = {
     },
     "runtime_threads": {
         "label": "伏笔与线索追踪",
-        "instruction": (
+        "instruction_template": (
             "请基于已有上下文，生成一份初始的伏笔与线索追踪文档。\n\n"
             "必须包含以下部分：\n"
             "1. **活跃伏笔** — 尚未回收的悬念/暗示/线索，每条标注：\n"
@@ -284,15 +300,17 @@ def build_section_system_prompt(
 ) -> str:
     """构建区块生成的系统提示词（篇幅感知）。"""
     meta = _SECTION_META[section]
+    hook_framework = _get_hook_framework(generation_profile)
 
     # 规划层统一使用主模板，只保留软性的篇幅提示。
+    instruction = meta["instruction_template"].format(hook_framework=hook_framework)
+
     if section == "outline_master":
-        instruction = _append_soft_length_hint(meta["instruction"], length_preset)
+        instruction = _append_soft_length_hint(instruction, length_preset)
         instruction += _GROUNDED_INTERPRETATION_GUARDRAIL
     elif section == "outline_detail":
-        instruction = _append_soft_length_hint(meta["instruction"], length_preset)
+        instruction = _append_soft_length_hint(instruction, length_preset)
     else:
-        instruction = meta["instruction"]
         if section in {"world_building", "characters"}:
             instruction = _append_soft_length_hint(instruction, length_preset)
         if section == "characters":
@@ -375,7 +393,8 @@ def build_volume_generate_system_prompt(
     regenerating: bool = False,
 ) -> str:
     """构建卷级结构生成的系统提示词。"""
-    instruction = _append_soft_length_hint(_VOLUME_GENERATE_INSTRUCTION, length_preset)
+    hook_framework = _get_hook_framework(generation_profile)
+    instruction = _append_soft_length_hint(_VOLUME_GENERATE_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework), length_preset)
     parts: list[str] = []
     if style_prompt:
         parts.append(style_prompt)
@@ -420,7 +439,7 @@ def build_volume_generate_user_message(
     return "\n\n---\n\n".join(parts)
 
 
-_VOLUME_CHAPTERS_SYSTEM = (
+_VOLUME_CHAPTERS_SYSTEM_TEMPLATE = (
     "你是一位起点白金作家，正在为自己的当前卷拆章节细纲，控制章节推进、情绪起伏和章末钩子。\n\n"
     "为指定的卷设计章节。每章用三级标题（### ），格式如下：\n\n"
     "### 第 N 章：章名\n"
@@ -433,7 +452,7 @@ _VOLUME_CHAPTERS_SYSTEM = (
     "- 每章末推动点要能让人立刻知道下一章最想看的兑现是什么\n"
     "- 参考已有的前几卷章节，保持情节连贯\n"
     "- 直接输出章节列表，不要输出卷标题，不要添加解释"
-    f"{_READER_HOOK_FRAMEWORK}"
+    "{hook_framework}"
 )
 
 
@@ -460,7 +479,8 @@ def build_volume_chapters_system_prompt(
     if generation_profile_block:
         parts.append(generation_profile_block)
         parts.append("\n\n---\n")
-    parts.append(_VOLUME_CHAPTERS_SYSTEM)
+    hook_framework = _get_hook_framework(generation_profile)
+    parts.append(_VOLUME_CHAPTERS_SYSTEM_TEMPLATE.format(hook_framework=hook_framework))
     if regenerating:
         parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
@@ -581,7 +601,7 @@ def build_bible_update_user_message(
 #  Beat prompts (Step 7)                                                       #
 # --------------------------------------------------------------------------- #
 
-_BEAT_GENERATE_SYSTEM = (
+_BEAT_GENERATE_SYSTEM_TEMPLATE = (
     "你是一位番茄金番作家，正在为接下来的正文安排场景节拍和情绪钩子。\n\n"
     "节拍（Beat）是一个场景或情节的最小叙事单元，每条节拍用一句话概括将要发生的事。\n\n"
     "要求：\n"
@@ -596,7 +616,7 @@ _BEAT_GENERATE_SYSTEM = (
     "- 最后一拍必须是钩子（悬念/反转/新信息揭露），并且最后一拍要明确勾住下一拍最想看的兑现\n"
     "- 参考已有大纲和前文，保持情节连贯\n"
     "- 只输出节拍列表，不要解释、不要前言"
-    f"{_READER_HOOK_FRAMEWORK}"
+    "{hook_framework}"
 )
 
 
@@ -622,7 +642,8 @@ def build_beat_generate_system_prompt(
     if generation_profile_block:
         parts.append(generation_profile_block)
         parts.append("\n\n---\n")
-    parts.append(_BEAT_GENERATE_SYSTEM)
+    hook_framework = _get_hook_framework(generation_profile)
+    parts.append(_BEAT_GENERATE_SYSTEM_TEMPLATE.format(hook_framework=hook_framework))
     if regenerating:
         parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
@@ -667,7 +688,7 @@ def build_beat_generate_user_message(
     return "\n\n---\n\n".join(parts)
 
 
-def _build_beat_expand_system(beat_expand_chars: int = 500) -> str:
+def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str = "") -> str:
     return (
         "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
         "要求：\n"
@@ -682,7 +703,7 @@ def _build_beat_expand_system(beat_expand_chars: int = 500) -> str:
         "- 允许大段甚至整章的纯粹氛围、五感描写和欲望宣泄，充分满足读者的期待感与征服欲\n"
         "- 让读者体验主角正在享受绝对的权力掌控、彻底推倒高冷角色、或享受绝对忠诚的后宫陪伴\n"
         "- 直接输出正文，不要输出节拍本身、不要解释"
-        f"{_READER_HOOK_FRAMEWORK}"
+        f"{hook_framework}"
     )
 
 
@@ -709,7 +730,8 @@ def build_beat_expand_system_prompt(
     if generation_profile_block:
         parts.append(generation_profile_block)
         parts.append("\n\n---\n")
-    parts.append(_build_beat_expand_system(beat_expand_chars))
+    hook_framework = _get_hook_framework(generation_profile)
+    parts.append(_build_beat_expand_system(beat_expand_chars, hook_framework))
     if regenerating:
         parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)
@@ -758,7 +780,7 @@ def build_beat_expand_user_message(
 #  Concept generation prompts (gacha)                                          #
 # --------------------------------------------------------------------------- #
 
-_CONCEPT_GENERATE_SYSTEM = (
+_CONCEPT_GENERATE_SYSTEM_TEMPLATE = (
     "你是一位深耕网文市场（起点、番茄等平台）的资深策划编辑。\n\n"
     "你需要根据用户给出的灵感描述，产出指定数量的小说概念卡。"
     "这些概念卡必须共享同一故事主轴，是同一本书的不同包装方向，"
@@ -829,7 +851,7 @@ _CONCEPT_GENERATE_SYSTEM = (
     "别人练武求名，他却偏要用戏曲、话术、娱乐、审美和知识，把江湖、宗门乃至朝局一起搅动。"
     "这类简介的优点，不在于靠夸张词炸人，而在于主角方法论够新，语气够松，卖点仍然落在他能怎么改变这个世界。\n\n"
     "若用户灵感不含系统、多女主、修罗场、反派等元素，不得因为示例出现过就强行加入。\n\n"
-    f"{_READER_HOOK_FRAMEWORK}\n\n"
+    "{hook_framework}\n\n"
     "## 输出格式\n"
     "请使用 Markdown 格式输出，每个概念采用以下结构：\n"
     "### [标题]\n"
@@ -863,6 +885,7 @@ def build_concept_generate_system_prompt(
     if generation_profile:
         parts.append(
             "# Generation Profile（运行时生成约束）\n\n"
+            f"target_market: {generation_profile.target_market}\n"
             f"genre_mother: {generation_profile.genre_mother}\n"
             f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
             f"intensity_level: {generation_profile.intensity_level}\n"
@@ -872,7 +895,8 @@ def build_concept_generate_system_prompt(
             "这些字段是显式创作目标，不要弱化。"
         )
         parts.append("\n\n---\n")
-    parts.append(_CONCEPT_GENERATE_SYSTEM)
+    hook_framework = _get_hook_framework(generation_profile)
+    parts.append(_CONCEPT_GENERATE_SYSTEM_TEMPLATE.format(hook_framework=hook_framework))
     if regenerating:
         parts.append(_REGENERATION_GUIDANCE)
     return "\n".join(parts)

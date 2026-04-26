@@ -6,6 +6,7 @@ import re
 from pydantic import BaseModel, Field
 
 
+TargetMarket = Literal["mainstream", "nsfw"]
 GenreMother = Literal["xianxia", "urban", "historical_power", "infinite_flow", "gaming"]
 IntensityLevel = Literal["plot_only", "edge", "explicit", "graphic", "fetish_extreme"]
 DesireOverlay = Literal[
@@ -59,6 +60,7 @@ class IntensityProfile(BaseModel):
 
 
 class GenerationProfile(BaseModel):
+    target_market: TargetMarket = "mainstream"
     genre_mother: GenreMother
     desire_overlays: list[DesireOverlay] = Field(default_factory=list)
     intensity_level: IntensityLevel
@@ -156,11 +158,13 @@ def extract_suggested_overlays(markdown: str | None) -> list[DesireOverlay]:
 
 def default_generation_profile(
     story_engine_profile: StoryEngineProfile | None = None,
+    target_market: TargetMarket = "mainstream",
 ) -> GenerationProfile:
     genre_mother: GenreMother = "xianxia"
     if story_engine_profile is not None:
         genre_mother = story_engine_profile.genre_mother
     return GenerationProfile(
+        target_market=target_market,
         genre_mother=genre_mother,
         desire_overlays=[],
         intensity_level="plot_only",
