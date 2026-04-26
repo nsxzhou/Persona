@@ -9,17 +9,18 @@ Persona 是一个面向长篇小说创作的本地优先工作台。它不追求
 ## 核心能力
 
 - **BYOK Provider 配置中心**：统一维护 OpenAI-compatible 网关、默认模型与 API Key 掩码，支持测试连接。
+- **Concept Gacha（概念抽卡）**：基于简短灵感，由 AI 快速生成 3 张差异化概念卡（包含标题与简介），一键初始化带有篇幅预设的项目。
 - **Style Lab**：把单个 TXT 样本沉淀为分析报告和 Voice Profile，并保存为可挂载的 Style Profile。
 - **Plot Lab**：把单个 TXT 样本沉淀为全书骨架、分析报告和 Story Engine，并保存为可挂载的 Plot Profile。
-- **Project Workbench / Zen Editor**：围绕蓝图、章节、运行时状态、AI 续写、记忆同步与导出组织完整创作流程。
+- **Project Workbench / Zen Editor**：围绕蓝图与活态设定（双层 Bible）、节拍驱动大纲、章节管理、AI 协作写作与划词改写（Inline Copilot）、记忆同步（Memory Sync）与 txt/epub 导出组织完整创作流程。
 
 ## 典型工作流
 
 1. 在 Provider 配置页接入自己的 OpenAI-compatible 模型网关。
 2. 把已有 TXT 样本送入 `Style Lab` 和 `Plot Lab`，生成风格与情节资产。
 3. 将生成结果保存成 Profile，并挂载到具体项目。
-4. 在项目工作台整理简介、设定、角色、总纲、分卷与章节细纲。
-5. 进入 `Zen Editor` 写作、AI 续写、同步记忆，并在需要时导出稿件。
+4. 通过 `Concept Gacha` 快速基于灵感创建项目，并在项目工作台整理蓝图（简介、设定、角色、总纲、分卷与章节细纲），支持按需进行节拍生成。
+5. 进入 `Zen Editor` 沉浸写作，利用划词改写与 AI 续写辅助创作，并在章节完成后进行记忆同步（自动回灌更新活态设定），最后支持导出 TXT / EPUB 稿件。
 
 分析任务可在后台安全运行，支持增量日志查看、暂停 / 恢复，离开页面后结果仍会保留在工作台中。
 
