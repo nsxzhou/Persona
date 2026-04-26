@@ -14,9 +14,8 @@ from app.schemas.style_analysis_jobs import (
     StyleProfileEmbeddedResponse,
 )
 from app.schemas.prompt_profiles import (
-    derive_story_engine_profile,
+    derive_plot_writing_guide_profile,
     derive_voice_profile,
-    extract_suggested_overlays,
 )
 
 
@@ -97,7 +96,6 @@ def build_plot_profile_response_payload(profile: PlotProfile) -> dict[str, Any]:
         build_plot_profile_result_bundle(profile)
     )
     story_engine_markdown = prompt_pack_markdown
-    suggested_overlays = extract_suggested_overlays(story_engine_markdown)
     return {
         "id": profile.id,
         "source_job_id": profile.source_job_id,
@@ -106,9 +104,8 @@ def build_plot_profile_response_payload(profile: PlotProfile) -> dict[str, Any]:
         "source_filename": profile.source_filename,
         "plot_name": profile.plot_name,
         "analysis_report_markdown": analysis_report_markdown,
-        "story_engine_payload": derive_story_engine_profile(story_engine_markdown),
+        "story_engine_payload": derive_plot_writing_guide_profile(story_engine_markdown),
         "story_engine_markdown": story_engine_markdown,
-        "suggested_overlays": suggested_overlays,
         "plot_skeleton_markdown": profile.plot_skeleton_payload,
         "created_at": profile.created_at,
         "updated_at": profile.updated_at,
@@ -168,7 +165,6 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
 def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobResponse:
     plot_profile = build_plot_profile_embedded_response(job.plot_profile)
     story_engine_markdown = job.prompt_pack_payload
-    suggested_overlays = extract_suggested_overlays(story_engine_markdown)
     return PlotAnalysisJobResponse(
         id=job.id,
         plot_name=job.plot_name,
@@ -188,11 +184,10 @@ def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobRespo
         plot_profile=plot_profile,
         analysis_report_markdown=job.analysis_report_payload,
         story_engine_payload=(
-            derive_story_engine_profile(story_engine_markdown)
+            derive_plot_writing_guide_profile(story_engine_markdown)
             if story_engine_markdown is not None
             else None
         ),
         story_engine_markdown=story_engine_markdown,
-        suggested_overlays=suggested_overlays,
         plot_skeleton_markdown=job.plot_skeleton_payload,
     )
