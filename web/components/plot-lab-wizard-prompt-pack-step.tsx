@@ -47,7 +47,7 @@ export const PlotLabWizardPromptPackStep = React.memo(function PlotLabWizardProm
       <Card>
         <CardHeader>
           <CardTitle>Story Engine 配置</CardTitle>
-          <CardDescription>最后一步，直接编辑 Story Engine Profile 并保存。</CardDescription>
+          <CardDescription>最后一步，直接编辑 Plot Writing Guide 并保存。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}

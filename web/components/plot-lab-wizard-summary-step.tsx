@@ -36,8 +36,8 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
         <CardHeader>
-          <CardTitle>Story Engine Profile 编辑</CardTitle>
-          <CardDescription>直接编辑 Story Engine Profile，定义这类书靠什么推进追读。</CardDescription>
+          <CardTitle>Plot Writing Guide 编辑</CardTitle>
+          <CardDescription>直接编辑 Plot Writing Guide，定义新剧情应如何推进追读。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}

@@ -31,7 +31,7 @@ export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   analyzing_focus_chunks: "正在分析重点章节",
   aggregating: "正在聚合结果",
   reporting: "正在生成报告",
-  postprocessing: "正在生成 Story Engine Profile",
+  postprocessing: "正在生成 Plot Writing Guide",
 };
 
 export function formatPlotStageLabel(
