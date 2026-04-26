@@ -12,7 +12,12 @@ from sqlalchemy.ext.asyncio import (
 
 
 def create_engine(database_url: str) -> AsyncEngine:
-    return create_async_engine(database_url, future=True)
+    return create_async_engine(
+        database_url,
+        future=True,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+    )
 
 
 def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
