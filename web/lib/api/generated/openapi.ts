@@ -1223,6 +1223,12 @@ export interface components {
         /** GenerationProfile */
         GenerationProfile: {
             /**
+             * Target Market
+             * @default mainstream
+             * @enum {string}
+             */
+            target_market: "mainstream" | "nsfw";
+            /**
              * Genre Mother
              * @enum {string}
              */

@@ -25,6 +25,13 @@ export type StoryEngineProfile = OpenApiSchema<"StoryEngineProfile">;
 export type StoryEngineMarkdown = OpenApiSchema<"StoryEngineMarkdown">;
 export type PlotSkeletonMarkdown = OpenApiSchema<"PlotSkeletonMarkdown">;
 export type PlotAnalysisJobLogs = OpenApiSchema<"PlotAnalysisJobLogsResponse">;
+export type TargetMarket = "mainstream" | "nsfw";
+export type GenreMother =
+  | "xianxia"
+  | "urban"
+  | "historical_power"
+  | "infinite_flow"
+  | "gaming";
 export type GenerationProfile = OpenApiSchema<"GenerationProfile">;
 
 export type StyleAnalysisJob = OpenApiSchema<"StyleAnalysisJobResponse">;

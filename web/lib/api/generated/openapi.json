@@ -409,6 +409,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 100,
               "minimum": 1,
               "default": 50,
               "title": "Limit"
@@ -3439,6 +3440,15 @@
       },
       "GenerationProfile": {
         "properties": {
+          "target_market": {
+            "type": "string",
+            "enum": [
+              "mainstream",
+              "nsfw"
+            ],
+            "title": "Target Market",
+            "default": "mainstream"
+          },
           "genre_mother": {
             "type": "string",
             "enum": [
