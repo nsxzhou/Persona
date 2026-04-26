@@ -407,7 +407,7 @@ class PlotAnalysisJobService:
         return await self._resolve_payload_result_or_409(
             result=result,
             parser=str,
-            not_ready_detail="分析任务尚未完成，暂无法读取 Story Engine Profile",
+            not_ready_detail="分析任务尚未完成，暂无法读取 Plot Writing Guide",
         )
 
     async def claim_job_for_worker(

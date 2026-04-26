@@ -38,7 +38,6 @@ from app.services.plot_analysis_prompts import (
 )
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
-from app.schemas.prompt_profiles import DesireOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +51,16 @@ SKELETON_HIERARCHICAL_TOKEN_THRESHOLD = 80_000
 # Group size for the hierarchical group-reduce step. Also monkeypatch-able.
 SKELETON_GROUP_SIZE = 40
 
-_STORY_ENGINE_SECTION_HEADERS = (
-    "# Story Engine Profile",
-    "## genre_mother",
-    "## drive_axes",
-    "## payoff_objects",
-    "## pressure_formulas",
-    "## relation_roles",
-    "## scene_verbs",
-    "## hook_recipes",
-    "## anti_drift_guardrails",
-    "## suggested_overlays",
+_PLOT_WRITING_GUIDE_SECTION_HEADERS = (
+    "# Plot Writing Guide",
+    "## Core Plot Formula",
+    "## Chapter Progression Loop",
+    "## Scene Construction Rules",
+    "## Setup and Payoff Rules",
+    "## Payoff and Tension Rhythm",
+    "## Side Plot Usage",
+    "## Hook Recipes",
+    "## Anti-Drift Rules",
 )
 
 
@@ -83,7 +81,6 @@ class PlotAnalysisState(TypedDict):
     merged_analysis_markdown: NotRequired[str]
     analysis_report_markdown: NotRequired[str]
     story_engine_markdown: NotRequired[str]
-    suggested_overlays: NotRequired[list[DesireOverlay]]
     analysis_meta: NotRequired[dict[str, Any]]
 
 
@@ -110,7 +107,6 @@ class PlotAnalysisPipelineResult:
     analysis_meta: PlotAnalysisMeta
     analysis_report_markdown: str
     story_engine_markdown: str
-    suggested_overlays: list[DesireOverlay]
     plot_skeleton_markdown: str
 
 
@@ -163,7 +159,7 @@ class PlotAnalysisPipeline:
         if not stripped:
             return stripped
 
-        first_header = _STORY_ENGINE_SECTION_HEADERS[0]
+        first_header = _PLOT_WRITING_GUIDE_SECTION_HEADERS[0]
         start = stripped.find(first_header)
         if start >= 0:
             stripped = stripped[start:]
@@ -177,7 +173,7 @@ class PlotAnalysisPipeline:
         sections: list[str] = []
         for index, match in enumerate(matches):
             header = match.group(0).strip()
-            if header not in _STORY_ENGINE_SECTION_HEADERS:
+            if header not in _PLOT_WRITING_GUIDE_SECTION_HEADERS:
                 continue
             section_end = matches[index + 1].start() if index + 1 < len(matches) else len(stripped)
             section_body = stripped[match.start():section_end].strip()
@@ -216,7 +212,6 @@ class PlotAnalysisPipeline:
             analysis_meta=PlotAnalysisMeta.model_validate(final_state["analysis_meta"]),
             analysis_report_markdown=str(final_state["analysis_report_markdown"]),
             story_engine_markdown=str(final_state["story_engine_markdown"]),
-            suggested_overlays=list(final_state["suggested_overlays"]),
             plot_skeleton_markdown=str(final_state["plot_skeleton_markdown"]),
         )
 
@@ -226,9 +221,6 @@ class PlotAnalysisPipeline:
         builder.add_node("prepare_input", self._prepare_input)
         builder.add_node("sketch_chunk", self._sketch_chunk)
         builder.add_node("build_skeleton", self._build_skeleton)
-        builder.add_node("select_focus_chunks", self._select_focus_chunks)
-        builder.add_node("analyze_chunk", self._analyze_chunk)
-        builder.add_node("merge_chunks", self._merge_chunks)
         builder.add_node("build_report", self._build_report)
         builder.add_node("build_story_engine", self._build_story_engine)
         builder.add_node("persist_result", self._persist_result)
@@ -236,10 +228,7 @@ class PlotAnalysisPipeline:
         builder.add_edge(START, "prepare_input")
         builder.add_conditional_edges("prepare_input", self._route_sketches, ["sketch_chunk"])
         builder.add_edge("sketch_chunk", "build_skeleton")
-        builder.add_edge("build_skeleton", "select_focus_chunks")
-        builder.add_conditional_edges("select_focus_chunks", self._route_chunks, ["analyze_chunk"])
-        builder.add_edge("analyze_chunk", "merge_chunks")
-        builder.add_edge("merge_chunks", "build_report")
+        builder.add_edge("build_skeleton", "build_report")
         builder.add_edge("build_report", "build_story_engine")
         builder.add_edge("build_story_engine", "persist_result")
         builder.add_edge("persist_result", END)
@@ -517,8 +506,7 @@ class PlotAnalysisPipeline:
             index = sketch.get("chunk_index")
             if not isinstance(index, int):
                 continue
-            advancement = sketch.get("advancement")
-            if advancement in {"payoff", "transition"}:
+            if sketch.get("payoff_points") or sketch.get("tension_points") or sketch.get("hooks"):
                 selected.add(index)
 
         if plot_skeleton_markdown:
@@ -680,7 +668,7 @@ class PlotAnalysisPipeline:
         report_markdown = await self.llm_client.ainvoke_markdown(
             model=self.chat_model,
             prompt=build_report_prompt(
-                merged_analysis_markdown=state["merged_analysis_markdown"],
+                merged_analysis_markdown=state["plot_skeleton_markdown"],
                 classification=state["classification"],
                 plot_skeleton=state.get("plot_skeleton_markdown"),
             ),
@@ -697,13 +685,12 @@ class PlotAnalysisPipeline:
     async def _build_story_engine(self, state: PlotAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()
         await self._set_stage(PLOT_ANALYSIS_JOB_STAGE_POSTPROCESSING)
-        await self.storage_service.append_job_log(state["job_id"], "[System] 正在提炼 Story Engine Profile...")
+        await self.storage_service.append_job_log(state["job_id"], "[System] 正在生成 Plot Writing Guide...")
 
         if self.storage_service.stage_markdown_artifact_exists(state["job_id"], name="story-engine"):
             markdown = await self.storage_service.read_stage_markdown_artifact(state["job_id"], name="story-engine")
             return {
                 "story_engine_markdown": markdown,
-                "suggested_overlays": self._extract_suggested_overlays(markdown),
             }
 
         story_engine_markdown = await self.llm_client.ainvoke_markdown(
@@ -717,42 +704,13 @@ class PlotAnalysisPipeline:
             injection_task=PromptInjectionTask.PLOT_ANALYSIS_STORY_ENGINE,
         )
         story_engine_markdown = self._normalize_story_engine_markdown(story_engine_markdown)
-        suggested_overlays = self._extract_suggested_overlays(story_engine_markdown)
 
         await self.storage_service.write_stage_markdown_artifact(
             state["job_id"], name="story-engine", markdown=story_engine_markdown
         )
         return {
             "story_engine_markdown": story_engine_markdown,
-            "suggested_overlays": suggested_overlays,
         }
-
-    @staticmethod
-    def _extract_suggested_overlays(markdown: str) -> list[DesireOverlay]:
-        allowed = {
-            "harem_collect",
-            "wife_steal",
-            "reverse_ntr",
-            "hypnosis_control",
-            "corruption_fall",
-            "dominance_capture",
-        }
-        match = re.search(
-            r"^## suggested_overlays\s*$\n(?P<body>.*?)(?=^## |\Z)",
-            markdown,
-            flags=re.MULTILINE | re.DOTALL,
-        )
-        if not match:
-            return []
-        overlays: list[DesireOverlay] = []
-        for line in match.group("body").splitlines():
-            stripped = line.strip()
-            if not stripped.startswith("-"):
-                continue
-            candidate = stripped[1:].strip()
-            if candidate in allowed:
-                overlays.append(candidate)  # type: ignore[arg-type]
-        return overlays
 
     async def _persist_result(self, state: PlotAnalysisState) -> dict[str, Any]:
         self._raise_if_paused()

@@ -1,6 +1,6 @@
 """上下文组装服务。
 
-将 Voice Profile、Story Engine、Intensity Profile 和项目上下文组装为完整的 LLM 系统提示词。
+将 Voice Profile、Plot Writing Guide、Intensity Profile 和项目上下文组装为完整的 LLM 系统提示词。
 """
 
 from __future__ import annotations
@@ -13,19 +13,17 @@ from app.schemas.prompt_profiles import (
     ChapterObjectiveCard,
     GenerationProfile,
     IntensityProfile,
-    StoryEngineProfile,
     VoiceProfile,
     build_chapter_objective_card,
     build_intensity_profile,
     default_generation_profile,
-    derive_story_engine_profile,
     derive_voice_profile,
 )
 
 
 _PLOT_APPLICATION_RULES = """
 
-- 不要把 Story Engine 当成背景参考；每次续写都要让它显式改变当前章节的推进选择。
+- 不要把 Plot Writing Guide 当成背景参考；每次续写都要让它显式改变当前章节的推进选择。
 - 每次续写至少推进信息差、利益绑定、资源兑现、关系重组或新压力中的一项。
 - 关系张力必须承担剧情功能：奖励源、阻力源、情绪牵引源、身份压迫源或未兑现承诺。
 - 强度档位改变欲望的落地方式，不改变剧情推进义务。
@@ -90,8 +88,7 @@ def assemble_writing_context(
     resolved_voice_markdown = (voice_profile_markdown or style_prompt or "").strip()
     resolved_story_markdown = (story_engine_markdown or plot_prompt or "").strip()
     resolved_voice_payload: VoiceProfile = derive_voice_profile(resolved_voice_markdown)
-    resolved_story_payload: StoryEngineProfile = derive_story_engine_profile(resolved_story_markdown)
-    resolved_generation_profile = generation_profile or default_generation_profile(resolved_story_payload)
+    resolved_generation_profile = generation_profile or default_generation_profile()
     resolved_intensity_profile = intensity_profile or build_intensity_profile(resolved_generation_profile)
     resolved_objective_card = chapter_objective_card or build_chapter_objective_card(
         resolved_generation_profile,
@@ -122,8 +119,8 @@ def assemble_writing_context(
             }
         ),
         "# Voice Profile\n" + _strip_duplicate_top_heading(resolved_voice_markdown, "# Voice Profile"),
-        "# Story Engine Profile\n"
-        + _strip_duplicate_top_heading(resolved_story_markdown, "# Story Engine Profile")
+        "# Plot Writing Guide\n"
+        + _strip_duplicate_top_heading(resolved_story_markdown, "# Plot Writing Guide")
         + "\n\n## Runtime Guardrails\n"
         + _PLOT_APPLICATION_RULES.strip(),
         "# Intensity Profile\n"
