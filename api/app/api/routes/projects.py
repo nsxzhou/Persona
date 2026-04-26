@@ -36,7 +36,7 @@ async def list_projects(
     project_service: ProjectServiceDep,
     include_archived: bool = Query(default=False),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1),
+    limit: int = Query(default=50, ge=1, le=100),
 ) -> list[ProjectSummaryResponse]:
     projects = await project_service.list(
         db_session,
