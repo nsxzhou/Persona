@@ -3887,7 +3887,7 @@
           "story_engine_payload": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/StoryEngineProfile"
+                "$ref": "#/components/schemas/PlotWritingGuideProfile"
               },
               {
                 "type": "null"
@@ -3904,21 +3904,6 @@
               }
             ],
             "title": "Story Engine Markdown"
-          },
-          "suggested_overlays": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "harem_collect",
-                "wife_steal",
-                "reverse_ntr",
-                "hypnosis_control",
-                "corruption_fall",
-                "dominance_capture"
-              ]
-            },
-            "type": "array",
-            "title": "Suggested Overlays"
           }
         },
         "type": "object",
@@ -4116,21 +4101,6 @@
             "minLength": 1,
             "title": "Story Engine Markdown"
           },
-          "suggested_overlays": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "harem_collect",
-                "wife_steal",
-                "reverse_ntr",
-                "hypnosis_control",
-                "corruption_fall",
-                "dominance_capture"
-              ]
-            },
-            "type": "array",
-            "title": "Suggested Overlays"
-          },
           "plot_skeleton_markdown": {
             "anyOf": [
               {
@@ -4277,26 +4247,11 @@
             "title": "Analysis Report Markdown"
           },
           "story_engine_payload": {
-            "$ref": "#/components/schemas/StoryEngineProfile"
+            "$ref": "#/components/schemas/PlotWritingGuideProfile"
           },
           "story_engine_markdown": {
             "type": "string",
             "title": "Story Engine Markdown"
-          },
-          "suggested_overlays": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "harem_collect",
-                "wife_steal",
-                "reverse_ntr",
-                "hypnosis_control",
-                "corruption_fall",
-                "dominance_capture"
-              ]
-            },
-            "type": "array",
-            "title": "Suggested Overlays"
           },
           "plot_skeleton_markdown": {
             "anyOf": [
@@ -4359,21 +4314,6 @@
             "type": "string",
             "minLength": 1,
             "title": "Story Engine Markdown"
-          },
-          "suggested_overlays": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "harem_collect",
-                "wife_steal",
-                "reverse_ntr",
-                "hypnosis_control",
-                "corruption_fall",
-                "dominance_capture"
-              ]
-            },
-            "type": "array",
-            "title": "Suggested Overlays"
           },
           "plot_skeleton_markdown": {
             "anyOf": [
@@ -4463,6 +4403,86 @@
         "minLength": 1,
         "title": "PlotSkeletonMarkdown",
         "description": "Markdown plot skeleton providing whole-book context for chunk analysis."
+      },
+      "PlotWritingGuideProfile": {
+        "properties": {
+          "core_plot_formula": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Core Plot Formula"
+          },
+          "chapter_progression_loop": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Chapter Progression Loop"
+          },
+          "scene_construction_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Scene Construction Rules"
+          },
+          "setup_and_payoff_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Setup And Payoff Rules"
+          },
+          "payoff_and_tension_rhythm": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Payoff And Tension Rhythm"
+          },
+          "side_plot_usage": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Side Plot Usage"
+          },
+          "hook_recipes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Hook Recipes"
+          },
+          "anti_drift_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Anti Drift Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "core_plot_formula",
+          "chapter_progression_loop",
+          "scene_construction_rules",
+          "setup_and_payoff_rules",
+          "payoff_and_tension_rhythm",
+          "side_plot_usage",
+          "hook_recipes",
+          "anti_drift_rules"
+        ],
+        "title": "PlotWritingGuideProfile"
       },
       "ProjectBibleResponse": {
         "properties": {
@@ -5704,90 +5724,7 @@
         "type": "string",
         "minLength": 1,
         "title": "StoryEngineMarkdown",
-        "description": "Reusable markdown story engine profile."
-      },
-      "StoryEngineProfile": {
-        "properties": {
-          "genre_mother": {
-            "type": "string",
-            "enum": [
-              "xianxia",
-              "urban",
-              "historical_power",
-              "infinite_flow",
-              "gaming"
-            ],
-            "title": "Genre Mother"
-          },
-          "drive_axes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Drive Axes"
-          },
-          "payoff_objects": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Payoff Objects"
-          },
-          "pressure_formulas": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Pressure Formulas"
-          },
-          "relation_roles": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Relation Roles"
-          },
-          "scene_verbs": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Scene Verbs"
-          },
-          "hook_recipes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Hook Recipes"
-          },
-          "anti_drift_guardrails": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Anti Drift Guardrails"
-          }
-        },
-        "type": "object",
-        "required": [
-          "genre_mother",
-          "drive_axes",
-          "payoff_objects",
-          "pressure_formulas",
-          "relation_roles",
-          "scene_verbs",
-          "hook_recipes",
-          "anti_drift_guardrails"
-        ],
-        "title": "StoryEngineProfile"
+        "description": "Reusable markdown plot writing guide."
       },
       "StyleAnalysisJobBaseResponse": {
         "properties": {

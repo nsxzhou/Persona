@@ -1371,11 +1371,9 @@ export interface components {
             analysis_report_markdown?: string | null;
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
-            story_engine_payload?: components["schemas"]["StoryEngineProfile"] | null;
+            story_engine_payload?: components["schemas"]["PlotWritingGuideProfile"] | null;
             /** Story Engine Markdown */
             story_engine_markdown?: string | null;
-            /** Suggested Overlays */
-            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
         };
         /** PlotAnalysisJobStatusResponse */
         PlotAnalysisJobStatusResponse: {
@@ -1461,8 +1459,6 @@ export interface components {
             mount_project_id?: string | null;
             /** Story Engine Markdown */
             story_engine_markdown: string;
-            /** Suggested Overlays */
-            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
         };
@@ -1530,11 +1526,9 @@ export interface components {
             plot_name: string;
             /** Analysis Report Markdown */
             analysis_report_markdown: string;
-            story_engine_payload: components["schemas"]["StoryEngineProfile"];
+            story_engine_payload: components["schemas"]["PlotWritingGuideProfile"];
             /** Story Engine Markdown */
             story_engine_markdown: string;
-            /** Suggested Overlays */
-            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
             /**
@@ -1556,8 +1550,6 @@ export interface components {
             mount_project_id?: string | null;
             /** Story Engine Markdown */
             story_engine_markdown: string;
-            /** Suggested Overlays */
-            suggested_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
             /** Plot Skeleton Markdown */
             plot_skeleton_markdown?: string | null;
         };
@@ -1591,6 +1583,25 @@ export interface components {
          * @description Markdown plot skeleton providing whole-book context for chunk analysis.
          */
         PlotSkeletonMarkdown: string;
+        /** PlotWritingGuideProfile */
+        PlotWritingGuideProfile: {
+            /** Core Plot Formula */
+            core_plot_formula: string[];
+            /** Chapter Progression Loop */
+            chapter_progression_loop: string[];
+            /** Scene Construction Rules */
+            scene_construction_rules: string[];
+            /** Setup And Payoff Rules */
+            setup_and_payoff_rules: string[];
+            /** Payoff And Tension Rhythm */
+            payoff_and_tension_rhythm: string[];
+            /** Side Plot Usage */
+            side_plot_usage: string[];
+            /** Hook Recipes */
+            hook_recipes: string[];
+            /** Anti Drift Rules */
+            anti_drift_rules: string[];
+        };
         /** ProjectBibleResponse */
         ProjectBibleResponse: {
             /** Id */
@@ -1988,31 +1999,9 @@ export interface components {
         };
         /**
          * StoryEngineMarkdown
-         * @description Reusable markdown story engine profile.
+         * @description Reusable markdown plot writing guide.
          */
         StoryEngineMarkdown: string;
-        /** StoryEngineProfile */
-        StoryEngineProfile: {
-            /**
-             * Genre Mother
-             * @enum {string}
-             */
-            genre_mother: "xianxia" | "urban" | "historical_power" | "infinite_flow" | "gaming";
-            /** Drive Axes */
-            drive_axes: string[];
-            /** Payoff Objects */
-            payoff_objects: string[];
-            /** Pressure Formulas */
-            pressure_formulas: string[];
-            /** Relation Roles */
-            relation_roles: string[];
-            /** Scene Verbs */
-            scene_verbs: string[];
-            /** Hook Recipes */
-            hook_recipes: string[];
-            /** Anti Drift Guardrails */
-            anti_drift_guardrails: string[];
-        };
         /** StyleAnalysisJobBaseResponse */
         StyleAnalysisJobBaseResponse: {
             /** Id */
