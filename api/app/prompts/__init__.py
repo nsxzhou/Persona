@@ -63,7 +63,7 @@ PROMPT_SPECS: tuple[PromptSpec, ...] = (
         id="plot.story_engine",
         lane=PromptLane.PLOT_ANALYSIS,
         output_contract="markdown",
-        test_focus="story engine profile with fixed pursuit mechanics and overlay suggestions",
+        test_focus="plot writing guide with fixed teaching sections and no analysis recap",
     ),
 )
 
