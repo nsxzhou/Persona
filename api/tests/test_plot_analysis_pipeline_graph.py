@@ -28,9 +28,16 @@ def _sketch_json(chunk_index: int, chunk_count: int) -> str:
             "chunk_index": chunk_index,
             "chunk_count": chunk_count,
             "characters_present": ["主角"],
-            "events": [f"chunk {chunk_index} 事件"],
-            "advancement": "setup",
+            "scene_units": [f"chunk {chunk_index} 场景：主角被压力推入行动"],
+            "main_events": [f"chunk {chunk_index} 事件"],
+            "side_threads": [],
+            "payoff_points": ["小反击"],
+            "tension_points": ["压力升级"],
+            "hooks": ["局面未解"],
+            "setup_payoff_links": ["压力铺垫 -> 小反击"],
+            "pacing_shift": "压迫转入行动",
             "time_marker": "linear",
+            "sample_coverage": ["development_seen"],
         },
         ensure_ascii=False,
     )
@@ -67,7 +74,7 @@ class PipelineLLMStub:
         if "Plot Lab 的骨架分组归并阶段" in prompt:
             self.skeleton_group_reduce_prompts.append(prompt)
             return "# 全书骨架\n## 阶段划分（按 chunk 索引）\n子骨架段落\n"
-        if "Plot Lab 的全书骨架聚合阶段" in prompt:
+        if "Plot Lab 的样本骨架聚合阶段" in prompt:
             self.skeleton_reduce_prompts.append(prompt)
             return _SKELETON_MARKDOWN
         if "Plot Lab 的分块分析阶段" in prompt:
@@ -78,20 +85,19 @@ class PipelineLLMStub:
             return "# 执行摘要\n合并结果"
         if "最终 Plot Lab 分析报告" in prompt:
             self.report_prompts.append(prompt)
-            return "# 执行摘要\n最终报告"
-        if "Story Engine Profile" in prompt:
+            return "# 执行摘要\n最终报告\n\n## 2.5.1 主线剧情分析\n- 样本内主线推进。"
+        if "Plot Writing Guide" in prompt:
             self.story_engine_prompts.append(prompt)
             return (
-                "# Story Engine Profile\n"
-                "## genre_mother\n- xianxia\n\n"
-                "## drive_axes\n- 升级\n- 掠夺\n\n"
-                "## payoff_objects\n- 力量\n- 资源\n\n"
-                "## pressure_formulas\n- 宗门压制 -> 反制夺位\n\n"
-                "## relation_roles\n- 奖励源\n- 压迫源\n\n"
-                "## scene_verbs\n- 入局\n- 压制\n- 试探\n\n"
-                "## hook_recipes\n- 半兑现后追加新压力\n\n"
-                "## anti_drift_guardrails\n- 不要退化成纯气氛描写\n\n"
-                "## suggested_overlays\n- harem_collect\n- hypnosis_control\n"
+                "# Plot Writing Guide\n"
+                "## Core Plot Formula\n- 用压力迫使主角行动。\n\n"
+                "## Chapter Progression Loop\n- 目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。\n\n"
+                "## Scene Construction Rules\n- 每场必须改变局面。\n\n"
+                "## Setup and Payoff Rules\n- 伏笔必须参与行动兑现。\n\n"
+                "## Payoff and Tension Rhythm\n- 半兑现后追加更大压力。\n\n"
+                "## Side Plot Usage\n- 支线回流主线。\n\n"
+                "## Hook Recipes\n- 胜利后揭示代价。\n\n"
+                "## Anti-Drift Rules\n- 不要复述样本剧情。\n"
             )
         raise AssertionError(f"Unexpected prompt: {prompt[:120]}")
 
@@ -99,20 +105,19 @@ class PipelineLLMStub:
 class NoisyStoryEngineLLMStub(PipelineLLMStub):
     async def ainvoke_markdown(self, **kwargs) -> str:
         prompt = kwargs["prompt"]
-        if "Story Engine Profile" in prompt:
+        if "Plot Writing Guide" in prompt:
             self.story_engine_prompts.append(prompt)
             return (
                 "好的，下面开始。\n\n"
-                "# Story Engine Profile\n"
-                "## genre_mother\n- urban\n\n"
-                "## drive_axes\n- 逆转\n\n"
-                "## payoff_objects\n- 地位\n\n"
-                "## pressure_formulas\n- 豪门压制 -> 反杀\n\n"
-                "## relation_roles\n- 奖励源\n\n"
-                "## scene_verbs\n- 收割\n\n"
-                "## hook_recipes\n- 反杀后立刻加码\n\n"
-                "## anti_drift_guardrails\n- 不要解释规则\n\n"
-                "## suggested_overlays\n- wife_steal\n\n"
+                "# Plot Writing Guide\n"
+                "## Core Plot Formula\n- 以身份压力制造行动。\n\n"
+                "## Chapter Progression Loop\n- 目标 -> 阻碍 -> 行动 -> 反转。\n\n"
+                "## Scene Construction Rules\n- 场景结尾改变筹码。\n\n"
+                "## Setup and Payoff Rules\n- 伏笔在行动中兑现。\n\n"
+                "## Payoff and Tension Rhythm\n- 反杀后立刻加码。\n\n"
+                "## Side Plot Usage\n- 支线提供反讽对照。\n\n"
+                "## Hook Recipes\n- 信息揭晓后立刻选择。\n\n"
+                "## Anti-Drift Rules\n- 不要解释规则。\n\n"
                 "# 无关说明\n- 这里不应保留\n"
             )
         return await super().ainvoke_markdown(**kwargs)
@@ -145,7 +150,7 @@ _CLASSIFICATION = {
 
 
 @pytest.mark.asyncio
-async def test_pipeline_graph_threads_skeleton_and_returns_story_engine(
+async def test_pipeline_graph_builds_report_and_plot_writing_guide_without_chunk_deep_analysis(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -169,11 +174,11 @@ async def test_pipeline_graph_threads_skeleton_and_returns_story_engine(
     )
 
     assert len(client.skeleton_reduce_prompts) == 1
-    assert len(client.chunk_analysis_prompts) == chunk_count
-    assert all(_SKELETON_SIGNATURE in prompt for prompt in client.chunk_analysis_prompts)
+    assert len(client.chunk_analysis_prompts) == 0
+    assert len(client.merge_prompts) == 0
     assert _SKELETON_SIGNATURE in client.report_prompts[0]
-    assert result.story_engine_markdown.startswith("# Story Engine Profile")
-    assert result.suggested_overlays == ["harem_collect", "hypnosis_control"]
+    assert result.story_engine_markdown.startswith("# Plot Writing Guide")
+    assert "## Core Plot Formula" in result.story_engine_markdown
     assert result.plot_skeleton_markdown == _SKELETON_MARKDOWN
     assert result.analysis_meta == PlotAnalysisMeta(
         source_filename="sample.txt",
@@ -190,7 +195,7 @@ async def test_pipeline_graph_threads_skeleton_and_returns_story_engine(
 
 
 @pytest.mark.asyncio
-async def test_pipeline_graph_normalizes_story_engine_to_allowed_sections_only(
+async def test_pipeline_graph_normalizes_plot_writing_guide_to_allowed_sections_only(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -211,9 +216,9 @@ async def test_pipeline_graph_normalizes_story_engine_to_allowed_sections_only(
         max_concurrency=1,
     )
 
-    assert result.story_engine_markdown.startswith("# Story Engine Profile")
+    assert result.story_engine_markdown.startswith("# Plot Writing Guide")
     assert "# 无关说明" not in result.story_engine_markdown
-    assert result.suggested_overlays == ["wife_steal"]
+    assert "## Core Plot Formula" in result.story_engine_markdown
     stored = await storage_service.read_stage_markdown_artifact(job_id, name="story-engine")
     assert stored == result.story_engine_markdown
     get_settings.cache_clear()

@@ -42,17 +42,23 @@ def test_build_sketch_prompt_contains_required_json_fields_and_enums() -> None:
         "chunk_index",
         "chunk_count",
         "characters_present",
-        "events",
-        "advancement",
-        "time_marker",
+        "scene_units",
+        "main_events",
+        "side_threads",
+        "payoff_points",
+        "tension_points",
+        "hooks",
+        "setup_payoff_links",
+        "pacing_shift",
+        "sample_coverage",
     ):
         assert field in prompt
-    for value in ("setup", "payoff", "transition", "interlude"):
-        assert value in prompt
     for value in ("linear", "flashback", "unclear"):
         assert value in prompt
     assert "只记录当前 chunk 的直接证据" in prompt
     assert "邻接上下文不能覆盖当前 chunk 的事件归属" in prompt
+    assert "只分析上传样本" in prompt
+    assert "不得推断完整小说" in prompt
 
 
 def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
@@ -62,9 +68,16 @@ def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
                 "chunk_index": 0,
                 "chunk_count": 2,
                 "characters_present": ["主角"],
-                "events": ["开场展示能力"],
-                "advancement": "setup",
+                "scene_units": ["宗门大比现场：主角被压制后被迫应战"],
+                "main_events": ["主角被压制"],
+                "side_threads": [],
+                "payoff_points": ["主角展示能力"],
+                "tension_points": ["宗门压力升级"],
+                "hooks": ["考核结果未揭晓"],
+                "setup_payoff_links": ["前置羞辱 -> 当场反击"],
+                "pacing_shift": "压迫转入反击",
                 "time_marker": "linear",
+                "sample_coverage": ["opening_seen", "development_seen"],
             }
         ],
         classification=CLASSIFICATION,
@@ -73,18 +86,18 @@ def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
 
     for header in (
         "# 全书骨架",
-        "## 阶段划分（按 chunk 索引）",
+        "## 样本覆盖范围",
         "## 主线推进链",
-        "## 爽点兑现节奏",
-        "## 角色登场 & 主角能力阶梯",
-        "## 时间线结构",
-        "## 结局形状线索",
+        "## 支线线索",
+        "## 场景账本",
+        "## 爽点与钩子",
+        "## 节奏曲线",
         "## 证据不足项",
     ):
         assert header in prompt
-    assert "阶段边界必须解释为什么在这些 chunk 发生切换" in prompt
-    assert "设伏 @chunkX -> 兑现 @chunkY" in prompt
-    assert "角色能力阶梯必须区分登场、升级、关系功能变化" in prompt
+    assert "只分析上传样本" in prompt
+    assert "不得推断完整小说" in prompt
+    assert "未覆盖开篇、高潮或结尾" in prompt
 
 
 def test_build_chunk_analysis_and_report_prompts_thread_skeleton_context() -> None:
@@ -106,7 +119,17 @@ def test_build_chunk_analysis_and_report_prompts_thread_skeleton_context() -> No
     assert "## 全书骨架（参考上下文）" in report_prompt
     assert "推进规律 + 证据摘要" in chunk_prompt
     assert "不要只写事件复述" in chunk_prompt
-    assert "每个 3.x 章节都必须收束为可复用的情节机制" in report_prompt
+    for header in (
+        "## 2.5.1 主线剧情分析",
+        "## 2.5.2 支线剧情分析",
+        "## 2.5.3 细纲",
+        "## 2.5.4 场景纲",
+        "## 2.5.5 爽点",
+        "## 2.5.6 节奏",
+    ):
+        assert header in report_prompt
+    assert "只分析上传样本" in report_prompt
+    assert "当前样本未覆盖" in report_prompt
 
 
 def test_build_story_engine_prompt_requires_new_heading_and_sections() -> None:
@@ -115,47 +138,40 @@ def test_build_story_engine_prompt_requires_new_heading_and_sections() -> None:
         plot_name="宗门夺位",
     )
 
-    assert "生成一个可复用的 Story Engine Profile" in prompt
-    assert "输出必须直接从 `# Story Engine Profile` 开始" in prompt
+    assert "生成一个可复用的 Plot Writing Guide" in prompt
+    assert "输出必须直接从 `# Plot Writing Guide` 开始" in prompt
     for section in (
-        "## genre_mother",
-        "## drive_axes",
-        "## payoff_objects",
-        "## pressure_formulas",
-        "## relation_roles",
-        "## scene_verbs",
-        "## hook_recipes",
-        "## anti_drift_guardrails",
-        "## suggested_overlays",
+        "## Core Plot Formula",
+        "## Chapter Progression Loop",
+        "## Scene Construction Rules",
+        "## Setup and Payoff Rules",
+        "## Payoff and Tension Rhythm",
+        "## Side Plot Usage",
+        "## Hook Recipes",
+        "## Anti-Drift Rules",
     ):
         assert section in prompt
 
 
-def test_build_story_engine_prompt_removes_old_prompt_pack_language() -> None:
+def test_build_story_engine_prompt_outputs_teaching_rules_not_analysis_recap() -> None:
     prompt = build_story_engine_prompt(
         report_markdown="# 执行摘要\n样本包含后宫、曹贼和控制倾向。",
         plot_name="宗门夺位",
     )
 
-    assert "可发布成人张力" not in prompt
-    assert "Tone Lock" not in prompt
-    assert "Anti-Whitewash Guardrails" not in prompt
-    assert "Plot Prompt 包" not in prompt
-    assert "suggested_overlays 是最低优先级兼容字段" in prompt
-    assert "不得让 overlay 倾向主导 Story Engine" in prompt
-    assert "每个字段都必须写成情节执行指纹" in prompt
-    assert "主驱动轴不是题材标签" in prompt
-    assert "harem_collect" in prompt
-    assert "wife_steal" in prompt
-    assert "hypnosis_control" in prompt
+    assert "不要复述分析报告" in prompt
+    assert "禁止保留样本人物名、地名、势力名、事件名" in prompt
+    assert "genre_mother" not in prompt
+    assert "suggested_overlays" not in prompt
 
 
 def test_story_engine_template_matches_runtime_contract() -> None:
-    assert STORY_ENGINE_TEMPLATE.startswith("# Story Engine Profile")
-    assert "## genre_mother" in STORY_ENGINE_TEMPLATE
-    assert "## suggested_overlays" in STORY_ENGINE_TEMPLATE
+    assert STORY_ENGINE_TEMPLATE.startswith("# Plot Writing Guide")
+    assert "## Core Plot Formula" in STORY_ENGINE_TEMPLATE
+    assert "## Anti-Drift Rules" in STORY_ENGINE_TEMPLATE
+    assert "genre_mother" not in STORY_ENGINE_TEMPLATE
+    assert "suggested_overlays" not in STORY_ENGINE_TEMPLATE
     assert "Tone Lock" not in STORY_ENGINE_TEMPLATE
-    assert "Anti-Whitewash Guardrails" not in STORY_ENGINE_TEMPLATE
 
 
 def test_skeleton_group_reduce_prompt_keeps_group_bounds() -> None:

@@ -21,6 +21,7 @@ def _load_prompt_profile_symbols() -> dict[str, object]:
             "ChapterObjectiveCard",
             "GenerationProfile",
             "IntensityProfile",
+            "PlotWritingGuideProfile",
             "StoryEngineProfile",
             "VoiceProfile",
         )
@@ -42,6 +43,7 @@ def _build_generation_profile():
 def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
     symbols = _load_prompt_profile_symbols()
     VoiceProfile = symbols["VoiceProfile"]
+    PlotWritingGuideProfile = symbols["PlotWritingGuideProfile"]
     StoryEngineProfile = symbols["StoryEngineProfile"]
     IntensityProfile = symbols["IntensityProfile"]
     ChapterObjectiveCard = symbols["ChapterObjectiveCard"]
@@ -68,6 +70,16 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
         scene_verbs=["入局", "压制", "试探", "收割"],
         hook_recipes=["半兑现后立刻追加新压力"],
         anti_drift_guardrails=["不要退化成纯气氛描写"],
+    )
+    plot_guide = PlotWritingGuideProfile(
+        core_plot_formula=["用压力迫使主角行动。"],
+        chapter_progression_loop=["目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。"],
+        scene_construction_rules=["每个场景必须改变局面。"],
+        setup_and_payoff_rules=["伏笔必须参与行动兑现。"],
+        payoff_and_tension_rhythm=["半兑现后追加更大压力。"],
+        side_plot_usage=["支线必须回流主线。"],
+        hook_recipes=["胜利后揭示代价。"],
+        anti_drift_rules=["不要复述样本剧情。"],
     )
     intensity = IntensityProfile(
         intensity_level="explicit",
@@ -108,6 +120,16 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
         "scene_verbs",
         "hook_recipes",
         "anti_drift_guardrails",
+    }
+    assert set(plot_guide.model_dump().keys()) == {
+        "core_plot_formula",
+        "chapter_progression_loop",
+        "scene_construction_rules",
+        "setup_and_payoff_rules",
+        "payoff_and_tension_rhythm",
+        "side_plot_usage",
+        "hook_recipes",
+        "anti_drift_rules",
     }
     assert set(intensity.model_dump().keys()) == {
         "intensity_level",
@@ -203,7 +225,7 @@ def test_style_and_plot_profile_payloads_accept_new_markdown_fields_without_lega
     plot_payload = PlotProfileCreate(
         job_id="job-1",
         plot_name="宗门夺位",
-        story_engine_markdown="# Story Engine Profile\n## genre_mother\n- xianxia\n",
+        story_engine_markdown="# Plot Writing Guide\n## Core Plot Formula\n- 用压力迫使主角行动。\n",
     )
 
     assert style_payload.voice_profile_markdown
@@ -307,14 +329,14 @@ def test_plot_job_detail_exposes_story_engine_fields_from_runtime_payload() -> N
             analysis_report_payload="# 执行摘要\n高压推进。\n",
             plot_summary_payload="# 剧情定位\n宗门夺位\n",
             prompt_pack_payload=(
-                "# Story Engine Profile\n"
-                "## genre_mother\n- xianxia\n"
-                "## drive_axes\n- 升级\n- 掠夺\n"
+                "# Plot Writing Guide\n"
+                "## Core Plot Formula\n- 用压力迫使主角行动。\n"
+                "## Chapter Progression Loop\n- 目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。\n"
             ),
             plot_skeleton_payload="# 全书骨架\n启动期\n",
         )
     )
 
-    assert response.story_engine_markdown.startswith("# Story Engine Profile")
-    assert response.story_engine_payload.genre_mother == "xianxia"
-    assert response.story_engine_payload.drive_axes
+    assert response.story_engine_markdown.startswith("# Plot Writing Guide")
+    assert response.story_engine_payload.core_plot_formula
+    assert response.story_engine_payload.chapter_progression_loop

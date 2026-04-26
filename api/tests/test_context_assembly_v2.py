@@ -17,8 +17,8 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
             "## 3.1 口头禅与常用表达\n- 执行规则：短句推进。\n"
         ),
         story_engine_markdown=(
-            "# Story Engine Profile\n"
-            "## genre_mother\n- xianxia\n"
+            "# Plot Writing Guide\n"
+            "## Core Plot Formula\n- 用压力迫使主角行动。\n"
         ),
         intensity_profile=IntensityProfile(
             intensity_level="explicit",
@@ -54,7 +54,7 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
         "# Output Contract",
         "# Chapter Objective Card",
         "# Voice Profile",
-        "# Story Engine Profile",
+        "# Plot Writing Guide",
         "# Intensity Profile",
         "# Project Context",
     )
@@ -68,5 +68,6 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
     assert "直接输出正文" in prompt
     assert "禁止前言、自述、总结、初始化说明、显式 thinking" in prompt
     assert "genre_mother: xianxia" in prompt
+    assert "用压力迫使主角行动" in prompt
     assert "intensity_level: explicit" in prompt
     assert "chapter_goal: seduce" in prompt

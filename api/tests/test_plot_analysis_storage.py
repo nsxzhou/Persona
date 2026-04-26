@@ -16,9 +16,16 @@ def _make_sketch(chunk_index: int, chunk_count: int = 3) -> dict:
         "chunk_index": chunk_index,
         "chunk_count": chunk_count,
         "characters_present": ["主角"],
-        "events": [f"第 {chunk_index} 段的代表事件"],
-        "advancement": "setup",
+        "scene_units": [f"第 {chunk_index} 段场景：主角被压力推入行动"],
+        "main_events": [f"第 {chunk_index} 段的代表事件"],
+        "side_threads": [],
+        "payoff_points": [],
+        "tension_points": ["局面施压"],
+        "hooks": [],
+        "setup_payoff_links": [],
+        "pacing_shift": "铺垫推进",
         "time_marker": "linear",
+        "sample_coverage": ["partial_fragment"],
     }
 
 

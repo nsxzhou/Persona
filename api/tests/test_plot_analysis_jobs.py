@@ -12,18 +12,17 @@ def build_fake_plot_report() -> str:
     return "# 执行摘要\n这本书靠高压绑定、反截胡与关系失衡推进。\n"
 
 
-def build_fake_story_engine() -> str:
+def build_fake_plot_writing_guide() -> str:
     return (
-        "# Story Engine Profile\n"
-        "## genre_mother\n- xianxia\n\n"
-        "## drive_axes\n- 升级\n- 掠夺\n\n"
-        "## payoff_objects\n- 力量\n- 资源\n\n"
-        "## pressure_formulas\n- 宗门压制 -> 反制夺位\n\n"
-        "## relation_roles\n- 奖励源\n- 压迫源\n\n"
-        "## scene_verbs\n- 入局\n- 压制\n- 收割\n\n"
-        "## hook_recipes\n- 半兑现后立刻追加新压力\n\n"
-        "## anti_drift_guardrails\n- 不要退化成纯气氛描写\n\n"
-        "## suggested_overlays\n- harem_collect\n"
+        "# Plot Writing Guide\n"
+        "## Core Plot Formula\n- 用压力迫使主角行动。\n\n"
+        "## Chapter Progression Loop\n- 目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。\n\n"
+        "## Scene Construction Rules\n- 每个场景必须改变局面。\n\n"
+        "## Setup and Payoff Rules\n- 伏笔必须参与行动兑现。\n\n"
+        "## Payoff and Tension Rhythm\n- 半兑现后追加更大压力。\n\n"
+        "## Side Plot Usage\n- 支线必须回流主线。\n\n"
+        "## Hook Recipes\n- 胜利后揭示代价。\n\n"
+        "## Anti-Drift Rules\n- 不要复述样本剧情。\n"
     )
 
 
@@ -57,7 +56,7 @@ async def test_plot_analysis_job_detail_returns_story_engine_fields(
                 "chunk_count": 1,
             },
             analysis_report_payload=build_fake_plot_report(),
-            story_engine_payload=build_fake_story_engine(),
+            story_engine_payload=build_fake_plot_writing_guide(),
             plot_skeleton_payload="# 全书骨架\n启动期\n",
         )
         await session.commit()
@@ -66,9 +65,9 @@ async def test_plot_analysis_job_detail_returns_story_engine_fields(
     assert detail_response.status_code == 200
     detail = detail_response.json()
     assert detail["analysis_report_markdown"].startswith("# 执行摘要")
-    assert detail["story_engine_markdown"].startswith("# Story Engine Profile")
-    assert detail["story_engine_payload"]["genre_mother"] == "xianxia"
-    assert detail["suggested_overlays"] == ["harem_collect"]
+    assert detail["story_engine_markdown"].startswith("# Plot Writing Guide")
+    assert detail["story_engine_payload"]["core_plot_formula"]
+    assert "suggested_overlays" not in detail
     assert "plot_summary_markdown" not in detail
     assert "prompt_pack_markdown" not in detail
 
@@ -76,4 +75,4 @@ async def test_plot_analysis_job_detail_returns_story_engine_fields(
         f"/api/v1/plot-analysis-jobs/{job_id}/story-engine"
     )
     assert story_engine_response.status_code == 200
-    assert story_engine_response.json().startswith("# Story Engine Profile")
+    assert story_engine_response.json().startswith("# Plot Writing Guide")

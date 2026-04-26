@@ -70,7 +70,7 @@ def test_build_voice_profile_prompt_focuses_on_sentence_level_fingerprint() -> N
     )
 
     assert "只回答“这个文本怎么写”" in prompt
-    assert "执行规则 + 证据摘要" in prompt
+    assert "执行规则" in prompt
     assert "人物名、地名、组织名、专属设定词" in prompt
     assert "genre_mother" not in prompt
     assert "intensity_level" not in prompt

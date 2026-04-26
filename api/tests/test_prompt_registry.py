@@ -24,4 +24,4 @@ def test_prompt_registry_can_lookup_existing_runtime_prompt() -> None:
 
     assert spec.lane is PromptLane.PLOT_ANALYSIS
     assert spec.output_contract == "markdown"
-    assert spec.test_focus == "story engine profile with fixed pursuit mechanics and overlay suggestions"
+    assert spec.test_focus == "plot writing guide with fixed teaching sections and no analysis recap"
