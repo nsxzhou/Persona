@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
@@ -207,26 +208,16 @@ export function OutlineDetailTab({
         <span className="text-xs text-muted-foreground/50">· {parsed.volumes.length} 卷</span>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex overflow-hidden rounded-md border border-border">
-          <button
-            type="button"
-            onClick={() => setMode("edit")}
-            className={`px-3 py-1 text-xs transition-colors ${
-              mode === "edit" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            编辑
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("preview")}
-            className={`px-3 py-1 text-xs transition-colors ${
-              mode === "preview" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            预览
-          </button>
-        </div>
+        <Tabs value={mode} onValueChange={(val) => setMode(val as "edit" | "preview")}>
+          <TabsList className="h-7 text-xs p-0 px-1 border border-border">
+            <TabsTrigger value="edit" className="h-5 px-3 text-xs">
+              编辑
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="h-5 px-3 text-xs">
+              预览
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleInsertTemplate}>
           <ClipboardList className="h-3.5 w-3.5" />

@@ -18,6 +18,12 @@ import {
 
 type WizardStep = 1 | 2 | 3;
 
+import {
+  type DetailQueryLike,
+  type DetailResource,
+  makeDetailResource,
+} from "@/lib/wizard-utils";
+
 export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   preparing_input: "正在准备输入",
   building_skeleton: "正在构建全书骨架",
@@ -35,19 +41,6 @@ export function formatPlotStageLabel(
   return PLOT_STAGE_LABELS[stage as PlotAnalysisJobStage] ?? stage;
 }
 
-type DetailResource<T> = {
-  data: T | null;
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
-};
-
-type DetailQueryLike = {
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
-};
-
 const LOG_WINDOW_SIZE = 64 * 1024;
 const IMMUTABLE_ARTIFACT_QUERY = {
   staleTime: Infinity,
@@ -56,18 +49,6 @@ const IMMUTABLE_ARTIFACT_QUERY = {
 
 export function isProcessingStatus(status: PlotAnalysisJob["status"] | undefined) {
   return status === "pending" || status === "running";
-}
-
-function makeDetailResource<T>(
-  data: T | null | undefined,
-  query: DetailQueryLike,
-): DetailResource<T> {
-  return {
-    data: data ?? null,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-  };
 }
 
 function mergeStatusIntoJob(

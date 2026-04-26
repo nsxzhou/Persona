@@ -21,7 +21,19 @@ import { WorkbenchTabs } from "@/components/workbench-tabs";
 import { updateProjectAction } from "@/app/(workspace)/projects/actions";
 import type { PlotProfileListItem, Project, ProjectBible, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
-export function ProjectWorkbench({
+export function ProjectWorkbench(props: {
+  project: Project;
+  projectBible: ProjectBible;
+  providers: ProviderConfig[];
+  styleProfiles: StyleProfileListItem[];
+  plotProfiles: PlotProfileListItem[];
+  initialTab?: string;
+  highlightedVolumeIndex?: number | null;
+}) {
+  return <ProjectWorkbenchInner key={props.project.id} {...props} />;
+}
+
+function ProjectWorkbenchInner({
   project: initialProject,
   projectBible: initialProjectBible,
   providers,
@@ -45,11 +57,6 @@ export function ProjectWorkbench({
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
-
-  useEffect(() => {
-    setDisplayName(initialProject.name);
-    setStatus(initialProject.status);
-  }, [initialProject.name, initialProject.status]);
 
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
 

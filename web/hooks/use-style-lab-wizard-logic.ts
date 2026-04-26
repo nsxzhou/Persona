@@ -15,37 +15,18 @@ import {
   type StyleAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 
+import {
+  type DetailQueryLike,
+  type DetailResource,
+  makeDetailResource,
+} from "@/lib/wizard-utils";
+
 type WizardStep = 1 | 2;
-
-type DetailResource<T> = {
-  data: T | null;
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
-};
-
-type DetailQueryLike = {
-  isLoading: boolean;
-  isError: boolean;
-  error: Error | null;
-};
 
 const LOG_WINDOW_SIZE = 64 * 1024;
 
 export function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
   return status === "pending" || status === "running";
-}
-
-function makeDetailResource<T>(
-  data: T | null | undefined,
-  query: DetailQueryLike,
-): DetailResource<T> {
-  return {
-    data: data ?? null,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-  };
 }
 
 function mergeStatusIntoJob(
