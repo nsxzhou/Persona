@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, ArchiveRestore, Archive, PenLine, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,7 +41,26 @@ const PAGE_SIZE = 10;
 export function ProjectsPageClient() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [page, setPage] = useState(1);
+  const [mounted, setMounted] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const saved = localStorage.getItem("persona_projects_include_archived");
+    if (saved) {
+      try {
+        setIncludeArchived(JSON.parse(saved));
+      } catch (e) {
+        // ignore
+      }
+    }
+    setMounted(true);
+  }, []);
+
+  const handleIncludeArchivedChange = (checked: boolean) => {
+    setIncludeArchived(checked);
+    setPage(1);
+    localStorage.setItem("persona_projects_include_archived", JSON.stringify(checked));
+  };
   
   const projectsQuery = useQuery({
     queryKey: ["projects", includeArchived, page],
@@ -50,6 +69,7 @@ export function ProjectsPageClient() {
       offset: (page - 1) * PAGE_SIZE, 
       limit: PAGE_SIZE 
     }),
+    enabled: mounted,
   });
 
   const archiveMutation = useMutation({
@@ -100,10 +120,7 @@ export function ProjectsPageClient() {
       hasNextPage={projectsQuery.data.length === PAGE_SIZE}
       onPageChange={setPage}
       onArchive={(projectId) => archiveMutation.mutate(projectId)}
-      onIncludeArchivedChange={(checked) => {
-        setIncludeArchived(checked);
-        setPage(1); // Reset page on filter change
-      }}
+      onIncludeArchivedChange={handleIncludeArchivedChange}
       onRestore={(projectId) => restoreMutation.mutate(projectId)}
       onDelete={(projectId) => deleteMutation.mutate(projectId)}
     />
