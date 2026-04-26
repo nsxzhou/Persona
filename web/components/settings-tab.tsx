@@ -70,6 +70,9 @@ export function SettingsTab({
   const [plotProfileId, setPlotProfileId] = useState<string | null>(
     project.plot_profile_id,
   );
+  const [generationTargetMarket, setGenerationTargetMarket] = useState<GenerationProfile["target_market"]>(
+    project.generation_profile?.target_market ?? "mainstream"
+  );
   const [generationGenreMother, setGenerationGenreMother] = useState<GenerationProfile["genre_mother"] | null>(
     project.generation_profile?.genre_mother ?? null,
   );
@@ -95,6 +98,7 @@ export function SettingsTab({
     setModel(project.default_model);
     setStyleProfileId(project.style_profile_id);
     setPlotProfileId(project.plot_profile_id);
+    setGenerationTargetMarket(project.generation_profile?.target_market ?? "mainstream");
     setGenerationGenreMother(project.generation_profile?.genre_mother ?? null);
     setGenerationDesireOverlays(project.generation_profile?.desire_overlays ?? []);
     setGenerationIntensityLevel(project.generation_profile?.intensity_level ?? null);
@@ -108,6 +112,7 @@ export function SettingsTab({
     setModel(project.default_model);
     setStyleProfileId(project.style_profile_id);
     setPlotProfileId(project.plot_profile_id);
+    setGenerationTargetMarket(project.generation_profile?.target_market ?? "mainstream");
     setGenerationGenreMother(project.generation_profile?.genre_mother ?? null);
     setGenerationDesireOverlays(project.generation_profile?.desire_overlays ?? []);
     setGenerationIntensityLevel(project.generation_profile?.intensity_level ?? null);
@@ -121,6 +126,7 @@ export function SettingsTab({
     model !== project.default_model ||
     styleProfileId !== project.style_profile_id ||
     plotProfileId !== project.plot_profile_id ||
+    generationTargetMarket !== (project.generation_profile?.target_market ?? "mainstream") ||
     generationGenreMother !== (project.generation_profile?.genre_mother ?? null) ||
     JSON.stringify(generationDesireOverlays) !== JSON.stringify(project.generation_profile?.desire_overlays ?? []) ||
     generationIntensityLevel !== (project.generation_profile?.intensity_level ?? null) ||
@@ -149,6 +155,7 @@ export function SettingsTab({
       generation_profile:
         generationGenreMother && generationIntensityLevel
           ? {
+            target_market: generationTargetMarket,
             genre_mother: generationGenreMother,
             desire_overlays: overlays,
             intensity_level: generationIntensityLevel,
@@ -210,6 +217,21 @@ export function SettingsTab({
               <CardDescription>配置 AI 生成内容的风格、节奏和偏好。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="grid gap-2">
+                <Label htmlFor="settings-generation-market">目标市场</Label>
+                <Select
+                  value={generationTargetMarket}
+                  onValueChange={(val) => setGenerationTargetMarket(val as GenerationProfile["target_market"])}
+                >
+                  <SelectTrigger id="settings-generation-market" aria-label="目标市场" className="bg-background">
+                    <SelectValue placeholder="选择目标市场" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mainstream">主流大类 (Mainstream)</SelectItem>
+                    <SelectItem value="nsfw">细分市场 (NSFW)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="settings-generation-genre">题材母类</Label>
                 <Select
