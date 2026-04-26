@@ -773,7 +773,10 @@ class PlotAnalysisPipeline:
     async def _set_stage(self, stage: str | None) -> None:
         self._raise_if_paused()
         if self.stage_callback is not None:
-            await self.stage_callback(stage)
+            try:
+                await self.stage_callback(stage)
+            except Exception:
+                logger.exception("Stage callback failed, continuing pipeline")
 
     async def _clear_stage_on_completion(self) -> None:
         if self.stage_callback is not None:
