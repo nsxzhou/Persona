@@ -57,6 +57,17 @@ class StoryEngineProfile(BaseModel):
     anti_drift_guardrails: list[str] = Field(min_length=1)
 
 
+class PlotWritingGuideProfile(BaseModel):
+    core_plot_formula: list[str] = Field(min_length=1)
+    chapter_progression_loop: list[str] = Field(min_length=1)
+    scene_construction_rules: list[str] = Field(min_length=1)
+    setup_and_payoff_rules: list[str] = Field(min_length=1)
+    payoff_and_tension_rhythm: list[str] = Field(min_length=1)
+    side_plot_usage: list[str] = Field(min_length=1)
+    hook_recipes: list[str] = Field(min_length=1)
+    anti_drift_rules: list[str] = Field(min_length=1)
+
+
 class IntensityProfile(BaseModel):
     intensity_level: IntensityLevel
     desire_overlays: list[DesireOverlay] = Field(default_factory=list)
@@ -86,6 +97,10 @@ class ChapterObjectiveCard(BaseModel):
 
 _LEGACY_SECTION_RE = re.compile(
     r"^##\s+(?P<name>[a-zA-Z0-9_]+)\s*$\n(?P<body>.*?)(?=^##\s+[a-zA-Z0-9_]+\s*$|\Z)",
+    flags=re.MULTILINE | re.DOTALL,
+)
+_TITLE_SECTION_RE = re.compile(
+    r"^##\s+(?P<title>[A-Za-z][A-Za-z0-9 &-]+?)\s*$\n(?P<body>.*?)(?=^##\s+[A-Za-z][A-Za-z0-9 &-]+?\s*$|\Z)",
     flags=re.MULTILINE | re.DOTALL,
 )
 _NUMBERED_SECTION_RE = re.compile(
@@ -126,6 +141,17 @@ _VOICE_DEFAULTS: dict[str, str] = {
 
 def _extract_sections(markdown: str) -> dict[str, str]:
     return {match.group("name"): match.group("body").strip() for match in _LEGACY_SECTION_RE.finditer(markdown)}
+
+
+def _section_key(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
+
+
+def _extract_title_sections(markdown: str) -> dict[str, str]:
+    return {
+        _section_key(match.group("title")): match.group("body").strip()
+        for match in _TITLE_SECTION_RE.finditer(markdown)
+    }
 
 
 def _extract_numbered_sections(markdown: str) -> dict[str, str]:
@@ -182,6 +208,28 @@ def derive_story_engine_profile(markdown: str | None) -> StoryEngineProfile:
         scene_verbs=_extract_bullets(sections.get("scene_verbs", "")) or ["入局", "压制", "试探", "收割"],
         hook_recipes=_extract_bullets(sections.get("hook_recipes", "")) or ["半兑现后追加新压力"],
         anti_drift_guardrails=_extract_bullets(sections.get("anti_drift_guardrails", "")) or ["不要退化成纯气氛描写"],
+    )
+
+
+def derive_plot_writing_guide_profile(markdown: str | None) -> PlotWritingGuideProfile:
+    text = (markdown or "").strip()
+    sections = _extract_title_sections(text)
+
+    def bullets(key: str, fallback: str) -> list[str]:
+        return _extract_bullets(sections.get(key, "")) or [fallback]
+
+    return PlotWritingGuideProfile(
+        core_plot_formula=bullets("core_plot_formula", "用明确压力迫使主角做出行动选择。"),
+        chapter_progression_loop=bullets(
+            "chapter_progression_loop",
+            "目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。",
+        ),
+        scene_construction_rules=bullets("scene_construction_rules", "每个场景必须改变局面。"),
+        setup_and_payoff_rules=bullets("setup_and_payoff_rules", "伏笔必须在行动或反转中兑现。"),
+        payoff_and_tension_rhythm=bullets("payoff_and_tension_rhythm", "阶段性兑现后追加更大压力。"),
+        side_plot_usage=bullets("side_plot_usage", "支线必须映照并回流主线。"),
+        hook_recipes=bullets("hook_recipes", "章末用新威胁、新代价或新选择制造追读。"),
+        anti_drift_rules=bullets("anti_drift_rules", "不要复述样本剧情或输出空泛分析。"),
     )
 
 

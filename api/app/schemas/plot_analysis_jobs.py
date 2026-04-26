@@ -6,7 +6,7 @@ from typing import Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from app.schemas.analysis_common import InputClassificationSchema
-from app.schemas.prompt_profiles import DesireOverlay, StoryEngineProfile
+from app.schemas.prompt_profiles import PlotWritingGuideProfile
 from app.schemas.provider_configs import ProviderSummary
 
 
@@ -43,7 +43,7 @@ class PlotSkeletonMarkdown(RootModel[str]):
 class StoryEngineMarkdown(RootModel[str]):
     root: str = Field(
         min_length=1,
-        description="Reusable markdown story engine profile.",
+        description="Reusable markdown plot writing guide.",
     )
 
 
@@ -63,22 +63,32 @@ class PlotChunkAnalysis(BaseModel):
 
 
 class PlotChunkSketch(BaseModel):
-    """Lightweight sketch of a single chunk produced by the pre-pass used to build the plot skeleton."""
+    """Compact plot ledger for one chunk, used to build sample-level plot reports."""
 
     chunk_index: int = Field(ge=0, description="Zero-based chunk index.")
     chunk_count: int = Field(ge=1, description="Total number of chunks in this analysis job.")
     characters_present: list[str] = Field(
         description="Names of characters present or mentioned in the chunk."
     )
-    events: list[str] = Field(
-        description="Short event descriptions capturing what happens in the chunk."
-    )
-    advancement: Literal["setup", "payoff", "transition", "interlude"] = Field(
-        description="Narrative advancement role played by this chunk in the overall arc."
-    )
+    scene_units: list[str] = Field(description="Minimal scene units with place/actors/event/change.")
+    main_events: list[str] = Field(description="Main-plot events directly supported by this chunk.")
+    side_threads: list[str] = Field(description="Side-plot signals or secondary threads in this chunk.")
+    payoff_points: list[str] = Field(description="Payoff, highlight, or reader-satisfaction points.")
+    tension_points: list[str] = Field(description="Pressure, setback, abuse, threat, or pain points.")
+    hooks: list[str] = Field(description="Chapter or scene hooks that create forward pull.")
+    setup_payoff_links: list[str] = Field(description="Observed setup to payoff links inside this chunk.")
+    pacing_shift: str = Field(description="Short description of the local pacing movement.")
     time_marker: Literal["linear", "flashback", "unclear"] = Field(
         description="Detected temporal ordering cue for this chunk."
     )
+    sample_coverage: list[Literal[
+        "opening_seen",
+        "development_seen",
+        "climax_seen",
+        "ending_seen",
+        "partial_fragment",
+        "coverage_unclear",
+    ]] = Field(description="Which story-stage signals are directly covered by this uploaded sample.")
 
 
 class PlotMergedAnalysis(BaseModel):
@@ -173,9 +183,8 @@ class PlotAnalysisJobResponse(PlotAnalysisJobBaseResponse):
     plot_profile: PlotProfileEmbeddedResponse | None = None
     analysis_report_markdown: str | None = None
     plot_skeleton_markdown: str | None = None
-    story_engine_payload: StoryEngineProfile | None = None
+    story_engine_payload: PlotWritingGuideProfile | None = None
     story_engine_markdown: str | None = None
-    suggested_overlays: list[DesireOverlay] = Field(default_factory=list)
 
 
 class PlotAnalysisJobStatusResponse(BaseModel):
