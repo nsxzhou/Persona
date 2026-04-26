@@ -34,7 +34,7 @@ Project 是 Persona 的业务根对象。它把“默认 Provider、可选 Style
 - Style Profile 列表
 - Plot Profile 列表
 
-然后把这些数据一次性喂给 `ProjectWorkbench`。工作台内部由 `web/components/workbench-tabs.tsx` 管理 `description / world_building / characters / outline_master / outline_detail / runtime_state / runtime_threads / settings` 等标签页，并在同一 UI 下承接 Bible 编辑、大纲生成与设置修改。
+然后把这些数据一次性喂给 `ProjectWorkbench`。工作台内部由 `web/components/workbench-tabs.tsx` 管理 `description / world_building / characters / outline_master / outline_detail / runtime_state / runtime_threads / settings` 等标签页，并在同一 UI 下承接 Bible 编辑、大纲生成与设置修改。其中，`web/components/settings-tab.tsx` 专门负责项目设置，包括管理 `generation_profile`（生成策略，如题材母类、视角、节奏密度等）以及默认 Provider 和档案的绑定。
 
 ## 后端接口 / Service / Repository 链路
 
@@ -62,7 +62,7 @@ Repository 层在 `api/app/db/repositories/projects.py`：
 
 - 元数据：`name`、`description`、`status`、`archived_at`
 - 依赖关系：`default_provider_id`、`default_model`、`style_profile_id`、`plot_profile_id`
-- 偏好：`length_preset`、`auto_sync_memory`
+- 偏好：`length_preset`、`auto_sync_memory`、`generation_profile_payload`
 
 围绕它的直接关系有两条：
 
@@ -80,6 +80,7 @@ Repository 层在 `api/app/db/repositories/projects.py`：
 - `style_profile_id` 决定 Voice Profile 是否会被注入到写作系统提示词中
 - `plot_profile_id` 决定 Story Engine 是否会被注入到规划和写作链路中
 - `length_preset` 会影响大纲、节拍和续写时的篇幅感知，见 `api/app/services/context_assembly.py:49`
+- `generation_profile`（即 `generation_profile_payload`）直接决定 AI 生成的具体风格参数（如题材母类、视角、强度档位、节奏密度等），在写作链路中作为核心生成策略注入。
 
 换句话说，Project 不是“纯表单对象”，它是后续 Prompt 组装的主配置源。
 

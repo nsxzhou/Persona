@@ -72,15 +72,15 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 - “整本书级别”的 Bible 信息写回 `project_bibles`
 - “当前章级别”的正文与同步状态写回 `project_chapters`
 
-## Prompt / LLM 调用要点
+## 上下文注入 (Context Injection)
 
-编辑器是 Prompt 工程最密集的领域之一：
+编辑器是 Prompt 工程最密集的领域之一，真正的上下文组装高度依赖于 `GenerationProfile`（生成配置）：
 
-- `api/app/services/context_assembly.py:49` 把 `prompt_pack_payload` 与 Bible 各区块拼成系统提示词
-- `WritingEditorService.stream_completion()` 会把 `inspiration / world_building / characters / outline_master / outline_detail / runtime_state / runtime_threads` 全部注入
-- `web/hooks/use-editor-completion.ts:46` 只把光标前文本送给模型，不会把光标后文本当成写作上下文
+- **动态目标与欲望计算**：在 `api/app/services/editor.py` 的 `stream_completion` 阶段，系统会根据 `GenerationProfile` 动态计算出本章的写作目标卡片（`ChapterObjectiveCard`）以及包含欲望叠加规则的表达强度（`IntensityProfile`），从而决定当前剧情的推进方向与张力类型。
+- **系统提示词组装**：`api/app/services/context_assembly.py` 负责将上述计算出的动态目标与欲望，连同挂载的风格档案（`prompt_pack_payload`）、剧情引擎（`story_engine_markdown`）以及 Bible 的各个区块（如 `world_building`、`outline_detail`、`runtime_state` 等）拼装成完整的系统提示词。
+- **局部正文上下文**：前端 `web/hooks/use-editor-completion.ts` 发起续写时，只把光标前的文本送给模型，不会把光标后的文本当成写作上下文。
 
-这里的核心哲学是：续写不是“随便让模型接着写”，而是“让模型在完整风格 + 完整约束 + 局部上下文下写”。
+这里的核心哲学是：续写不是“随便让模型接着写”，而是“让模型在完整风格 + 动态意图（目标与欲望叠加） + 局部上下文下写”。
 
 ## 关键文件索引
 
