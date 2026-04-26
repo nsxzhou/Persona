@@ -81,6 +81,7 @@ erDiagram
         string default_model
         string style_profile_id FK
         string plot_profile_id FK
+        json generation_profile_payload
         string length_preset
         bool auto_sync_memory
         datetime archived_at
@@ -157,6 +158,53 @@ erDiagram
         text analysis_report_payload
         text style_summary_payload
         text prompt_pack_payload
+    }
+    plot_sample_files {
+        string id PK
+        string user_id FK
+        string original_filename
+        string content_type
+        text storage_path
+        int byte_size
+        int character_count
+        string checksum_sha256
+    }
+    plot_analysis_jobs {
+        string id PK
+        string user_id FK
+        string plot_name
+        string provider_id FK
+        string model_name
+        string sample_file_id FK
+        string status
+        string stage
+        text error_message
+        json analysis_meta_payload
+        text analysis_report_payload
+        text plot_summary_payload
+        text prompt_pack_payload
+        text plot_skeleton_payload
+        string locked_by
+        datetime locked_at
+        datetime last_heartbeat_at
+        datetime pause_requested_at
+        datetime paused_at
+        int attempt_count
+        datetime started_at
+        datetime completed_at
+    }
+    plot_profiles {
+        string id PK
+        string user_id FK
+        string source_job_id FK
+        string provider_id FK
+        string model_name
+        string source_filename
+        string plot_name
+        text analysis_report_payload
+        text plot_summary_payload
+        text prompt_pack_payload
+        text plot_skeleton_payload
     }
 ```
 
@@ -245,6 +293,7 @@ Relationship：`projects`, `style_analysis_jobs`, `style_profiles`, `plot_analys
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
+| `generation_profile_payload` | JSON | 独立保存的项目生成配置覆盖，支持定制化生成参数（可选） |
 | `length_preset` | String(16) | `short` / `medium` / `long`，生成长度偏好 |
 | `auto_sync_memory` | Boolean | 逐拍写作完成时是否静默自动同步记忆（默认 false） |
 
@@ -533,6 +582,10 @@ Persona 里的"长文本"大多是 Markdown（`analysis_report_payload` / `promp
 0009_user_scoped_resources.py
 0010_markdown_style_lab_payloads.py
 0011_style_job_pause.py
+0012_plot_lab.py
+0013_plot_skeleton_payload.py
+0014_analysis_stage_renames.py
+0015_gen_profile_payload.py
 0ed5f4b2b7d7_add_project_content.py
 915382ca98f5_add_project_content.py
 a1b2c3d4e5f6_add_story_bible_fields.py
@@ -547,7 +600,7 @@ e4f5a6b7c8d9_add_auto_sync_memory_to_projects.py
 
 两种风格混用：
 
-1. **`NNNN_slug.py`**（`0001_initial.py` ~ `0011_style_job_pause.py`）：四位数字序号 + slug
+1. **`NNNN_slug.py`**（`0001_initial.py` ~ `0015_gen_profile_payload.py`）：四位数字序号 + slug
    - 优点：文件字典序即升级顺序，直观
    - 缺点：不同 feature 分支并行开发时容易撞号
 2. **`<hash>_slug.py`**（`a1b2c3d4e5f6_...`、`c1d2e3f4a5b6_...`）：Alembic `revision --autogenerate` 默认风格
