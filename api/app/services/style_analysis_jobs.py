@@ -581,11 +581,11 @@ class StyleAnalysisJobService:
         job_id: str,
         sample_storage_path: str | None,
     ) -> None:
-        if sample_storage_path:
-            try:
-                Path(sample_storage_path).unlink(missing_ok=True)
-            except OSError:
-                logger.exception("Failed to delete style sample file", extra={"job_id": job_id})
+        try:
+            if sample_storage_path:
+                await self.storage_service.delete_sample_file(sample_storage_path)
+        except OSError:
+            logger.exception("Failed to delete sample file", extra={"job_id": job_id})
 
         try:
             await self.storage_service.cleanup_job_artifacts(job_id)

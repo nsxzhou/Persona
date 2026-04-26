@@ -315,8 +315,8 @@ class PlotAnalysisJobExecutor:
         model_name: str,
         plot_name: str,
         source_filename: str,
-        stage_callback,
-        should_pause=None,
+        stage_callback: Callable[[str | None], Awaitable[None]],
+        should_pause: Callable[[], bool] | None = None,
     ) -> PlotAnalysisPipeline:
         llm_client = MarkdownLLMClient()
         chat_model = llm_client.build_model(provider=provider, model_name=model_name)

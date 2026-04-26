@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import json
 import logging
 import re
@@ -416,13 +417,13 @@ class PlotAnalysisPipeline:
                 injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
             )
         sub_skeletons: list[str] = []
-        for idx, group in enumerate(groups):
+        async def process_group(idx: int, group: list[dict[str, Any]]) -> str:
             self._raise_if_paused()
             await self.storage_service.append_job_log(
                 state["job_id"],
                 f"[LLM] 分层归约 group {idx+1}/{len(groups)} (含 {len(group)} 个 sketch)"
             )
-            sub_md = await self.llm_client.ainvoke_markdown(
+            return await self.llm_client.ainvoke_markdown(
                 model=self.chat_model,
                 prompt=build_skeleton_group_reduce_prompt(
                     group_sketches=group,
@@ -434,7 +435,9 @@ class PlotAnalysisPipeline:
                 model_name=self.model_name,
                 injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON_GROUP,
             )
-            sub_skeletons.append(sub_md)
+
+        tasks = [process_group(idx, group) for idx, group in enumerate(groups)]
+        sub_skeletons = list(await asyncio.gather(*tasks))
 
         # Final reduce: wrap sub-skeleton markdowns so they can re-enter the reduce prompt;
         # build_skeleton_reduce_prompt explicitly tolerates either sketch-dict or sub-skeleton-dict.

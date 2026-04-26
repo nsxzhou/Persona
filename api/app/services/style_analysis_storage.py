@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import shutil
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -11,6 +12,8 @@ import aiofiles
 
 from app.core.config import get_settings
 from app.core.domain_errors import UnprocessableEntityError
+
+logger = logging.getLogger(__name__)
 
 
 class StyleAnalysisStorageService:
@@ -52,7 +55,7 @@ class StyleAnalysisStorageService:
         content_stream: AsyncIterator[bytes],
     ) -> tuple[str, int, str]:
         storage_path = self._build_storage_path(sample_file_id)
-        storage_path.parent.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(storage_path.parent.mkdir, parents=True, exist_ok=True)
         hasher = hashlib.sha256()
         total_bytes_out = 0
 
@@ -62,12 +65,16 @@ class StyleAnalysisStorageService:
                     hasher.update(chunk)
                     total_bytes_out += len(chunk)
                     await handle.write(chunk)
+        except OSError:
+            await asyncio.to_thread(storage_path.unlink, missing_ok=True)
+            raise
         except Exception:
-            storage_path.unlink(missing_ok=True)
+            logger.exception("Unexpected error saving file")
+            await asyncio.to_thread(storage_path.unlink, missing_ok=True)
             raise
 
         if total_bytes_out == 0:
-            storage_path.unlink(missing_ok=True)
+            await asyncio.to_thread(storage_path.unlink, missing_ok=True)
             raise UnprocessableEntityError("上传的 TXT 文件为空")
 
         return str(storage_path), total_bytes_out, hasher.hexdigest()
@@ -169,6 +176,11 @@ class StyleAnalysisStorageService:
         if not chunk_dir.exists():
             return 0
         return len(list(chunk_dir.glob("*.txt")))
+
+    async def delete_sample_file(self, storage_path: str) -> None:
+        if not storage_path:
+            return
+        await asyncio.to_thread(Path(storage_path).unlink, missing_ok=True)
 
     async def cleanup_job_artifacts(self, job_id: str) -> None:
         artifact_dir = self._job_artifact_dir(job_id)

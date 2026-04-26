@@ -283,6 +283,11 @@ class PlotAnalysisStorageService:
         if artifact_dir.exists():
             await asyncio.to_thread(shutil.rmtree, artifact_dir, ignore_errors=True)
 
+    async def delete_sample_file(self, storage_path: str) -> None:
+        if not storage_path:
+            return
+        await asyncio.to_thread(Path(storage_path).unlink, missing_ok=True)
+
     async def append_job_log(self, job_id: str, message: str) -> None:
         from datetime import UTC, datetime
         path = self._log_artifact_path(job_id)

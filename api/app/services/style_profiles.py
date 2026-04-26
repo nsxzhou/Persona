@@ -7,39 +7,18 @@ from app.db.models import StyleProfile
 from app.db.repositories.projects import ProjectRepository
 from app.db.repositories.style_profiles import StyleProfileCreateData, StyleProfileRepository
 from app.schemas.style_profiles import StyleProfileCreate, StyleProfileUpdate
+from app.services.base_profile import BaseProfileService
 
 
-class StyleProfileService:
+class StyleProfileService(BaseProfileService[StyleProfile]):
     def __init__(
         self,
         repository: StyleProfileRepository | None = None,
         project_repository: ProjectRepository | None = None,
     ) -> None:
         self.repository = repository or StyleProfileRepository()
+        super().__init__(self.repository, profile_name="风格档案")
         self.project_repository = project_repository or ProjectRepository()
-
-    async def list(
-        self,
-        session: AsyncSession,
-        *,
-        user_id: str | None = None,
-        offset: int = 0,
-        limit: int = 50,
-    ) -> list[StyleProfile]:
-        limit = min(max(limit, 1), 100)
-        return await self.repository.list(session, user_id=user_id, offset=offset, limit=limit)
-
-    async def get_or_404(
-        self,
-        session: AsyncSession,
-        profile_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> StyleProfile:
-        profile = await self.repository.get_by_id(session, profile_id, user_id=user_id)
-        if profile is None:
-            raise NotFoundError("风格档案不存在")
-        return profile
 
     async def _mount_project(
         self,
@@ -127,21 +106,3 @@ class StyleProfileService:
             user_id=user_id,
         )
         return profile
-
-    async def delete(
-        self,
-        session: AsyncSession,
-        profile_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> None:
-        profile = await self.repository.get_with_projects(
-            session,
-            profile_id,
-            user_id=user_id,
-        )
-        if profile is None:
-            raise NotFoundError("风格档案不存在")
-        if profile.projects:
-            raise ConflictError("该风格档案正被项目引用，无法删除")
-        await self.repository.delete(session, profile)

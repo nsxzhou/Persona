@@ -7,39 +7,18 @@ from app.db.models import PlotProfile
 from app.db.repositories.plot_profiles import PlotProfileCreateData, PlotProfileRepository
 from app.db.repositories.projects import ProjectRepository
 from app.schemas.plot_profiles import PlotProfileCreate, PlotProfileUpdate
+from app.services.base_profile import BaseProfileService
 
 
-class PlotProfileService:
+class PlotProfileService(BaseProfileService[PlotProfile]):
     def __init__(
         self,
         repository: PlotProfileRepository | None = None,
         project_repository: ProjectRepository | None = None,
     ) -> None:
         self.repository = repository or PlotProfileRepository()
+        super().__init__(self.repository, profile_name="情节档案")
         self.project_repository = project_repository or ProjectRepository()
-
-    async def list(
-        self,
-        session: AsyncSession,
-        *,
-        user_id: str | None = None,
-        offset: int = 0,
-        limit: int = 50,
-    ) -> list[PlotProfile]:
-        limit = min(max(limit, 1), 100)
-        return await self.repository.list(session, user_id=user_id, offset=offset, limit=limit)
-
-    async def get_or_404(
-        self,
-        session: AsyncSession,
-        profile_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> PlotProfile:
-        profile = await self.repository.get_by_id(session, profile_id, user_id=user_id)
-        if profile is None:
-            raise NotFoundError("情节档案不存在")
-        return profile
 
     async def _mount_project(
         self,
@@ -135,21 +114,3 @@ class PlotProfileService:
             user_id=user_id,
         )
         return profile
-
-    async def delete(
-        self,
-        session: AsyncSession,
-        profile_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> None:
-        profile = await self.repository.get_with_projects(
-            session,
-            profile_id,
-            user_id=user_id,
-        )
-        if profile is None:
-            raise NotFoundError("情节档案不存在")
-        if profile.projects:
-            raise ConflictError("该情节档案正被项目引用，无法删除")
-        await self.repository.delete(session, profile)

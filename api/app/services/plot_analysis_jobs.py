@@ -126,21 +126,13 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> PlotAnalysisJob:
-        if user_id is None:
-            job = await self.repository.get_by_id(
-                session,
-                job_id,
-                include_payloads=True,
-                include_plot_profile_payloads=True,
-            )
-        else:
-            job = await self.repository.get_by_id(
-                session,
-                job_id,
-                user_id=user_id,
-                include_payloads=True,
-                include_plot_profile_payloads=True,
-            )
+        job = await self.repository.get_by_id(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=True,
+            include_plot_profile_payloads=True,
+        )
         if job is None:
             raise NotFoundError("分析任务不存在")
         return job
@@ -593,11 +585,11 @@ class PlotAnalysisJobService:
         job_id: str,
         sample_storage_path: str | None,
     ) -> None:
-        if sample_storage_path:
-            try:
-                Path(sample_storage_path).unlink(missing_ok=True)
-            except OSError:
-                logger.exception("Failed to delete plot sample file", extra={"job_id": job_id})
+        try:
+            if sample_storage_path:
+                await self.storage_service.delete_sample_file(sample_storage_path)
+        except OSError:
+            logger.exception("Failed to delete plot sample file", extra={"job_id": job_id})
 
         try:
             await self.storage_service.cleanup_job_artifacts(job_id)
