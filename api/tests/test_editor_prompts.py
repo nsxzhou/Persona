@@ -37,7 +37,7 @@ def test_world_building_prompt_uses_core_scaffold_and_conditional_modules() -> N
     assert "只保留当前故事真正需要的模块" in prompt
     assert "1. **时代与秩序**" in prompt
     assert "2. **当前局势与核心冲突土壤**" in prompt
-    assert "3. **主角当前处境与约束**" in prompt
+    assert "3. **主角当前处境与约束（或核心金手指/系统）**" in prompt
     assert "仅在确有需要时，才补充下列可选模块" in prompt
     assert "特殊设定（仅简介明示时）" in prompt
     assert "主要势力" in prompt
@@ -98,8 +98,8 @@ def test_world_building_prompt_ties_setting_to_reader_desire_supply() -> None:
     prompt = build_section_system_prompt("world_building", length_preset="long")
 
     assert "世界观不是资料库，而是主角欲望和读者期待的供给系统" in prompt
-    assert "持续制造资源稀缺、身份秩序、关系博弈或压迫来源" in prompt
-    assert "读者接下来最想看主角拿到什么、压过谁或逼近谁" in prompt
+    assert "设定可以是极端的阶层落差与禁忌秩序" in prompt
+    assert "或者是为了让主角装逼打脸、开后宫而量身定制的无敌金手指与系统" in prompt
 
 
 def test_editor_prompts_enforce_publishable_adult_tension_boundary() -> None:
@@ -116,11 +116,8 @@ def test_editor_prompts_enforce_publishable_adult_tension_boundary() -> None:
     ]
 
     for prompt in prompts:
-        assert "平台可发布边界" in prompt
-        assert "成年人之间的危险吸引、身份差、利益交换、暧昧推拉、嫉妒、误会、背德氛围，以及呼吸、体温、气息、视线停顿、心跳失衡、掌心温度、衣料摩擦、手背/腰背/衣袖/发丝接触等隐晦身体与感官暗示" in prompt
-        assert "未成年相关性内容是绝对禁区" in prompt
-        assert "高风险成人素材，不得直接写成事件过程、色情目标或可模仿桥段" in prompt
-        assert "可以把高风险成人素材转写为成年人之间的禁忌氛围、关系博弈、权力试探、情绪压迫、边界变化、呼吸交错、体温变化、掌心温度、衣料摩擦、靠近与迟疑、双修引发的情感失衡、后果反噬与事后尴尬" in prompt
+        assert "未成年相关内容绝对禁止" in prompt
+        assert "充分发挥“安全地打破禁忌”带来的背德刺激" in prompt
 
 
 def test_adjacent_prompts_preserve_grounded_reading() -> None:
@@ -211,11 +208,9 @@ def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
     for prompt in prompts:
         assert "Plot 指纹落地契约" in prompt
         assert "核心驱动轴" in prompt
-        assert "信息差/利益绑定/资源兑现/关系重组/新压力" in prompt
+        assert "允许规划单元完全聚焦于极度的“爽感”、金手指大爆发、或是彻底的欲望/肉体征服" in prompt
         assert "输出中必须让读者看见 Plot Pack 如何改变当前项目" in prompt
         assert "不能只把 Plot Pack 当作背景参考" in prompt
-        assert "成年人的关系张力" in prompt
-        assert "呼吸、体温、气息、视线停顿、心跳失衡、掌心温度、衣料摩擦、手背/腰背/衣袖/发丝接触等隐晦身体与感官暗示" in prompt
 
 
 def test_plot_prompt_contract_keeps_old_terms_out_of_direct_generation_targets() -> None:
@@ -227,8 +222,6 @@ def test_plot_prompt_contract_keeps_old_terms_out_of_direct_generation_targets()
     )
 
     assert "旧模板：公共情欲压迫、密室双修、催眠控制、药物控制、未经同意越界。" in prompt
-    assert "高风险成人素材，不得直接写成事件过程、色情目标或可模仿桥段" in prompt
-    assert "呼吸交错、体温变化、掌心温度、衣料摩擦、靠近与迟疑、双修引发的情感失衡、后果反噬与事后尴尬" in prompt
     assert "遗留高风险 Plot Pack 抽象化" not in prompt
 
 
@@ -261,8 +254,8 @@ def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None
 def test_character_prompt_assigns_reader_hook_functions() -> None:
     prompt = build_section_system_prompt("characters", length_preset="long")
 
-    assert "奖励源、阻力源、压迫源、反转源、情绪牵引源" in prompt
-    assert "这个角色能让读者期待主角得到什么、失去什么、压过什么或靠近谁" in prompt
+    assert "奖励源（如绝色红颜、可掠夺资源）、阻力源、压迫源、反转源、情绪牵引源" in prompt
+    assert "角色能让读者期待主角得到什么、压过什么、推倒谁、彻底征服谁，或是提供绝对忠诚的避风港" in prompt
     assert "避免只写人设标签或空泛魅力描述" in prompt
 
 
@@ -306,7 +299,7 @@ def test_outline_master_prompt_requires_driver_axis_payoff_and_hook_types() -> N
 
     assert "主驱动轴" in prompt
     assert "当前阶段的核心兑现物" in prompt
-    assert "读者下一阶段最想看主角拿到什么、压过谁、反制谁或逼近谁" in prompt
+    assert "读者下一阶段最想看主角拿到什么、压过谁、推倒谁、彻底征服谁" in prompt
     assert "钩子类型" in prompt
 
 
@@ -348,8 +341,8 @@ def test_outline_detail_prompt_targets_next_chapter_reader_payoff() -> None:
     prompt = build_section_system_prompt("outline_detail", length_preset="long")
 
     assert "每章都要回答：下一章读者到底在等什么兑现" in prompt
-    assert "拿到资源、完成打脸、扳回压制、逼近关系、揭开真相或迎来更大失控" in prompt
-    assert "不要只写“有悬念”而不说明悬念具体勾着什么欲望" in prompt
+    assert "拿到资源、完成打脸、扳回压制、彻底推倒、精神与肉体双重控制或阶层跃升" in prompt
+    assert "悬念必须明确勾着特定的多巴胺反馈、征服欲或生理/情感期待" in prompt
 
 
 def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -472,9 +465,9 @@ def test_bible_update_system_prompt_prefers_minimal_persistent_memory() -> None:
 def test_bible_update_prompt_tracks_only_persistent_compliant_tension() -> None:
     system_prompt = build_bible_update_system_prompt()
 
-    assert "只记录会持续影响后续选择的关系变化、未兑现承诺、身份压力、名分压力、利益交换，或会改变角色默认边界的隐晦亲密张力" in system_prompt
-    assert "只有当呼吸、体温、接触、视线停顿或情感失衡明确改变后续关系默认值时，才写入长期记忆" in system_prompt
-    assert "若新增内容涉及高风险成人桥段，只保留其合规后的剧情功能" in system_prompt
+    assert "只记录会持续影响后续选择的关系变化、利益交换，或金手指/系统的升级进度" in system_prompt
+    assert "准确记录关系进阶的里程碑，包括情感投射的加深、身体关系的突破（如一垒、二垒、本垒打等）、控制深度的增加或堕落阶段的演进" in system_prompt
+    assert "必须记录能提供“纯粹爽感”、“权力具象化”或“打破禁忌”成果的关键进展" in system_prompt
 
 
 def test_concept_generate_prompt_prefers_compact_project_intro_over_long_packaging() -> None:
@@ -568,17 +561,17 @@ def test_beat_prompts_use_tomato_author_persona() -> None:
 def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_emotion() -> None:
     prompt = build_beat_generate_system_prompt()
 
-    assert "不要只写情绪变化，还要写清这一拍具体让读者追什么" in prompt
-    assert "压制、夺回、反制、试探、地位逆转、关系升温" in prompt
+    assert "不要只写情绪变化，还要写清这一拍具体让读者追什么（如期待更深的堕落、更极致的打脸）" in prompt
+    assert "压制、夺回、极致打脸、关系突破、打破禁忌、彻底征服或堕落" in prompt
     assert "最后一拍要明确勾住下一拍最想看的兑现" in prompt
 
 
 def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:
     prompt = build_beat_expand_system_prompt()
 
-    assert "每一段都要落下可感知的读者奖励或新压力" in prompt
-    assert "不能只有文风、五感、气氛和潜台词，却没有局面推进" in prompt
-    assert "让读者看见主角是在接近兑现、遭遇反噬，还是逼近下一次反制" in prompt
+    assert "每一段都要落下可感知的读者奖励（如极致的多巴胺爽感、金钱权力的兑现、或纯粹的生理与欲望满足）" in prompt
+    assert "允许大段甚至整章的纯粹氛围、五感描写和欲望宣泄，充分满足读者的期待感与征服欲" in prompt
+    assert "让读者体验主角正在享受绝对的权力掌控、彻底推倒高冷角色、或享受绝对忠诚的后宫陪伴" in prompt
 
 
 def test_bible_update_prompt_uses_serial_author_maintenance_persona() -> None:
