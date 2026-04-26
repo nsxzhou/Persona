@@ -65,22 +65,26 @@ class ProjectChapterService:
             for chapter in existing_chapters
         }
 
+        new_chapters: list[ProjectChapter] = []
         for volume_index, volume in enumerate(parsed["volumes"]):
             for chapter_index, chapter_outline in enumerate(volume["chapters"]):
                 chapter = existing_chapter_map.get((volume_index, chapter_index))
                 title = chapter_outline["title"]
                 if chapter is None:
-                    chapter = await self.repository.create(
-                        session,
+                    chapter = ProjectChapter(
                         project_id=project_id,
                         volume_index=volume_index,
                         chapter_index=chapter_index,
                         title=title,
                     )
+                    new_chapters.append(chapter)
                     existing_chapters.append(chapter)
                     existing_chapter_map[(volume_index, chapter_index)] = chapter
                 elif chapter.title != title:
                     chapter.title = title
+
+        if new_chapters:
+            session.add_all(new_chapters)
 
         await self.repository.flush(session)
         return sorted(

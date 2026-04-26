@@ -8,12 +8,14 @@ from fastapi.responses import StreamingResponse
 import ebooklib
 from ebooklib import epub
 
+from collections.abc import AsyncGenerator
+
 from app.db.models import Project, ProjectChapter
 
 
 class ExportService:
     @staticmethod
-    async def generate_txt_export(project: Project, chapters: list[ProjectChapter]):
+    async def generate_txt_export(project: Project, chapters: list[ProjectChapter]) -> AsyncGenerator[bytes, None]:
         yield f"{project.name}\n".encode("utf-8")
         yield ("=" * 40 + "\n\n").encode("utf-8")
 
@@ -87,7 +89,7 @@ class ExportService:
         if fmt == "epub":
             content = ExportService.generate_epub_export(project, chapters)
             media_type = "application/epub+zip"
-            def iterfile():
+            async def iterfile() -> AsyncGenerator[bytes, None]:
                 yield content
             return StreamingResponse(
                 iterfile(),

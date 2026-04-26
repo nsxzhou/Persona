@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -130,7 +131,7 @@ class AuthService:
         plot_storage_service = PlotAnalysisStorageService()
         for storage_path in sample_storage_paths:
             try:
-                Path(storage_path).unlink(missing_ok=True)
+                await asyncio.to_thread(Path(storage_path).unlink, missing_ok=True)
             except OSError:
                 # File cleanup failures should not block DB commit.
                 continue

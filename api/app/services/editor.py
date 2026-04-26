@@ -93,14 +93,7 @@ class _EditorServiceBase:
         user_id: str,
     ) -> str | None:
         """Return the style prompt_pack_payload for the project, or *None*."""
-        if not project.style_profile_id:
-            return None
-        style_profile = await self.style_profile_service.get_or_404(
-            session,
-            project.style_profile_id,
-            user_id=user_id,
-        )
-        return style_profile.prompt_pack_payload
+        return await self._get_style_prompt_by_id(session, project.style_profile_id, user_id)
 
     async def _get_plot_prompt(
         self,
@@ -108,14 +101,7 @@ class _EditorServiceBase:
         project,
         user_id: str,
     ) -> str | None:
-        if not project.plot_profile_id:
-            return None
-        plot_profile = await self.plot_profile_service.get_or_404(
-            session,
-            project.plot_profile_id,
-            user_id=user_id,
-        )
-        return plot_profile.prompt_pack_payload
+        return await self._get_plot_prompt_by_id(session, project.plot_profile_id, user_id)
 
     async def _get_style_prompt_by_id(
         self,
