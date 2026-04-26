@@ -9,7 +9,7 @@ import { EditorSidePanel } from "@/components/editor-side-panel";
 import { ExportProjectDialog } from "@/components/export-project-dialog";
 import { Button } from "@/components/ui/button";
 
-type EditorLayoutProps = {
+export type EditorLayoutProps = {
   projectId: string;
   projectName: string;
   activeProfileName?: string;
@@ -31,7 +31,7 @@ type EditorLayoutProps = {
   chapterBannerAction: React.ReactNode;
   canContinueWrite: boolean;
   memorySyncButton: React.ReactNode;
-  sidePanelProps: any;
+  sidePanelProps: React.ComponentProps<typeof EditorSidePanel>;
   rightPanel: React.ReactNode;
   children: React.ReactNode;
   hasBeats: boolean;
@@ -77,58 +77,62 @@ export function EditorLayout({
       <div className="w-12 shrink-0 bg-[#111] flex flex-col items-center pt-3 gap-1">
         <Popover>
           <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="w-8 h-8 bg-primary flex items-center justify-center mb-3 hover:opacity-90 transition-opacity"
+            <Button
+              variant="default"
+              size="icon"
+              className="w-8 h-8 rounded-none mb-3 hover:opacity-90 transition-opacity"
               title="快速导航"
             >
-              <span className="text-primary-foreground font-black text-sm">P</span>
-            </button>
+              <span className="font-black text-sm">P</span>
+            </Button>
           </PopoverTrigger>
           <PopoverContent side="right" align="start" className="w-64 p-0">
             <EditorNovelMenu projectId={projectId} projectName={projectName} />
           </PopoverContent>
         </Popover>
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={toggleLeft}
-          className={`w-9 h-9 flex items-center justify-center transition-colors ${
+          className={`w-9 h-9 rounded-none transition-colors ${
             isLeftExpanded && leftPanelMode === "navigation" ? "bg-white/15" : "hover:bg-white/10"
           }`}
           title="创作导航 (⌘B)"
         >
           <BookOpen className="h-[18px] w-[18px] text-white" />
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={openSettings}
-          className={`w-9 h-9 flex items-center justify-center transition-colors ${
+          className={`w-9 h-9 rounded-none transition-colors ${
             isLeftExpanded && leftPanelMode === "settings" ? "bg-white/15" : "opacity-50 hover:opacity-80"
           }`}
           title="创作设定"
         >
           <Settings className="h-[18px] w-[18px] text-white" />
-        </button>
+        </Button>
 
         <div className="flex-1" />
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => router.push(`/projects/${projectId}`)}
-          className="w-9 h-9 flex items-center justify-center opacity-50 hover:opacity-80 transition-opacity mb-3"
+          className="w-9 h-9 rounded-none opacity-50 hover:opacity-80 transition-opacity mb-3"
           title="返回项目工作台"
         >
           <ArrowLeft className="h-[18px] w-[18px] text-white" />
-        </button>
+        </Button>
       </div>
 
       <div
-        className="shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
+        className="shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out flex flex-col"
         style={{ width: isLeftExpanded ? 260 : 0 }}
       >
-        {isLeftExpanded && <EditorSidePanel {...sidePanelProps} />}
+        <EditorSidePanel {...sidePanelProps} />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">

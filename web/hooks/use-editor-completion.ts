@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Project } from "@/lib/types";
 import { api } from "@/lib/api";
 import { useStreamingText } from "@/hooks/use-streaming-text";
-import { useEditorStore } from "@/components/editor/editor-store";
+import { useEditorContext } from "@/components/editor/editor-context";
 
 export function useEditorCompletion({
   project,
@@ -24,13 +24,14 @@ export function useEditorCompletion({
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const { consumeResponse, cancelStream } = useStreamingText();
+  const { store } = useEditorContext();
 
   const handleStop = useCallback(() => {
     cancelStream();
     setIsGenerating(false);
   }, [cancelStream]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!project.style_profile_id) {
       toast.error("项目未挂载风格档案，无法进行续写。请先在项目设置中选择风格档案。");
       return;
@@ -44,7 +45,7 @@ export function useEditorCompletion({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const content = useEditorStore.getState().content;
+    const content = store.getState().content;
     const cursorPosition = textarea.selectionStart;
     const textBeforeCursor = content.substring(0, cursorPosition);
     const textAfterCursor = content.substring(cursorPosition);
@@ -64,7 +65,7 @@ export function useEditorCompletion({
       const currentGenerated = await consumeResponse({
         response,
         onFlush: (fullText) => {
-          useEditorStore.getState().setContent(`${textBeforeCursor}${fullText}${textAfterCursor}`);
+          store.getState().setContent(`${textBeforeCursor}${fullText}${textAfterCursor}`);
         },
       });
 
@@ -87,7 +88,7 @@ export function useEditorCompletion({
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [consumeResponse, currentChapterContext, disabled, isGenerating, onGeneratedContent, previousChapterContext, project.generation_profile, project.id, project.style_profile_id, textareaRef, totalContentLength]);
 
   return { isGenerating, handleGenerate, handleStop };
 }

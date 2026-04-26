@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Project, ProjectBible } from "@/lib/types";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
 import { useStreamingText } from "@/hooks/use-streaming-text";
-import { useEditorStore } from "@/components/editor/editor-store";
+import { useEditorContext } from "@/components/editor/editor-context";
 
 export function useBeatGeneration({
   project,
@@ -32,12 +32,13 @@ export function useBeatGeneration({
   const [isGeneratingBeats, setIsGeneratingBeats] = useState(false);
   const [isExpandingBeat, setIsExpandingBeat] = useState(false);
   const { consumeResponse } = useStreamingText();
+  const { store } = useEditorContext();
 
-  const handleGenerateBeats = async (options?: RegenerateOptions) => {
+  const handleGenerateBeats = useCallback(async (options?: RegenerateOptions) => {
     if (isGeneratingBeats || disabled) return;
     setIsGeneratingBeats(true);
     try {
-      const content = useEditorStore.getState().content;
+      const content = store.getState().content;
       const textarea = textareaRef.current;
       const textBeforeCursor = textarea
         ? content.substring(0, textarea.selectionStart)
@@ -62,10 +63,10 @@ export function useBeatGeneration({
     } finally {
       setIsGeneratingBeats(false);
     }
-  };
+  }, [currentChapterContext, disabled, isGeneratingBeats, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads, textareaRef, totalContentLength]);
 
-  const handleStartBeatExpand = async (options?: RegenerateOptions) => {
-    const content = useEditorStore.getState().content;
+  const handleStartBeatExpand = useCallback(async (options?: RegenerateOptions) => {
+    const content = store.getState().content;
     if (beats.length === 0 || isExpandingBeat || isGenerating || disabled) return;
     if (!options && content.trim() && !window.confirm("当前章节已有正文，继续将替换本章正文。")) {
       return;
@@ -99,7 +100,7 @@ export function useBeatGeneration({
           response,
           onFlush: (fullText) => {
             const newContent = textBeforeCursor + beatsProse + fullText + textAfterCursor;
-            useEditorStore.getState().setContent(newContent);
+            store.getState().setContent(newContent);
           },
         });
 
@@ -115,7 +116,7 @@ export function useBeatGeneration({
     setIsExpandingBeat(false);
     setCurrentBeatIndex(-1);
     if (beatsProse.trim()) await onBeatExpandCompleted?.(beatsProse);
-  };
+  }, [beats, consumeResponse, currentChapterContext, disabled, isExpandingBeat, isGenerating, onBeatExpandCompleted, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads]);
 
   return {
     beats,

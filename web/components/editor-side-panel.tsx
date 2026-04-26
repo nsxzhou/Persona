@@ -52,16 +52,18 @@ export function EditorSidePanel({
     runtime_threads: projectBible.runtime_threads,
   }));
 
+  const isFocusedRef = useRef<Record<string, boolean>>({});
+
   useEffect(() => {
-    setFields({
-      description: project.description,
-      world_building: projectBible.world_building,
-      characters: projectBible.characters,
-      outline_master: projectBible.outline_master,
-      outline_detail: projectBible.outline_detail,
-      runtime_state: projectBible.runtime_state,
-      runtime_threads: projectBible.runtime_threads,
-    });
+    setFields((prev) => ({
+      description: isFocusedRef.current["description"] ? prev.description : project.description,
+      world_building: isFocusedRef.current["world_building"] ? prev.world_building : projectBible.world_building,
+      characters: isFocusedRef.current["characters"] ? prev.characters : projectBible.characters,
+      outline_master: isFocusedRef.current["outline_master"] ? prev.outline_master : projectBible.outline_master,
+      outline_detail: isFocusedRef.current["outline_detail"] ? prev.outline_detail : projectBible.outline_detail,
+      runtime_state: isFocusedRef.current["runtime_state"] ? prev.runtime_state : projectBible.runtime_state,
+      runtime_threads: isFocusedRef.current["runtime_threads"] ? prev.runtime_threads : projectBible.runtime_threads,
+    }));
   }, [project.description, projectBible.world_building, projectBible.characters, projectBible.outline_master, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads]);
 
   const [expandedFields, setExpandedFields] = useState<Set<BibleFieldKey>>(new Set());
@@ -230,6 +232,8 @@ export function EditorSidePanel({
                   <div className="px-4 pb-2">
                     <textarea
                       value={text}
+                      onFocus={() => { isFocusedRef.current[key] = true; }}
+                      onBlur={() => { isFocusedRef.current[key] = false; }}
                       onChange={(e) => handleChange(key, e.target.value)}
                       className="w-full min-h-[80px] resize-y rounded border border-input bg-background px-2 py-1.5 text-xs leading-relaxed placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       placeholder={`编辑${title}...`}

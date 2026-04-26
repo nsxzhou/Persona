@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
-import { useEditorContext } from "./editor-context";
-import { useEditorStore } from "./editor-store";
+import { useEditorContext, useEditorStore } from "./editor-context";
+import type { EditorState } from "./editor-store";
+import { useShallow } from "zustand/react/shallow";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
 import { useEditorCompletion } from "@/hooks/use-editor-completion";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
@@ -32,7 +33,7 @@ const EditorTextarea = React.memo(({
 }) => {
   const content = useEditorStore(s => s.content);
   const setContent = useEditorStore(s => s.setContent);
-  const textareaRef = useEditorStore(s => s.textareaRef);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <textarea
@@ -49,6 +50,8 @@ const EditorTextarea = React.memo(({
 });
 EditorTextarea.displayName = "EditorTextarea";
 
+const DEFAULT_BIBLE = { runtime_state: "", runtime_threads: "", outline_detail: "" };
+
 export function EditorContentArea({ 
   activeProfileName, 
   initialProjectBible 
@@ -57,7 +60,7 @@ export function EditorContentArea({
   initialProjectBible?: ProjectBible;
 }) {
   const router = useRouter();
-  const { project: initialProject } = useEditorContext();
+  const { project: initialProject, store } = useEditorContext();
   const {
     chapters,
     setChapters,
@@ -75,7 +78,24 @@ export function EditorContentArea({
     setIsRightExpanded,
     leftPanelMode,
     setLeftPanelMode,
-  } = useEditorStore();
+  } = useEditorStore(useShallow((s: EditorState) => ({
+    chapters: s.chapters,
+    setChapters: s.setChapters,
+    isLoadingChapters: s.isLoadingChapters,
+    setIsLoadingChapters: s.setIsLoadingChapters,
+    currentChapter: s.currentChapter,
+    setCurrentChapter: s.setCurrentChapter,
+    selectedVolumeIndex: s.selectedVolumeIndex,
+    setSelectedVolumeIndex: s.setSelectedVolumeIndex,
+    chapterFocusMode: s.chapterFocusMode,
+    setChapterFocusMode: s.setChapterFocusMode,
+    isLeftExpanded: s.isLeftExpanded,
+    setIsLeftExpanded: s.setIsLeftExpanded,
+    isRightExpanded: s.isRightExpanded,
+    setIsRightExpanded: s.setIsRightExpanded,
+    leftPanelMode: s.leftPanelMode,
+    setLeftPanelMode: s.setLeftPanelMode,
+  })));
 
   const hasChapterContent = useEditorStore(s => s.content.trim().length > 0);
 
@@ -147,7 +167,7 @@ export function EditorContentArea({
         ),
       );
       if (selectedChapterRecord?.id === updatedChapter.id) {
-        useEditorStore.getState().setSavedChapterContent(updatedChapter.content);
+        store.getState().setSavedChapterContent(updatedChapter.content);
       }
       return updatedChapter;
     },
@@ -163,7 +183,7 @@ export function EditorContentArea({
   );
 
   const persistProjectUpdate = useCallback(
-    async (payload: any, options: any = {}) => {
+    async (payload: Parameters<typeof api.updateProject>[1], options: { successMessage?: string; errorMessage?: string } = {}) => {
       try {
         await updateProjectMutation.mutateAsync({ id: project.id, payload });
         if (options.successMessage) toast.success(options.successMessage);
@@ -175,7 +195,7 @@ export function EditorContentArea({
   );
 
   const persistProjectBibleUpdate = useCallback(
-    async (payload: any, options: any = {}) => {
+    async (payload: Parameters<typeof api.updateProjectBible>[1], options: { successMessage?: string; errorMessage?: string } = {}) => {
       try {
         await updateProjectBibleMutation.mutateAsync({ id: project.id, payload });
         if (options.successMessage) toast.success(options.successMessage);
@@ -210,12 +230,14 @@ export function EditorContentArea({
     dismissRuntimeUpdate,
   } = useChapterMemorySync({
     projectId: project.id,
-    projectBible: projectBible ?? { runtime_state: "", runtime_threads: "" } as any,
+    projectBible: (projectBible ?? DEFAULT_BIBLE) as any,
     selectedChapter: selectedChapterRecord,
-    getCurrentContent: () => useEditorStore.getState().content,
+    getCurrentContent: () => store.getState().content,
     persistProjectBibleUpdate,
     persistChapterUpdate,
   });
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleBeatExpandCompleted = useCallback(
     async (beatsProse: string) => {
@@ -238,7 +260,7 @@ export function EditorContentArea({
 
   const { isGenerating: isStreamingCompletion, handleGenerate: handleContinueWrite, handleStop: handleStopWrite } = useEditorCompletion({
     project: project,
-    textareaRef: useEditorStore.getState().textareaRef,
+    textareaRef,
     onGeneratedContent: handleGeneratedContent,
     currentChapterContext,
     previousChapterContext,
@@ -256,8 +278,8 @@ export function EditorContentArea({
     handleStartBeatExpand: handleExpandBeats,
   } = useBeatGeneration({
     project: project,
-    projectBible: projectBible ?? { runtime_state: "", runtime_threads: "", outline_detail: "" } as any,
-    textareaRef: useEditorStore.getState().textareaRef,
+    projectBible: (projectBible ?? DEFAULT_BIBLE) as any,
+    textareaRef,
     isGenerating: isStreamingCompletion,
     currentChapterContext,
     previousChapterContext,
@@ -274,8 +296,8 @@ export function EditorContentArea({
   );
 
   const saveCurrentChapterForSync = useCallback(async () => {
-    const content = useEditorStore.getState().content;
-    const savedChapterContent = useEditorStore.getState().savedChapterContent;
+    const content = store.getState().content;
+    const savedChapterContent = store.getState().savedChapterContent;
     const hasUnsavedChanges = content !== savedChapterContent;
     if (!hasUnsavedChanges) {
       return content;
@@ -291,8 +313,8 @@ export function EditorContentArea({
 
   const handleManualMemorySync = useCallback(async () => {
     if (!selectedChapterRecord) return;
-    const content = useEditorStore.getState().content;
-    const savedChapterContent = useEditorStore.getState().savedChapterContent;
+    const content = store.getState().content;
+    const savedChapterContent = store.getState().savedChapterContent;
 
     const hasUnsavedChanges = content !== savedChapterContent;
     if (
@@ -374,20 +396,26 @@ export function EditorContentArea({
   useEffect(() => {
     if (isLoadingChapters || chapters.length === 0 || currentChapter) return;
     const target = chapters.find((chapter) => chapter.word_count === 0) ?? chapters[0];
+
+    const volume = parsedOutline.volumes[target.volume_index];
+    if (!volume || !volume.chapters[target.chapter_index]) {
+      return;
+    }
+
     setSelectedVolumeIndex(target.volume_index);
     setCurrentChapter({ volumeIndex: target.volume_index, chapterIndex: target.chapter_index });
     setChapterFocusMode("navigate");
     setIsLeftExpanded(true);
-  }, [chapters, currentChapter, isLoadingChapters, setChapterFocusMode, setCurrentChapter, setIsLeftExpanded, setSelectedVolumeIndex]);
+  }, [chapters, currentChapter, isLoadingChapters, parsedOutline.volumes, setChapterFocusMode, setCurrentChapter, setIsLeftExpanded, setSelectedVolumeIndex]);
 
   useEffect(() => {
     if (!selectedChapterRecord) {
-      useEditorStore.getState().setContent("");
-      useEditorStore.getState().setSavedChapterContent("");
+      store.getState().setContent("");
+      store.getState().setSavedChapterContent("");
       return;
     }
-    useEditorStore.getState().setContent(selectedChapterRecord.content);
-    useEditorStore.getState().setSavedChapterContent(selectedChapterRecord.content);
+    store.getState().setContent(selectedChapterRecord.content);
+    store.getState().setSavedChapterContent(selectedChapterRecord.content);
   }, [selectedChapterRecord?.id, selectedChapterRecord?.content]);
 
   useEffect(() => {
@@ -439,7 +467,9 @@ export function EditorContentArea({
     try {
       await flushPendingSave();
       clearSaveError();
-    } catch {
+    } catch (e) {
+      console.error("Failed to flush pending save before chapter switch:", e);
+      toast.error("当前章节保存失败，无法切换，请检查网络");
       return;
     }
     setSelectedVolumeIndex(volumeIndex);
@@ -544,10 +574,10 @@ export function EditorContentArea({
             snapshot={
               chapterSyncSnapshot
                 ? {
-                    status: chapterSyncSnapshot.status,
-                    source: chapterSyncSnapshot.source,
-                    checkedAt: chapterSyncSnapshot.checkedAt,
-                    errorMessage: chapterSyncSnapshot.errorMessage,
+                    status: chapterSyncSnapshot.status ?? null,
+                    source: chapterSyncSnapshot.source ?? null,
+                    checkedAt: chapterSyncSnapshot.checkedAt ?? null,
+                    errorMessage: chapterSyncSnapshot.errorMessage ?? null,
                   }
                 : null
             }
@@ -588,7 +618,7 @@ export function EditorContentArea({
             }
             onRegenerateExpansion={(feedback) =>
               handleExpandBeats({
-                previousOutput: useEditorStore.getState().content || undefined,
+                previousOutput: store.getState().content || undefined,
                 userFeedback: feedback || undefined,
               })
             }

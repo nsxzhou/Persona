@@ -1,6 +1,5 @@
-import { create } from "zustand";
+import { createStore } from "zustand";
 import type { ProjectChapter } from "@/lib/types";
-import { createRef, type RefObject } from "react";
 
 type ChapterSelection = { volumeIndex: number; chapterIndex: number };
 
@@ -34,11 +33,9 @@ export type EditorState = {
   
   leftPanelMode: "navigation" | "settings";
   setLeftPanelMode: (mode: "navigation" | "settings" | ((prev: "navigation" | "settings") => "navigation" | "settings")) => void;
-
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
 };
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const createEditorStore = () => createStore<EditorState>((set) => ({
   chapters: [],
   setChapters: (updater) => set((state) => ({ 
     chapters: typeof updater === 'function' ? updater(state.chapters) : updater 
@@ -88,6 +85,4 @@ export const useEditorStore = create<EditorState>((set) => ({
   setLeftPanelMode: (updater) => set((state) => ({ 
     leftPanelMode: typeof updater === 'function' ? updater(state.leftPanelMode) : updater 
   })),
-
-  textareaRef: createRef<HTMLTextAreaElement>(),
 }));

@@ -1,13 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useRef, ReactNode } from "react";
+import { useStore } from "zustand";
 import type { Project } from "@/lib/types";
-import { useEditorStore } from "./editor-store";
+import { createEditorStore, type EditorState } from "./editor-store";
 
 type ChapterSelection = { volumeIndex: number; chapterIndex: number };
 
 type EditorContextType = {
   project: Project;
+  store: ReturnType<typeof createEditorStore>;
 };
 
 const EditorContext = createContext<EditorContextType | null>(null);
@@ -23,9 +25,11 @@ export function EditorProvider({
   initialChapterSelection?: ChapterSelection | null;
   initialIntent?: "navigate" | "generate_beats" | null;
 }) {
-  useEffect(() => {
-    // Initialize the store
-    useEditorStore.setState({
+  const storeRef = useRef<ReturnType<typeof createEditorStore>>(null);
+  
+  if (!storeRef.current) {
+    const store = createEditorStore();
+    store.setState({
       chapters: [],
       isLoadingChapters: true,
       currentChapter: initialChapterSelection,
@@ -37,10 +41,11 @@ export function EditorProvider({
       isRightExpanded: initialIntent === "generate_beats",
       leftPanelMode: "navigation",
     });
-  }, [initialChapterSelection, initialIntent]);
+    storeRef.current = store;
+  }
 
   return (
-    <EditorContext.Provider value={{ project }}>
+    <EditorContext.Provider value={{ project, store: storeRef.current }}>
       {children}
     </EditorContext.Provider>
   );
@@ -52,5 +57,10 @@ export function useEditorContext() {
     throw new Error("useEditorContext must be used within an EditorProvider");
   }
   return context;
+}
+
+export function useEditorStore<T>(selector: (state: EditorState) => T): T {
+  const { store } = useEditorContext();
+  return useStore(store, selector);
 }
 

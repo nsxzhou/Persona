@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type { ProjectChapter } from "@/lib/types";
-import { useEditorStore } from "@/components/editor/editor-store";
+import { useEditorContext } from "@/components/editor/editor-context";
 
 type PendingSave = { chapterId: string; content: string };
 
@@ -17,6 +17,7 @@ export function useEditorAutosave(
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<PendingSave | null>(null);
   const onSavedRef = useRef(onSaved);
+  const { store } = useEditorContext();
 
   useEffect(() => {
     onSavedRef.current = onSaved;
@@ -72,7 +73,7 @@ export function useEditorAutosave(
   );
 
   useEffect(() => {
-    return useEditorStore.subscribe((state) => {
+    return store.subscribe((state) => {
       const currentContent = state.content;
       const savedContent = state.savedChapterContent;
 
@@ -91,7 +92,7 @@ export function useEditorAutosave(
         void persistContent(pending.chapterId, pending.content, "自动保存失败").catch(() => {});
       }, 1000);
     });
-  }, [chapterId, disabled, clearPendingTimer, persistContent]);
+  }, [chapterId, disabled, clearPendingTimer, persistContent, store]);
 
   useEffect(() => {
     return () => {
