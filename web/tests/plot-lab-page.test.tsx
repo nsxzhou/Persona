@@ -53,7 +53,20 @@ function buildSkeleton() {
 }
 
 function buildStoryEngine() {
-  return "# Story Engine Profile\n## genre_mother\n- xianxia\n";
+  return "# Plot Writing Guide\n## Core Plot Formula\n- 用压力迫使主角行动。\n";
+}
+
+function buildPlotWritingGuidePayload() {
+  return {
+    core_plot_formula: ["用压力迫使主角行动。"],
+    chapter_progression_loop: ["目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。"],
+    scene_construction_rules: ["每个场景必须改变局面。"],
+    setup_and_payoff_rules: ["伏笔必须参与行动兑现。"],
+    payoff_and_tension_rhythm: ["半兑现后追加更大压力。"],
+    side_plot_usage: ["支线必须回流主线。"],
+    hook_recipes: ["胜利后揭示代价。"],
+    anti_drift_rules: ["不要复述样本剧情。"],
+  };
 }
 
 function buildSucceededJob(overrides?: Record<string, unknown>) {
@@ -144,18 +157,8 @@ test("plot lab wizard saves profile and mounts project", async () => {
     source_filename: "sample.txt",
     plot_name: "已完成任务",
     analysis_report_markdown: buildReport(),
-    story_engine_payload: {
-      genre_mother: "xianxia",
-      drive_axes: ["升级"],
-      payoff_objects: ["力量"],
-      pressure_formulas: ["宗门压制 -> 反制"],
-      relation_roles: ["奖励源"],
-      scene_verbs: ["入局"],
-      hook_recipes: ["半兑现后追加新压力"],
-      anti_drift_guardrails: ["不要退化成纯气氛描写"],
-    },
+    story_engine_payload: buildPlotWritingGuidePayload(),
     story_engine_markdown: buildStoryEngine(),
-    suggested_overlays: [],
     plot_skeleton_markdown: "# 全书骨架\n- 新骨架\n",
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:02:00Z",
@@ -169,7 +172,7 @@ test("plot lab wizard saves profile and mounts project", async () => {
   });
   fireEvent.click(await screen.findByRole("button", { name: "审阅完毕，下一步" }));
   fireEvent.change(await screen.findByLabelText("Story Engine Markdown"), {
-    target: { value: "# Story Engine Profile\n## genre_mother\n- xianxia\n" },
+    target: { value: "# Plot Writing Guide\n## Core Plot Formula\n- 用压力迫使主角行动。\n" },
   });
   fireEvent.click(screen.getByRole("button", { name: "确认 Story Engine" }));
 
@@ -179,7 +182,7 @@ test("plot lab wizard saves profile and mounts project", async () => {
         job_id: "job-1",
         plot_name: "已完成任务",
         plot_skeleton_markdown: "# 全书骨架\n- 新骨架\n",
-        story_engine_markdown: "# Story Engine Profile\n## genre_mother\n- xianxia\n",
+        story_engine_markdown: "# Plot Writing Guide\n## Core Plot Formula\n- 用压力迫使主角行动。\n",
       }),
     ),
   );
@@ -199,18 +202,8 @@ test("plot lab profile view shows and updates skeleton markdown", async () => {
     source_filename: "sample.txt",
     plot_name: "已保存情节档案",
     analysis_report_markdown: buildReport(),
-    story_engine_payload: {
-      genre_mother: "xianxia",
-      drive_axes: ["升级"],
-      payoff_objects: ["力量"],
-      pressure_formulas: ["宗门压制 -> 反制"],
-      relation_roles: ["奖励源"],
-      scene_verbs: ["入局"],
-      hook_recipes: ["半兑现后追加新压力"],
-      anti_drift_guardrails: ["不要退化成纯气氛描写"],
-    },
+    story_engine_payload: buildPlotWritingGuidePayload(),
     story_engine_markdown: buildStoryEngine(),
-    suggested_overlays: [],
     plot_skeleton_markdown: "# 全书骨架\n- 已保存骨架\n",
     created_at: "2026-04-09T00:00:00Z",
     updated_at: "2026-04-09T00:01:00Z",

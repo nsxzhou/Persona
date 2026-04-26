@@ -63,11 +63,11 @@ describe("API contracts", () => {
     const plotProfileCreatePromise: Promise<PlotProfile> = client.createPlotProfile({
       job_id: "plot-job-1",
       plot_name: "反派修罗场",
-      story_engine_markdown: "# Story Engine Profile\n## genre_mother\n- xianxia\n",
+      story_engine_markdown: "# Plot Writing Guide\n## Core Plot Formula\n- 用压力迫使主角行动。\n",
     });
     const plotProfileUpdatePromise: Promise<PlotProfile> = client.updatePlotProfile("plot-profile-1", {
       plot_name: "反派修罗场终版",
-      story_engine_markdown: "# Story Engine Profile\n## genre_mother\n- urban\n",
+      story_engine_markdown: "# Plot Writing Guide\n## Core Plot Formula\n- 制造主动选择。\n",
     });
 
     const payload: StyleAnalysisJobCreatePayload = {
