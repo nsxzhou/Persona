@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "sonner";
 
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
+import { createEditorStore } from "@/components/editor/editor-store";
+
+let mockStore = createEditorStore();
+
+vi.mock("@/components/editor/editor-context", () => ({
+  useEditorContext: () => ({
+    store: mockStore,
+  }),
+}));
 
 const apiMock = vi.hoisted(() => ({
   updateProjectChapter: vi.fn(),
@@ -22,6 +31,7 @@ vi.mock("sonner", () => ({
 
 describe("useEditorAutosave", () => {
   beforeEach(() => {
+    mockStore = createEditorStore();
     vi.useFakeTimers();
     apiMock.updateProjectChapter.mockReset();
     apiMock.updateProjectChapter.mockResolvedValue({
@@ -38,7 +48,7 @@ describe("useEditorAutosave", () => {
   test("exposes saveNow and reports the saved chapter back to the caller", async () => {
     const onSaved = vi.fn();
     const { result } = renderHook(() =>
-      useEditorAutosave("project-1", "chapter-1", "新的正文", "旧正文", false, onSaved),
+      useEditorAutosave("project-1", "chapter-1", false, onSaved),
     );
 
     await act(async () => {
@@ -55,21 +65,16 @@ describe("useEditorAutosave", () => {
 
   test("flushPendingSave surfaces save failures instead of swallowing them", async () => {
     apiMock.updateProjectChapter.mockRejectedValueOnce(new Error("写入失败"));
+    mockStore.setState({ content: "新的正文", savedChapterContent: "旧正文" });
     const { result, rerender } = renderHook(
-      ({ currentContent, savedContent }) =>
-        useEditorAutosave("project-1", "chapter-1", currentContent, savedContent, false),
-      {
-        initialProps: {
-          currentContent: "新的正文",
-          savedContent: "旧正文",
-        },
-      },
+      () => useEditorAutosave("project-1", "chapter-1", false),
     );
 
-    rerender({
-      currentContent: "新的正文",
-      savedContent: "新的正文",
+    act(() => {
+      mockStore.setState({ content: "新的正文", savedChapterContent: "新的正文" });
     });
+    
+    rerender();
 
     await expect(result.current.flushPendingSave()).rejects.toThrow("写入失败");
     expect(toast.error).toHaveBeenCalledWith("自动保存失败");
