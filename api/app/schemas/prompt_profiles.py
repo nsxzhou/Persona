@@ -32,12 +32,18 @@ HookType = Literal[
 
 
 class VoiceProfile(BaseModel):
-    sentence_rhythm: str = Field(min_length=1)
-    narrative_distance: str = Field(min_length=1)
-    detail_anchors: list[str] = Field(min_length=1)
-    dialogue_aggression: str = Field(min_length=1)
-    irregularity_budget: str = Field(min_length=1)
-    anti_ai_guardrails: list[str] = Field(min_length=1)
+    common_expressions: str = Field(min_length=1)
+    sentence_patterns: str = Field(min_length=1)
+    lexical_preferences: str = Field(min_length=1)
+    sentence_construction: str = Field(min_length=1)
+    personal_scene_clues: str = Field(min_length=1)
+    domain_regional_lexicon: str = Field(min_length=1)
+    natural_irregularities: str = Field(min_length=1)
+    avoided_patterns: str = Field(min_length=1)
+    metaphors_imagery: str = Field(min_length=1)
+    logic_and_emotion: str = Field(min_length=1)
+    dialogue_modes: str = Field(min_length=1)
+    values_motifs: str = Field(min_length=1)
 
 
 class StoryEngineProfile(BaseModel):
@@ -78,14 +84,59 @@ class ChapterObjectiveCard(BaseModel):
     hook_type: HookType
 
 
-_SECTION_RE = re.compile(
+_LEGACY_SECTION_RE = re.compile(
     r"^##\s+(?P<name>[a-zA-Z0-9_]+)\s*$\n(?P<body>.*?)(?=^##\s+[a-zA-Z0-9_]+\s*$|\Z)",
     flags=re.MULTILINE | re.DOTALL,
 )
+_NUMBERED_SECTION_RE = re.compile(
+    r"^##\s+(?P<number>3\.(?:[1-9]|1[0-2]))\s+(?P<title>.+?)\s*$\n(?P<body>.*?)(?=^##\s+3\.(?:[1-9]|1[0-2])\s+.+?$|\Z)",
+    flags=re.MULTILINE | re.DOTALL,
+)
+
+_VOICE_SECTION_KEYS: dict[str, str] = {
+    "3.1": "common_expressions",
+    "3.2": "sentence_patterns",
+    "3.3": "lexical_preferences",
+    "3.4": "sentence_construction",
+    "3.5": "personal_scene_clues",
+    "3.6": "domain_regional_lexicon",
+    "3.7": "natural_irregularities",
+    "3.8": "avoided_patterns",
+    "3.9": "metaphors_imagery",
+    "3.10": "logic_and_emotion",
+    "3.11": "dialogue_modes",
+    "3.12": "values_motifs",
+}
+
+_VOICE_DEFAULTS: dict[str, str] = {
+    "common_expressions": "当前样本中证据有限。",
+    "sentence_patterns": "当前样本中证据有限。",
+    "lexical_preferences": "当前样本中证据有限。",
+    "sentence_construction": "当前样本中证据有限。",
+    "personal_scene_clues": "当前样本中证据有限。",
+    "domain_regional_lexicon": "当前样本中证据有限。",
+    "natural_irregularities": "当前样本中证据有限。",
+    "avoided_patterns": "当前样本中证据有限。",
+    "metaphors_imagery": "当前样本中证据有限。",
+    "logic_and_emotion": "当前样本中证据有限。",
+    "dialogue_modes": "当前样本中证据有限。",
+    "values_motifs": "当前样本中证据有限。",
+}
 
 
 def _extract_sections(markdown: str) -> dict[str, str]:
-    return {match.group("name"): match.group("body").strip() for match in _SECTION_RE.finditer(markdown)}
+    return {match.group("name"): match.group("body").strip() for match in _LEGACY_SECTION_RE.finditer(markdown)}
+
+
+def _extract_numbered_sections(markdown: str) -> dict[str, str]:
+    return {
+        match.group("number"): match.group("body").strip()
+        for match in _NUMBERED_SECTION_RE.finditer(markdown)
+    }
+
+
+def _flatten_section(body: str) -> str:
+    return " ".join(line.strip() for line in body.splitlines() if line.strip())
 
 
 def _extract_bullets(body: str) -> list[str]:
@@ -95,17 +146,13 @@ def _extract_bullets(body: str) -> list[str]:
 
 def derive_voice_profile(markdown: str | None) -> VoiceProfile:
     text = (markdown or "").strip()
-    sections = _extract_sections(text)
-    detail_anchors = _extract_bullets(sections.get("detail_anchors", ""))
-    anti_ai_guardrails = _extract_bullets(sections.get("anti_ai_guardrails", ""))
-    return VoiceProfile(
-        sentence_rhythm=(sections.get("sentence_rhythm") or "短句推进，长句用于压顶。").replace("\n", " ").strip(),
-        narrative_distance=(sections.get("narrative_distance") or "贴近主角即时感官与判断。").replace("\n", " ").strip(),
-        detail_anchors=detail_anchors or ["呼吸", "视线", "掌心温度"],
-        dialogue_aggression=(sections.get("dialogue_aggression") or "对白偏试探、抢拍、压迫。").replace("\n", " ").strip(),
-        irregularity_budget=(sections.get("irregularity_budget") or "允许轻微断裂和回勾，不强造低级错误。").replace("\n", " ").strip(),
-        anti_ai_guardrails=anti_ai_guardrails or ["禁止解释腔", "禁止总结腔", "禁止模板示范腔"],
-    )
+    numbered_sections = _extract_numbered_sections(text)
+    values = dict(_VOICE_DEFAULTS)
+    for section_number, key in _VOICE_SECTION_KEYS.items():
+        flattened = _flatten_section(numbered_sections.get(section_number, ""))
+        if flattened:
+            values[key] = flattened
+    return VoiceProfile(**values)
 
 
 def _detect_genre_mother(markdown: str) -> GenreMother:

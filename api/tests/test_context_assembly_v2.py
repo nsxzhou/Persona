@@ -14,7 +14,7 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
     prompt = assemble_writing_context(
         voice_profile_markdown=(
             "# Voice Profile\n"
-            "## sentence_rhythm\n- 短句推进\n"
+            "## 3.1 口头禅与常用表达\n- 执行规则：短句推进。\n"
         ),
         story_engine_markdown=(
             "# Story Engine Profile\n"

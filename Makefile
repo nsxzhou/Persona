@@ -38,6 +38,7 @@ api:
 		if [ ! -f "$(API_DIR)/.env" ] && [ -f "$(API_DIR)/.env.example" ]; then cp "$(API_DIR)/.env.example" "$(API_DIR)/.env"; fi; \
 		cd "$(API_DIR)" && uv sync; \
 		cd "$(API_DIR)" && uv run alembic upgrade head; \
+		@echo "" >"$(API_LOG)"; \
 		cd "$(API_DIR)" && nohup uv run uvicorn app.main:app --reload --port $(API_PORT) >"$(API_LOG)" 2>&1 & \
 		for i in $$(seq 1 20); do \
 			if lsof -iTCP:$(API_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then break; fi; \
@@ -59,6 +60,7 @@ worker:
 	else \
 		echo "Worker 未运行，正在启动..."; \
 		cd "$(API_DIR)" && uv sync; \
+		@echo "" >"$(WORKER_LOG)"; \
 		cd "$(API_DIR)" && nohup uv run python -m app.worker >"$(WORKER_LOG)" 2>&1 & \
 		sleep 1; \
 		if pgrep -f 'python -m app.worker' >/dev/null 2>&1; then \
@@ -78,6 +80,7 @@ web:
 		echo "前端未运行，正在启动..."; \
 		if [ ! -f "$(WEB_DIR)/.env.local" ] && [ -f "$(WEB_DIR)/.env.local.example" ]; then cp "$(WEB_DIR)/.env.local.example" "$(WEB_DIR)/.env.local"; fi; \
 		cd "$(WEB_DIR)" && pnpm install; \
+		@echo "" >"$(WEB_LOG)"; \
 		cd "$(WEB_DIR)" && nohup pnpm dev --port $(WEB_PORT) >"$(WEB_LOG)" 2>&1 & \
 		for i in $$(seq 1 20); do \
 			if lsof -iTCP:$(WEB_PORT) -sTCP:LISTEN -t >/dev/null 2>&1; then break; fi; \

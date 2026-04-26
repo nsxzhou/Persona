@@ -35,12 +35,8 @@ async def test_style_pipeline_sets_postprocessing_stage_for_voice_profile(
             if "生成一个可复用的 Voice Profile" in prompt:
                 return (
                     "# Voice Profile\n"
-                    "## sentence_rhythm\n- 短句推进\n\n"
-                    "## narrative_distance\n- 贴近主角\n\n"
-                    "## detail_anchors\n- 呼吸\n\n"
-                    "## dialogue_aggression\n- 试探\n\n"
-                    "## irregularity_budget\n- 轻微断裂\n\n"
-                    "## anti_ai_guardrails\n- 禁止解释腔\n"
+                    "## 3.1 口头禅与常用表达\n- 执行规则：短句推进。\n\n"
+                    "## 3.2 固定句式与节奏偏好\n- 执行规则：长短句交替。\n"
                 )
             raise AssertionError(f"unexpected prompt: {prompt[:80]}")
 
@@ -74,6 +70,6 @@ async def test_style_pipeline_sets_postprocessing_stage_for_voice_profile(
     voice_profile_result = await pipeline._build_voice_profile(state)  # noqa: SLF001
 
     assert voice_profile_result["voice_profile_markdown"].startswith("# Voice Profile")
-    assert "sentence_rhythm" in voice_profile_result["voice_profile_markdown"]
+    assert "## 3.1 口头禅与常用表达" in voice_profile_result["voice_profile_markdown"]
     assert seen_stages == ["postprocessing"]
     get_settings.cache_clear()

@@ -19,12 +19,18 @@ def build_fake_analysis_report() -> str:
 def build_fake_voice_profile() -> str:
     return (
         "# Voice Profile\n"
-        "## sentence_rhythm\n- 短句推进\n\n"
-        "## narrative_distance\n- 贴近主角\n\n"
-        "## detail_anchors\n- 呼吸\n\n"
-        "## dialogue_aggression\n- 试探\n\n"
-        "## irregularity_budget\n- 轻微断裂\n\n"
-        "## anti_ai_guardrails\n- 禁止解释腔\n"
+        "## 3.1 口头禅与常用表达\n- 执行规则：短句推进，反问收束。\n\n"
+        "## 3.2 固定句式与节奏偏好\n- 执行规则：长短句交替。\n\n"
+        "## 3.3 词汇选择偏好\n- 执行规则：混用现代术语与古典四字格。\n\n"
+        "## 3.4 句子构造习惯\n- 执行规则：句首落判断。\n\n"
+        "## 3.5 生活经历线索\n- 执行规则：生活线索弱。\n\n"
+        "## 3.6 行业／地域词汇\n- 执行规则：行业词偏运营。\n\n"
+        "## 3.7 自然化缺陷\n- 执行规则：保留省略和跳接。\n\n"
+        "## 3.8 写作忌口与避讳\n- 执行规则：少写解释性开场。\n\n"
+        "## 3.9 比喻口味与意象库\n- 执行规则：意象偏月色与视线。\n\n"
+        "## 3.10 思维模式与表达逻辑\n- 执行规则：观察、质疑、类比、结论递进。\n\n"
+        "## 3.11 常见场景的说话方式\n- 执行规则：对白抢拍试探。\n\n"
+        "## 3.12 个人价值取向与反复母题\n- 执行规则：强调效率和掌控。\n"
     )
 
 
@@ -92,7 +98,7 @@ async def test_create_and_update_style_profile_from_succeeded_job_and_mount_proj
     profile = create_profile_response.json()
     assert profile["style_name"] == "王家卫风格（修订版）"
     assert profile["voice_profile_markdown"].startswith("# Voice Profile")
-    assert profile["voice_profile_payload"]["sentence_rhythm"]
+    assert profile["voice_profile_payload"]["common_expressions"]
     assert "style_summary_markdown" not in profile
     assert "prompt_pack_markdown" not in profile
 
@@ -129,4 +135,4 @@ def test_build_style_profile_response_payload_only_depends_on_voice_profile_fiel
 
     payload = build_style_profile_response_payload(profile)
     assert payload["voice_profile_markdown"].startswith("# Voice Profile")
-    assert payload["voice_profile_payload"].sentence_rhythm
+    assert payload["voice_profile_payload"].common_expressions

@@ -54,11 +54,11 @@ describe("API contracts", () => {
     const styleProfileCreatePromise: Promise<StyleProfile> = client.createStyleProfile({
       job_id: "style-job-1",
       style_name: "冷白风",
-      voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 短句推进\n",
+      voice_profile_markdown: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 短句推进\n",
     });
     const styleProfileUpdatePromise: Promise<StyleProfile> = client.updateStyleProfile("style-profile-1", {
       style_name: "冷白风终版",
-      voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 更碎的短句推进\n",
+      voice_profile_markdown: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 更碎的短句推进\n",
     });
     const plotProfileCreatePromise: Promise<PlotProfile> = client.createPlotProfile({
       job_id: "plot-job-1",

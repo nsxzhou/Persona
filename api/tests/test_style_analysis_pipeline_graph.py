@@ -24,12 +24,18 @@ def build_report_markdown() -> str:
 def build_voice_profile_markdown() -> str:
     return (
         "# Voice Profile\n"
-        "## sentence_rhythm\n- 短句推进，长句压顶。\n\n"
-        "## narrative_distance\n- 贴近主角即时感官与判断。\n\n"
-        "## detail_anchors\n- 呼吸\n- 视线\n- 掌心温度\n\n"
-        "## dialogue_aggression\n- 对白偏试探和抢拍。\n\n"
-        "## irregularity_budget\n- 允许轻微断裂和回勾。\n\n"
-        "## anti_ai_guardrails\n- 禁止解释腔\n- 禁止总结腔\n"
+        "## 3.1 口头禅与常用表达\n- 执行规则：短句推进，反问收束。\n\n"
+        "## 3.2 固定句式与节奏偏好\n- 执行规则：短句抢拍，长句补判断。\n\n"
+        "## 3.3 词汇选择偏好\n- 执行规则：混用现代术语与古典四字格。\n\n"
+        "## 3.4 句子构造习惯\n- 执行规则：句首落判断，句尾短断语。\n\n"
+        "## 3.5 生活经历线索\n- 执行规则：生活线索弱，偏商业管理语境。\n\n"
+        "## 3.6 行业／地域词汇\n- 执行规则：行业词集中在运营、渠道、成本收益。\n\n"
+        "## 3.7 自然化缺陷\n- 执行规则：保留省略、跳接、省略号停顿。\n\n"
+        "## 3.8 写作忌口与避讳\n- 执行规则：少写解释性开场和总结升华。\n\n"
+        "## 3.9 比喻口味与意象库\n- 执行规则：意象偏月色、视线、掌心。\n\n"
+        "## 3.10 思维模式与表达逻辑\n- 执行规则：观察、质疑、类比、结论递进。\n\n"
+        "## 3.11 常见场景的说话方式\n- 执行规则：对白抢拍、试探、调侃。\n\n"
+        "## 3.12 个人价值取向与反复母题\n- 执行规则：强调效率、交易和掌控。\n"
     )
 
 
@@ -129,7 +135,7 @@ async def test_pipeline_graph_limits_chunk_concurrency_and_returns_voice_profile
     )
     assert result.analysis_report_markdown.startswith("# 执行摘要")
     assert result.voice_profile_markdown.startswith("# Voice Profile")
-    assert "sentence_rhythm" in result.voice_profile_markdown
+    assert "## 3.1 口头禅与常用表达" in result.voice_profile_markdown
     get_settings.cache_clear()
 
 
@@ -174,7 +180,7 @@ async def test_pipeline_graph_resumes_failed_report_without_reanalyzing_chunks(
     assert client.chunk_calls == 3
     assert client.report_calls == 2
     assert result.voice_profile_markdown.startswith("# Voice Profile")
-    assert "anti_ai_guardrails" in result.voice_profile_markdown
+    assert "## 3.12 个人价值取向与反复母题" in result.voice_profile_markdown
     get_settings.cache_clear()
 
 

@@ -154,11 +154,12 @@ class ProjectService:
 
         if "generation_profile" in data:
             generation_profile = data.pop("generation_profile")
-            project.generation_profile_payload = (
-                generation_profile.model_dump(mode="json")
-                if generation_profile is not None
-                else None
-            )
+            if generation_profile is None:
+                project.generation_profile_payload = None
+            elif isinstance(generation_profile, dict):
+                project.generation_profile_payload = generation_profile
+            else:
+                project.generation_profile_payload = generation_profile.model_dump(mode="json")
 
         _ASSIGNABLE_FIELDS = {
             "name", "description", "status", "length_preset",

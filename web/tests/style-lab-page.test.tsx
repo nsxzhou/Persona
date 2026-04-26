@@ -47,7 +47,24 @@ function buildReport() {
 }
 
 function buildVoiceProfile() {
-  return "# Voice Profile\n## sentence_rhythm\n- 短句推进\n";
+  return "# Voice Profile\n## 3.1 口头禅与常用表达\n- 执行规则：短句推进\n";
+}
+
+function buildVoiceProfilePayload() {
+  return {
+    common_expressions: "短句推进",
+    sentence_patterns: "长短句交替",
+    lexical_preferences: "现代术语与古典四字格混用",
+    sentence_construction: "句首落判断",
+    personal_scene_clues: "生活线索弱",
+    domain_regional_lexicon: "行业词偏运营",
+    natural_irregularities: "保留省略和跳接",
+    avoided_patterns: "少写解释性开场",
+    metaphors_imagery: "意象偏月色与视线",
+    logic_and_emotion: "观察、质疑、类比、结论递进",
+    dialogue_modes: "对白抢拍试探",
+    values_motifs: "强调效率和掌控",
+  };
 }
 
 function buildSucceededJob(overrides?: Record<string, unknown>) {
@@ -142,15 +159,8 @@ test("style lab wizard saves new profile with voice profile markdown", async () 
     source_filename: "sample.txt",
     style_name: "新名字",
     analysis_report_markdown: buildReport(),
-    voice_profile_payload: {
-      sentence_rhythm: "短句推进",
-      narrative_distance: "贴近主角",
-      detail_anchors: ["呼吸"],
-      dialogue_aggression: "试探",
-      irregularity_budget: "轻微断裂",
-      anti_ai_guardrails: ["禁止解释腔"],
-    },
-    voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 新值\n",
+    voice_profile_payload: buildVoiceProfilePayload(),
+    voice_profile_markdown: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 新值\n",
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:02:00Z",
   });
@@ -162,7 +172,7 @@ test("style lab wizard saves new profile with voice profile markdown", async () 
     target: { value: "新名字" },
   });
   fireEvent.change(screen.getByLabelText("Voice Profile Markdown"), {
-    target: { value: "# Voice Profile\n## sentence_rhythm\n- 新值\n" },
+    target: { value: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 新值\n" },
   });
   fireEvent.click(screen.getByRole("button", { name: "确认 Voice Profile" }));
 
@@ -171,7 +181,7 @@ test("style lab wizard saves new profile with voice profile markdown", async () 
       expect.objectContaining({
         job_id: "job-1",
         style_name: "新名字",
-        voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 新值\n",
+        voice_profile_markdown: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 新值\n",
       }),
     ),
   );
@@ -186,14 +196,7 @@ test("style lab profile view allows editing voice profile", async () => {
     source_filename: "sample.txt",
     style_name: "旧名字",
     analysis_report_markdown: buildReport(),
-    voice_profile_payload: {
-      sentence_rhythm: "短句推进",
-      narrative_distance: "贴近主角",
-      detail_anchors: ["呼吸"],
-      dialogue_aggression: "试探",
-      irregularity_budget: "轻微断裂",
-      anti_ai_guardrails: ["禁止解释腔"],
-    },
+    voice_profile_payload: buildVoiceProfilePayload(),
     voice_profile_markdown: buildVoiceProfile(),
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:02:00Z",
@@ -215,14 +218,10 @@ test("style lab profile view allows editing voice profile", async () => {
     style_name: "旧名字",
     analysis_report_markdown: buildReport(),
     voice_profile_payload: {
-      sentence_rhythm: "更碎的短句推进",
-      narrative_distance: "贴近主角",
-      detail_anchors: ["呼吸"],
-      dialogue_aggression: "试探",
-      irregularity_budget: "轻微断裂",
-      anti_ai_guardrails: ["禁止解释腔"],
+      ...buildVoiceProfilePayload(),
+      common_expressions: "更碎的短句推进",
     },
-    voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 更碎的短句推进\n",
+    voice_profile_markdown: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 更碎的短句推进\n",
     created_at: "2026-04-09T00:02:00Z",
     updated_at: "2026-04-09T00:03:00Z",
   });
@@ -232,7 +231,7 @@ test("style lab profile view allows editing voice profile", async () => {
   expect(await screen.findByText("旧名字")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "编辑档案" }));
   fireEvent.change(await screen.findByLabelText("Voice Profile Markdown"), {
-    target: { value: "# Voice Profile\n## sentence_rhythm\n- 更碎的短句推进\n" },
+    target: { value: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 更碎的短句推进\n" },
   });
   fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
 
@@ -241,7 +240,7 @@ test("style lab profile view allows editing voice profile", async () => {
       "profile-1",
       expect.objectContaining({
         style_name: "旧名字",
-        voice_profile_markdown: "# Voice Profile\n## sentence_rhythm\n- 更碎的短句推进\n",
+        voice_profile_markdown: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 更碎的短句推进\n",
       }),
     ),
   );

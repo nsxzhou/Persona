@@ -47,29 +47,35 @@ def test_build_voice_profile_prompt_requires_new_heading_and_sections() -> None:
     assert "输出必须直接从 `# Voice Profile` 开始" in prompt
     assert "# Voice Profile" in prompt
     for section in (
-        "## sentence_rhythm",
-        "## narrative_distance",
-        "## detail_anchors",
-        "## dialogue_aggression",
-        "## irregularity_budget",
-        "## anti_ai_guardrails",
+        "## 3.1 口头禅与常用表达",
+        "## 3.2 固定句式与节奏偏好",
+        "## 3.3 词汇选择偏好",
+        "## 3.4 句子构造习惯",
+        "## 3.5 生活经历线索",
+        "## 3.6 行业／地域词汇",
+        "## 3.7 自然化缺陷",
+        "## 3.8 写作忌口与避讳",
+        "## 3.9 比喻口味与意象库",
+        "## 3.10 思维模式与表达逻辑",
+        "## 3.11 常见场景的说话方式",
+        "## 3.12 个人价值取向与反复母题",
     ):
         assert section in prompt
 
 
-def test_build_voice_profile_prompt_bans_story_and_nsfw_control_fields() -> None:
+def test_build_voice_profile_prompt_focuses_on_sentence_level_fingerprint() -> None:
     prompt = build_voice_profile_prompt(
         report_markdown="# 执行摘要\n样本同时包含仙侠升级与后宫压迫。",
         style_name="冷白短句",
     )
 
-    assert "不要写题材推进、成人强度、overlay 名称或剧情目标" in prompt
-    assert "genre_mother" in prompt
-    assert "intensity_level" in prompt
-    assert "desire_overlays" in prompt
-    assert "chapter_goal" in prompt
-    assert "harem_collect" in prompt
-    assert "hypnosis_control" in prompt
+    assert "只回答“这个文本怎么写”" in prompt
+    assert "执行规则 + 证据摘要" in prompt
+    assert "人物名、地名、组织名、专属设定词" in prompt
+    assert "genre_mother" not in prompt
+    assert "intensity_level" not in prompt
+    assert "desire_overlays" not in prompt
+    assert "chapter_goal" not in prompt
 
 
 def test_build_voice_profile_prompt_rejects_meta_openers() -> None:
@@ -85,6 +91,8 @@ def test_build_voice_profile_prompt_rejects_meta_openers() -> None:
 
 def test_voice_profile_template_matches_runtime_contract() -> None:
     assert VOICE_PROFILE_TEMPLATE.startswith("# Voice Profile")
-    assert "## sentence_rhythm" in VOICE_PROFILE_TEMPLATE
-    assert "## anti_ai_guardrails" in VOICE_PROFILE_TEMPLATE
+    assert "## 3.1 口头禅与常用表达" in VOICE_PROFILE_TEMPLATE
+    assert "## 3.12 个人价值取向与反复母题" in VOICE_PROFILE_TEMPLATE
+    assert "sentence_rhythm" not in VOICE_PROFILE_TEMPLATE
+    assert "anti_ai_guardrails" not in VOICE_PROFILE_TEMPLATE
     assert "Shared Style Rules" not in VOICE_PROFILE_TEMPLATE

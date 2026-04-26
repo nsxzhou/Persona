@@ -6580,51 +6580,81 @@
       },
       "VoiceProfile": {
         "properties": {
-          "sentence_rhythm": {
+          "common_expressions": {
             "type": "string",
             "minLength": 1,
-            "title": "Sentence Rhythm"
+            "title": "Common Expressions"
           },
-          "narrative_distance": {
+          "sentence_patterns": {
             "type": "string",
             "minLength": 1,
-            "title": "Narrative Distance"
+            "title": "Sentence Patterns"
           },
-          "detail_anchors": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Detail Anchors"
-          },
-          "dialogue_aggression": {
+          "lexical_preferences": {
             "type": "string",
             "minLength": 1,
-            "title": "Dialogue Aggression"
+            "title": "Lexical Preferences"
           },
-          "irregularity_budget": {
+          "sentence_construction": {
             "type": "string",
             "minLength": 1,
-            "title": "Irregularity Budget"
+            "title": "Sentence Construction"
           },
-          "anti_ai_guardrails": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Anti Ai Guardrails"
+          "personal_scene_clues": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Personal Scene Clues"
+          },
+          "domain_regional_lexicon": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Domain Regional Lexicon"
+          },
+          "natural_irregularities": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Natural Irregularities"
+          },
+          "avoided_patterns": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Avoided Patterns"
+          },
+          "metaphors_imagery": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Metaphors Imagery"
+          },
+          "logic_and_emotion": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Logic And Emotion"
+          },
+          "dialogue_modes": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Dialogue Modes"
+          },
+          "values_motifs": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Values Motifs"
           }
         },
         "type": "object",
         "required": [
-          "sentence_rhythm",
-          "narrative_distance",
-          "detail_anchors",
-          "dialogue_aggression",
-          "irregularity_budget",
-          "anti_ai_guardrails"
+          "common_expressions",
+          "sentence_patterns",
+          "lexical_preferences",
+          "sentence_construction",
+          "personal_scene_clues",
+          "domain_regional_lexicon",
+          "natural_irregularities",
+          "avoided_patterns",
+          "metaphors_imagery",
+          "logic_and_emotion",
+          "dialogue_modes",
+          "values_motifs"
         ],
         "title": "VoiceProfile"
       },

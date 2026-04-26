@@ -2290,18 +2290,30 @@ export interface components {
         };
         /** VoiceProfile */
         VoiceProfile: {
-            /** Sentence Rhythm */
-            sentence_rhythm: string;
-            /** Narrative Distance */
-            narrative_distance: string;
-            /** Detail Anchors */
-            detail_anchors: string[];
-            /** Dialogue Aggression */
-            dialogue_aggression: string;
-            /** Irregularity Budget */
-            irregularity_budget: string;
-            /** Anti Ai Guardrails */
-            anti_ai_guardrails: string[];
+            /** Common Expressions */
+            common_expressions: string;
+            /** Sentence Patterns */
+            sentence_patterns: string;
+            /** Lexical Preferences */
+            lexical_preferences: string;
+            /** Sentence Construction */
+            sentence_construction: string;
+            /** Personal Scene Clues */
+            personal_scene_clues: string;
+            /** Domain Regional Lexicon */
+            domain_regional_lexicon: string;
+            /** Natural Irregularities */
+            natural_irregularities: string;
+            /** Avoided Patterns */
+            avoided_patterns: string;
+            /** Metaphors Imagery */
+            metaphors_imagery: string;
+            /** Logic And Emotion */
+            logic_and_emotion: string;
+            /** Dialogue Modes */
+            dialogue_modes: string;
+            /** Values Motifs */
+            values_motifs: string;
         };
         /**
          * VoiceProfileMarkdown

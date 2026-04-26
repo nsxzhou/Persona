@@ -51,6 +51,8 @@ def test_build_sketch_prompt_contains_required_json_fields_and_enums() -> None:
         assert value in prompt
     for value in ("linear", "flashback", "unclear"):
         assert value in prompt
+    assert "只记录当前 chunk 的直接证据" in prompt
+    assert "邻接上下文不能覆盖当前 chunk 的事件归属" in prompt
 
 
 def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
@@ -80,6 +82,9 @@ def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
         "## 证据不足项",
     ):
         assert header in prompt
+    assert "阶段边界必须解释为什么在这些 chunk 发生切换" in prompt
+    assert "设伏 @chunkX -> 兑现 @chunkY" in prompt
+    assert "角色能力阶梯必须区分登场、升级、关系功能变化" in prompt
 
 
 def test_build_chunk_analysis_and_report_prompts_thread_skeleton_context() -> None:
@@ -99,6 +104,9 @@ def test_build_chunk_analysis_and_report_prompts_thread_skeleton_context() -> No
     assert "## 全书骨架（参考上下文）" in chunk_prompt
     assert "骨架仅用于定位与上下文参考" in chunk_prompt
     assert "## 全书骨架（参考上下文）" in report_prompt
+    assert "推进规律 + 证据摘要" in chunk_prompt
+    assert "不要只写事件复述" in chunk_prompt
+    assert "每个 3.x 章节都必须收束为可复用的情节机制" in report_prompt
 
 
 def test_build_story_engine_prompt_requires_new_heading_and_sections() -> None:
@@ -133,7 +141,10 @@ def test_build_story_engine_prompt_removes_old_prompt_pack_language() -> None:
     assert "Tone Lock" not in prompt
     assert "Anti-Whitewash Guardrails" not in prompt
     assert "Plot Prompt 包" not in prompt
-    assert "显式识别并输出可能的 overlay 倾向" in prompt
+    assert "suggested_overlays 是最低优先级兼容字段" in prompt
+    assert "不得让 overlay 倾向主导 Story Engine" in prompt
+    assert "每个字段都必须写成情节执行指纹" in prompt
+    assert "主驱动轴不是题材标签" in prompt
     assert "harem_collect" in prompt
     assert "wife_steal" in prompt
     assert "hypnosis_control" in prompt

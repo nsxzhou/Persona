@@ -46,12 +46,18 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
     IntensityProfile = symbols["IntensityProfile"]
     ChapterObjectiveCard = symbols["ChapterObjectiveCard"]
     voice = VoiceProfile(
-        sentence_rhythm="短句为主，偶尔长句压顶。",
-        narrative_distance="贴近主角感官与即时判断。",
-        detail_anchors=["呼吸", "掌心", "视线停顿"],
-        dialogue_aggression="对白偏抢拍、试探、压迫。",
-        irregularity_budget="允许轻微断裂和回勾，但不故意写低级错误。",
-        anti_ai_guardrails=["禁止解释腔", "禁止总结腔"],
+        common_expressions="高频口头禅以短反问和口语感叹推进。",
+        sentence_patterns="短句抢拍，长句用于补充判断。",
+        lexical_preferences="混用现代管理词、网络口语和古典四字格。",
+        sentence_construction="句首常直接落判断，句尾用反问或短断语收束。",
+        personal_scene_clues="生活线索弱，更多来自商业运营和组织管理语境。",
+        domain_regional_lexicon="行业词偏运营、渠道、成本收益；地域词不明显。",
+        natural_irregularities="允许省略、跳接、省略号和破折号制造停顿。",
+        avoided_patterns="少用解释性开场和总结升华。",
+        metaphors_imagery="意象偏月色、玉色、视线、掌心、清冷院落。",
+        logic_and_emotion="常按观察、质疑、类比、结论推进心理判断。",
+        dialogue_modes="对白以抢拍反问、调侃揭短和上位压迫为主。",
+        values_motifs="反复强调效率、交易、掌控和关系博弈。",
     )
     story = StoryEngineProfile(
         genre_mother="xianxia",
@@ -80,12 +86,18 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
     )
 
     assert set(voice.model_dump().keys()) == {
-        "sentence_rhythm",
-        "narrative_distance",
-        "detail_anchors",
-        "dialogue_aggression",
-        "irregularity_budget",
-        "anti_ai_guardrails",
+        "common_expressions",
+        "sentence_patterns",
+        "lexical_preferences",
+        "sentence_construction",
+        "personal_scene_clues",
+        "domain_regional_lexicon",
+        "natural_irregularities",
+        "avoided_patterns",
+        "metaphors_imagery",
+        "logic_and_emotion",
+        "dialogue_modes",
+        "values_motifs",
     }
     assert set(story.model_dump().keys()) == {
         "genre_mother",
@@ -186,7 +198,7 @@ def test_style_and_plot_profile_payloads_accept_new_markdown_fields_without_lega
     style_payload = StyleProfileCreate(
         job_id="job-1",
         style_name="冷白",
-        voice_profile_markdown="# Voice Profile\n## sentence_rhythm\n- 短句推进\n",
+        voice_profile_markdown="# Voice Profile\n## 3.1 口头禅与常用表达\n- 执行规则：短句推进。\n",
     )
     plot_payload = PlotProfileCreate(
         job_id="job-1",
@@ -247,15 +259,15 @@ def test_style_job_detail_exposes_voice_profile_fields_from_runtime_payload() ->
             style_summary_payload="# 风格名称\n冷白\n",
             prompt_pack_payload=(
                 "# Voice Profile\n"
-                "## sentence_rhythm\n- 短句推进\n"
-                "## narrative_distance\n- 贴近主角\n"
+                "## 3.1 口头禅与常用表达\n- 执行规则：短句推进。\n"
+                "## 3.2 固定句式与节奏偏好\n- 执行规则：长短句交替。\n"
             ),
         )
     )
 
     assert response.voice_profile_markdown.startswith("# Voice Profile")
-    assert response.voice_profile_payload.sentence_rhythm
-    assert response.voice_profile_payload.narrative_distance
+    assert response.voice_profile_payload.common_expressions
+    assert response.voice_profile_payload.sentence_patterns
 
 
 def test_plot_job_detail_exposes_story_engine_fields_from_runtime_payload() -> None:
