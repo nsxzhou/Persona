@@ -42,6 +42,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
   const [model, setModel] = useState("");
   const [styleProfileId, setStyleProfileId] = useState("__none__");
   const [plotProfileId, setPlotProfileId] = useState("__none__");
+  const [targetMarket, setTargetMarket] = useState<"mainstream" | "nsfw">("mainstream");
   const [inspiration, setInspiration] = useState("");
   const [concepts, setConcepts] = useState<ConceptItem[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -66,6 +67,15 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
           inspiration: inspiration.trim(),
           provider_id: providerId,
           model: model.trim() || null,
+          generation_profile: {
+            target_market: targetMarket,
+            genre_mother: "xianxia",
+            desire_overlays: [],
+            intensity_level: "plot_only",
+            pov_mode: "limited_third",
+            morality_axis: "gray_pragmatism",
+            pace_density: "balanced",
+          },
           count: 3,
           style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
           plot_profile_id: plotProfileId === "__none__" ? null : plotProfileId,
@@ -100,12 +110,21 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
         name: selected.title,
         description: selected.synopsis,
         default_provider_id: providerId,
-        default_model: model.trim() || null,
-        style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
-        plot_profile_id: plotProfileId === "__none__" ? null : plotProfileId,
+        default_model: model.trim() || undefined,
+        style_profile_id: styleProfileId === "__none__" ? undefined : styleProfileId,
+        plot_profile_id: plotProfileId === "__none__" ? undefined : plotProfileId,
         status: "draft",
         auto_sync_memory: false,
         length_preset: lengthPreset,
+        generation_profile: {
+          target_market: targetMarket,
+          genre_mother: "xianxia",
+          desire_overlays: [],
+          intensity_level: "plot_only",
+          pov_mode: "limited_third",
+          morality_axis: "gray_pragmatism",
+          pace_density: "balanced",
+        },
       });
       router.replace(`/projects/${project.id}`);
     } catch (e: unknown) {
@@ -126,7 +145,19 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
       </div>
 
       {/* Provider + Model + Profiles */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid gap-2">
+          <Label>目标市场</Label>
+          <Select value={targetMarket} onValueChange={(val) => setTargetMarket(val as "mainstream" | "nsfw")}>
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="选择目标市场" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mainstream">主流大类 (Mainstream)</SelectItem>
+              <SelectItem value="nsfw">细分市场 (NSFW)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="grid gap-2">
           <Label>AI 服务商</Label>
           <Select value={providerId} onValueChange={setProviderId}>
