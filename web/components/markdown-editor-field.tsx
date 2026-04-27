@@ -53,14 +53,14 @@ export function MarkdownEditorField<TFieldValues extends Record<string, unknown>
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
       <ScrollArea
-        className="w-full rounded-md border border-input bg-background"
+        className="w-full rounded-md border border-input bg-muted/5"
         style={{ height: minHeight }}
         type="auto"
       >
         <Textarea
           id={id}
           aria-label={ariaLabel}
-          className="w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-4 font-mono text-sm overflow-hidden"
+          className="w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-6 font-[family:var(--font-prose)] text-base leading-relaxed overflow-hidden"
           style={{ minHeight }}
           {...field}
           value={(field.value as string | undefined) ?? ""}
