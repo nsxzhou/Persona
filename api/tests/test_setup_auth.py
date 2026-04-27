@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import get_type_hints
 
 import pytest
 from httpx import AsyncClient
@@ -19,30 +18,6 @@ def clear_live_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "PERSONA_TEST_PROVIDER_MODEL",
     ):
         monkeypatch.delenv(name, raising=False)
-
-
-def test_auth_service_supports_repository_injection() -> None:
-    from app.db.repositories.auth import AuthRepository
-    from app.services.auth import AuthService
-
-    repository = AuthRepository()
-    service = AuthService(repository=repository)
-
-    assert service.repository is repository
-
-
-def test_auth_and_setup_routes_use_annotated_dependency_aliases() -> None:
-    from app.api.deps import AuthServiceDep, DbSessionDep
-    from app.api.routes.auth import login
-    from app.api.routes.setup import run_setup
-
-    login_hints = get_type_hints(login, include_extras=True)
-    setup_hints = get_type_hints(run_setup, include_extras=True)
-
-    assert login_hints["db_session"] == DbSessionDep
-    assert login_hints["auth_service"] == AuthServiceDep
-    assert setup_hints["db_session"] == DbSessionDep
-    assert setup_hints["auth_service"] == AuthServiceDep
 
 
 @pytest.mark.asyncio

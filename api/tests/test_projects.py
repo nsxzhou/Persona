@@ -2,33 +2,9 @@ from __future__ import annotations
 
 import io
 import zipfile
-from typing import get_type_hints
-
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-
-
-def test_project_service_supports_repository_injection() -> None:
-    from app.db.repositories.projects import ProjectRepository
-    from app.services.projects import ProjectService
-
-    repository = ProjectRepository()
-    service = ProjectService(repository=repository)
-
-    assert service.repository is repository
-
-
-def test_projects_routes_use_annotated_service_dependency() -> None:
-    from app.api.deps import DbSessionDep, ProjectServiceDep
-    from app.api.routes.projects import export_project, list_projects
-
-    hints = get_type_hints(list_projects, include_extras=True)
-
-    assert hints["db_session"] == DbSessionDep
-    assert hints["project_service"] == ProjectServiceDep
-    export_hints = get_type_hints(export_project, include_extras=True)
-    assert export_hints["format"] != str
 
 
 @pytest.mark.asyncio

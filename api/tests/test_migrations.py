@@ -218,7 +218,7 @@ def test_alembic_upgrade_does_not_disable_application_loggers(
     alembic_config = Config("alembic.ini")
     alembic_config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
 
-    app_logger = logging.getLogger("app.services.style_analysis_llm")
+    app_logger = logging.getLogger("app.services.llm_client")
     app_logger.disabled = False
 
     try:

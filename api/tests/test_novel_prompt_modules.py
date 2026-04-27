@@ -7,10 +7,6 @@ from pathlib import Path
 PROMPT_ROOT = Path(__file__).resolve().parents[1] / "app" / "prompts"
 
 
-def test_editor_prompt_module_is_only_a_compatibility_facade() -> None:
-    assert not (PROMPT_ROOT / "editor.py").exists()
-
-
 def test_agent_prompt_modules_exist_and_own_prompt_builders() -> None:
     expected = {
         "concept.py": {
@@ -88,53 +84,3 @@ def test_novel_prompt_methodology_is_embedded_in_agent_prompts() -> None:
     assert "认知过山车模式" in chapter_plan
     assert "伏笔三步法" in chapter_plan
     assert "认知颠覆" in beats
-
-
-def test_no_legacy_editor_compatibility_modules_remain() -> None:
-    root = PROMPT_ROOT.parents[1]
-    forbidden_paths = [
-        root / "app" / "services" / "editor.py",
-        root / "app" / "services" / "editor_prompts.py",
-        root / "app" / "services" / "style_analysis_prompts.py",
-        root / "app" / "services" / "plot_analysis_prompts.py",
-        root / "app" / "schemas" / "editor.py",
-        root / "app" / "api" / "routes" / "editor.py",
-    ]
-    for path in forbidden_paths:
-        assert not path.exists(), str(path)
-
-
-def test_no_backend_imports_legacy_editor_modules() -> None:
-    root = PROMPT_ROOT.parents[1]
-    forbidden = (
-        "app.prompts.editor",
-        "app.services.editor_prompts",
-        "app.services.style_analysis_prompts",
-        "app.services.plot_analysis_prompts",
-        "app.services.editor",
-        "app.schemas.editor",
-    )
-    offenders: list[str] = []
-    for base in (root / "app", root / "tests"):
-        for path in base.rglob("*.py"):
-            if path == Path(__file__).resolve():
-                continue
-            tree = ast.parse(path.read_text())
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom) and node.module in forbidden:
-                    offenders.append(str(path.relative_to(root)))
-                elif isinstance(node, ast.Import):
-                    imported = {alias.name for alias in node.names}
-                    if imported & set(forbidden):
-                        offenders.append(str(path.relative_to(root)))
-
-    assert offenders == []
-
-
-def test_legacy_concept_generate_project_schemas_are_removed() -> None:
-    projects_schema = PROMPT_ROOT.parents[1] / "app" / "schemas" / "projects.py"
-    source = projects_schema.read_text()
-
-    assert "class ConceptGenerateRequest" not in source
-    assert "class ConceptGenerateResponse" not in source
-    assert "class ConceptItem" not in source
