@@ -142,7 +142,6 @@ class AuthService:
                 continue
 
         if artifact_job_ids:
-            import asyncio
             # Bound concurrency to avoid file-descriptor exhaustion for large accounts.
             sem = asyncio.Semaphore(20)
 
@@ -155,8 +154,6 @@ class AuthService:
                     tg.create_task(_cleanup(job_id))
 
         if plot_artifact_job_ids:
-            import asyncio
-
             sem = asyncio.Semaphore(20)
 
             async def _cleanup_plot(job_id: str) -> None:
