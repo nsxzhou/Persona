@@ -2,6 +2,24 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { WorkbenchTabs } from "@/components/workbench-tabs";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  const testQueryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={testQueryClient}>
+      {ui}
+    </QueryClientProvider>
+  );
+};
 
 const apiMock = vi.hoisted(() => ({
   getProjectChapters: vi.fn(),
@@ -86,7 +104,7 @@ describe("WorkbenchTabs", () => {
   test("shows a retry affordance when chapter loading fails", async () => {
     apiMock.getProjectChapters.mockRejectedValueOnce(new Error("加载章节失败"));
 
-    render(
+    renderWithQueryClient(
       <WorkbenchTabs
         project={project as never}
         projectBible={projectBible as never}
@@ -107,7 +125,7 @@ describe("WorkbenchTabs", () => {
       .mockRejectedValueOnce(new Error("Network Error"))
       .mockResolvedValueOnce([]);
 
-    render(
+    renderWithQueryClient(
       <WorkbenchTabs
         project={project as never}
         projectBible={projectBible as never}

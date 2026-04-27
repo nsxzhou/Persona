@@ -31,7 +31,10 @@ vi.mock("sonner", () => ({
 
 describe("useEditorAutosave", () => {
   beforeEach(() => {
-    mockStore = createEditorStore();
+    mockStore.setState({
+      content: "",
+      savedChapterContent: "",
+    });
     vi.useFakeTimers();
     apiMock.updateProjectChapter.mockReset();
     apiMock.updateProjectChapter.mockResolvedValue({
@@ -71,7 +74,7 @@ describe("useEditorAutosave", () => {
     );
 
     act(() => {
-      mockStore.setState({ content: "新的正文", savedChapterContent: "新的正文" });
+      mockStore.setState({ content: "更新的正文", savedChapterContent: "旧正文" });
     });
     
     rerender();

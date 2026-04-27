@@ -11,8 +11,10 @@ from langgraph.checkpoint.memory import InMemorySaver
 from app.core.config import get_settings
 from app.schemas.plot_analysis_jobs import PlotAnalysisMeta
 from app.services import plot_analysis_pipeline as pipeline_module
+from app.services.llm_provider import LLMProviderService
 from app.services.plot_analysis_pipeline import PlotAnalysisPipeline
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
+from app.services.prompt_injection_policy import PromptInjectionTask
 
 
 _SKELETON_SIGNATURE = "SKELETON_SIGNATURE_ALPHA"
@@ -53,19 +55,15 @@ class PipelineLLMStub:
         self.report_prompts: list[str] = []
         self.story_engine_prompts: list[str] = []
 
-    def build_model(self, *, provider: object, model_name: str) -> object:
-        return SimpleNamespace(provider=provider, model_name=model_name)
-
-    async def ainvoke_markdown(
+    async def invoke_markdown_completion(
         self,
         *,
-        model: object,
+        provider_config: object | None = None,
         prompt: str,
-        provider: object | None = None,
         model_name: str | None = None,
         injection_task: object | None = None,
     ) -> str:
-        del model, provider, model_name, injection_task
+        del provider_config, model_name, injection_task
         if "Plot Lab 的分块速写阶段" in prompt:
             match = re.search(r"chunk_index=(\d+), chunk_count=(\d+)", prompt)
             assert match is not None
@@ -103,7 +101,7 @@ class PipelineLLMStub:
 
 
 class NoisyStoryEngineLLMStub(PipelineLLMStub):
-    async def ainvoke_markdown(self, **kwargs) -> str:
+    async def invoke_markdown_completion(self, **kwargs) -> str:
         prompt = kwargs["prompt"]
         if "Plot Writing Guide" in prompt:
             self.story_engine_prompts.append(prompt)
@@ -120,21 +118,16 @@ class NoisyStoryEngineLLMStub(PipelineLLMStub):
                 "## Anti-Drift Rules\n- 不要解释规则。\n\n"
                 "# 无关说明\n- 这里不应保留\n"
             )
-        return await super().ainvoke_markdown(**kwargs)
+        return await super().invoke_markdown_completion(**kwargs)
 
 
 def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> PlotAnalysisPipeline:
-    chat_model = client.build_model(
-        provider=SimpleNamespace(base_url="https://api.example.test/v1", api_key_encrypted="encrypted"),
-        model_name="gpt-4.1-mini",
-    )
     return PlotAnalysisPipeline(
         provider=SimpleNamespace(base_url="https://api.example.test/v1", api_key_encrypted="encrypted"),
         model_name="gpt-4.1-mini",
         plot_name="骨架测试",
         source_filename="sample.txt",
-        llm_client=client,
-        chat_model=chat_model,
+        llm_service=client,
         checkpointer=checkpointer,
     )
 

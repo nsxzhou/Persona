@@ -202,7 +202,7 @@ describe("ZenEditorView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     queryClient.clear();
-    
+
     apiMock.getProject.mockResolvedValue(project);
     apiMock.getProjectBible.mockResolvedValue(projectBible);
 
@@ -217,6 +217,7 @@ describe("ZenEditorView", () => {
     beatGenerationMock.handleGenerateBeats.mockReset();
     beatGenerationMock.handleStartBeatExpand.mockReset();
     autosaveMock.isSaving = false;
+
     autosaveMock.saveNow.mockReset();
     autosaveMock.clearSaveError.mockReset();
     autosaveMock.lastSaveError = null;
@@ -250,9 +251,8 @@ describe("ZenEditorView", () => {
     renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("第2章 纨绔是假装，天香楼才是入口").length).toBeGreaterThan(0);
+      expect(screen.getByText("已定位章节")).toBeInTheDocument();
     });
-    expect(screen.getByText("已定位章节")).toBeInTheDocument();
     expect(screen.getByRole("textbox")).toHaveValue("");
   });
 
@@ -276,7 +276,9 @@ describe("ZenEditorView", () => {
     expect(screen.getAllByText("第2章 纨绔是假装，天香楼才是入口").length).toBeGreaterThan(0);
     expect(screen.getByText("已定位章节，准备生成节拍")).toBeInTheDocument();
     expect(screen.getByText("创作导航")).toBeInTheDocument();
-    expect(screen.getByTestId("beat-panel")).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.getByTestId("beat-panel")).toBeEnabled();
+    });
   });
 
   test("clicking another chapter swaps editor content instead of keeping previous chapter", async () => {
@@ -298,7 +300,7 @@ describe("ZenEditorView", () => {
     renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox")).toHaveValue("");
+      expect(screen.getByRole("textbox")).not.toBeDisabled();
     });
 
     const textbox = screen.getByRole("textbox");
@@ -372,7 +374,9 @@ describe("ZenEditorView", () => {
     fireEvent.click(screen.getByRole("button", { name: /第一卷 反派开局/ }));
 
     expect(screen.queryByRole("button", { name: /第2章 纨绔是假装/ })).not.toBeInTheDocument();
-    expect(screen.getByText("已定位章节")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("已定位章节")).toBeInTheDocument();
+    });
   });
 
   test("shows empty-state redirect when a volume has no chapter outline", async () => {

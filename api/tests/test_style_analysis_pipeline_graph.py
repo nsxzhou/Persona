@@ -47,19 +47,15 @@ class PipelineLLMStub:
         self.report_calls = 0
         self.fail_report_once = fail_report_once
 
-    def build_model(self, *, provider: object, model_name: str) -> object:
-        return SimpleNamespace(provider=provider, model_name=model_name)
-
-    async def ainvoke_markdown(
+    async def invoke_markdown_completion(
         self,
         *,
-        model: object,
+        provider_config: object | None = None,
         prompt: str,
-        provider: object | None = None,
         model_name: str | None = None,
         injection_task: object | None = None,
     ) -> str:
-        del model, provider, model_name, injection_task
+        del provider_config, model_name, injection_task
         if "当前 chunk：" in prompt:
             match = re.search(r"当前 chunk：(\d+)/(\d+)", prompt)
             assert match is not None
@@ -85,7 +81,7 @@ def build_pipeline(client: PipelineLLMStub, checkpointer: InMemorySaver) -> Styl
         model_name="gpt-4.1-mini",
         style_name="古龙风格实验",
         source_filename="sample.txt",
-        llm_client=client,
+        llm_service=client,
         checkpointer=checkpointer,
     )
 
