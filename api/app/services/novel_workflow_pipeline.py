@@ -142,6 +142,15 @@ class NovelWorkflowPipeline:
         self.continuity_agent = ContinuityAgent(agent_llm)
         self.editor_agent = EditorAgent(agent_llm)
         self.memory_sync_agent = MemorySyncAgent(agent_llm)
+        self._simple_intent_handlers = {
+            "section_generate": self._handle_section_generate,
+            "volume_generate": self._handle_volume_generate,
+            "volume_chapters_generate": self._handle_volume_chapters_generate,
+            "continuation_write": self._handle_continuation_write,
+            "beats_generate": self._handle_beats_generate,
+            "beat_expand": self._handle_beat_expand,
+            "memory_refresh": self._handle_memory_refresh,
+        }
         self.graph = self._build_graph()
 
     async def run(
@@ -481,147 +490,38 @@ class NovelWorkflowPipeline:
         current_bible = state.get("current_bible", {})
         generation_profile = self._generation_profile_obj(state)
 
-        if intent == "section_generate":
-            artifact_name = "section_markdown"
-            section = state.get("section") or "world_building"
-            markdown = await self._call_prompt(
-                system_prompt=build_section_system_prompt(
-                    section,
-                    style_prompt=state.get("style_prompt"),
-                    plot_prompt=state.get("plot_prompt"),
-                    generation_profile=generation_profile,
-                    length_preset=state.get("length_preset", "long"),
-                    regenerating=bool(state.get("previous_output") or state.get("feedback")),
-                ),
-                user_context=build_section_user_message(
-                    section,
-                    {
-                        "description": state.get("project_description", ""),
-                        "world_building": current_bible.get("world_building", ""),
-                        "characters_blueprint": current_bible.get("characters_blueprint", ""),
-                        "outline_master": current_bible.get("outline_master", ""),
-                        "outline_detail": current_bible.get("outline_detail", ""),
-                        "characters_status": current_bible.get("characters_status", ""),
-                        "runtime_state": current_bible.get("runtime_state", ""),
-                        "runtime_threads": current_bible.get("runtime_threads", ""),
-                    },
-                    previous_output=state.get("previous_output"),
-                    user_feedback=state.get("feedback"),
-                ),
-                mode="analysis",
-            )
-            persist_payload = {"markdown": markdown}
-        elif intent == "volume_generate":
-            artifact_name = "volumes_markdown"
-            markdown = await self._call_prompt(
-                system_prompt=build_volume_generate_system_prompt(
-                    length_preset=state.get("length_preset", "long"),
-                    style_prompt=state.get("style_prompt"),
-                    plot_prompt=state.get("plot_prompt"),
-                    generation_profile=generation_profile,
-                    regenerating=bool(state.get("previous_output") or state.get("feedback")),
-                ),
-                user_context=build_volume_generate_user_message(
-                    current_bible.get("outline_master", ""),
-                    previous_output=state.get("previous_output"),
-                    user_feedback=state.get("feedback"),
-                ),
-                mode="analysis",
-            )
-            persist_payload = {"markdown": markdown}
-        elif intent == "volume_chapters_generate":
-            artifact_name = "volume_chapters_markdown"
-            markdown = await self._call_prompt(
-                system_prompt=build_volume_chapters_system_prompt(
-                    style_prompt=state.get("style_prompt"),
-                    plot_prompt=state.get("plot_prompt"),
-                    generation_profile=generation_profile,
-                    regenerating=bool(state.get("previous_output") or state.get("feedback")),
-                ),
-                user_context=build_volume_chapters_user_message(
-                    current_bible.get("outline_master", ""),
-                    f"第{(state.get('volume_index') or 0) + 1}卷",
-                    "",
-                    "",
-                    previous_output=state.get("previous_output"),
-                    user_feedback=state.get("feedback"),
-                ),
-                mode="analysis",
-            )
-            persist_payload = {"markdown": markdown}
-        elif intent == "continuation_write":
-            artifact_name = "prose_markdown"
-            markdown = await self._generate_continuation(state)
-            persist_payload = {"markdown": markdown}
-        elif intent == "beats_generate":
-            artifact_name = "beats_markdown"
-            markdown = await self.beat_agent.generate(
-                state=state,
-                current_bible=current_bible,
-                generation_profile=generation_profile,
-                regenerating=bool(state.get("previous_output") or state.get("feedback")),
-            )
-            persist_payload = {"markdown": markdown}
-        elif intent == "beat_expand":
-            artifact_name = "prose_markdown"
-            markdown = await self.beat_agent.expand(
-                state=state,
-                current_bible=current_bible,
-                generation_profile=generation_profile,
-                beat=state.get("beat") or "",
-                beat_index=state.get("beat_index") or 0,
-                total_beats=state.get("total_beats") or 1,
-                preceding_beats_prose=state.get("preceding_beats_prose", ""),
-                previous_output=state.get("previous_output"),
-                regenerating=bool(state.get("previous_output") or state.get("feedback")),
-            )
-            persist_payload = {"markdown": markdown}
-        elif intent == "memory_refresh":
-            artifact_name = "memory_update_bundle"
-            memory_result = await self.memory_sync_agent.refresh(
-                current_bible=current_bible,
-                content_to_check=state.get("content_to_check", ""),
-                sync_scope=state.get("sync_scope") or "chapter_full",
-                previous_output=state.get("previous_output"),
-                feedback=state.get("feedback"),
-                include_chapter_summary=(state.get("sync_scope") or "chapter_full")
-                == "chapter_full",
-                include_story_summary=False,
-            )
-            markdown = memory_result.markdown
-            await self.storage_service.write_stage_markdown_artifact(
-                state["run_id"],
-                name=artifact_name,
-                markdown=markdown,
-            )
-            latest_artifacts = [artifact_name]
-            if memory_result.chapter_summary:
-                await self.storage_service.write_stage_markdown_artifact(
-                    state["run_id"],
-                    name="chapter_summary_markdown",
-                    markdown=memory_result.chapter_summary,
-                )
-                latest_artifacts.append("chapter_summary_markdown")
-            return {
-                "latest_artifacts": latest_artifacts,
-                "persist_payload": {
-                    "markdown": markdown,
-                    "chapter_summary": memory_result.chapter_summary,
-                },
-            }
-        else:
-            artifact_name = "concepts_markdown"
-            markdown = await self.concept_agent.generate(
-                inspiration=state.get("inspiration", ""),
-                count=state.get("count") or 3,
+        handler = self._simple_intent_handlers.get(intent, self._handle_concept_generate)
+        return await handler(state, current_bible, generation_profile)
+
+    async def _handle_section_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "section_markdown"
+        section = state.get("section") or "world_building"
+        markdown = await self._call_prompt(
+            system_prompt=build_section_system_prompt(
+                section,
                 style_prompt=state.get("style_prompt"),
                 plot_prompt=state.get("plot_prompt"),
                 generation_profile=generation_profile,
+                length_preset=state.get("length_preset", "long"),
+                regenerating=bool(state.get("previous_output") or state.get("feedback")),
+            ),
+            user_context=build_section_user_message(
+                section,
+                {
+                    "description": state.get("project_description", ""),
+                    "world_building": current_bible.get("world_building", ""),
+                    "characters_blueprint": current_bible.get("characters_blueprint", ""),
+                    "outline_master": current_bible.get("outline_master", ""),
+                    "outline_detail": current_bible.get("outline_detail", ""),
+                    "characters_status": current_bible.get("characters_status", ""),
+                    "runtime_state": current_bible.get("runtime_state", ""),
+                    "runtime_threads": current_bible.get("runtime_threads", ""),
+                },
                 previous_output=state.get("previous_output"),
-                feedback=state.get("feedback"),
-            )
-            persist_payload = {"markdown": markdown}
-
+                user_feedback=state.get("feedback"),
+            ),
+            mode="analysis",
+        )
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
             name=artifact_name,
@@ -629,7 +529,172 @@ class NovelWorkflowPipeline:
         )
         return {
             "latest_artifacts": [artifact_name],
-            "persist_payload": persist_payload,
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_volume_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "volumes_markdown"
+        markdown = await self._call_prompt(
+            system_prompt=build_volume_generate_system_prompt(
+                length_preset=state.get("length_preset", "long"),
+                style_prompt=state.get("style_prompt"),
+                plot_prompt=state.get("plot_prompt"),
+                generation_profile=generation_profile,
+                regenerating=bool(state.get("previous_output") or state.get("feedback")),
+            ),
+            user_context=build_volume_generate_user_message(
+                current_bible.get("outline_master", ""),
+                previous_output=state.get("previous_output"),
+                user_feedback=state.get("feedback"),
+            ),
+            mode="analysis",
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_volume_chapters_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "volume_chapters_markdown"
+        markdown = await self._call_prompt(
+            system_prompt=build_volume_chapters_system_prompt(
+                style_prompt=state.get("style_prompt"),
+                plot_prompt=state.get("plot_prompt"),
+                generation_profile=generation_profile,
+                regenerating=bool(state.get("previous_output") or state.get("feedback")),
+            ),
+            user_context=build_volume_chapters_user_message(
+                current_bible.get("outline_master", ""),
+                f"第{(state.get('volume_index') or 0) + 1}卷",
+                "",
+                "",
+                previous_output=state.get("previous_output"),
+                user_feedback=state.get("feedback"),
+            ),
+            mode="analysis",
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_continuation_write(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "prose_markdown"
+        markdown = await self._generate_continuation(state)
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_beats_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "beats_markdown"
+        markdown = await self.beat_agent.generate(
+            state=state,
+            current_bible=current_bible,
+            generation_profile=generation_profile,
+            regenerating=bool(state.get("previous_output") or state.get("feedback")),
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_beat_expand(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "prose_markdown"
+        markdown = await self.beat_agent.expand(
+            state=state,
+            current_bible=current_bible,
+            generation_profile=generation_profile,
+            beat=state.get("beat") or "",
+            beat_index=state.get("beat_index") or 0,
+            total_beats=state.get("total_beats") or 1,
+            preceding_beats_prose=state.get("preceding_beats_prose", ""),
+            previous_output=state.get("previous_output"),
+            regenerating=bool(state.get("previous_output") or state.get("feedback")),
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_memory_refresh(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "memory_update_bundle"
+        memory_result = await self.memory_sync_agent.refresh(
+            current_bible=current_bible,
+            content_to_check=state.get("content_to_check", ""),
+            sync_scope=state.get("sync_scope") or "chapter_full",
+            previous_output=state.get("previous_output"),
+            feedback=state.get("feedback"),
+            include_chapter_summary=(state.get("sync_scope") or "chapter_full")
+            == "chapter_full",
+            include_story_summary=False,
+        )
+        markdown = memory_result.markdown
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        latest_artifacts = [artifact_name]
+        if memory_result.chapter_summary:
+            await self.storage_service.write_stage_markdown_artifact(
+                state["run_id"],
+                name="chapter_summary_markdown",
+                markdown=memory_result.chapter_summary,
+            )
+            latest_artifacts.append("chapter_summary_markdown")
+        return {
+            "latest_artifacts": latest_artifacts,
+            "persist_payload": {
+                "markdown": markdown,
+                "chapter_summary": memory_result.chapter_summary,
+            },
+        }
+
+    async def _handle_concept_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "concepts_markdown"
+        markdown = await self.concept_agent.generate(
+            inspiration=state.get("inspiration", ""),
+            count=state.get("count") or 3,
+            style_prompt=state.get("style_prompt"),
+            plot_prompt=state.get("plot_prompt"),
+            generation_profile=generation_profile,
+            previous_output=state.get("previous_output"),
+            feedback=state.get("feedback"),
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
         }
 
     async def _generate_continuation(self, state: NovelWorkflowState) -> str:
