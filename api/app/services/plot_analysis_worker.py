@@ -21,10 +21,10 @@ from app.services.plot_analysis_pipeline import (
     PlotAnalysisPipeline,
     PlotAnalysisPipelineResult,
 )
+from app.core.text_processing import InputClassification
+from app.services.llm_client import MarkdownLLMClient
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.plot_analysis_text import PlotBoundaryDetector, read_plot_chunks_and_classification
-from app.services.style_analysis_llm import MarkdownLLMClient
-from app.services.style_analysis_text import InputClassification
 
 logger = logging.getLogger(__name__)
 

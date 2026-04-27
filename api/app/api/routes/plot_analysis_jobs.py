@@ -16,7 +16,7 @@ from app.schemas.plot_analysis_jobs import (
     PlotSkeletonMarkdown,
     StoryEngineMarkdown,
 )
-from app.services.style_analysis_text import clean_and_decode_upload
+from app.core.text_processing import clean_and_decode_upload
 
 router = APIRouter(
     prefix="/plot-analysis-jobs",

@@ -31,7 +31,7 @@ from app.services.style_analysis_pipeline import (
 # StorageService：样本文本流式读取、chunk/分析产物落盘、任务结束后清理
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 # 文本处理：负责对 TXT 做切块并推断输入类型（是否时间戳/说话人/噪声等）
-from app.services.style_analysis_text import InputClassification, read_chunks_and_classification
+from app.core.text_processing import InputClassification, read_chunks_and_classification
 
 # 模块级 logger：统一日志入口，便于在 worker 中记录异常与关键运行信息
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class StyleAnalysisRunContext:
     model_name: str
     # source_filename：用户上传的原始文件名（用于元数据记录）
     source_filename: str
-    # chunk_count：切片数量（决定 pipeline map 阶段的任务个数）api/app/services/style_analysis_llm.py
+    # chunk_count：切片数量（决定 pipeline map 阶段的任务个数）
     chunk_count: int
     # classification：对输入文本结构的判定结果（字幕/正文等），会影响 prompt 与报告内容
     classification: InputClassification

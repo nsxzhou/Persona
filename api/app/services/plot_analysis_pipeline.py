@@ -34,10 +34,10 @@ from app.prompts.plot_analysis import (
     build_skeleton_reduce_prompt,
     build_story_engine_prompt,
 )
-from app.services.style_analysis_llm import MarkdownLLMClient
+from app.core.text_processing import InputClassification
+from app.services.llm_client import MarkdownLLMClient
 from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
-from app.services.style_analysis_text import InputClassification
 
 logger = logging.getLogger(__name__)
 

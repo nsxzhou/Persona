@@ -25,10 +25,10 @@ from app.prompts.style_analysis import (
     build_report_prompt,
     build_voice_profile_prompt,
 )
-from app.services.style_analysis_llm import MarkdownLLMClient
+from app.core.text_processing import InputClassification
+from app.services.llm_client import MarkdownLLMClient
 from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.style_analysis_storage import StyleAnalysisStorageService
-from app.services.style_analysis_text import InputClassification
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TypedDict
 
 from app.core.config import get_settings
-from app.services.style_analysis_text import ChunkConsumer, InputClassification, detect_encoding
+from app.core.text_processing import ChunkConsumer, InputClassification, detect_encoding
 
 logger = logging.getLogger(__name__)
 

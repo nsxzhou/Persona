@@ -24,7 +24,6 @@ _TRANSIENT_PERMISSION_BACKOFF_SECONDS = (1.0, 2.0)
 
 
 def _extract_from_mapping(mapping: dict) -> str:
-    """Try the common text-bearing keys of a single dict; recurse one level."""
     for key in ("text", "output_text", "value", "content"):
         value = mapping.get(key)
         if isinstance(value, str):
@@ -37,7 +36,6 @@ def _extract_from_mapping(mapping: dict) -> str:
 
 
 def _extract_from_list(items: list) -> str:
-    """Join text from a list of str/dict entries (as returned by some LLM providers)."""
     parts: list[str] = []
     for item in items:
         if isinstance(item, str):

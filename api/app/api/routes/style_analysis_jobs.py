@@ -15,7 +15,7 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobStatusResponse,
     VoiceProfileMarkdown,
 )
-from app.services.style_analysis_text import clean_and_decode_upload
+from app.core.text_processing import clean_and_decode_upload
 
 router = APIRouter(
     prefix="/style-analysis-jobs",

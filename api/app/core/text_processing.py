@@ -5,6 +5,8 @@ import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Literal, TypedDict
 
+from app.core.domain_errors import UnprocessableEntityError
+
 
 class InputClassification(TypedDict):
     text_type: Literal["混合文本", "口语字幕", "章节正文"]
@@ -20,9 +22,8 @@ ChunkConsumer = Callable[[int, str], Awaitable[None]]
 
 
 def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
-    # 扩大采样范围以增加判断准确度
     sample = sample[:16384]
-    
+
     for encoding in candidates:
         try:
             sample.decode(encoding, errors="strict")
@@ -33,12 +34,11 @@ def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
             continue
         except UnicodeError:
             continue
-            
-    # 若严格解码由于截断或其他原因失败，回退到 chardet 进行嗅探
+
     try:
         import chardet
         result = chardet.detect(sample)
-        if result and result.get('encoding') and result.get('confidence', 0) > 0.5:
+        if result and result.get("encoding") and result.get("confidence", 0) > 0.5:
             encoding = str(result["encoding"])
             normalized = encoding.lower().replace("_", "-")
             if normalized.startswith("utf-16") and not sample.startswith(
@@ -51,8 +51,7 @@ def detect_encoding(sample: bytes, candidates: tuple[str, ...]) -> str:
         pass
     except ValueError:
         pass
-        
-    # 如果全都不行，fallback 到 utf-8
+
     return "utf-8"
 
 
@@ -60,15 +59,12 @@ async def clean_and_decode_upload(
     upload_file,
     max_bytes: int = 0,
 ) -> AsyncIterator[bytes]:
-    """Reads an UploadFile, detects encoding, and yields UTF-8 bytes."""
     first_chunk = await upload_file.read(1024 * 1024)
     if not first_chunk:
-        from app.core.domain_errors import UnprocessableEntityError
         raise UnprocessableEntityError("上传的 TXT 文件为空")
 
     total_bytes_in = len(first_chunk)
     if max_bytes and total_bytes_in > max_bytes:
-        from app.core.domain_errors import UnprocessableEntityError
         raise UnprocessableEntityError("上传的 TXT 文件过大")
 
     encoding_candidates = (
@@ -99,7 +95,6 @@ async def clean_and_decode_upload(
                 break
             total_bytes_in += len(chunk)
             if max_bytes and total_bytes_in > max_bytes:
-                from app.core.domain_errors import UnprocessableEntityError
                 raise UnprocessableEntityError("上传的 TXT 文件过大")
 
             text_chunk = decoder.decode(chunk)
@@ -110,7 +105,6 @@ async def clean_and_decode_upload(
         if final_text:
             yield final_text.encode("utf-8")
     except UnicodeDecodeError as exc:
-        from app.core.domain_errors import UnprocessableEntityError
         raise UnprocessableEntityError(
             "无法识别 TXT 文件编码，请使用 UTF-8 或 GB18030 保存后重试"
         ) from exc
@@ -151,7 +145,6 @@ async def read_chunks_and_classification(
 
     total_char_count = 0
     emitted_chunk_count = 0
-    # Capture a small prefix for format classification (timestamps/speakers/noise).
     sample_buf: list[str] = []
     SAMPLE_LIMIT = 200
 
@@ -170,10 +163,10 @@ async def read_chunks_and_classification(
             return False
         if stripped.endswith(("。", "！", "？", ".", "!", "?")):
             return False
-        if (stripped.startswith(("“", '"', "‘", "'")) and 
+        if (stripped.startswith(("“", '"', "‘", "'")) and
             stripped.endswith(("”", '"', "’", "'"))):
             return False
-            
+
         for pattern in chapter_patterns:
             if pattern.match(line):
                 return True
@@ -191,7 +184,7 @@ async def read_chunks_and_classification(
             current_chunk_lines = []
             current_chunk_char_count = 0
             return
-            
+
         if on_chunk is not None:
             await on_chunk(emitted_chunk_count, chunk_text)
         emitted_chunk_count += 1
@@ -230,14 +223,12 @@ async def read_chunks_and_classification(
                 sample_buf.append(stripped)
 
         if is_chapter_header(line) or current_chunk_char_count > 15000:
-            # Emit if we already have substantial content (e.g., > 50 characters)
             if current_chunk_char_count > 50:
                 await emit_chunk()
 
         current_chunk_lines.append(line)
         current_chunk_char_count += len(stripped)
 
-    # Emit any remaining content
     await emit_chunk()
 
     sample_text = "\n".join(sample_buf)
@@ -254,7 +245,7 @@ async def read_chunks_and_classification(
         text_type = "章节正文"
         location_indexing = "章节或段落位置"
 
-    classification: InputClassification = {
+    classification = {
         "text_type": text_type,
         "has_timestamps": has_timestamps,
         "has_speaker_labels": has_speaker_labels,
