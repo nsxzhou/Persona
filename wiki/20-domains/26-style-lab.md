@@ -85,15 +85,14 @@ Style Lab 不是一次 LLM 调用，而是多阶段流水线：
 - 报告整理
 - Voice Profile 生成
 
-Prompt 模板的实际实现位于 `api/app/prompts/style_analysis.py`；流水线通过 `api/app/services/style_analysis_prompts.py` 的兼容导出层来引用这些 builder：
+Prompt 模板的实际实现位于 `api/app/prompts/style_analysis.py`；流水线直接导入这些 builder：
 
 - `build_chunk_analysis_prompt()`
 - `build_merge_prompt()`
 - `build_report_prompt()`
-- `build_style_summary_prompt()`
-- `build_prompt_pack_prompt()`
+- `build_voice_profile_prompt()`
 
-其中 `build_prompt_pack_prompt()` 的目标不是复述样本设定，而是产出可跨作品复用的风格执行资产：样本人物名、地名、势力名、事件名与专属设定词需要在这一层被去样本化，改写成角色原型、冲突原型与语义类别。
+其中 `build_voice_profile_prompt()` 的目标不是复述样本设定，而是产出可跨作品复用的风格执行资产：样本人物名、地名、势力名、事件名与专属设定词需要在这一层被去样本化，改写成角色原型、冲突原型与语义类别。
 对于样本里极强的风格锚点，例如固定叙事人称、特定题材语境或高频思维模板，这一层只能把它们写成“优先采用的偏好”，不能直接升级成所有挂载项目都必须遵守的硬约束。
 
 同时，阶段产物类型和状态常量由 `api/app/schemas/style_analysis_jobs.py:11`、`68`、`93` 定义，保证 Prompt 输出和持久化字段彼此对齐。

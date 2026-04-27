@@ -35,8 +35,7 @@ class StyleAnalysisJobRepository:
         if not include_payloads:
             stmt = stmt.options(
                 defer(StyleAnalysisJob.analysis_report_payload),
-                defer(StyleAnalysisJob.style_summary_payload),
-                defer(StyleAnalysisJob.prompt_pack_payload),
+                defer(StyleAnalysisJob.voice_profile_payload),
             )
         result = await session.stream_scalars(stmt)
         return [job async for job in result]
@@ -61,8 +60,7 @@ class StyleAnalysisJobRepository:
         if not include_payloads:
             stmt = stmt.options(
                 defer(StyleAnalysisJob.analysis_report_payload),
-                defer(StyleAnalysisJob.style_summary_payload),
-                defer(StyleAnalysisJob.prompt_pack_payload),
+                defer(StyleAnalysisJob.voice_profile_payload),
             )
         stmt = stmt.where(StyleAnalysisJob.id == job_id)
         if user_id is not None:
@@ -393,8 +391,7 @@ class StyleAnalysisJobRepository:
             error_message=None,
             analysis_meta_payload=None,
             analysis_report_payload=None,
-            style_summary_payload=None,
-            prompt_pack_payload=None,
+            voice_profile_payload=None,
             locked_by=None,
             locked_at=None,
             last_heartbeat_at=None,

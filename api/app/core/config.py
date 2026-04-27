@@ -144,6 +144,10 @@ class Settings(BaseSettings):
         default=None, alias="PERSONA_STYLE_ANALYSIS_CHECKPOINT_URL"
     )
 
+    novel_workflow_checkpoint_url: str | None = Field(
+        default=None, alias="PERSONA_NOVEL_WORKFLOW_CHECKPOINT_URL"
+    )
+
     # Pydantic配置 - 定义Settings类本身的行为
     model_config = SettingsConfigDict(
         # 从.env文件读取配置 - 开发环境会用这个文件

@@ -403,7 +403,7 @@ class StyleAnalysisJobService:
             session,
             job_id,
             user_id=user_id,
-            payload_column=StyleAnalysisJob.prompt_pack_payload,
+            payload_column=StyleAnalysisJob.voice_profile_payload,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取 Voice Profile",
         )
@@ -467,8 +467,7 @@ class StyleAnalysisJobService:
         job = await self.get_or_404(session, job_id)
         job.analysis_meta_payload = analysis_meta_payload
         job.analysis_report_payload = analysis_report_payload
-        job.style_summary_payload = None
-        job.prompt_pack_payload = voice_profile_payload
+        job.voice_profile_payload = voice_profile_payload
         job.status = STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None
         job.error_message = None

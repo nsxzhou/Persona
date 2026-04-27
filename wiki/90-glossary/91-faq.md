@@ -24,7 +24,7 @@
 
 ## 记忆同步为什么经常提示“无更新”？
 
-因为 Memory Sync 不是摘要器。它只记录“会影响后续章节的持续性变化”。如果本章只是情绪波动、一次性动作或没有新增长期约束，返回 `no_change` 是正确行为。Prompt 规则见 `api/app/prompts/editor.py`。
+因为 Memory Sync 不是摘要器。它只记录“会影响后续章节的持续性变化”。如果本章只是情绪波动、一次性动作或没有新增长期约束，返回 `no_change` 是正确行为。Prompt 规则见 `api/app/prompts/memory_sync.py`。
 
 ## 打开 Diff Dialog 后为什么还能手工改 AI 提议？
 
@@ -34,8 +34,8 @@
 
 大概率只改了 Prompt，没同步改 parser 或 Schema。先检查：
 
-- `api/app/schemas/editor.py`
-- `api/app/prompts/editor.py`
+- `api/app/schemas/novel_workflows.py`
+- `api/app/prompts/memory_sync.py`
 - `api/app/schemas/style_analysis_jobs.py`
 - `api/app/prompts/style_analysis.py`
 

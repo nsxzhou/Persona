@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.db.session import create_engine, create_session_factory
+from app.services.novel_workflow_worker import NovelWorkflowWorkerService
 from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 from app.services.style_analysis_worker import StyleAnalysisWorkerService
 
@@ -66,6 +67,15 @@ async def run_worker() -> None:
             _run_worker_lane(
                 lane_name="plot",
                 service_factory=PlotAnalysisWorkerService,
+                session_factory=session_factory,
+                poll_interval_seconds=settings.style_analysis_poll_interval_seconds,
+                max_poll_interval_seconds=max_poll_interval_seconds,
+            )
+        ),
+        asyncio.create_task(
+            _run_worker_lane(
+                lane_name="novel-workflow",
+                service_factory=NovelWorkflowWorkerService,
                 session_factory=session_factory,
                 poll_interval_seconds=settings.style_analysis_poll_interval_seconds,
                 max_poll_interval_seconds=max_poll_interval_seconds,

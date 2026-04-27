@@ -105,7 +105,7 @@ Plot Worker 直接复用 Style 侧的共享组件：
 - 身份与来源：`plot_name`、`provider_id`、`model_name`、`sample_file_id`
 - 状态机：`status`、`stage`（`api/app/db/models.py:414`、`417`）
 - 故障恢复：`attempt_count`、`locked_by`、`locked_at`、`last_heartbeat_at`、`pause_requested_at`、`paused_at`
-- 结果载荷（5 个）：`analysis_meta_payload`、`analysis_report_payload`、`plot_summary_payload`、`prompt_pack_payload`、**`plot_skeleton_payload`**（`api/app/db/models.py:423`，由 `0013_plot_skeleton_payload` 新增）
+- 结果载荷：`analysis_meta_payload`、`analysis_report_payload`、`story_engine_payload`、**`plot_skeleton_payload`**
 - 生命周期：`started_at`、`completed_at`
 
 `PlotProfile`（`api/app/db/models.py:461`）镜像其中 4 份 Markdown 资产，骨架字段在 `api/app/db/models.py:480`。
@@ -124,7 +124,7 @@ Plot Worker 直接复用 Style 侧的共享组件：
 
 ### 分析 Prompt 全是 Markdown-First，唯一例外是 sketch
 
-模板实际实现集中在 `api/app/prompts/plot_analysis.py`；`api/app/services/plot_analysis_prompts.py` 只是流水线导入用的兼容层：
+模板实际实现集中在 `api/app/prompts/plot_analysis.py`；流水线直接从该模块导入 builder：
 
 - `SHARED_ANALYSIS_RULES` 强制证据优先、中文 Markdown、章节顺序固定
 - `SKETCH_ANALYSIS_RULES` 是**唯一一处本地反转**：sketch 必须输出合法 JSON 以便下游聚合，显式禁止 Markdown 与代码块
@@ -141,8 +141,7 @@ Plot Worker 直接复用 Style 侧的共享组件：
 | `build_chunk_analysis_prompt()` | `api/app/prompts/plot_analysis.py` | analyze_chunk | `plot_skeleton: str \| None` |
 | `build_merge_prompt()` | `api/app/prompts/plot_analysis.py` | merge_chunks | `plot_skeleton: str \| None` |
 | `build_report_prompt()` | `api/app/prompts/plot_analysis.py` | build_report | `plot_skeleton: str \| None` |
-| `build_plot_summary_prompt()` | `api/app/prompts/plot_analysis.py` | build_summary | — |
-| `build_prompt_pack_prompt()` | `api/app/prompts/plot_analysis.py` | build_prompt_pack | — |
+| `build_story_engine_prompt()` | `api/app/prompts/plot_analysis.py` | build_story_engine | — |
 
 骨架注入由 `_format_skeleton_context()`（定义在 `api/app/prompts/plot_analysis.py`）统一拼接：在主输入前插入一节 `## 全书骨架（参考上下文）`，并附加反伪造声明“骨架仅用于定位与上下文参考；所有结论仍须以本 chunk 证据为准，不得引用骨架外的事件”。
 
@@ -179,8 +178,8 @@ flowchart TD
     AnalyzeN --> Merge["merge_chunks（骨架感知）"]
     Merge --> Report["build_report（骨架感知）"]
     Report --> Summary["build_summary"]
-    Summary --> Pack["build_prompt_pack"]
-    Pack --> Persist["persist_result"]
+    Report --> Story["build_story_engine"]
+    Story --> Persist["persist_result"]
     Persist --> Success["status=succeeded"]
 
     Claim -. pause_requested_at .-> Pause["status=paused"]

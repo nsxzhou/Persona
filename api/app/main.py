@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # setup: 系统初始化相关接口
 from app.api.routes import (
     auth,
-    editor,
+    novel_workflows,
     plot_analysis_jobs,
     plot_profiles,
     project_chapters,
@@ -36,6 +36,7 @@ from app.core.domain_errors import DomainError
 from app.db.session import create_engine, create_session_factory
 from app.services.style_analysis_worker import StyleAnalysisWorkerService
 from app.services.plot_analysis_worker import PlotAnalysisWorkerService
+from app.services.novel_workflow_worker import NovelWorkflowWorkerService
 from fastapi.responses import JSONResponse
 
 
@@ -52,6 +53,7 @@ def create_app(*, session_factory=None) -> FastAPI:
     async def lifespan(app: FastAPI):
         worker_service = StyleAnalysisWorkerService()
         plot_worker_service = PlotAnalysisWorkerService()
+        novel_workflow_worker_service = NovelWorkflowWorkerService()
         await worker_service.fail_stale_running_jobs(
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
@@ -60,11 +62,16 @@ def create_app(*, session_factory=None) -> FastAPI:
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
         )
+        await novel_workflow_worker_service.fail_stale_running_jobs(
+            app.state.session_factory,
+            stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
+        )
         try:
             yield
         finally:
             await worker_service.aclose()
             await plot_worker_service.aclose()
+            await novel_workflow_worker_service.aclose()
             if getattr(app.state, "owns_engine", False):
                 await app.state.engine.dispose()
 
@@ -123,7 +130,7 @@ def create_app(*, session_factory=None) -> FastAPI:
     app.include_router(provider_configs.router, prefix="/api/v1")
     app.include_router(projects.router, prefix="/api/v1")
     app.include_router(project_chapters.router, prefix="/api/v1")
-    app.include_router(editor.router, prefix="/api/v1")
+    app.include_router(novel_workflows.router, prefix="/api/v1")
     app.include_router(style_analysis_jobs.router, prefix="/api/v1")
     app.include_router(style_profiles.router, prefix="/api/v1")
     app.include_router(plot_analysis_jobs.router, prefix="/api/v1")

@@ -10,8 +10,8 @@ from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_db_session
 from app.services.auth import AuthService
-from app.services.editor import EditorService
 from app.services.llm_provider import LLMProviderService
+from app.services.novel_workflows import NovelWorkflowService
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
@@ -145,20 +145,19 @@ LLMProviderServiceDep = Annotated[
 ]
 
 
-def get_editor_service(
-    llm_service: LLMProviderServiceDep,
+def get_novel_workflow_service(
     project_service: ProjectServiceDep,
-    style_profile_service: StyleProfileServiceDep,
-    plot_profile_service: PlotProfileServiceDep,
-    provider_config_service: ProviderConfigServiceDep,
-) -> EditorService:
-    return EditorService(
-        llm_service=llm_service,
+    project_chapter_service: ProjectChapterServiceDep,
+    provider_service: ProviderConfigServiceDep,
+) -> NovelWorkflowService:
+    return NovelWorkflowService(
         project_service=project_service,
-        style_profile_service=style_profile_service,
-        plot_profile_service=plot_profile_service,
-        provider_config_service=provider_config_service,
+        project_chapter_service=project_chapter_service,
+        provider_service=provider_service,
     )
 
 
-EditorServiceDep = Annotated[EditorService, Depends(get_editor_service)]
+NovelWorkflowServiceDep = Annotated[
+    NovelWorkflowService,
+    Depends(get_novel_workflow_service),
+]

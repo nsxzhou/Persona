@@ -126,7 +126,7 @@ def test_build_plot_profile_response_payload_only_depends_on_story_engine_fields
         source_filename="sample.txt",
         plot_name="宗门夺位",
         analysis_report_payload=build_fake_plot_report(),
-        prompt_pack_payload=build_fake_plot_writing_guide(),
+        story_engine_payload=build_fake_plot_writing_guide(),
         plot_skeleton_payload="# 全书骨架\n启动期\n",
         created_at="2025-01-01T00:00:00Z",
         updated_at="2025-01-01T00:00:00Z",

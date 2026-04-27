@@ -37,8 +37,7 @@ class PlotAnalysisJobRepository:
         if not include_payloads:
             stmt = stmt.options(
                 defer(PlotAnalysisJob.analysis_report_payload),
-                defer(PlotAnalysisJob.plot_summary_payload),
-                defer(PlotAnalysisJob.prompt_pack_payload),
+                defer(PlotAnalysisJob.story_engine_payload),
                 defer(PlotAnalysisJob.plot_skeleton_payload),
             )
         result = await session.stream_scalars(stmt)
@@ -64,8 +63,7 @@ class PlotAnalysisJobRepository:
         if not include_payloads:
             stmt = stmt.options(
                 defer(PlotAnalysisJob.analysis_report_payload),
-                defer(PlotAnalysisJob.plot_summary_payload),
-                defer(PlotAnalysisJob.prompt_pack_payload),
+                defer(PlotAnalysisJob.story_engine_payload),
                 defer(PlotAnalysisJob.plot_skeleton_payload),
             )
         stmt = stmt.where(PlotAnalysisJob.id == job_id)
@@ -113,20 +111,12 @@ class PlotAnalysisJobRepository:
             payload_column=PlotAnalysisJob.plot_skeleton_payload,
         )
 
-    async def get_status_and_plot_summary(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
+    async def get_status_and_story_engine(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
         return await self._get_status_and_payload(
             session,
             job_id,
             user_id=user_id,
-            payload_column=PlotAnalysisJob.plot_summary_payload,
-        )
-
-    async def get_status_and_prompt_pack(self, session: AsyncSession, job_id: str, *, user_id: str | None = None):
-        return await self._get_status_and_payload(
-            session,
-            job_id,
-            user_id=user_id,
-            payload_column=PlotAnalysisJob.prompt_pack_payload,
+            payload_column=PlotAnalysisJob.story_engine_payload,
         )
 
     async def get_for_delete(

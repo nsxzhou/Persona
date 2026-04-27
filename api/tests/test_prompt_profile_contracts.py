@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.assemblers import build_job_detail_response, build_plot_job_detail_response
-from app.schemas.editor import EditorCompletionRequest
+from app.schemas.novel_workflows import NovelWorkflowCreateRequest
 from app.schemas.plot_profiles import PlotProfileCreate
 from app.schemas.projects import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.schemas.style_profiles import StyleProfileCreate
@@ -173,7 +173,7 @@ def test_generation_profile_enforces_declared_enums() -> None:
         )
 
 
-def test_project_and_editor_requests_accept_generation_profile() -> None:
+def test_project_and_novel_workflow_requests_accept_generation_profile() -> None:
     generation_profile = _build_generation_profile()
 
     create_payload = ProjectCreate(
@@ -182,7 +182,8 @@ def test_project_and_editor_requests_accept_generation_profile() -> None:
         generation_profile=generation_profile,
     )
     update_payload = ProjectUpdate(generation_profile=generation_profile)
-    completion_payload = EditorCompletionRequest(
+    workflow_payload = NovelWorkflowCreateRequest(
+        intent_type="continuation_write",
         text_before_cursor="他看着她，没有说话。",
         generation_profile=generation_profile,
     )
@@ -212,7 +213,7 @@ def test_project_and_editor_requests_accept_generation_profile() -> None:
 
     assert create_payload.generation_profile == generation_profile
     assert update_payload.generation_profile == generation_profile
-    assert completion_payload.generation_profile == generation_profile
+    assert workflow_payload.generation_profile == generation_profile
     assert response.generation_profile == generation_profile
 
 
@@ -278,8 +279,7 @@ def test_style_job_detail_exposes_voice_profile_fields_from_runtime_payload() ->
                 "chunk_count": 1,
             },
             analysis_report_payload="# 执行摘要\n冷白。\n",
-            style_summary_payload="# 风格名称\n冷白\n",
-            prompt_pack_payload=(
+            voice_profile_payload=(
                 "# Voice Profile\n"
                 "## 3.1 口头禅与常用表达\n- 执行规则：短句推进。\n"
                 "## 3.2 固定句式与节奏偏好\n- 执行规则：长短句交替。\n"
@@ -327,8 +327,7 @@ def test_plot_job_detail_exposes_story_engine_fields_from_runtime_payload() -> N
             plot_profile_id=None,
             plot_profile=None,
             analysis_report_payload="# 执行摘要\n高压推进。\n",
-            plot_summary_payload="# 剧情定位\n宗门夺位\n",
-            prompt_pack_payload=(
+            story_engine_payload=(
                 "# Plot Writing Guide\n"
                 "## Core Plot Formula\n- 用压力迫使主角行动。\n"
                 "## Chapter Progression Loop\n- 目标 -> 阻碍 -> 行动 -> 小兑现 -> 新压力。\n"

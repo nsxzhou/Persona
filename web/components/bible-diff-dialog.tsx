@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileClock, GitCompareArrows } from "lucide-react";
+import { FileClock, GitCompareArrows, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +65,7 @@ export function BibleDiffDialog({
   const [onlyChanges, setOnlyChanges] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
 
   useEffect(() => {
     setEditedCharactersStatus(proposedCharactersStatus);
@@ -135,7 +136,7 @@ export function BibleDiffDialog({
         diff.filter((line) =>
           onlyChanges ? line.type === "removed" : line.type !== "added",
         ),
-        { collapseUnchanged: onlyChanges },
+        { collapseUnchanged: false },
       ),
     [diff, onlyChanges],
   );
@@ -145,7 +146,7 @@ export function BibleDiffDialog({
         diff.filter((line) =>
           onlyChanges ? line.type === "added" : line.type !== "removed",
         ),
-        { collapseUnchanged: onlyChanges },
+        { collapseUnchanged: false },
       ),
     [diff, onlyChanges],
   );

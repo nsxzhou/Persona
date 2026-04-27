@@ -19,6 +19,20 @@ type FlatItem =
   | { type: "chapter"; vi: number; ci: number; ch: any }
   | { type: "chapter-details"; vi: number; ci: number; ch: any };
 
+function estimateItemSize(item: FlatItem) {
+  if (item.type === "volume") return 36;
+  if (item.type === "empty-volume") return 120;
+  if (item.type === "chapter") return 28;
+  if (item.type === "chapter-details") {
+    let lines = 0;
+    if (item.ch.coreEvent) lines++;
+    if (item.ch.emotionArc) lines++;
+    if (item.ch.chapterHook) lines++;
+    return 12 + lines * 20;
+  }
+  return 35;
+}
+
 export function ChapterTree({
   outline,
   currentChapter,
@@ -64,21 +78,23 @@ export function ChapterTree({
     count: flatItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const item = flatItems[index];
-      if (item.type === "volume") return 36;
-      if (item.type === "empty-volume") return 120;
-      if (item.type === "chapter") return 28;
-      if (item.type === "chapter-details") {
-        let lines = 0;
-        if (item.ch.coreEvent) lines++;
-        if (item.ch.emotionArc) lines++;
-        if (item.ch.chapterHook) lines++;
-        return 12 + lines * 20; // Approx height
-      }
-      return 35;
+      return estimateItemSize(flatItems[index]);
     },
     overscan: 10,
   });
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const renderedRows = virtualItems.length > 0
+    ? virtualItems
+    : flatItems.map((item, index) => ({
+        index,
+        key: `fallback-${index}`,
+        size: estimateItemSize(item),
+        start: flatItems.slice(0, index).reduce((sum, previous) => sum + estimateItemSize(previous), 0),
+      }));
+  const totalHeight = Math.max(
+    rowVirtualizer.getTotalSize(),
+    flatItems.reduce((sum, item) => sum + estimateItemSize(item), 0),
+  );
 
   if (outline.volumes.length === 0) {
     return (
@@ -94,12 +110,12 @@ export function ChapterTree({
     <div ref={parentRef} className="h-full w-full overflow-y-auto py-2">
       <div
         style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
+          height: `${totalHeight}px`,
           width: "100%",
           position: "relative",
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+        {renderedRows.map((virtualRow) => {
           const item = flatItems[virtualRow.index];
           const { vi } = item;
 

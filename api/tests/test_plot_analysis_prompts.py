@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.prompts.plot_analysis import STORY_ENGINE_TEMPLATE
-from app.services.plot_analysis_prompts import (
+from app.prompts.plot_analysis import (
+    STORY_ENGINE_TEMPLATE,
     build_chunk_analysis_prompt,
     build_report_prompt,
     build_skeleton_group_reduce_prompt,
@@ -59,6 +59,8 @@ def test_build_sketch_prompt_contains_required_json_fields_and_enums() -> None:
     assert "邻接上下文不能覆盖当前 chunk 的事件归属" in prompt
     assert "只分析上传样本" in prompt
     assert "不得推断完整小说" in prompt
+    assert "核心DNA" in prompt
+    assert "伏笔三步法" in prompt
 
 
 def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
@@ -98,6 +100,8 @@ def test_build_skeleton_reduce_prompt_keeps_fixed_headers() -> None:
     assert "只分析上传样本" in prompt
     assert "不得推断完整小说" in prompt
     assert "未覆盖开篇、高潮或结尾" in prompt
+    assert "角色表层目标/深层渴望/灵魂需求线索" in prompt
+    assert "认知颠覆点" in prompt
 
 
 def test_build_chunk_analysis_and_report_prompts_thread_skeleton_context() -> None:
@@ -119,6 +123,8 @@ def test_build_chunk_analysis_and_report_prompts_thread_skeleton_context() -> No
     assert "## 全书骨架（参考上下文）" in report_prompt
     assert "推进规律 + 证据摘要" in chunk_prompt
     assert "不要只写事件复述" in chunk_prompt
+    assert "悬念单元推进" in chunk_prompt
+    assert "伏笔埋设/强化/回收" in chunk_prompt
     for header in (
         "## 2.5.1 主线剧情分析",
         "## 2.5.2 支线剧情分析",
@@ -140,6 +146,10 @@ def test_build_story_engine_prompt_requires_new_heading_and_sections() -> None:
 
     assert "生成一个可复用的 Plot Writing Guide" in prompt
     assert "输出必须直接从 `# Plot Writing Guide` 开始" in prompt
+    assert "当[主角+身份]遭遇[核心事件]" in prompt
+    assert "3-5 章悬念单元" in prompt
+    assert "伏笔三步法：埋设 -> 强化 -> 回收" in prompt
+    assert "认知颠覆" in prompt
     for section in (
         "## Core Plot Formula",
         "## Chapter Progression Loop",

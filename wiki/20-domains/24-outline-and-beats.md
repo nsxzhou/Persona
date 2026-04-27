@@ -16,9 +16,8 @@
 `outline_detail` 的主 UI 在 `web/components/outline-detail-tab.tsx:37`：
 
 - 支持“编辑 / 预览 / 结构化视图”三种模式
-- `streamSSE()` 复用了通用 SSE 消费器，见 `web/components/outline-detail-tab.tsx:67`
-- `handleGenerateVolumes()` 调 `/editor/generate-volumes` 生成卷级结构，见 `web/components/outline-detail-tab.tsx:95`
-- `handleGenerateVolumeChapters()` 调 `/editor/generate-volume-chapters` 生成单卷章节，见 `web/components/outline-detail-tab.tsx:114`
+- 分卷与章节细纲生成通过 `api.runVolumeWorkflow()` / `api.runVolumeChaptersWorkflow()` 创建 workflow run
+- 页面可通过 `NovelWorkflowRunPanel` 查看 run 状态、日志、产物与 warning
 
 结构化解析依赖 `web/lib/outline-parser.ts:68`：
 
@@ -28,22 +27,22 @@
 节拍侧主 UI 在 `web/components/beat-panel.tsx:17`，生成与展开逻辑在 `web/hooks/use-beat-generation.ts:7`：
 
 - `handleGenerateBeats()` 先取当前章光标前文本、运行时状态、细纲和前序章节摘要
-- `handleStartBeatExpand()` 再按 beat 顺序逐个请求 `/editor/expand-beat`
+- `handleStartBeatExpand()` 再按 beat 顺序创建 `beat_expand` workflow run
 
 ## 后端接口 / Service / Repository 链路
 
-大纲和节拍都走 `editor.py`，但分成三类端点：
+大纲和节拍都走 novel workflow，但分成不同 intent：
 
-- 卷结构生成：`api/app/api/routes/editor.py:130`
-- 单卷章节生成：`api/app/api/routes/editor.py:143`
-- 节拍生成：`api/app/api/routes/editor.py:99`
-- 节拍展开：`api/app/api/routes/editor.py:116`
+- 卷结构生成：`intent_type=volume_generate`
+- 单卷章节生成：`intent_type=volume_chapters_generate`
+- 节拍生成：`intent_type=beats_generate`
+- 节拍展开：`intent_type=beat_expand`
 
-对应的 Service 入口都在 `api/app/services/editor.py:265` 这个 `PlanningEditorService` 里：
+对应的编排在 `api/app/services/novel_workflow_pipeline.py` 与 `api/app/services/novel_workflow_agents.py`：
 
-- `generate_beats()` 负责非流式返回 beats 列表
-- `stream_volume_generation()` 负责卷级结构流式输出
-- `stream_volume_chapters_generation()` 负责单卷章节流式输出
+- `BeatAgent.generate()` 负责生成 beats Markdown
+- `BeatAgent.expand()` 负责逐拍正文
+- 卷结构和章节细纲由 pipeline 调用 `outline.py` / `chapter_plan.py` prompt builders
 
 真正把 Markdown 细纲解析成结构数据的后端工具是 `api/app/services/outline_parser.py:37`。它和前端 parser 共享同一份格式假设：
 
@@ -64,10 +63,10 @@
 
 这一领域的 Prompt 层分工很清楚：
 
-- `build_volume_generate_system_prompt()` 生成卷级骨架，实现位于 `api/app/prompts/editor.py`
-- `build_volume_chapters_system_prompt()` 生成单卷章节，实现位于 `api/app/prompts/editor.py`
-- `build_beat_generate_system_prompt()` 生成 beats，实现位于 `api/app/prompts/editor.py`
-- `build_beat_expand_system_prompt()` 展开单个 beat，实现位于 `api/app/prompts/editor.py`
+- `build_volume_generate_system_prompt()` 生成卷级骨架，实现位于 `api/app/prompts/outline.py`
+- `build_volume_chapters_system_prompt()` 生成单卷章节，实现位于 `api/app/prompts/chapter_plan.py`
+- `build_beat_generate_system_prompt()` 生成 beats，实现位于 `api/app/prompts/beat.py`
+- `build_beat_expand_system_prompt()` 展开单个 beat，实现位于 `api/app/prompts/prose_writer.py`
 
 几个重要约束：
 
@@ -81,9 +80,14 @@
 - `web/components/beat-panel.tsx`
 - `web/hooks/use-beat-generation.ts`
 - `web/lib/outline-parser.ts`
-- `api/app/api/routes/editor.py`
-- `api/app/services/editor.py`
-- `api/app/prompts/editor.py`
+- `web/components/novel-workflow-run-panel.tsx`
+- `api/app/api/routes/novel_workflows.py`
+- `api/app/services/novel_workflow_pipeline.py`
+- `api/app/services/novel_workflow_agents.py`
+- `api/app/prompts/outline.py`
+- `api/app/prompts/chapter_plan.py`
+- `api/app/prompts/beat.py`
+- `api/app/prompts/prose_writer.py`
 - `api/app/services/outline_parser.py`
 - `api/app/services/project_chapters.py`
 - `api/app/db/models.py`

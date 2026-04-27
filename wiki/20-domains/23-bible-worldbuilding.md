@@ -39,15 +39,16 @@ Bible 字段有专门的读取/更新入口，位于 `api/app/api/routes/project
 
 项目元数据（名称、默认 Provider、挂载档案等）仍然走 `PATCH /api/v1/projects/{id}`；Bible 长文本本体不再混在 `projects` 表里。
 
-AI 生成蓝图字段与活态初稿走 editor route：
+AI 生成蓝图字段与活态初稿走 novel workflow：
 
-- `POST /projects/{project_id}/editor/generate-section`，见 `api/app/api/routes/editor.py:64`
+- `POST /api/v1/novel-workflows`，`intent_type=section_generate`
 
-生成逻辑在 `api/app/services/editor.py:150`：
+生成逻辑在 `api/app/services/novel_workflow_pipeline.py`：
 
-- `_get_style_prompt()` 先取挂载的风格约束
-- `build_section_system_prompt()` 按字段名选择不同的 Prompt 模板，实现位于 `api/app/prompts/editor.py`
-- `build_section_user_message()` 把其它 Bible 区块作为上下文注入，实现位于 `api/app/prompts/editor.py`
+- worker 先取挂载的 `voice_profile_payload` 与 `story_engine_payload`
+- `ContextSelectorAgent` 选择项目描述、蓝图字段与活态字段
+- `build_section_system_prompt()` 按字段名选择不同的 Prompt 模板，实现位于 `api/app/prompts/section_router.py`
+- `build_section_user_message()` 把其它 Bible 区块作为上下文注入，实现位于 `api/app/prompts/section_router.py`
 
 ## 数据模型
 
@@ -67,8 +68,8 @@ Bible 已拆成独立的 `ProjectBible` 表，与 `Project` 形成 1:1 关系。
 Bible 是 Prompt 组装的主燃料：
 
 - `api/app/services/context_assembly.py:49` 会按 `BIBLE_SECTION_ORDER` 把非空字段依次拼进系统提示词
-- `api/app/prompts/editor.py` 中的 `_SECTION_META` 为每个字段定义不同的生成任务
-- `world_building` 和 `characters` 还会附带“题材收束提醒”，避免模型凭空补完一套超自然体系，相关约束同样定义在 `api/app/prompts/editor.py`
+- `api/app/prompts/section_router.py` 根据 section 路由到 `world_building.py`、`characters.py`、`outline.py`、`chapter_plan.py` 等专职 prompt
+- `world_building` 和 `characters_blueprint` 的方法论分别落在 `api/app/prompts/world_building.py` 与 `api/app/prompts/characters.py`
 
 其中最重要的边界是：
 
@@ -82,9 +83,10 @@ Bible 是 Prompt 组装的主燃料：
 - `web/components/bible-tab-content.tsx`
 - `web/components/bible-diff-dialog.tsx`
 - `api/app/api/routes/projects.py`
-- `api/app/api/routes/editor.py`
-- `api/app/services/editor.py`
-- `api/app/prompts/editor.py`
+- `api/app/api/routes/novel_workflows.py`
+- `api/app/services/novel_workflow_pipeline.py`
+- `api/app/services/novel_workflow_agents.py`
+- `api/app/prompts/section_router.py`
 - `api/app/services/context_assembly.py`
 - `api/app/db/models.py`
 

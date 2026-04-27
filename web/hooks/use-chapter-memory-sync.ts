@@ -53,7 +53,7 @@ function getStoredDiff(
   return {
     open: false,
     currentCharactersStatus: projectBible.characters_status ?? "",
-    proposedCharactersStatus: chapter?.memory_sync_proposed_state ?? "", // Need to add to schema or reuse? Wait, the schema didn't have proposed_characters_status?
+    proposedCharactersStatus: chapter?.memory_sync_proposed_characters_status ?? "",
     currentState: projectBible.runtime_state,
     proposedState: chapter?.memory_sync_proposed_state ?? "",
     currentThreads: projectBible.runtime_threads ?? "",

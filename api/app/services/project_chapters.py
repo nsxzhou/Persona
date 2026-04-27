@@ -32,6 +32,7 @@ class ProjectChapterService:
         chapter.memory_sync_checked_at = None
         chapter.memory_sync_checked_content_hash = None
         chapter.memory_sync_error_message = None
+        chapter.memory_sync_proposed_characters_status = None
         chapter.memory_sync_proposed_state = None
         chapter.memory_sync_proposed_threads = None
         chapter.memory_sync_proposed_summary = None
@@ -66,26 +67,22 @@ class ProjectChapterService:
             for chapter in existing_chapters
         }
 
-        new_chapters: list[ProjectChapter] = []
         for volume_index, volume in enumerate(parsed["volumes"]):
             for chapter_index, chapter_outline in enumerate(volume["chapters"]):
                 chapter = existing_chapter_map.get((volume_index, chapter_index))
                 title = chapter_outline["title"]
                 if chapter is None:
-                    chapter = ProjectChapter(
+                    chapter = await self.repository.create(
+                        session,
                         project_id=project_id,
                         volume_index=volume_index,
                         chapter_index=chapter_index,
                         title=title,
                     )
-                    new_chapters.append(chapter)
                     existing_chapters.append(chapter)
                     existing_chapter_map[(volume_index, chapter_index)] = chapter
                 elif chapter.title != title:
                     chapter.title = title
-
-        if new_chapters:
-            session.add_all(new_chapters)
 
         await self.repository.flush(session)
         return sorted(
@@ -117,6 +114,9 @@ class ProjectChapterService:
             if chapter.memory_sync_checked_content_hash != self._hash_content(content):
                 self._clear_memory_sync(chapter)
 
+        if "beats_markdown" in update_data:
+            chapter.beats_markdown = update_data["beats_markdown"] or ""
+
         if "summary" in update_data:
             chapter.summary = update_data["summary"] or ""
 
@@ -127,6 +127,7 @@ class ProjectChapterService:
             "memory_sync_checked_at",
             "memory_sync_checked_content_hash",
             "memory_sync_error_message",
+            "memory_sync_proposed_characters_status",
             "memory_sync_proposed_state",
             "memory_sync_proposed_threads",
             "memory_sync_proposed_summary",

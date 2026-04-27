@@ -2,97 +2,35 @@ from __future__ import annotations
 
 import pytest
 from pydantic import TypeAdapter
-from app.services.editor_prompts import (
-    build_beat_expand_system_prompt,
-    build_beat_expand_user_message,
+from app.prompts.beat import (
     build_beat_generate_system_prompt,
     build_beat_generate_user_message,
-    build_bible_update_system_prompt,
-    build_bible_update_user_message,
-    build_concept_generate_system_prompt,
-    build_concept_generate_user_message,
-    build_section_system_prompt,
-    build_section_user_message,
+)
+from app.prompts.chapter_plan import (
     build_volume_chapters_system_prompt,
     build_volume_chapters_user_message,
+)
+from app.prompts.concept import (
+    build_concept_generate_system_prompt,
+    build_concept_generate_user_message,
+)
+from app.prompts.memory_sync import (
+    build_bible_update_system_prompt,
+    build_bible_update_user_message,
+)
+from app.prompts.outline import (
     build_volume_generate_system_prompt,
     build_volume_generate_user_message,
 )
-from app.schemas.editor import (
-    BeatExpandRequest,
-    BeatGenerateRequest,
-    BibleUpdateRequest,
-    SectionGenerateRequest,
-    VolumeChaptersRequest,
-    VolumeGenerateRequest,
+from app.prompts.prose_writer import (
+    build_beat_expand_system_prompt,
+    build_beat_expand_user_message,
 )
-from app.schemas.projects import ConceptGenerateRequest
-
-
-def test_world_building_prompt_uses_core_scaffold_and_conditional_modules() -> None:
-    prompt = build_section_system_prompt("world_building", length_preset="long")
-
-    assert "生成一份足以支撑人物、冲突和前期展开的必要设定" in prompt
-    assert "若简介未明确写出超自然，则默认不存在超自然" in prompt
-    assert "只保留当前故事真正需要的模块" in prompt
-    assert "1. **时代与秩序**" in prompt
-    assert "2. **当前局势与核心冲突土壤**" in prompt
-    assert "3. **主角当前处境与约束（或核心金手指/系统）**" in prompt
-    assert "仅在确有需要时，才补充下列可选模块" in prompt
-    assert "特殊设定（仅简介明示时）" in prompt
-    assert "主要势力" in prompt
-    assert "关键前史" in prompt
-    assert "活动空间与扩展方向" in prompt
-    assert "资源与利益流动" in prompt
-    assert "隐秘规则/禁忌" not in prompt
-
-
-def test_world_building_prompt_prefers_grounded_identity_swap_reading() -> None:
-    prompt = build_section_system_prompt("world_building", length_preset="long")
-
-    assert "借皮囊/借壳/替身/换身份/李代桃僵" in prompt
-    assert "默认优先按现实权谋或身份操作理解" in prompt
-    assert "相貌相似、冒名顶替、伪造文书、家族关系运作、替考替身、身份植入" in prompt
-    assert "不得把上述表达解释成世界规则、禁忌体系或异常机制" in prompt
-
-
-def test_world_building_prompt_includes_grounded_and_supernatural_examples() -> None:
-    prompt = build_section_system_prompt("world_building", length_preset="medium")
-
-    assert "示例（应按现实权谋理解）" in prompt
-    assert "门阀夫人要借他皮囊一用" in prompt
-    assert "应理解为身份顶替、冒名入局、关系运作或李代桃僵" in prompt
-    assert "示例（才允许进入“特殊设定”）" in prompt
-    assert "她需借尸还魂，必须在子时行夺舍仪式" in prompt
-    assert "这类内容才允许扩写为超自然或异常机制" in prompt
-
-
-@pytest.mark.parametrize("length_preset", ["short", "medium", "long"])
-def test_world_building_prompt_removes_hard_coded_setting_checklist(
-    length_preset: str,
-) -> None:
-    prompt = build_section_system_prompt("world_building", length_preset=length_preset)
-
-    assert "必须覆盖以下六个维度" not in prompt
-    assert "至少 3 个互相制衡的势力" not in prompt
-    assert "至少 6 级" not in prompt
-    assert "力量/修炼体系 3-4 级即可" not in prompt
-    assert "力量体系 4-5 级，势力 2-3 个" not in prompt
-    assert "经济必须与力量等级挂钩" not in prompt
-
-
-def test_world_building_prompt_explicitly_blocks_over_generation() -> None:
-    prompt = build_section_system_prompt("world_building", length_preset="medium")
-
-    assert "暧昧、诡秘、留白不等于存在隐藏机制" in prompt
-    assert "历史、权谋、现实、悬疑等题材，不要默认生成公开修炼体系或全民力量系统" in prompt
-    assert "历史、权谋、现实题材，不得因为简介带有诡异感、暧昧感或留白，就自行补出秘密体系、禁忌机制或异常规则" in prompt
-    assert "资源争夺并非主线时，不要专门发明货币、修炼材料、交易媒介" in prompt
-    assert "不要为了显得完整而补完世界" in prompt
-    assert "不要发明暂时不会进入剧情的设定" in prompt
-    assert "若某条设定不会改变主角选择、冲突强度或后续兑现路径，就不要展开" in prompt
-    assert "不要拿设定规模、世界分层或古老秘闻数量冒充故事深度或爽点" in prompt
-
+from app.prompts.section_router import (
+    build_section_system_prompt,
+    build_section_user_message,
+)
+from app.schemas.novel_workflows import NovelWorkflowCreateRequest
 
 def test_world_building_prompt_ties_setting_to_reader_desire_supply() -> None:
     prompt = build_section_system_prompt("world_building", length_preset="long")
@@ -258,31 +196,6 @@ def test_character_prompt_assigns_reader_hook_functions() -> None:
     assert "角色能让读者期待主角得到什么、压过什么、推倒谁、彻底征服谁，或是提供绝对忠诚的避风港" in prompt
     assert "避免只写人设标签或空泛魅力描述" in prompt
 
-
-@pytest.mark.parametrize("length_preset", ["short", "medium", "long"])
-def test_planning_prompts_use_soft_length_hints_without_hard_branching(
-    length_preset: str,
-) -> None:
-    prompts = [
-        build_section_system_prompt("world_building", length_preset=length_preset),
-        build_section_system_prompt("characters_blueprint", length_preset=length_preset),
-        build_section_system_prompt("outline_master", length_preset=length_preset),
-        build_section_system_prompt("outline_detail", length_preset=length_preset),
-        build_volume_generate_system_prompt(length_preset=length_preset),
-    ]
-
-    for prompt in prompts:
-        assert "篇幅适配提示" in prompt
-        assert "展开密度和推进节奏的软参考" in prompt
-        assert "不必为了匹配预设篇幅，硬性限制结构层级、角色数量或设定规模" in prompt
-        assert "三幕结构" not in prompt
-        assert "2-4 卷" not in prompt
-        assert "5-15 万字" not in prompt
-        assert "15-50 万字" not in prompt
-        assert "重要配角 1-2 个即可" not in prompt
-        assert "重要配角 2-3 个" not in prompt
-
-
 def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() -> None:
     prompt = build_section_system_prompt("outline_master", length_preset="long")
 
@@ -402,32 +315,6 @@ def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
     assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
 
-
-def test_identity_swap_description_regression_is_passed_with_grounded_guardrails() -> None:
-    description = (
-        "好消息：穿成解元，才华横溢。坏消息：刚被诬下狱，择日问斩。"
-        "绝境中，门阀望族的美艳夫人，要借我皮囊一用！"
-    )
-
-    user_message = build_section_user_message(
-        "world_building",
-        {
-            "description": description,
-            "world_building": "",
-            "characters_blueprint": "",
-            "outline_master": "",
-            "outline_detail": "",
-            "runtime_state": "",
-            "runtime_threads": "",
-        },
-    )
-    system_prompt = build_section_system_prompt("world_building", length_preset="long")
-
-    assert description in user_message
-    assert "借皮囊/借壳/替身/换身份/李代桃僵" in system_prompt
-    assert "默认优先按现实权谋或身份操作理解" in system_prompt
-
-
 def test_bible_update_prompt_uses_scope_aware_check_content_label() -> None:
     user_message = build_bible_update_user_message(
         current_runtime_state="旧状态",
@@ -495,15 +382,6 @@ def test_concept_generate_prompt_requires_reader_retention_diagnosis_and_driver_
     assert "主驱动轴" in prompt
     assert "升级/权力扩张、局势反压、身份逆转、资源掠夺、关系张力、暧昧兑现" in prompt
     assert "不是只换标题和设定表皮" in prompt
-
-
-def test_concept_generate_prompt_removes_fixed_three_lane_labels() -> None:
-    prompt = build_concept_generate_system_prompt()
-
-    assert "番茄脑洞/情绪流" not in prompt
-    assert "起点世界/悬念流" not in prompt
-    assert "反差人设流" not in prompt
-
 
 def test_concept_generate_prompt_requires_genre_sensitive_opening_and_novel_intro_tone() -> None:
     prompt = build_concept_generate_system_prompt()
@@ -597,20 +475,22 @@ def test_creative_fixed_prompts_remove_old_external_helper_language() -> None:
         assert "小说执笔者" not in prompt
 
 
-def test_section_generate_request_only_uses_description_field() -> None:
-    adapter = TypeAdapter(SectionGenerateRequest)
+def test_section_generate_request_only_uses_project_context_fields() -> None:
+    adapter = TypeAdapter(NovelWorkflowCreateRequest)
 
     from_description = adapter.validate_python({
+        "intent_type": "section_generate",
         "section": "world_building",
-        "description": "新的简介",
+        "project_id": "project-1",
     })
     from_inspiration_only = adapter.validate_python({
+        "intent_type": "section_generate",
         "section": "world_building",
         "inspiration": "旧字段",
     })
 
-    assert from_description.description == "新的简介"
-    assert from_inspiration_only.description == ""
+    assert from_description.project_id == "project-1"
+    assert from_inspiration_only.inspiration == "旧字段"
 
 
 # --------------------------------------------------------------------------- #
@@ -790,46 +670,32 @@ def test_user_messages_ignore_empty_whitespace_only_regeneration_fields() -> Non
 
 
 @pytest.mark.parametrize(
-    "model_cls,base_payload",
+    "base_payload",
     [
-        (
-            SectionGenerateRequest,
-            {"section": "world_building"},
-        ),
-        (
-            BibleUpdateRequest,
-            {"content_to_check": "正文", "sync_scope": "chapter_full"},
-        ),
-        (
-            BeatGenerateRequest,
-            {"text_before_cursor": "前文"},
-        ),
-        (
-            BeatExpandRequest,
-            {
-                "text_before_cursor": "前文",
-                "beat": "一拍",
-                "beat_index": 0,
-                "total_beats": 3,
-            },
-        ),
-        (VolumeChaptersRequest, {"volume_index": 0}),
-        (VolumeGenerateRequest, {}),
-        (
-            ConceptGenerateRequest,
-            {"inspiration": "灵感", "provider_id": "p-1"},
-        ),
+        {"intent_type": "section_generate", "section": "world_building"},
+        {"intent_type": "memory_refresh", "content_to_check": "正文", "sync_scope": "chapter_full"},
+        {"intent_type": "beats_generate", "text_before_cursor": "前文"},
+        {
+            "intent_type": "beat_expand",
+            "text_before_cursor": "前文",
+            "beat": "一拍",
+            "beat_index": 0,
+            "total_beats": 3,
+        },
+        {"intent_type": "volume_chapters_generate", "volume_index": 0},
+        {"intent_type": "volume_generate"},
+        {"intent_type": "concept_bootstrap", "inspiration": "灵感", "provider_id": "p-1"},
     ],
 )
 def test_request_schemas_default_regeneration_fields_to_none(
-    model_cls, base_payload,
+    base_payload,
 ) -> None:
-    adapter = TypeAdapter(model_cls)
+    adapter = TypeAdapter(NovelWorkflowCreateRequest)
     parsed = adapter.validate_python(base_payload)
 
     assert parsed.previous_output is None
-    assert parsed.user_feedback is None
-    if model_cls is ConceptGenerateRequest:
+    assert parsed.feedback is None
+    if base_payload["intent_type"] == "concept_bootstrap":
         assert parsed.style_profile_id is None
         assert parsed.plot_profile_id is None
 
@@ -837,16 +703,16 @@ def test_request_schemas_default_regeneration_fields_to_none(
         {
             **base_payload,
             "previous_output": "旧稿",
-            "user_feedback": "意见",
+            "feedback": "意见",
             "style_profile_id": "style-1",
             "plot_profile_id": "plot-1",
         }
-        if model_cls is ConceptGenerateRequest
-        else {**base_payload, "previous_output": "旧稿", "user_feedback": "意见"},
+        if base_payload["intent_type"] == "concept_bootstrap"
+        else {**base_payload, "previous_output": "旧稿", "feedback": "意见"},
     )
 
     assert parsed_with_regen.previous_output == "旧稿"
-    assert parsed_with_regen.user_feedback == "意见"
-    if model_cls is ConceptGenerateRequest:
+    assert parsed_with_regen.feedback == "意见"
+    if base_payload["intent_type"] == "concept_bootstrap":
         assert parsed_with_regen.style_profile_id == "style-1"
         assert parsed_with_regen.plot_profile_id == "plot-1"

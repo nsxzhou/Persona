@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
@@ -12,6 +12,8 @@ describe("BibleDiffDialog", () => {
     render(
       <BibleDiffDialog
         open
+        currentCharactersStatus={"旧角色状态"}
+        proposedCharactersStatus={"旧角色状态\n新角色状态"}
         currentState={"旧状态\n保留"}
         proposedState={"旧状态\n新状态"}
         currentThreads={"旧线索\n保留"}
@@ -39,10 +41,13 @@ describe("BibleDiffDialog", () => {
     expect(onRetry).toHaveBeenCalledWith("更精简");
   });
 
-  test("only changes mode hides unchanged lines instead of collapsing them", () => {
+  test("only changes mode hides unchanged lines instead of collapsing them", async () => {
     renderDialog();
 
-    expect(screen.getAllByText("旧状态").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "运行时状态" }));
+    await waitFor(() => {
+      expect(screen.getAllByText("旧状态").length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("switch"));
 
     expect(screen.queryByText("旧状态")).toBeNull();

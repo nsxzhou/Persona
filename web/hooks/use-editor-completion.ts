@@ -53,7 +53,7 @@ export function useEditorCompletion({
     setIsGenerating(true);
 
     try {
-      const response = await api.completeEditor(
+      const response = await api.runContinuationWorkflow(
         project.id,
         textBeforeCursor,
         currentChapterContext,

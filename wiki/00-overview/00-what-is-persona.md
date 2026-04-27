@@ -37,11 +37,10 @@ flowchart LR
 
 #### Style Lab — 风格实验室
 
-把长篇小说样本（单个 TXT）清洗、切片、分析、聚合，反向工程出**可复用、可注入、可评估的结构化风格档案**（Style Profile）。风格档案包含三个 Markdown 产物：
+把长篇小说样本（单个 TXT）清洗、切片、分析、聚合，反向工程出**可复用、可注入、可评估的结构化风格档案**（Style Profile）。风格档案包含两类 Markdown 产物：
 
 - `analysis_report_markdown`：完整可审阅的分析报告（只读）
-- `style_summary_markdown`：精炼的风格约束摘要（可编辑）
-- `prompt_pack_markdown`：直接注入 LLM 的母 Prompt 包（可编辑）
+- `voice_profile_markdown`：直接注入 LLM 的 Voice Profile（可编辑）
 
 整条分析流水线基于 **LangGraph**，支持断点续跑、并发分块、手动暂停恢复、实时增量日志。详见 [26 Style Lab](../20-domains/26-style-lab.md) 与 [27 Style Analysis 管道](../20-domains/27-style-analysis-pipeline.md)。
 

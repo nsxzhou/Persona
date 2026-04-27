@@ -46,6 +46,10 @@ export type PlotAnalysisJobStatus = PlotAnalysisJob["status"];
 export type PlotAnalysisJobStage = NonNullable<PlotAnalysisJob["stage"]>;
 export type PlotProfile = OpenApiSchema<"PlotProfileResponse">;
 export type PlotProfileListItem = OpenApiSchema<"PlotProfileListItemResponse">;
+export type NovelWorkflow = OpenApiSchema<"NovelWorkflowResponse">;
+export type NovelWorkflowListItem = OpenApiSchema<"NovelWorkflowBaseResponse">;
+export type NovelWorkflowStatusSnapshot = OpenApiSchema<"NovelWorkflowStatusResponse">;
+export type NovelWorkflowLogs = OpenApiSchema<"NovelWorkflowLogsResponse">;
 export type SetupStatusResponse = OpenApiSchema<"SetupStatusResponse">;
 export type SetupResponse = OpenApiSchema<"SetupResponse">;
 export type StyleAnalysisJobStatusSnapshot = OpenApiSchema<"StyleAnalysisJobStatusResponse">;
@@ -58,8 +62,14 @@ export type PlotAnalysisJobCreatePayload =
   Omit<components["schemas"]["Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post"], "file"> & {
     file: File;
   };
-export type BeatGenerateResponse = OpenApiSchema<"BeatGenerateResponse">;
-export type BibleUpdateResponse = OpenApiSchema<"BibleUpdateResponse">;
+export type NovelBeatWorkflowResult = { beats: string[] };
+export type NovelMemoryWorkflowResult = {
+  proposed_characters_status: string;
+  proposed_runtime_state: string;
+  proposed_runtime_threads: string;
+  proposed_summary: string | null;
+  changed: boolean;
+};
 export type ConnectionTestResponse = OpenApiSchema<"ConnectionTestResponse">;
 
 export type SetupPayload = components["schemas"]["SetupRequest"];
@@ -72,7 +82,24 @@ export type StyleProfileCreatePayload = components["schemas"]["StyleProfileCreat
 export type StyleProfileUpdatePayload = components["schemas"]["StyleProfileUpdate"];
 export type PlotProfileCreatePayload = components["schemas"]["PlotProfileCreate"];
 export type PlotProfileUpdatePayload = components["schemas"]["PlotProfileUpdate"];
+export type NovelWorkflowCreatePayload = components["schemas"]["NovelWorkflowCreateRequest"];
+export type NovelWorkflowDecisionPayload = components["schemas"]["NovelWorkflowDecisionRequest"];
 
-export type ConceptGeneratePayload = components["schemas"]["ConceptGenerateRequest"];
-export type ConceptGenerateResult = components["schemas"]["ConceptGenerateResponse"];
-export type ConceptItem = components["schemas"]["ConceptItem"];
+export type ConceptItem = {
+  title: string;
+  synopsis: string;
+};
+export type ConceptGenerateResult = {
+  concepts: ConceptItem[];
+};
+export type ConceptGeneratePayload = Pick<
+  NovelWorkflowCreatePayload,
+  | "inspiration"
+  | "provider_id"
+  | "count"
+  | "generation_profile"
+  | "style_profile_id"
+  | "plot_profile_id"
+> & {
+  model?: string | null;
+};

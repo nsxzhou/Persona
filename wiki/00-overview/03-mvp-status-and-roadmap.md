@@ -92,7 +92,7 @@
 | --- | --- | --- |
 | 概念抽卡页面 | ✅ | `web/app/(workspace)/projects/new/page.tsx`、`web/components/concept-gacha-page.tsx` |
 | 3 张差异化概念卡 | ✅ | `/api/v1/projects/generate-concepts` + `ConceptGachaPage` |
-| 标题与简介规则约束 | ✅ | `editor_prompts.py` 的概念生成 prompt 与解析器 |
+| 标题与简介规则约束 | ✅ | `api/app/prompts/concept.py` 的概念生成 prompt 与前端 Markdown 解析 |
 
 ### Style Lab（风格实验室）
 
@@ -105,7 +105,7 @@
 | LangGraph 分析管道（prepare → analyze → merge → report → summary → prompt pack → persist） | 🧪 | `api/app/services/style_analysis_pipeline.py` |
 | Chunk 并发分析（`Send` fan-out）| 🧪 | 可通过 `PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY` 配 |
 | Checkpointer 续跑（SQLite/Postgres）| 🧪 | `api/app/services/style_analysis_checkpointer.py` |
-| Markdown-First 输出契约 | 🧪 | `style_analysis_prompts.py`、`style_analysis_llm.py` |
+| Markdown-First 输出契约 | 🧪 | `api/app/prompts/style_analysis.py`、`style_analysis_llm.py` |
 | 阶段反馈 + 实时增量日志拉取 | 🧪 | 前端 `/style-lab` 任务列表展示 |
 | 手动暂停 / 恢复任务 | 🧪 | |
 | 完整分析报告只读审阅 | 🧪 | `style-lab-wizard-report-step.tsx` |
@@ -143,7 +143,7 @@
 | --- | --- | --- |
 | 上下文组装（蓝图 + 活态 + 前 3 章 + 当前章大纲） | ✅ | `api/app/services/context_assembly.py` |
 | Prompt Caching 策略 | ✅ | 靠"前段不变 + 后段动态"的自然 cache key |
-| 运行时 Prompt 模板（Editor / Style / Plot） | ✅ | `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py` |
+| 运行时 Prompt 模板（Novel Workflow / Style / Plot） | ✅ | `api/app/prompts/` 下的专职模块、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py` |
 | Length Presets（生成长度预设） | ✅ | `api/app/core/length_presets.py`、`web/lib/length-presets.ts` |
 | Redaction（日志脱敏） | ✅ | `api/app/core/redaction.py` |
 | SSE 流式响应 + 错误恢复 | ✅ | `api/app/api/sse.py`、`web/lib/sse.ts` |

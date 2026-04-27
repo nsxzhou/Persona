@@ -5,7 +5,7 @@
 仓库里同时存在两类资产（Voice Profile 和 Story Engine）：
 
 - `prompts/` 下的 461 份 Markdown 语料：偏“创作素材库 / Voice Profile 和 Story Engine库”
-- `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py`：偏“生产运行时 Prompt 模板”
+- `api/app/prompts/concept.py`、`section_router.py`、`beat.py`、`prose_writer.py`、`memory_sync.py`、`style_analysis.py`、`plot_analysis.py` 等：偏“生产运行时 Prompt 模板”
 
 本章的目标不是逐文件导读，而是帮你建立两个判断：
 
@@ -31,7 +31,7 @@
 
 当前产品主链路真正调用的是两组代码内模板：
 
-- `api/app/prompts/editor.py`：Zen Editor / 概念 / 大纲 / 节拍 / Memory Sync
+- `api/app/prompts/concept.py` / `section_router.py` / `beat.py` / `prose_writer.py` / `memory_sync.py`：Zen Editor / 概念 / 大纲 / 节拍 / Memory Sync
 - `api/app/prompts/style_analysis.py`：Style Lab 分析 / 聚合 / 报告 / Voice Profile
 - `api/app/prompts/plot_analysis.py`：Plot Lab sketch / skeleton / 分析 / Story Engine
 
@@ -40,14 +40,14 @@
 - 概念抽卡：`build_concept_generate_system_prompt()` / `build_concept_generate_user_message()`
 - Bible 更新：`build_bible_update_system_prompt()` / `build_bible_update_user_message()`
 - 节拍生成与逐拍展开：`build_beat_generate_system_prompt()` / `build_beat_expand_system_prompt()`
-- Style Lab 分块分析 / 聚合 / 报告 / Voice Profile：`build_chunk_analysis_prompt()`、`build_merge_prompt()`、`build_report_prompt()`、`build_style_summary_prompt()`、`build_prompt_pack_prompt()`
-- Plot Lab sketch / skeleton / 报告 / Story Engine：`build_sketch_prompt()`、`build_skeleton_reduce_prompt()`、`build_report_prompt()`、`build_plot_summary_prompt()`、`build_prompt_pack_prompt()`
+- Style Lab 分块分析 / 聚合 / 报告 / Voice Profile：`build_chunk_analysis_prompt()`、`build_merge_prompt()`、`build_report_prompt()`、`build_voice_profile_prompt()`
+- Plot Lab sketch / skeleton / 报告 / Story Engine：`build_sketch_prompt()`、`build_skeleton_reduce_prompt()`、`build_report_prompt()`、`build_story_engine_prompt()`
 
 所以做开发时要先分清：
 
-- 想理解“产品当前怎么跑” -> 先看 `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py`
+- 想理解“产品当前怎么跑” -> 先看 `api/app/services/novel_workflow_pipeline.py`、`api/app/services/novel_workflow_agents.py` 以及 `api/app/prompts/` 下的专职模块
 - 想理解“项目积累了哪些通用写作资产” -> 再看 `prompts/`
-- 想理解运行时为什么 import 的还是 `app.services.*_prompts` -> 那只是薄薄一层 re-export shim，真正模板正文仍在 `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py`
+- 运行时直接 import `api/app/prompts/*`，不再保留 `app.services.*_prompts` 兼容导出层
 
 ## 采样索引
 
@@ -59,7 +59,7 @@
 - `prompts/12.md:1` `黄金三章细纲`
 - `prompts/122.md:1` `角色弧光 (Character Arc) 设计`
 
-它们和线上 Concept Gacha 的关系是“理念相近、实现分离”。线上概念抽卡真正走的是 `editor_prompts.py:693` 的差异化三卡策略。
+它们和线上 Concept Gacha 的关系是“理念相近、实现分离”。线上概念抽卡真正走的是 `api/app/prompts/concept.py` 的差异化三卡策略。
 
 ### 2. 大纲规划 / 节奏控制
 
@@ -93,7 +93,7 @@
 - `prompts/117.md:1` `远古神话/传说生成器`
 - `prompts/137.md:1` `宗教/教派教义生成`
 
-线上生产 Prompt 则由 `api/app/prompts/editor.py` 中 `_SECTION_META` 里的 `world_building` / `characters` / `outline_master` / `outline_detail` 接手。
+线上生产 Prompt 则由 `api/app/prompts/section_router.py` 路由到 `world_building.py` / `characters.py` / `outline.py` / `chapter_plan.py` 等专职模块。
 
 ### 5. 风格 / 修辞 / 语感校准
 
@@ -122,11 +122,10 @@
 | 目录 / 文件 | 角色 |
 | --- | --- |
 | `prompts/*.md` | 通用创作 Prompt 语料库 |
-| `api/app/prompts/editor.py` | Zen Editor / 概念 / 大纲 / 节拍 / Memory Sync 生产 Prompt |
+| `api/app/prompts/concept.py`、`section_router.py`、`beat.py`、`prose_writer.py`、`memory_sync.py` | Novel Workflow 的概念 / 大纲 / 节拍 / 正文 / Memory Sync 生产 Prompt |
 | `api/app/prompts/style_analysis.py` | Style Lab 分析、聚合、Voice Profile 生产 Prompt |
 | `api/app/prompts/plot_analysis.py` | Plot Lab sketch、骨架、聚合、Story Engine 生产 Prompt |
-| `api/app/services/editor_prompts.py`、`api/app/services/style_analysis_prompts.py`、`api/app/services/plot_analysis_prompts.py` | 兼容导出层，给 runtime service 保持稳定 import 路径 |
-| `api/app/schemas/editor.py` | Editor 请求 / 响应契约 |
+| `api/app/schemas/novel_workflows.py` | Novel Workflow 请求 / 响应 / 状态 / 决策契约 |
 | `api/app/schemas/style_analysis_jobs.py` | Style Lab 产物 RootModel 与状态常量 |
 | `api/app/schemas/plot_analysis_jobs.py` | Plot Lab 产物 RootModel、skeleton schema 与阶段常量 |
 
@@ -140,7 +139,7 @@
 
 | 症状 | 常见原因 | 先看哪里 |
 | --- | --- | --- |
-| 以为 `prompts/` 就是线上逻辑 | 混淆了语料库与生产模板 | `api/app/prompts/editor.py`、`api/app/prompts/style_analysis.py`、`api/app/prompts/plot_analysis.py` |
+| 以为 `prompts/` 就是线上逻辑 | 混淆了语料库与生产模板 | `api/app/prompts/` 下的专职模块与 `api/app/services/novel_workflow_agents.py` |
 | 新增 Prompt 文件后前端没任何变化 | `prompts/` 目录没有自动注册机制 | 路由和 Service 是否实际引用 |
 | 风格分析输出结构不稳 | 只看 `prompts/`，没看 `STYLE_ANALYSIS_REPORT_SECTIONS` 和模板 | `api/app/schemas/style_analysis_jobs.py:11` |
 

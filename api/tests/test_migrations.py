@@ -229,6 +229,40 @@ def test_alembic_upgrade_does_not_disable_application_loggers(
     assert app_logger.disabled is False
 
 
+def test_novel_workflow_migration_adds_story_summary_beats_and_runs_table(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "novel-workflow-migration.db"
+    monkeypatch.delenv("PERSONA_ENCRYPTION_KEY", raising=False)
+    get_settings.cache_clear()
+    alembic_config = Config("alembic.ini")
+    alembic_config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+
+    try:
+        command.upgrade(alembic_config, "head")
+        import sqlite3
+
+        with sqlite3.connect(database_path) as connection:
+            bible_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(project_bibles)").fetchall()
+            }
+            chapter_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(project_chapters)").fetchall()
+            }
+            run_tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+    finally:
+        get_settings.cache_clear()
+
+    assert "story_summary" in bible_columns
+    assert "beats_markdown" in chapter_columns
+    assert "novel_workflow_runs" in run_tables
+
+
 def test_alembic_revision_ids_fit_version_column_limit() -> None:
     versions_dir = Path(__file__).resolve().parent.parent / "alembic" / "versions"
     for migration_file in versions_dir.glob("*.py"):

@@ -80,7 +80,7 @@ class PlotProfileService(BaseProfileService[PlotProfile]):
                 source_filename=job.sample_file.original_filename,
                 plot_name=payload.plot_name,
                 analysis_report_payload=analysis_report,
-                prompt_pack_payload=payload.story_engine_markdown,
+                story_engine_payload=payload.story_engine_markdown,
                 plot_skeleton_payload=skeleton_payload,
                 user_id=resolved_user_id,
             ),
@@ -103,7 +103,7 @@ class PlotProfileService(BaseProfileService[PlotProfile]):
     ) -> PlotProfile:
         profile = await self.get_or_404(session, profile_id, user_id=user_id)
         profile.plot_name = payload.plot_name
-        profile.prompt_pack_payload = payload.story_engine_markdown
+        profile.story_engine_payload = payload.story_engine_markdown
         if payload.plot_skeleton_markdown is not None:
             profile.plot_skeleton_payload = payload.plot_skeleton_markdown
         await self.repository.flush(session)

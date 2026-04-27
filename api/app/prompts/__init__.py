@@ -6,33 +6,33 @@ from app.prompts.common import PromptLane, PromptSpec
 
 PROMPT_SPECS: tuple[PromptSpec, ...] = (
     PromptSpec(
-        id="editor.section",
+        id="novel.section",
         lane=PromptLane.EDITOR,
         output_contract="markdown",
         test_focus="section-specific instructions, style/plot injection, length presets",
     ),
     PromptSpec(
-        id="editor.volume",
+        id="novel.volume",
         lane=PromptLane.EDITOR,
         output_contract="markdown",
         test_focus="volume planning format and regeneration guidance",
     ),
     PromptSpec(
-        id="editor.memory_sync",
+        id="novel.memory_sync",
         lane=PromptLane.EDITOR,
-        output_contract="two-heading markdown parsed into BibleUpdateResponse",
+        output_contract="three-heading markdown parsed into workflow memory payload",
         test_focus="runtime state and thread headings stay parser-compatible",
     ),
     PromptSpec(
-        id="editor.beat",
+        id="novel.beat",
         lane=PromptLane.EDITOR,
         output_contract="markdown",
         test_focus="beat list format, plot/style injection, chapter pressure progression",
     ),
     PromptSpec(
-        id="editor.concept",
+        id="novel.concept",
         lane=PromptLane.EDITOR,
-        output_contract="markdown concept blocks parsed into ConceptItem list",
+        output_contract="markdown concept blocks parsed into prompt-owned ConceptCard list",
         test_focus="three-card strategy and concept block parseability",
     ),
     PromptSpec(

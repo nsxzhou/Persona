@@ -399,7 +399,7 @@ class PlotAnalysisJobService:
         *,
         user_id: str | None = None,
     ) -> str:
-        result = await self.repository.get_status_and_prompt_pack(
+        result = await self.repository.get_status_and_story_engine(
             session,
             job_id,
             user_id=user_id,
@@ -470,8 +470,7 @@ class PlotAnalysisJobService:
         job = await self.get_or_404(session, job_id)
         job.analysis_meta_payload = analysis_meta_payload
         job.analysis_report_payload = analysis_report_payload
-        job.plot_summary_payload = None
-        job.prompt_pack_payload = story_engine_payload
+        job.story_engine_payload = story_engine_payload
         job.plot_skeleton_payload = plot_skeleton_payload
         job.status = PLOT_ANALYSIS_JOB_STATUS_SUCCEEDED
         job.stage = None

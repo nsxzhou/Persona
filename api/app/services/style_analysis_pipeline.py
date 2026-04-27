@@ -19,14 +19,14 @@ from app.schemas.style_analysis_jobs import (
     STYLE_ANALYSIS_JOB_STAGE_POSTPROCESSING,
     STYLE_ANALYSIS_JOB_STAGE_REPORTING,
 )
-from app.services.style_analysis_llm import MarkdownLLMClient
-from app.services.prompt_injection_policy import PromptInjectionTask
-from app.services.style_analysis_prompts import (
+from app.prompts.style_analysis import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
     build_report_prompt,
     build_voice_profile_prompt,
 )
+from app.services.style_analysis_llm import MarkdownLLMClient
+from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
 

@@ -27,12 +27,12 @@ def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
     if (
         job.analysis_meta_payload
         and job.analysis_report_payload
-        and job.prompt_pack_payload
+        and job.voice_profile_payload
     ):
         return (
             AnalysisMeta.model_validate(job.analysis_meta_payload),
             job.analysis_report_payload,
-            job.prompt_pack_payload,
+            job.voice_profile_payload,
         )
 
     return None, None, None
@@ -41,7 +41,7 @@ def build_job_result_bundle(job: StyleAnalysisJob) -> tuple[
 def build_profile_result_bundle(profile: StyleProfile) -> tuple[str, str]:
     return (
         profile.analysis_report_payload,
-        profile.prompt_pack_payload,
+        profile.voice_profile_payload,
     )
 
 
@@ -53,12 +53,12 @@ def build_plot_job_result_bundle(job: PlotAnalysisJob) -> tuple[
     if (
         job.analysis_meta_payload
         and job.analysis_report_payload
-        and job.prompt_pack_payload
+        and job.story_engine_payload
     ):
         return (
             PlotAnalysisMeta.model_validate(job.analysis_meta_payload),
             job.analysis_report_payload,
-            job.prompt_pack_payload,
+            job.story_engine_payload,
         )
 
     return None, None, None
@@ -67,15 +67,14 @@ def build_plot_job_result_bundle(job: PlotAnalysisJob) -> tuple[
 def build_plot_profile_result_bundle(profile: PlotProfile) -> tuple[str, str]:
     return (
         profile.analysis_report_payload,
-        profile.prompt_pack_payload,
+        profile.story_engine_payload,
     )
 
 
 def build_style_profile_response_payload(profile: StyleProfile) -> dict[str, Any]:
-    analysis_report_markdown, prompt_pack_markdown = (
+    analysis_report_markdown, voice_profile_markdown = (
         build_profile_result_bundle(profile)
     )
-    voice_profile_markdown = prompt_pack_markdown
     return {
         "id": profile.id,
         "source_job_id": profile.source_job_id,
@@ -92,10 +91,9 @@ def build_style_profile_response_payload(profile: StyleProfile) -> dict[str, Any
 
 
 def build_plot_profile_response_payload(profile: PlotProfile) -> dict[str, Any]:
-    analysis_report_markdown, prompt_pack_markdown = (
+    analysis_report_markdown, story_engine_markdown = (
         build_plot_profile_result_bundle(profile)
     )
-    story_engine_markdown = prompt_pack_markdown
     return {
         "id": profile.id,
         "source_job_id": profile.source_job_id,
@@ -130,10 +128,9 @@ def build_plot_profile_embedded_response(
 
 def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse:
     style_profile = build_style_profile_embedded_response(job.style_profile)
-    analysis_meta, analysis_report_markdown, prompt_pack_markdown = (
+    analysis_meta, analysis_report_markdown, voice_profile_markdown = (
         build_job_result_bundle(job)
     )
-    voice_profile_markdown = prompt_pack_markdown
     return StyleAnalysisJobResponse(
         id=job.id,
         style_name=job.style_name,
@@ -164,7 +161,7 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
 
 def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobResponse:
     plot_profile = build_plot_profile_embedded_response(job.plot_profile)
-    story_engine_markdown = job.prompt_pack_payload
+    story_engine_markdown = job.story_engine_payload
     return PlotAnalysisJobResponse(
         id=job.id,
         plot_name=job.plot_name,

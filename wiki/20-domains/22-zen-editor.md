@@ -44,20 +44,22 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 ## 后端接口 / Service / Repository 链路
 
-流式写作路由在 `api/app/api/routes/editor.py`：
+编辑器 AI 能力统一走 `api/app/api/routes/novel_workflows.py`：
 
-- `POST /projects/{project_id}/editor/complete` 用于直接续写
-- `POST /projects/{project_id}/editor/generate-section` 用于生成 Bible 区块
-- `POST /projects/{project_id}/editor/expand-beat` 用于逐拍展开
+- `POST /api/v1/novel-workflows` 创建 `continuation_write`、`beats_generate`、`beat_expand`、`memory_refresh` 等 run
+- `GET /api/v1/novel-workflows/{id}/status` 轮询 run 状态、阶段、断点与产物列表
+- `GET /api/v1/novel-workflows/{id}/logs` 读取任务日志
+- `GET /api/v1/novel-workflows/{id}/artifacts/{artifact_name}` 读取正文、节拍、记忆更新等 Markdown 产物
+- `POST /api/v1/novel-workflows/{id}/pause|resume|decision` 处理暂停、恢复和人工确认
 
-正文持久化不走 editor route，而是走章节更新接口：`api/app/api/routes/project_chapters.py:47`。这条路径最终进入 `ProjectChapterService.update()`，见 `api/app/services/project_chapters.py:88`。
+正文持久化仍走章节更新接口：`api/app/api/routes/project_chapters.py`。AI run 产物由前端确认后写回章节或 Bible。
 
-真正的写作 Prompt 组装逻辑在 `api/app/services/editor.py:96`：
+真正的写作流程在 `api/app/services/novel_workflow_pipeline.py` 与 `api/app/services/novel_workflow_agents.py`：
 
-- `stream_completion()` 会先检查项目已挂载风格档案
-- 再读取 `ProjectBible` 中的蓝图字段和活态字段
-- 调用 `assemble_writing_context()` 构造完整系统提示词，见 `api/app/services/context_assembly.py:49`
-- 最后把消息交给 `LLMProviderService.stream_messages()`
+- `NovelWorkflowPipeline` 负责编排 LangGraph 节点、断点、artifact 与持久化 payload
+- `ContextSelectorAgent` 提取项目、Bible 与章节上下文
+- `BeatAgent`、`EditorAgent`、`MemorySyncAgent` 等专职 agent 调用各自 prompt 模块
+- `assemble_writing_context()` 仍负责正文生成时的系统上下文拼装，见 `api/app/services/context_assembly.py`
 
 ## 数据模型
 
@@ -76,8 +78,8 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 编辑器是 Prompt 工程最密集的领域之一，真正的上下文组装高度依赖于 `GenerationProfile`（生成配置）：
 
-- **动态目标与欲望计算**：在 `api/app/services/editor.py` 的 `stream_completion` 阶段，系统会根据 `GenerationProfile` 动态计算出本章的写作目标卡片（`ChapterObjectiveCard`）以及包含欲望叠加规则的表达强度（`IntensityProfile`），从而决定当前剧情的推进方向与张力类型。
-- **系统提示词组装**：`api/app/services/context_assembly.py` 负责将上述计算出的动态目标与欲望，连同挂载的风格档案（`prompt_pack_payload`）、剧情引擎（`story_engine_markdown`）以及 Bible 的各个区块（如 `world_building`、`outline_detail`、`runtime_state` 等）拼装成完整的系统提示词。
+- **动态目标与欲望计算**：在 workflow pipeline 生成正文时，系统会根据 `GenerationProfile` 动态计算出本章的写作目标卡片（`ChapterObjectiveCard`）以及包含欲望叠加规则的表达强度（`IntensityProfile`），从而决定当前剧情的推进方向与张力类型。
+- **系统提示词组装**：`api/app/services/context_assembly.py` 负责将上述计算出的动态目标与欲望，连同挂载的风格档案（`voice_profile_payload`）、剧情引擎（`story_engine_payload`）以及 Bible 的各个区块（如 `world_building`、`outline_detail`、`runtime_state` 等）拼装成完整的系统提示词。
 - **局部正文上下文**：前端 `web/hooks/use-editor-completion.ts` 发起续写时，只把光标前的文本送给模型，不会把光标后的文本当成写作上下文。
 
 这里的核心哲学是：续写不是“随便让模型接着写”，而是“让模型在完整风格 + 动态意图（目标与欲望叠加） + 局部上下文下写”。
@@ -91,9 +93,11 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 - `web/hooks/use-editor-completion.ts`
 - `web/hooks/use-beat-generation.ts`
 - `web/hooks/use-chapter-memory-sync.ts`
-- `api/app/api/routes/editor.py`
+- `web/components/novel-workflow-run-panel.tsx`
+- `api/app/api/routes/novel_workflows.py`
 - `api/app/api/routes/project_chapters.py`
-- `api/app/services/editor.py`
+- `api/app/services/novel_workflow_pipeline.py`
+- `api/app/services/novel_workflow_agents.py`
 - `api/app/services/context_assembly.py`
 
 ## 相关章节

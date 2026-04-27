@@ -4,7 +4,7 @@
 
 Persona 有两条容易出事故的链路：
 
-- Editor Prompt 改了，但 API request/response schema 没改
+- Novel Workflow Prompt 改了，但 API request/response schema 没改
 - Style Lab 输出模板改了，但 RootModel / payload 解析没改
 
 这不是抽象风险，而是本项目被 `AGENT.md` 明确上升为硬规则的问题。
@@ -25,14 +25,15 @@ Persona 有两条容易出事故的链路：
 
 因此本章不是在发明新规则，而是在解释项目里这条规则具体长什么样。
 
-### 例子 1：Memory Sync 的 Request/Response 契约
+### 例子 1：Memory Sync 的 Workflow Artifact 契约
 
-Schema 定义在 `api/app/schemas/editor.py`：
+Workflow request / decision / status 契约定义在 `api/app/schemas/novel_workflows.py`：
 
-- `BibleUpdateRequest`，见 `api/app/schemas/editor.py:30`
-- `BibleUpdateResponse`，见 `api/app/schemas/editor.py:37`
+- `NovelWorkflowCreateRequest`
+- `NovelWorkflowDecisionRequest`
+- `NovelWorkflowStatusResponse`
 
-对应 Prompt 构建在 `api/app/prompts/editor.py`：
+对应 Prompt 构建在 `api/app/prompts/memory_sync.py`：
 
 - system prompt：`build_bible_update_system_prompt()`
 - user message：`build_bible_update_user_message()`
@@ -40,9 +41,9 @@ Schema 定义在 `api/app/schemas/editor.py`：
 
 这里的强绑定关系是：
 
-- Schema 约定了只有 `proposed_runtime_state`、`proposed_runtime_threads`、`changed`
-- Prompt 明确要求模型输出两个 `##` 区块
-- 解析器假设第二个区块标题就是 `## 伏笔与线索追踪`
+- Workflow artifact 约定了 `memory_update_bundle` 是完整 Markdown
+- Prompt 明确要求模型输出 `## 角色动态状态`、`## 运行时状态`、`## 伏笔与线索追踪`
+- parser 按这些标题拆出可写回 Bible 的三个字段
 
 如果你把标题、字段名或返回语义改掉任何一个点，另外两个地方都必须一起改。
 
@@ -51,14 +52,12 @@ Schema 定义在 `api/app/schemas/editor.py`：
 Style Lab 的几个输出类型被封装成 RootModel：
 
 - `AnalysisReportMarkdown`，见 `api/app/schemas/style_analysis_jobs.py:27`
-- `StyleSummaryMarkdown`，见 `api/app/schemas/style_analysis_jobs.py:34`
-- `PromptPackMarkdown`，见 `api/app/schemas/style_analysis_jobs.py:41`
+- `VoiceProfileMarkdown`，见 `api/app/schemas/style_analysis_jobs.py`
 
 它们对应的 Prompt 模板在 `api/app/prompts/style_analysis.py`：
 
 - `REPORT_TEMPLATE`
-- `STYLE_SUMMARY_TEMPLATE`
-- `PROMPT_PACK_TEMPLATE`
+- `VOICE_PROFILE_TEMPLATE`
 
 这说明 Persona 选择的是 **Markdown-First** 契约，而不是 JSON-first：
 
@@ -79,8 +78,7 @@ Style Lab 的几个输出类型被封装成 RootModel：
 例如 Style Lab 保存档案时，前端要求：
 
 - `styleName` 非空
-- `styleSummaryMarkdown` 非空
-- `promptPackMarkdown` 非空
+- `voiceProfileMarkdown` 非空
 
 这与后端 `StyleProfileCreate` / `StyleProfileUpdate` 的字段约束是一致的，见 `api/app/schemas/style_profiles.py:8` 与 `16`。
 
@@ -99,7 +97,7 @@ Style Lab 的几个输出类型被封装成 RootModel：
 
 | Prompt 文件 | 对应契约 |
 | --- | --- |
-| `api/app/prompts/editor.py` | `api/app/schemas/editor.py`、`web/lib/api/generated/openapi.ts` |
+| `api/app/prompts/concept.py` / `memory_sync.py` / `beat.py` / `prose_writer.py` | `api/app/schemas/novel_workflows.py`、`web/lib/api/generated/openapi.ts` |
 | `api/app/prompts/style_analysis.py` | `api/app/schemas/style_analysis_jobs.py` |
 | `api/app/prompts/plot_analysis.py` | `api/app/schemas/plot_analysis_jobs.py` |
 
@@ -113,7 +111,7 @@ Style Lab 的几个输出类型被封装成 RootModel：
 
 | 症状 | 常见原因 | 先看哪里 |
 | --- | --- | --- |
-| 模型输出看起来“差不多”，但接口 500 | parser 仍按旧标题/旧字段切分 | `editor_prompts.py` / `style_analysis_prompts.py` |
+| 模型输出看起来“差不多”，但接口 500 | parser 仍按旧标题/旧字段切分 | `api/app/prompts/memory_sync.py` / `style_analysis.py` |
 | 前端表单能保存，后端却 422 | Zod 与 Pydantic 约束不一致 | `web/lib/validations/` 与 `api/app/schemas/` |
 | OpenAPI 类型和后端实际不一致 | 后端改了没重新 codegen | `web/package.json:9` |
 

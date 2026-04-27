@@ -36,7 +36,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 - FastAPI 依赖注入用 `Annotated`
 - Pydantic 走 V2 API，不用 V1 老方法
 
-代表性样例在 `api/app/api/deps.py:21` 和 `api/app/schemas/editor.py:12`。
+代表性样例在 `api/app/api/deps.py:21` 和 `api/app/schemas/novel_workflows.py`。
 
 ### 后端：数据库默认异步、默认防 N+1
 
