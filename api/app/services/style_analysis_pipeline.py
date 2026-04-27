@@ -26,7 +26,7 @@ from app.prompts.style_analysis import (
     build_voice_profile_prompt,
 )
 from app.core.text_processing import InputClassification
-from app.services.llm_client import MarkdownLLMClient
+from app.services.llm_provider import LLMProviderService
 from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 
@@ -111,7 +111,7 @@ class StyleAnalysisPipeline:
         model_name: str,
         style_name: str,
         source_filename: str,
-        llm_client: MarkdownLLMClient | None = None,
+        llm_service: LLMProviderService | None = None,
         checkpointer: Any | None = None,
         stage_callback: StageCallback | None = None,
         should_pause: Callable[[], bool] | None = None,
@@ -121,10 +121,7 @@ class StyleAnalysisPipeline:
         self.style_name = style_name
         self.source_filename = source_filename
 
-        self.llm_client = llm_client or MarkdownLLMClient()
-        self.chat_model = self.llm_client.build_model(
-            provider=provider, model_name=model_name
-        )
+        self.llm_service = llm_service or LLMProviderService()
 
         if checkpointer is None:
             logger.warning(
@@ -268,10 +265,9 @@ class StyleAnalysisPipeline:
         )
 
         self._raise_if_paused()
-        markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        markdown = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=prompt,
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.STYLE_ANALYSIS_CHUNK,
         )
@@ -352,13 +348,12 @@ class StyleAnalysisPipeline:
                 merge_inputs.insert(0, merged.model_dump(mode="json"))
 
             self._raise_if_paused()
-            markdown = await self.llm_client.ainvoke_markdown(
-                model=self.chat_model,
+            markdown = await self.llm_service.invoke_markdown_completion(
+                provider_config=self.provider,
                 prompt=build_merge_prompt(
                     chunk_analyses=merge_inputs,
                     classification=state["classification"],
                 ),
-                provider=self.provider,
                 model_name=self.model_name,
                 injection_task=PromptInjectionTask.STYLE_ANALYSIS_MERGE,
             )
@@ -398,13 +393,12 @@ class StyleAnalysisPipeline:
             )
             return {"analysis_report_markdown": markdown}
 
-        report_markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        report_markdown = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=build_report_prompt(
                 merged_analysis_markdown=state["merged_analysis_markdown"],
                 classification=state["classification"],
             ),
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.STYLE_ANALYSIS_REPORT,
         )
@@ -430,13 +424,12 @@ class StyleAnalysisPipeline:
             )
             return {"voice_profile_markdown": markdown}
 
-        voice_profile_markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        voice_profile_markdown = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=build_voice_profile_prompt(
                 report_markdown=state["analysis_report_markdown"],
                 style_name=state["style_name"],
             ),
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.STYLE_ANALYSIS_VOICE_PROFILE,
         )

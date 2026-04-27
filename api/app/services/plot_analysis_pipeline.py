@@ -35,7 +35,7 @@ from app.prompts.plot_analysis import (
     build_story_engine_prompt,
 )
 from app.core.text_processing import InputClassification
-from app.services.llm_client import MarkdownLLMClient
+from app.services.llm_provider import LLMProviderService
 from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 
@@ -121,8 +121,7 @@ class PlotAnalysisPipeline:
         model_name: str,
         plot_name: str,
         source_filename: str,
-        llm_client: MarkdownLLMClient | None = None,
-        chat_model: Any | None = None,
+        llm_service: LLMProviderService | None = None,
         checkpointer: Any | None = None,
         storage_service: PlotAnalysisStorageService | None = None,
         stage_callback: StageCallback | None = None,
@@ -133,10 +132,7 @@ class PlotAnalysisPipeline:
         self.plot_name = plot_name
         self.source_filename = source_filename
 
-        self.llm_client = llm_client or MarkdownLLMClient()
-        self.chat_model = chat_model or self.llm_client.build_model(
-            provider=provider, model_name=model_name
-        )
+        self.llm_service = llm_service or LLMProviderService()
 
         if checkpointer is None:
             logger.warning(
@@ -289,10 +285,9 @@ class PlotAnalysisPipeline:
             overlap_after=chunk_context.overlap_after,
         )
 
-        raw = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        raw = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=prompt,
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKETCH,
         )
@@ -363,14 +358,13 @@ class PlotAnalysisPipeline:
                 sketches=sketches,
             )
         else:
-            markdown = await self.llm_client.ainvoke_markdown(
-                model=self.chat_model,
+            markdown = await self.llm_service.invoke_markdown_completion(
+                provider_config=self.provider,
                 prompt=build_skeleton_reduce_prompt(
                     sketches=sketches,
                     classification=state["classification"],
                     chunk_count=state["chunk_count"],
                 ),
-                provider=self.provider,
                 model_name=self.model_name,
                 injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
             )
@@ -394,14 +388,13 @@ class PlotAnalysisPipeline:
         ]
         if len(groups) == 1:
             # Only one group — degenerate hierarchy. Fall back to the single-call reduce.
-            return await self.llm_client.ainvoke_markdown(
-                model=self.chat_model,
+            return await self.llm_service.invoke_markdown_completion(
+                provider_config=self.provider,
                 prompt=build_skeleton_reduce_prompt(
                     sketches=sketches,
                     classification=state["classification"],
                     chunk_count=state["chunk_count"],
                 ),
-                provider=self.provider,
                 model_name=self.model_name,
                 injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
             )
@@ -412,15 +405,14 @@ class PlotAnalysisPipeline:
                 state["job_id"],
                 f"[LLM] 分层归约 group {idx+1}/{len(groups)} (含 {len(group)} 个 sketch)"
             )
-            return await self.llm_client.ainvoke_markdown(
-                model=self.chat_model,
+            return await self.llm_service.invoke_markdown_completion(
+                provider_config=self.provider,
                 prompt=build_skeleton_group_reduce_prompt(
                     group_sketches=group,
                     group_index=idx,
                     group_count=len(groups),
                     classification=state["classification"],
                 ),
-                provider=self.provider,
                 model_name=self.model_name,
                 injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON_GROUP,
             )
@@ -433,14 +425,13 @@ class PlotAnalysisPipeline:
         wrapped = [
             {"sub_skeleton_index": i, "markdown": md} for i, md in enumerate(sub_skeletons)
         ]
-        final_md = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        final_md = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=build_skeleton_reduce_prompt(
                 sketches=wrapped,
                 classification=state["classification"],
                 chunk_count=state["chunk_count"],
             ),
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.PLOT_ANALYSIS_SKELETON,
         )
@@ -563,10 +554,9 @@ class PlotAnalysisPipeline:
             overlap_after=chunk_context.overlap_after,
         )
 
-        markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        markdown = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=prompt,
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.PLOT_ANALYSIS_CHUNK,
         )
@@ -627,14 +617,13 @@ class PlotAnalysisPipeline:
             if merged is not None:
                 merge_inputs.insert(0, merged.model_dump(mode="json"))
 
-            markdown = await self.llm_client.ainvoke_markdown(
-                model=self.chat_model,
+            markdown = await self.llm_service.invoke_markdown_completion(
+                provider_config=self.provider,
                 prompt=build_merge_prompt(
                     chunk_analyses=merge_inputs,
                     classification=state["classification"],
                     plot_skeleton=state.get("plot_skeleton_markdown"),
                 ),
-                provider=self.provider,
                 model_name=self.model_name,
                 injection_task=PromptInjectionTask.PLOT_ANALYSIS_MERGE,
             )
@@ -665,14 +654,13 @@ class PlotAnalysisPipeline:
             markdown = await self.storage_service.read_stage_markdown_artifact(state["job_id"], name="analysis-report")
             return {"analysis_report_markdown": markdown}
 
-        report_markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        report_markdown = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=build_report_prompt(
                 merged_analysis_markdown=state["plot_skeleton_markdown"],
                 classification=state["classification"],
                 plot_skeleton=state.get("plot_skeleton_markdown"),
             ),
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.PLOT_ANALYSIS_REPORT,
         )
@@ -693,13 +681,12 @@ class PlotAnalysisPipeline:
                 "story_engine_markdown": markdown,
             }
 
-        story_engine_markdown = await self.llm_client.ainvoke_markdown(
-            model=self.chat_model,
+        story_engine_markdown = await self.llm_service.invoke_markdown_completion(
+            provider_config=self.provider,
             prompt=build_story_engine_prompt(
                 report_markdown=state["analysis_report_markdown"],
                 plot_name=state["plot_name"],
             ),
-            provider=self.provider,
             model_name=self.model_name,
             injection_task=PromptInjectionTask.PLOT_ANALYSIS_STORY_ENGINE,
         )

@@ -22,7 +22,7 @@ from app.services.plot_analysis_pipeline import (
     PlotAnalysisPipelineResult,
 )
 from app.core.text_processing import InputClassification
-from app.services.llm_client import MarkdownLLMClient
+from app.services.llm_provider import LLMProviderService
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.plot_analysis_text import PlotBoundaryDetector, read_plot_chunks_and_classification
 
@@ -270,8 +270,7 @@ class PlotAnalysisJobExecutor:
         configured_model = (get_settings().plot_analysis_boundary_model or "").strip()
         if not configured_model:
             return None
-        llm_client = MarkdownLLMClient()
-        boundary_model = llm_client.build_model(provider=provider, model_name=configured_model)
+        llm_service = LLMProviderService()
 
         async def detect(paragraphs: list[str]) -> list[int] | None:
             prompt = (
@@ -284,10 +283,9 @@ class PlotAnalysisJobExecutor:
                 f"段落总数：{len(paragraphs)}\n"
                 f"段落列表：{json.dumps(paragraphs, ensure_ascii=False)}"
             )
-            raw = await llm_client.ainvoke_markdown(
-                model=boundary_model,
+            raw = await llm_service.invoke_markdown_completion(
+                provider_config=provider,
                 prompt=prompt,
-                provider=provider,
                 model_name=configured_model,
                 injection_mode="analysis",
             )
@@ -318,15 +316,13 @@ class PlotAnalysisJobExecutor:
         stage_callback: Callable[[str | None], Awaitable[None]],
         should_pause: Callable[[], bool] | None = None,
     ) -> PlotAnalysisPipeline:
-        llm_client = MarkdownLLMClient()
-        chat_model = llm_client.build_model(provider=provider, model_name=model_name)
+        llm_service = LLMProviderService()
         return PlotAnalysisPipeline(
             provider=provider,
             model_name=model_name,
             plot_name=plot_name,
             source_filename=source_filename,
-            llm_client=llm_client,
-            chat_model=chat_model,
+            llm_service=llm_service,
             checkpointer=await self.checkpointer_factory.get(),
             storage_service=self.storage_service,
             stage_callback=stage_callback,
