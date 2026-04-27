@@ -39,21 +39,22 @@ export const PlotLabWizardSummaryStep = React.memo(function PlotLabWizardSummary
           <CardTitle>Plot Writing Guide 编辑</CardTitle>
           <CardDescription>直接编辑 Plot Writing Guide，定义新剧情应如何推进追读。</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
           {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
           {job.status === "succeeded" ? (
             <>
               <div className="grid gap-2">
                 <Label htmlFor="plot-name">情节档案名称</Label>
-                <Input id="plot-name" {...form.register("plotName")} />
+                <Input id="plot-name" placeholder="为此情节档案命名" {...form.register("plotName")} />
+                <p className="text-xs text-muted-foreground">用于在档案库中标识此情节写作指南。</p>
               </div>
               <MarkdownEditorField<FormValues>
                 control={form.control}
                 name="storyEngineMarkdown"
                 id="story-engine-markdown"
                 label="Story Engine Markdown"
-                minHeight={360}
+                minHeight={520}
               />
             </>
           ) : (

@@ -8,8 +8,7 @@ import { type FormValues } from "@/lib/validations/plot-lab";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditorField } from "@/components/markdown-editor-field";
 
 export const PlotLabWizardSkeletonStep = React.memo(function PlotLabWizardSkeletonStep({
   job,
@@ -32,14 +31,6 @@ export const PlotLabWizardSkeletonStep = React.memo(function PlotLabWizardSkelet
   onBack: () => void;
   onNext: () => void;
 }) {
-  const skeletonField = form.register("plotSkeletonMarkdown");
-
-  const adjustHeight = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const target = e.target;
-    target.style.height = "auto";
-    target.style.height = `${Math.max(300, target.scrollHeight)}px`;
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card>
@@ -49,25 +40,20 @@ export const PlotLabWizardSkeletonStep = React.memo(function PlotLabWizardSkelet
             骨架是后续分析的全局参考，可先快速审阅后再查看完整报告。
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
           {isLoading && !existingProfile ? <p>加载中...</p> : null}
           {isError && !existingProfile ? <p className="text-destructive">{errorMessage}</p> : null}
           {job.status === "succeeded" ? (
-            <div className="grid gap-2">
-              <Label htmlFor="plot-skeleton-markdown">全书骨架 Markdown</Label>
-              <Textarea
+            <>
+              <MarkdownEditorField<FormValues>
+                control={form.control}
+                name="plotSkeletonMarkdown"
                 id="plot-skeleton-markdown"
-                aria-label="全书骨架 Markdown"
-                className="min-h-[300px] font-mono text-sm leading-relaxed"
-                placeholder="暂无骨架数据。"
-                {...skeletonField}
-                onChange={(e) => {
-                  skeletonField.onChange(e);
-                  adjustHeight(e);
-                }}
+                label="全书骨架 Markdown"
+                minHeight={400}
               />
               {!skeletonMarkdown ? <p className="text-sm text-muted-foreground">当前任务暂无骨架数据，可在此补录。</p> : null}
-            </div>
+            </>
           ) : (
             <p>骨架数据尚未准备好。</p>
           )}

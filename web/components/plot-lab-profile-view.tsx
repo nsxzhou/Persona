@@ -6,10 +6,11 @@ import { ArrowLeft } from "lucide-react";
 import { type UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { MarkdownEditorField } from "@/components/markdown-editor-field";
 import { type PlotAnalysisJob, type PlotProfile } from "@/lib/types";
 import { type FormValues } from "@/lib/validations/plot-lab";
 
@@ -34,8 +35,6 @@ export function PlotLabProfileView({
 }) {
   const [activeTab, setActiveTab] = React.useState("summary");
   const plotNameField = form.register("plotName");
-  const plotSkeletonField = form.register("plotSkeletonMarkdown");
-  const storyEngineField = form.register("storyEngineMarkdown");
 
   React.useEffect(() => {
     if (isEditing) {
@@ -46,12 +45,6 @@ export function PlotLabProfileView({
       });
     }
   }, [isEditing, profile, form]);
-
-  const adjustHeight = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const target = e.target;
-    target.style.height = "auto";
-    target.style.height = `${Math.max(300, target.scrollHeight)}px`;
-  };
 
   return (
     <div className="-m-8 min-h-screen bg-background text-foreground pb-24 selection:bg-muted">
@@ -88,13 +81,14 @@ export function PlotLabProfileView({
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto py-12 px-6">
+      <main className="max-w-5xl mx-auto py-12 px-6">
         <header className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight tracking-wide font-[family:var(--font-prose)] text-foreground">
-            {isEditing ? (
-              <span className="text-muted-foreground text-2xl">正在编辑情节档案...</span>
-            ) : (
-              profile.plot_name
+            {profile.plot_name}
+            {isEditing && (
+              <Badge variant="secondary" className="ml-3 text-orange-600 bg-orange-50 border-orange-200 align-middle text-sm font-medium">
+                编辑中
+              </Badge>
             )}
           </h1>
           <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -123,49 +117,52 @@ export function PlotLabProfileView({
           <div className="mt-8">
             <TabsContent value="summary" className="focus-visible:outline-none">
               {isEditing ? (
-                <div className="space-y-6 max-w-3xl mx-auto">
-                  <div className="grid gap-2">
-                    <Label htmlFor="plot-name">情节档案名称</Label>
-                    <Input id="plot-name" {...plotNameField} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="story-engine-markdown">Story Engine Markdown</Label>
-                    <Textarea
-                      id="story-engine-markdown"
-                      aria-label="Story Engine Markdown"
-                      className="min-h-[300px] font-mono text-sm leading-relaxed"
-                      {...storyEngineField}
-                      onChange={(e) => {
-                        storyEngineField.onChange(e);
-                        adjustHeight(e);
-                      }}
-                    />
-                  </div>
+                <div className="space-y-6 max-w-4xl mx-auto">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>编辑情节档案</CardTitle>
+                      <CardDescription>修改情节档案的名称和 Story Engine 内容。</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-8">
+                      <div className="grid gap-2">
+                        <Label htmlFor="plot-name">情节档案名称</Label>
+                        <Input id="plot-name" placeholder="为此情节档案命名" {...plotNameField} />
+                      </div>
+                      <MarkdownEditorField<FormValues>
+                        control={form.control}
+                        name="storyEngineMarkdown"
+                        id="story-engine-markdown"
+                        label="Story Engine Markdown"
+                        minHeight={520}
+                      />
+                      <div className="flex justify-end gap-3 pt-4 border-t">
+                        <Button variant="ghost" onClick={onEditCancel} disabled={saving}>
+                          取消
+                        </Button>
+                        <Button onClick={onSave} disabled={saving}>
+                          {saving ? "保存中..." : "保存修改"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               ) : (
-                <div className="whitespace-pre-wrap leading-loose text-lg text-foreground/90 font-[family:var(--font-prose)] text-justify max-w-3xl mx-auto">
+                <div className="whitespace-pre-wrap leading-loose text-lg text-foreground/90 font-[family:var(--font-prose)] text-justify max-w-4xl mx-auto">
                   {profile.story_engine_markdown || "暂无 Story Engine"}
                 </div>
               )}
             </TabsContent>
 
-            <TabsContent value="skeleton" className="focus-visible:outline-none max-w-3xl mx-auto">
+            <TabsContent value="skeleton" className="focus-visible:outline-none max-w-4xl mx-auto">
               {isEditing ? (
                 <div className="space-y-6">
-                  <div className="grid gap-2">
-                    <Label htmlFor="plot-skeleton-markdown">全书骨架 Markdown</Label>
-                    <Textarea
-                      id="plot-skeleton-markdown"
-                      aria-label="全书骨架 Markdown"
-                      className="min-h-[400px] font-mono text-sm leading-relaxed"
-                      placeholder="暂无骨架数据。"
-                      {...plotSkeletonField}
-                      onChange={(e) => {
-                        plotSkeletonField.onChange(e);
-                        adjustHeight(e);
-                      }}
-                    />
-                  </div>
+                  <MarkdownEditorField<FormValues>
+                    control={form.control}
+                    name="plotSkeletonMarkdown"
+                    id="plot-skeleton-markdown"
+                    label="全书骨架 Markdown"
+                    minHeight={400}
+                  />
                 </div>
               ) : (
                 <div className="bg-muted/10 p-8 rounded-xl border border-border/30 text-base text-foreground/80 leading-relaxed whitespace-pre-wrap font-[family:var(--font-prose)]">
@@ -174,7 +171,7 @@ export function PlotLabProfileView({
               )}
             </TabsContent>
 
-            <TabsContent value="report" className="focus-visible:outline-none max-w-3xl mx-auto">
+            <TabsContent value="report" className="focus-visible:outline-none max-w-4xl mx-auto">
               <div className="bg-muted/10 p-8 rounded-xl border border-border/30 text-base text-foreground/80 leading-relaxed whitespace-pre-wrap font-[family:var(--font-prose)]">
                 {profile.analysis_report_markdown || "暂无报告"}
               </div>
