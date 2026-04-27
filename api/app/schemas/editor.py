@@ -52,6 +52,7 @@ class BibleUpdateRequest(_RegenerationFields):
 class BibleUpdateResponse(BaseModel):
     proposed_runtime_state: str
     proposed_runtime_threads: str
+    proposed_summary: str | None = None
     changed: bool
 
 

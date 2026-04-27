@@ -16,13 +16,14 @@ import type {
 
 const MIN_LENGTH_FOR_AUTO_SYNC = 200;
 
-export type RuntimeUpdateDiffState = {
+export interface RuntimeUpdateDiffState {
   open: boolean;
   currentState: string;
   proposedState: string;
   currentThreads: string;
   proposedThreads: string;
-};
+  proposedSummary: string;
+}
 
 const EMPTY_DIFF_STATE: RuntimeUpdateDiffState = {
   open: false,
@@ -30,6 +31,7 @@ const EMPTY_DIFF_STATE: RuntimeUpdateDiffState = {
   proposedState: "",
   currentThreads: "",
   proposedThreads: "",
+  proposedSummary: "",
 };
 
 async function hashContent(content: string) {
@@ -42,7 +44,7 @@ async function hashContent(content: string) {
 
 function getStoredDiff(
   chapter: ProjectChapter | null,
-  projectBible: Pick<ProjectBible, "runtime_state" | "runtime_threads">,
+  projectBible: Pick<ProjectBible, "runtime_state" | "runtime_threads">
 ): RuntimeUpdateDiffState {
   return {
     open: false,
@@ -50,6 +52,7 @@ function getStoredDiff(
     proposedState: chapter?.memory_sync_proposed_state ?? "",
     currentThreads: projectBible.runtime_threads ?? "",
     proposedThreads: chapter?.memory_sync_proposed_threads ?? "",
+    proposedSummary: chapter?.memory_sync_proposed_summary ?? "",
   };
 }
 
@@ -92,6 +95,7 @@ export function useChapterMemorySync({
             errorMessage: selectedChapter.memory_sync_error_message,
             proposedState: selectedChapter.memory_sync_proposed_state,
             proposedThreads: selectedChapter.memory_sync_proposed_threads,
+            proposedSummary: selectedChapter.memory_sync_proposed_summary,
           }
         : null,
     [selectedChapter],
@@ -142,6 +146,7 @@ export function useChapterMemorySync({
         memory_sync_error_message: message,
         memory_sync_proposed_state: null,
         memory_sync_proposed_threads: null,
+        memory_sync_proposed_summary: null,
       });
       setBibleDiff(EMPTY_DIFF_STATE);
       toast.error("同步记忆失败");
@@ -181,6 +186,7 @@ export function useChapterMemorySync({
             memory_sync_error_message: null,
             memory_sync_proposed_state: result.proposed_runtime_state,
             memory_sync_proposed_threads: result.proposed_runtime_threads,
+            memory_sync_proposed_summary: result.proposed_summary ?? null,
           });
           setBibleDiff({
             open: true,
@@ -188,6 +194,7 @@ export function useChapterMemorySync({
             proposedState: result.proposed_runtime_state,
             currentThreads: projectBible.runtime_threads ?? "",
             proposedThreads: result.proposed_runtime_threads,
+            proposedSummary: result.proposed_summary ?? "",
           });
           return;
         }
@@ -199,6 +206,7 @@ export function useChapterMemorySync({
           memory_sync_error_message: null,
           memory_sync_proposed_state: null,
           memory_sync_proposed_threads: null,
+          memory_sync_proposed_summary: null,
         });
         setBibleDiff(EMPTY_DIFF_STATE);
       } catch (error) {
@@ -246,12 +254,14 @@ export function useChapterMemorySync({
             { errorMessage: "更新运行时状态失败" },
           );
           await persistMemorySnapshot(content, {
+            summary: result.proposed_summary ?? undefined,
             memory_sync_status: "synced",
             memory_sync_source: "auto",
             memory_sync_scope: "chapter_full",
             memory_sync_error_message: null,
             memory_sync_proposed_state: null,
             memory_sync_proposed_threads: null,
+            memory_sync_proposed_summary: null,
           });
         } else {
           await persistMemorySnapshot(content, {
@@ -261,6 +271,7 @@ export function useChapterMemorySync({
             memory_sync_error_message: null,
             memory_sync_proposed_state: null,
             memory_sync_proposed_threads: null,
+            memory_sync_proposed_summary: null,
           });
         }
         setBibleDiff(EMPTY_DIFF_STATE);
@@ -273,6 +284,7 @@ export function useChapterMemorySync({
           memory_sync_error_message: message,
           memory_sync_proposed_state: null,
           memory_sync_proposed_threads: null,
+          memory_sync_proposed_summary: null,
         }).catch(() => {});
       } finally {
         setIsChecking(false);
@@ -289,7 +301,7 @@ export function useChapterMemorySync({
   );
 
   const acceptRuntimeUpdate = useCallback(
-    async (state: string, threads: string) => {
+    async (state: string, threads: string, summary?: string) => {
       if (!selectedChapter) return;
       await persistProjectBibleUpdate(
         { runtime_state: state, runtime_threads: threads },
@@ -298,14 +310,19 @@ export function useChapterMemorySync({
           errorMessage: "更新运行时状态失败",
         },
       );
-      await persistMemorySnapshot(getCurrentContent(), {
+      const snapshotUpdate: any = {
         memory_sync_status: "synced",
         memory_sync_source: selectedChapter.memory_sync_source ?? "manual",
         memory_sync_scope: selectedChapter.memory_sync_scope ?? "chapter_full",
         memory_sync_error_message: null,
         memory_sync_proposed_state: null,
         memory_sync_proposed_threads: null,
-      });
+        memory_sync_proposed_summary: null,
+      };
+      if (summary) {
+        snapshotUpdate.summary = summary;
+      }
+      await persistMemorySnapshot(getCurrentContent(), snapshotUpdate);
       setBibleDiff(EMPTY_DIFF_STATE);
     },
     [getCurrentContent, persistMemorySnapshot, persistProjectBibleUpdate, selectedChapter],

@@ -19,6 +19,7 @@ class ProjectChapterResponse(BaseModel):
     chapter_index: int
     title: str
     content: str
+    summary: str
     word_count: int
     memory_sync_status: MemorySyncStatus | None = None
     memory_sync_source: MemorySyncSource | None = None
@@ -28,12 +29,15 @@ class ProjectChapterResponse(BaseModel):
     memory_sync_error_message: str | None = None
     memory_sync_proposed_state: str | None = None
     memory_sync_proposed_threads: str | None = None
+    memory_sync_proposed_summary: str | None = None
     created_at: datetime
     updated_at: datetime
 
 
 class ProjectChapterUpdate(BaseModel):
+    title: str | None = None
     content: str | None = None
+    summary: str | None = None
     memory_sync_status: MemorySyncStatus | None = None
     memory_sync_source: MemorySyncSource | None = None
     memory_sync_scope: MemorySyncScope | None = None
@@ -42,3 +46,4 @@ class ProjectChapterUpdate(BaseModel):
     memory_sync_error_message: str | None = None
     memory_sync_proposed_state: str | None = None
     memory_sync_proposed_threads: str | None = None
+    memory_sync_proposed_summary: str | None = None

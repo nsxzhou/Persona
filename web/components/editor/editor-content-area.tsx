@@ -148,14 +148,20 @@ export function EditorContentArea({
 
   const previousChapterContext = useMemo(() => {
     if (!currentChapter) return "";
-    return chapters
+    const previousChapters = chapters
       .filter((chapter) => {
         if (chapter.volume_index < currentChapter.volumeIndex) return true;
         if (chapter.volume_index > currentChapter.volumeIndex) return false;
         return chapter.chapter_index < currentChapter.chapterIndex;
       })
+      .slice(-3); // 仅取最近 3 章
+
+    return previousChapters
       .filter((chapter) => chapter.content.trim())
-      .map((chapter) => `## ${chapter.title}\n\n${chapter.content.slice(-800)}`)
+      .map((chapter) => {
+        const text = chapter.summary ? chapter.summary : chapter.content.slice(-300);
+        return `## ${chapter.title} (摘要)\n\n${text}`;
+      })
       .join("\n\n---\n\n");
   }, [chapters, currentChapter]);
 
@@ -648,6 +654,7 @@ export function EditorContentArea({
         proposedState={bibleDiff.proposedState}
         currentThreads={bibleDiff.currentThreads}
         proposedThreads={bibleDiff.proposedThreads}
+        proposedSummary={bibleDiff.proposedSummary}
         chapterTitle={selectedChapterRecord?.title ?? currentChapterTitle ?? null}
         source={chapterSyncSnapshot?.source ?? null}
         onAccept={acceptRuntimeUpdate}

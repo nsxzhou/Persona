@@ -22,7 +22,7 @@ import {
   type DiffBlock,
 } from "@/lib/diff-utils";
 
-type TabKey = "state" | "threads";
+type TabKey = "state" | "threads" | "summary";
 
 type SourceLabel = "manual" | "auto" | null;
 
@@ -32,9 +32,10 @@ interface BibleDiffDialogProps {
   proposedState: string;
   currentThreads: string;
   proposedThreads: string;
+  proposedSummary?: string;
   chapterTitle?: string | null;
   source?: SourceLabel;
-  onAccept: (state: string, threads: string) => void;
+  onAccept: (state: string, threads: string, summary?: string) => void;
   onRetry?: (feedback: string) => void;
   onDismiss: () => void;
 }
@@ -45,6 +46,7 @@ export function BibleDiffDialog({
   proposedState,
   currentThreads,
   proposedThreads,
+  proposedSummary,
   chapterTitle,
   source,
   onAccept,
@@ -53,6 +55,7 @@ export function BibleDiffDialog({
 }: BibleDiffDialogProps) {
   const [editedState, setEditedState] = useState(proposedState);
   const [editedThreads, setEditedThreads] = useState(proposedThreads);
+  const [editedSummary, setEditedSummary] = useState(proposedSummary ?? "");
   const [activeTab, setActiveTab] = useState<TabKey>("state");
   const [onlyChanges, setOnlyChanges] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -61,8 +64,9 @@ export function BibleDiffDialog({
   useEffect(() => {
     setEditedState(proposedState);
     setEditedThreads(proposedThreads);
+    setEditedSummary(proposedSummary ?? "");
     setEditing(false);
-  }, [proposedState, proposedThreads]);
+  }, [proposedState, proposedThreads, proposedSummary]);
 
   const stateChanged = proposedState !== currentState;
   const threadsChanged = proposedThreads !== currentThreads;
@@ -72,9 +76,24 @@ export function BibleDiffDialog({
     else if (threadsChanged) setActiveTab("threads");
   }, [stateChanged, threadsChanged]);
 
-  const current = activeTab === "state" ? currentState : currentThreads;
-  const edited = activeTab === "state" ? editedState : editedThreads;
-  const setEdited = activeTab === "state" ? setEditedState : setEditedThreads;
+  const current =
+    activeTab === "state"
+      ? currentState
+      : activeTab === "threads"
+        ? currentThreads
+        : ""; // 摘要暂无历史对比内容
+  const edited =
+    activeTab === "state"
+      ? editedState
+      : activeTab === "threads"
+        ? editedThreads
+        : editedSummary;
+  const setEdited =
+    activeTab === "state"
+      ? setEditedState
+      : activeTab === "threads"
+        ? setEditedThreads
+        : setEditedSummary;
 
   const diff = useDebouncedDiff(current, edited);
   const stats = useMemo(() => summarizeDiff(diff), [diff]);
@@ -82,13 +101,15 @@ export function BibleDiffDialog({
   const totalStats = useMemo(() => {
     const stateDiff = computeLineDiff(currentState, editedState);
     const threadsDiff = computeLineDiff(currentThreads, editedThreads);
+    const summaryDiff = proposedSummary !== undefined ? computeLineDiff("", editedSummary) : [];
     const stateSum = summarizeDiff(stateDiff);
     const threadsSum = summarizeDiff(threadsDiff);
+    const summarySum = summarizeDiff(summaryDiff);
     return {
-      added: stateSum.added + threadsSum.added,
-      removed: stateSum.removed + threadsSum.removed,
+      added: stateSum.added + threadsSum.added + summarySum.added,
+      removed: stateSum.removed + threadsSum.removed + summarySum.removed,
     };
-  }, [currentState, editedState, currentThreads, editedThreads]);
+  }, [currentState, editedState, currentThreads, editedThreads, editedSummary, proposedSummary]);
 
   const changeCount = stats.added + stats.removed;
 
@@ -148,9 +169,20 @@ export function BibleDiffDialog({
                 setActiveTab("threads");
                 setEditing(false);
               }}
-              label="伏笔与线索追踪"
+              label="伏笔追踪"
               changed={threadsChanged}
             />
+            {proposedSummary !== undefined && (
+              <TabButton
+                active={activeTab === "summary"}
+                onClick={() => {
+                  setActiveTab("summary");
+                  setEditing(false);
+                }}
+                label="本章摘要"
+                changed={true}
+              />
+            )}
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2.5 py-1">
@@ -221,7 +253,15 @@ export function BibleDiffDialog({
                 重新生成
               </Button>
             ) : null}
-            <Button size="default" onClick={() => onAccept(editedState, editedThreads)}>
+            <Button size="default" onClick={() => {
+              setIsAccepting(true);
+              try {
+                onAccept(editedState, editedThreads, proposedSummary !== undefined ? editedSummary : undefined);
+              } finally {
+                setIsAccepting(false);
+              }
+            }} disabled={isAccepting}>
+              {isAccepting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               接受更新
             </Button>
           </div>

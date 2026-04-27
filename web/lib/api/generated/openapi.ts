@@ -1110,6 +1110,8 @@ export interface components {
             proposed_runtime_state: string;
             /** Proposed Runtime Threads */
             proposed_runtime_threads: string;
+            /** Proposed Summary */
+            proposed_summary?: string | null;
             /** Changed */
             changed: boolean;
         };
@@ -1664,6 +1666,8 @@ export interface components {
             title: string;
             /** Content */
             content: string;
+            /** Summary */
+            summary: string;
             /** Word Count */
             word_count: number;
             /** Memory Sync Status */
@@ -1682,6 +1686,8 @@ export interface components {
             memory_sync_proposed_state?: string | null;
             /** Memory Sync Proposed Threads */
             memory_sync_proposed_threads?: string | null;
+            /** Memory Sync Proposed Summary */
+            memory_sync_proposed_summary?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1695,8 +1701,12 @@ export interface components {
         };
         /** ProjectChapterUpdate */
         ProjectChapterUpdate: {
+            /** Title */
+            title?: string | null;
             /** Content */
             content?: string | null;
+            /** Summary */
+            summary?: string | null;
             /** Memory Sync Status */
             memory_sync_status?: ("checking" | "pending_review" | "synced" | "no_change" | "failed") | null;
             /** Memory Sync Source */
@@ -1713,6 +1723,8 @@ export interface components {
             memory_sync_proposed_state?: string | null;
             /** Memory Sync Proposed Threads */
             memory_sync_proposed_threads?: string | null;
+            /** Memory Sync Proposed Summary */
+            memory_sync_proposed_summary?: string | null;
         };
         /** ProjectCreate */
         ProjectCreate: {

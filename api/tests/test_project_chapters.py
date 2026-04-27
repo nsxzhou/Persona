@@ -289,6 +289,7 @@ async def test_update_invalidates_memory_sync_snapshot_when_saved_content_change
     assert updated.memory_sync_error_message is None
     assert updated.memory_sync_proposed_state is None
     assert updated.memory_sync_proposed_threads is None
+    assert updated.memory_sync_proposed_summary is None
 
 
 @pytest.mark.asyncio

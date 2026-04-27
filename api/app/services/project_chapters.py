@@ -34,6 +34,7 @@ class ProjectChapterService:
         chapter.memory_sync_error_message = None
         chapter.memory_sync_proposed_state = None
         chapter.memory_sync_proposed_threads = None
+        chapter.memory_sync_proposed_summary = None
 
     async def list(
         self,
@@ -116,6 +117,9 @@ class ProjectChapterService:
             if chapter.memory_sync_checked_content_hash != self._hash_content(content):
                 self._clear_memory_sync(chapter)
 
+        if "summary" in update_data:
+            chapter.summary = update_data["summary"] or ""
+
         for field in (
             "memory_sync_status",
             "memory_sync_source",
@@ -125,6 +129,7 @@ class ProjectChapterService:
             "memory_sync_error_message",
             "memory_sync_proposed_state",
             "memory_sync_proposed_threads",
+            "memory_sync_proposed_summary",
         ):
             if field in update_data:
                 setattr(chapter, field, update_data[field])

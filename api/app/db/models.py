@@ -231,6 +231,7 @@ class ProjectChapter(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(Text, nullable=False, default="")
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     word_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     memory_sync_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     memory_sync_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
     memory_sync_scope: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -243,6 +244,7 @@ class ProjectChapter(TimestampMixin, Base):
     memory_sync_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     memory_sync_proposed_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     memory_sync_proposed_threads: Mapped[str | None] = mapped_column(Text, nullable=True)
+    memory_sync_proposed_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="chapters")
 

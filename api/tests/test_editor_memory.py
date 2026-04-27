@@ -25,7 +25,7 @@ async def test_memory_editor_service_marks_changed_when_threads_are_cleared() ->
         project_service=project_service,
     )
 
-    proposed_state, proposed_threads, changed = await service.propose_bible_update(
+    proposed_state, proposed_threads, proposed_summary, changed = await service.propose_bible_update(
         session=object(),
         project_id="project-1",
         user_id="user-1",
@@ -39,6 +39,7 @@ async def test_memory_editor_service_marks_changed_when_threads_are_cleared() ->
 
     assert proposed_state == "旧状态"
     assert proposed_threads == ""
+    assert proposed_summary is None
     assert changed is True
 
 
@@ -60,7 +61,7 @@ async def test_memory_editor_service_marks_unchanged_when_both_sections_match() 
         project_service=project_service,
     )
 
-    proposed_state, proposed_threads, changed = await service.propose_bible_update(
+    proposed_state, proposed_threads, proposed_summary, changed = await service.propose_bible_update(
         session=object(),
         project_id="project-1",
         user_id="user-1",
@@ -74,4 +75,5 @@ async def test_memory_editor_service_marks_unchanged_when_both_sections_match() 
 
     assert proposed_state == "旧状态"
     assert proposed_threads == "旧伏笔"
+    assert proposed_summary is None
     assert changed is False

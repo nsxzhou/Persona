@@ -11,6 +11,7 @@ class PromptInjectionTask(StrEnum):
     EDITOR_SECTION_GENERATION = "editor.section_generation"
     EDITOR_BEAT_EXPANSION = "editor.beat_expansion"
     EDITOR_BIBLE_UPDATE = "editor.bible_update"
+    EDITOR_CHAPTER_SUMMARY = "editor.chapter_summary"
     EDITOR_BEAT_GENERATION = "editor.beat_generation"
     EDITOR_CONCEPT_GENERATION = "editor.concept_generation"
     EDITOR_VOLUME_GENERATION = "editor.volume_generation"

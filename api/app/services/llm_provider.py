@@ -21,8 +21,35 @@ from app.services.prompt_injection_policy import (
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_TEMPERATURE = 0.7
+_STRICT_TEMPERATURE = 0.1
+_STRUCTURED_TEMPERATURE = 0.4
+_CREATIVE_TEMPERATURE = 0.9
+
+_TASK_TEMPERATURES: dict[PromptInjectionTask, float] = {
+    PromptInjectionTask.PROVIDER_CONNECTION_TEST: 0.0,
+    PromptInjectionTask.EDITOR_CHAPTER_SUMMARY: 0.0,
+    PromptInjectionTask.EDITOR_BIBLE_UPDATE: _STRICT_TEMPERATURE,
+    PromptInjectionTask.EDITOR_SECTION_GENERATION: _STRUCTURED_TEMPERATURE,
+    PromptInjectionTask.EDITOR_BEAT_GENERATION: _STRUCTURED_TEMPERATURE,
+    PromptInjectionTask.EDITOR_VOLUME_GENERATION: _STRUCTURED_TEMPERATURE,
+    PromptInjectionTask.EDITOR_VOLUME_CHAPTERS_GENERATION: _STRUCTURED_TEMPERATURE,
+    PromptInjectionTask.EDITOR_CONTINUATION: _DEFAULT_TEMPERATURE,
+    PromptInjectionTask.EDITOR_BEAT_EXPANSION: _DEFAULT_TEMPERATURE,
+    PromptInjectionTask.EDITOR_CONCEPT_GENERATION: _CREATIVE_TEMPERATURE,
+}
+
 
 class LLMProviderService:
+    def _resolve_temperature(
+        self,
+        *,
+        injection_task: PromptInjectionTask | None = None,
+    ) -> float:
+        if injection_task is None:
+            return _DEFAULT_TEMPERATURE
+        return _TASK_TEMPERATURES.get(injection_task, _DEFAULT_TEMPERATURE)
+
     def _resolve_injection_mode(
         self,
         *,
@@ -39,7 +66,7 @@ class LLMProviderService:
         self,
         provider_config: ProviderConfig,
         *,
-        temperature: float = 0.7,
+        temperature: float = _DEFAULT_TEMPERATURE,
         model_name: str | None = None,
     ):
         """Centralised helper that turns a ProviderConfig into a chat model.
@@ -81,7 +108,10 @@ class LLMProviderService:
         injection_task: PromptInjectionTask | None = None,
         injection_mode: PromptInjectionMode | None = None,
     ) -> AsyncGenerator[str, None]:
-        model = self._build_model(provider_config)
+        model = self._build_model(
+            provider_config,
+            temperature=self._resolve_temperature(injection_task=injection_task),
+        )
         resolved_mode = self._resolve_injection_mode(
             injection_task=injection_task,
             injection_mode=injection_mode,
@@ -101,7 +131,10 @@ class LLMProviderService:
         injection_task: PromptInjectionTask | None = None,
         injection_mode: PromptInjectionMode | None = None,
     ) -> AsyncGenerator[str, None]:
-        model = self._build_model(provider_config)
+        model = self._build_model(
+            provider_config,
+            temperature=self._resolve_temperature(injection_task=injection_task),
+        )
         resolved_mode = self._resolve_injection_mode(
             injection_task=injection_task,
             injection_mode=injection_mode,
@@ -121,7 +154,11 @@ class LLMProviderService:
         injection_mode: PromptInjectionMode | None = None,
     ) -> str:
         """Non-streaming single LLM call; returns the full text."""
-        model = self._build_model(provider_config, model_name=model_name)
+        model = self._build_model(
+            provider_config,
+            model_name=model_name,
+            temperature=self._resolve_temperature(injection_task=injection_task),
+        )
         resolved_mode = self._resolve_injection_mode(
             injection_task=injection_task,
             injection_mode=injection_mode,

@@ -454,12 +454,10 @@ def test_bible_update_system_prompt_forbids_placeholder_references() -> None:
 def test_bible_update_system_prompt_prefers_minimal_persistent_memory() -> None:
     system_prompt = build_bible_update_system_prompt()
 
-    assert "只保留会影响后续章节的持续性变化" in system_prompt
-    assert "稳定事实变化" in system_prompt
-    assert "关系变化" in system_prompt
-    assert "未回收线索或新风险" in system_prompt
+    assert "长期 persistent 事件列表" in system_prompt
+    assert "严禁像流水账一样记录每章剧情" in system_prompt
     assert "优先判断是否无需更新" in system_prompt
-    assert "不要把本章剧情改写成摘要" in system_prompt
+    assert "严禁使用“沿用旧内容”" in system_prompt
 
 
 def test_bible_update_prompt_tracks_only_persistent_compliant_tension() -> None:

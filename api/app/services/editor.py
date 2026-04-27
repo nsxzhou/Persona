@@ -341,12 +341,15 @@ class MemoryEditorService(_EditorServiceBase):
         project_id: str,
         user_id: str,
         payload: BibleUpdateRequest,
-    ) -> tuple[str, str, bool]:
+    ) -> tuple[str, str, str | None, bool]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
         if not project.provider:
             raise BadRequestError("项目未配置 Provider，无法调用 AI")
+
+        import asyncio
+        from app.prompts.editor import build_chapter_summary_system_prompt, build_chapter_summary_user_message
 
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_bible_update_system_prompt(regenerating=regenerating)
@@ -359,18 +362,34 @@ class MemoryEditorService(_EditorServiceBase):
             user_feedback=payload.user_feedback,
         )
 
-        raw = await self.llm_service.invoke_completion(
+        bible_update_task = self.llm_service.invoke_completion(
             provider_config=project.provider,
             system_prompt=system_prompt,
             user_context=user_message,
             injection_task=PromptInjectionTask.EDITOR_BIBLE_UPDATE,
         )
-        proposed_state, proposed_threads = parse_bible_update_response(raw)
+
+        if payload.sync_scope == "chapter_full":
+            summary_system_prompt = build_chapter_summary_system_prompt()
+            summary_user_message = build_chapter_summary_user_message(payload.content_to_check)
+            summary_task = self.llm_service.invoke_completion(
+                provider_config=project.provider,
+                system_prompt=summary_system_prompt,
+                user_context=summary_user_message,
+                injection_task=PromptInjectionTask.EDITOR_CHAPTER_SUMMARY,
+            )
+            raw_bible, raw_summary = await asyncio.gather(bible_update_task, summary_task)
+        else:
+            raw_bible = await bible_update_task
+            raw_summary = None
+
+        proposed_state, proposed_threads = parse_bible_update_response(raw_bible)
         changed = (
             proposed_state != payload.current_runtime_state
             or proposed_threads != payload.current_runtime_threads
+            or (raw_summary is not None)
         )
-        return proposed_state, proposed_threads, changed
+        return proposed_state, proposed_threads, raw_summary, changed
 
 
 class PlanningEditorService(_EditorServiceBase):
