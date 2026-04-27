@@ -102,7 +102,7 @@ export function OutlineDetailTab({
       setGeneratingVolumeIndex("all");
       try {
         const generated = await streamSSE(
-          () => api.generateVolumes(projectId, options),
+          () => api.runVolumeWorkflow(projectId, options),
           (text) => onChange(text),
         );
         if (generated) {
@@ -127,7 +127,7 @@ export function OutlineDetailTab({
 
       try {
         const generated = await streamSSE(
-          () => api.generateVolumeChapters(projectId, volumeIndex, options),
+          () => api.runVolumeChaptersWorkflow(projectId, volumeIndex, options),
           (chaptersText) => {
             const nextValue = replaceVolumeChapters(value, volumeIndex, chaptersText);
             onChange(nextValue);
@@ -177,7 +177,7 @@ export function OutlineDetailTab({
     }
   }, [value, handleGenerateVolumes]);
 
-  const handleRegenerateVolumesConfirm = useCallback(
+  const handleRerunVolumeWorkflowConfirm = useCallback(
     (feedback: string) => {
       setRegenVolumesOpen(false);
       handleGenerateVolumes({
@@ -353,7 +353,7 @@ export function OutlineDetailTab({
         description="当前已有分卷/章节细纲，将基于现有结构重写。你可以填写意见指导生成方向（可选）。"
         busy={generatingVolumeIndex !== null}
         onCancel={() => setRegenVolumesOpen(false)}
-        onConfirm={handleRegenerateVolumesConfirm}
+        onConfirm={handleRerunVolumeWorkflowConfirm}
       />
 
       <AlertDialog open={templateConfirmOpen} onOpenChange={(open) => !open && setTemplateConfirmOpen(false)}>

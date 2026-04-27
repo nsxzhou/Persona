@@ -124,27 +124,23 @@ ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 
 - **类型推导完整**：IDE 直接知道 `project_service` 是 `ProjectService`
 - **签名紧凑**：Router 里不再是 `Depends(get_project_service)` 这种语法噪声
-- **Service 间依赖显式**：`get_editor_service`（`deps.py:120-131`）以 Service 之间的依赖关系做了显式建模——`EditorService` 需要 `llm_service + project_service + style_profile_service + provider_config_service`，依赖图一眼清楚
+- **Service 间依赖显式**：`get_novel_workflow_service` 以 Service 之间的依赖关系做了显式建模，workflow route 只依赖任务服务，LLM、项目、档案与章节上下文由 worker 在执行时加载
 
 #### 依赖链示例
 
-`EditorServiceDep` 解析过程：
+`NovelWorkflowServiceDep` 解析过程：
 
 ```mermaid
 flowchart LR
-    R[Router: complete_editor] --> ES[EditorServiceDep]
-    ES --> LPS[LLMProviderServiceDep]
-    ES --> PS[ProjectServiceDep]
-    PS --> PCS[ProviderConfigServiceDep]
-    ES --> SPS[StyleProfileServiceDep]
-    ES --> PCS
+    R[Router: create_novel_workflow] --> NWS[NovelWorkflowServiceDep]
+    NWS --> Repo[NovelWorkflowRepository]
     R --> DBD[DbSessionDep]
     R --> CUD[CurrentUserDep]
     CUD --> DBD
     CUD --> AS[AuthServiceDep]
 ```
 
-FastAPI 的 DI 容器会在一次请求内缓存同一依赖的结果，所以 `PCS` 即使被 `PS` 和 `ES` 同时需要，也只会实例化一次。
+FastAPI 的 DI 容器会在一次请求内缓存同一依赖的结果；长期执行所需的重依赖由 worker 单独构造，避免 HTTP 请求生命周期绑定 LLM 流程。
 
 ### 事务管理：两种模式
 

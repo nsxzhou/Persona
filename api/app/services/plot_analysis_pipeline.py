@@ -25,9 +25,7 @@ from app.schemas.plot_analysis_jobs import (
     PLOT_ANALYSIS_JOB_STAGE_REPORTING,
     PLOT_ANALYSIS_JOB_STAGE_SELECTING_FOCUS_CHUNKS,
 )
-from app.services.style_analysis_llm import MarkdownLLMClient
-from app.services.prompt_injection_policy import PromptInjectionTask
-from app.services.plot_analysis_prompts import (
+from app.prompts.plot_analysis import (
     build_chunk_analysis_prompt,
     build_merge_prompt,
     build_report_prompt,
@@ -36,6 +34,8 @@ from app.services.plot_analysis_prompts import (
     build_skeleton_reduce_prompt,
     build_story_engine_prompt,
 )
+from app.services.style_analysis_llm import MarkdownLLMClient
+from app.services.prompt_injection_policy import PromptInjectionTask
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.style_analysis_text import InputClassification
 

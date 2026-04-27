@@ -22,7 +22,7 @@ export function BeatPanel({
   isExpandingBeat,
   isGeneratingBeats,
   onGenerateBeats,
-  onRegenerateBeats,
+  onRerunBeatsWorkflow,
   onRegenerateExpansion,
   onBeatsChange,
   onStartExpand,
@@ -35,7 +35,7 @@ export function BeatPanel({
   isExpandingBeat: boolean;
   isGeneratingBeats: boolean;
   onGenerateBeats: () => void;
-  onRegenerateBeats?: (feedback: string) => void;
+  onRerunBeatsWorkflow?: (feedback: string) => void;
   onRegenerateExpansion?: (feedback: string) => void;
   onBeatsChange: (beats: string[]) => void;
   onStartExpand: () => void;
@@ -72,7 +72,7 @@ export function BeatPanel({
 
   const handleRegenerateConfirm = (feedback: string) => {
     if (regenerateMode === "beats") {
-      onRegenerateBeats?.(feedback);
+      onRerunBeatsWorkflow?.(feedback);
     } else if (regenerateMode === "expansion") {
       onRegenerateExpansion?.(feedback);
     }
@@ -80,7 +80,7 @@ export function BeatPanel({
   };
 
   const handlePrimaryBeatClick = () => {
-    if (beats.length > 0 && onRegenerateBeats) {
+    if (beats.length > 0 && onRerunBeatsWorkflow) {
       setRegenerateMode("beats");
       return;
     }

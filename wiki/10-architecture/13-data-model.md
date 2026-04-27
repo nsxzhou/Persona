@@ -136,8 +136,7 @@ erDiagram
         text error_message
         json analysis_meta_payload
         text analysis_report_payload
-        text style_summary_payload
-        text prompt_pack_payload
+        text voice_profile_payload
         string locked_by
         datetime locked_at
         datetime last_heartbeat_at
@@ -156,8 +155,7 @@ erDiagram
         string source_filename
         string style_name
         text analysis_report_payload
-        text style_summary_payload
-        text prompt_pack_payload
+        text voice_profile_payload
     }
     plot_sample_files {
         string id PK
@@ -181,8 +179,7 @@ erDiagram
         text error_message
         json analysis_meta_payload
         text analysis_report_payload
-        text plot_summary_payload
-        text prompt_pack_payload
+        text story_engine_payload
         text plot_skeleton_payload
         string locked_by
         datetime locked_at
@@ -202,8 +199,7 @@ erDiagram
         string source_filename
         string plot_name
         text analysis_report_payload
-        text plot_summary_payload
-        text prompt_pack_payload
+        text story_engine_payload
         text plot_skeleton_payload
     }
 ```
@@ -375,8 +371,7 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `error_message` | Text | nullable | 失败原因 |
 | `analysis_meta_payload` | **JSON** | nullable | 分析元数据（分块数、字符数、分类等） |
 | `analysis_report_payload` | Text | nullable | 分析报告 Markdown |
-| `style_summary_payload` | Text | nullable | Voice Profile Markdown |
-| `prompt_pack_payload` | Text | nullable | Voice Profile Markdown |
+| `voice_profile_payload` | Text | nullable | Voice Profile Markdown |
 | `locked_by` | String(64) | nullable | 当前持有者 Worker ID |
 | `locked_at` | DateTime(tz) | nullable | 锁获取时间 |
 | `last_heartbeat_at` | DateTime(tz) | nullable | 最近心跳 |
@@ -394,7 +389,7 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 
 这张表是 Persona 的"队列"：用 `status + locked_by + locked_at + last_heartbeat_at` 四字段做 "pending / claimed / running / stale" 状态机，不依赖 Redis 或外部队列。详见 [27 Style Analysis 管道](../20-domains/27-style-analysis-pipeline.md)。
 
-**注意**：三大 Markdown 产物（`analysis_report_payload` / `style_summary_payload` / `prompt_pack_payload`）存在任务表，成功后会复制一份到 `style_profiles`。设计原因：**任务 = 时间切片**，可重跑；**profile = 长期资产**，挂载到项目使用。
+**注意**：Markdown 产物（`analysis_report_payload` / `voice_profile_payload`）存在任务表，成功后会复制一份到 `style_profiles`。设计原因：**任务 = 时间切片**，可重跑；**profile = 长期资产**，挂载到项目使用。
 
 #### `style_profiles`（`models.py:312-337`）
 
@@ -408,10 +403,9 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `source_filename` | String(255) | not null | 样本文件名（快照） |
 | `style_name` | String(120) | not null | 用户命名 |
 | `analysis_report_payload` | Text | not null | 分析报告（快照） |
-| `style_summary_payload` | Text | not null | 摘要（可编辑） |
-| `prompt_pack_payload` | Text | not null | Voice Profile（可编辑） |
+| `voice_profile_payload` | Text | not null | Voice Profile（可编辑） |
 
-挂载后，`Project.style_profile_id` 指向它；Editor 续写时自动注入 `prompt_pack_payload`。
+挂载后，`Project.style_profile_id` 指向它；Novel Workflow 写作时自动注入 `voice_profile_payload`。
 
 #### `plot_sample_files`
 
@@ -445,8 +439,7 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `error_message` | Text | nullable | 失败原因 |
 | `analysis_meta_payload` | **JSON** | nullable | 分析元数据（分块数、字符数、分类等） |
 | `analysis_report_payload` | Text | nullable | 情节分析报告 Markdown |
-| `plot_summary_payload` | Text | nullable | Story Engine Markdown |
-| `prompt_pack_payload` | Text | nullable | Story Engine Markdown |
+| `story_engine_payload` | Text | nullable | Story Engine Markdown |
 | `plot_skeleton_payload` | Text | nullable | 全书骨架 Markdown |
 | `locked_by` | String(64) | nullable | 当前持有者 Worker ID |
 | `locked_at` | DateTime(tz) | nullable | 锁获取时间 |
@@ -477,8 +470,7 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
 | `source_filename` | String(255) | not null | 样本文件名（快照） |
 | `plot_name` | String(120) | not null | 用户命名 |
 | `analysis_report_payload` | Text | not null | 情节分析报告（快照） |
-| `plot_summary_payload` | Text | not null | Story Engine（可编辑） |
-| `prompt_pack_payload` | Text | not null | Story Engine（可编辑） |
+| `story_engine_payload` | Text | not null | Story Engine（可编辑） |
 | `plot_skeleton_payload` | Text | nullable | 全书骨架（可编辑或留空） |
 
 挂载后，`Project.plot_profile_id` 指向它；规划和写作链路都会把其中的 Story Engine 作为约束输入。
@@ -551,7 +543,7 @@ async with connectable.connect() as connection:
 
 ### JSON 字段 vs Text 字段的取舍
 
-Persona 里的"长文本"大多是 Markdown（`analysis_report_payload` / `prompt_pack_payload` / `characters` / `outline_master` 等），全部用 **Text**，不用 JSON。
+Persona 里的"长文本"大多是 Markdown（`analysis_report_payload` / `voice_profile_payload` / `story_engine_payload` / `outline_master` 等），全部用 **Text**，不用 JSON。
 
 **判别原则**：
 

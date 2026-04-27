@@ -75,7 +75,7 @@
 - 身份与来源：`style_name`、`provider_id`、`model_name`、`sample_file_id`
 - 状态机：`status`、`stage`
 - 故障恢复：`attempt_count`、`locked_by`、`locked_at`、`last_heartbeat_at`、`pause_requested_at`、`paused_at`
-- 结果载荷：`analysis_meta_payload`、`analysis_report_payload`、`style_summary_payload`、`prompt_pack_payload`
+- 结果载荷：`analysis_meta_payload`、`analysis_report_payload`、`voice_profile_payload`
 - 生命周期：`started_at`、`completed_at`
 
 状态常量与 stage 常量定义在 `api/app/schemas/style_analysis_jobs.py:93` 与 `api/app/schemas/style_analysis_jobs.py:99`。
@@ -84,11 +84,11 @@
 
 ### 分析 Prompt 全是 Markdown-First
 
-模板实际实现集中在 `api/app/prompts/style_analysis.py`；`api/app/services/style_analysis_prompts.py` 只是运行时导出的兼容层：
+模板实际实现集中在 `api/app/prompts/style_analysis.py`；流水线直接从该模块导入 builder：
 
 - `SHARED_ANALYSIS_RULES` 强制证据优先、中文 Markdown、章节顺序固定
 - `STYLE_ANALYSIS_REPORT_SECTIONS` 定义固定的 3.1-3.12 结构，见 `api/app/schemas/style_analysis_jobs.py:11`
-- `REPORT_TEMPLATE`、`STYLE_SUMMARY_TEMPLATE`、`PROMPT_PACK_TEMPLATE` 把最终输出格式锁死
+- `REPORT_TEMPLATE`、`VOICE_PROFILE_TEMPLATE` 把最终输出格式锁死
 
 ### LLM 调用有“空响应重试”和非标准字段兜底
 
@@ -120,9 +120,8 @@ flowchart TD
     Fanout --> Chunk1["analyze_chunk #1..N"]
     Chunk1 --> Merge["merge_chunks"]
     Merge --> Report["build_report"]
-    Report --> Summary["build_summary"]
-    Summary --> Pack["build_prompt_pack"]
-    Pack --> Persist["persist_result"]
+    Report --> Profile["build_voice_profile"]
+    Profile --> Persist["persist_result"]
     Persist --> Success["status=succeeded"]
 
     Claim -. pause_requested_at .-> Pause["status=paused"]

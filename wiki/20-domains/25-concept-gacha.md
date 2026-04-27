@@ -30,18 +30,18 @@ Concept Gacha 是 Persona 的“新项目启动器”。它不是直接让用户
 
 ## 后端接口 / Service / Repository 链路
 
-概念生成路由本身挂在 editor router 上，而不是 projects router 上：`api/app/api/routes/editor.py:37`。
+概念生成通过 novel workflow 创建 `concept_bootstrap` run，而不是挂在 projects router 上。
 
-Service 在 `api/app/services/editor.py:325`：
+Service 链路在 `api/app/services/novel_workflows.py`、`api/app/services/novel_workflow_worker.py` 与 `api/app/services/novel_workflow_pipeline.py`：
 
 - 先通过 `ProviderConfigService.ensure_enabled()` 校验 Provider 可用
-- 再拼装概念生成 system prompt 与 user message
-- 最后用 `LLMProviderService.invoke_completion()` 做一次非流式调用
+- 再由 `ConceptAgent` 拼装概念生成 system prompt 与 user message
+- 最后把 Markdown 产物写成 `concepts_markdown` artifact
 
-响应解析在 `api/app/prompts/editor.py` 的 `parse_concept_response()`：
+前端在 `web/lib/api-client.ts` 中把 `concepts_markdown` 解析成概念卡：
 
 - 约定模型输出形如 `### 标题` + 简介
-- 解析失败直接抛 `UnprocessableEntityError`
+- API 层保留原始 Markdown artifact，UI 解析失败时显示空结果或错误
 
 创建项目本身不是概念接口干的，而是前端选中概念后再调用项目创建 action。因此 Concept Gacha 的后端职责只到“生成概念”，真正持久化仍复用普通项目创建链路。
 
@@ -59,7 +59,7 @@ Concept Gacha 没有独立表。它的产物是一个普通 `Project`：
 
 ## Prompt / LLM 调用要点
 
-概念抽卡的 Prompt 设计集中在 `api/app/prompts/editor.py`：
+概念抽卡的 Prompt 设计集中在 `api/app/prompts/concept.py`：
 
 - 3 张卡共享同一故事主轴，不能写成 3 本完全不同的小说
 - 差异化来自不同卖点切口，而不是固定平台流派标签
@@ -84,9 +84,10 @@ Concept Gacha 没有独立表。它的产物是一个普通 `Project`：
 - `web/components/concept-gacha-page.tsx`
 - `web/lib/length-presets.ts`
 - `web/lib/api-client.ts`
-- `api/app/api/routes/editor.py`
-- `api/app/services/editor.py`
-- `api/app/prompts/editor.py`
+- `api/app/api/routes/novel_workflows.py`
+- `api/app/services/novel_workflow_pipeline.py`
+- `api/app/services/novel_workflow_agents.py`
+- `api/app/prompts/concept.py`
 - `api/app/services/projects.py`
 
 ## 相关章节

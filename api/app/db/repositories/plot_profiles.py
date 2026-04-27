@@ -17,7 +17,7 @@ class PlotProfileCreateData:
     source_filename: str
     plot_name: str
     analysis_report_payload: str
-    prompt_pack_payload: str
+    story_engine_payload: str
     user_id: str
     plot_skeleton_payload: str | None = None
 
@@ -35,8 +35,7 @@ class PlotProfileRepository:
             select(PlotProfile)
             .options(
                 defer(PlotProfile.analysis_report_payload),
-                defer(PlotProfile.plot_summary_payload),
-                defer(PlotProfile.prompt_pack_payload),
+                defer(PlotProfile.story_engine_payload),
                 defer(PlotProfile.plot_skeleton_payload),
             )
             .order_by(PlotProfile.created_at.desc())
@@ -121,8 +120,7 @@ class PlotProfileRepository:
             source_filename=data.source_filename,
             plot_name=data.plot_name,
             analysis_report_payload=data.analysis_report_payload,
-            plot_summary_payload="",
-            prompt_pack_payload=data.prompt_pack_payload,
+            story_engine_payload=data.story_engine_payload,
             plot_skeleton_payload=data.plot_skeleton_payload,
             user_id=data.user_id,
         )

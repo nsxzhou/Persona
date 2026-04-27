@@ -1,13 +1,19 @@
 import type {
   AnalysisMeta,
   AnalysisReportMarkdown,
-  BeatGenerateResponse,
-  BibleUpdateResponse,
   ConnectionTestResponse,
   ConceptGeneratePayload,
   ConceptGenerateResult,
   GenerationProfile,
   LoginPayload,
+  NovelWorkflow,
+  NovelWorkflowCreatePayload,
+  NovelWorkflowDecisionPayload,
+  NovelWorkflowListItem,
+  NovelWorkflowLogs,
+  NovelBeatWorkflowResult,
+  NovelMemoryWorkflowResult,
+  NovelWorkflowStatusSnapshot,
   Project,
   SetupResponse,
   SetupStatusResponse,
@@ -70,7 +76,77 @@ function regenerateFields(options?: RegenerateOptions): Record<string, string> {
   return out;
 }
 
+function buildSseResponse(text: string): Response {
+  const payload = `data: ${JSON.stringify(text)}\n\n`;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(payload));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function parseMarkdownConcepts(markdown: string): ConceptGenerateResult {
+  const concepts = markdown
+    .split(/^###\s+/m)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [titleLine, ...rest] = part.split("\n");
+      return {
+        title: titleLine.trim(),
+        synopsis: rest.join("\n").trim(),
+      };
+    })
+    .filter((item) => item.title && item.synopsis);
+  return { concepts };
+}
+
+function parseMemoryBundle(markdown: string): {
+  proposedCharactersStatus: string;
+  proposedRuntimeState: string;
+  proposedRuntimeThreads: string;
+} {
+  const sections = new Map<string, string>();
+  const regex = /^##\s+([^\n]+)\n([\s\S]*?)(?=^##\s+|\Z)/gm;
+  for (const match of markdown.matchAll(regex)) {
+    sections.set(match[1].trim(), match[2].trim());
+  }
+  return {
+    proposedCharactersStatus: sections.get("角色动态状态") ?? "",
+    proposedRuntimeState: sections.get("运行时状态") ?? "",
+    proposedRuntimeThreads: sections.get("伏笔与线索追踪") ?? "",
+  };
+}
+
 export function createApiClient(request: Requester) {
+  const pollNovelWorkflow = async (runId: string): Promise<NovelWorkflowStatusSnapshot> => {
+    while (true) {
+      const status = await request<NovelWorkflowStatusSnapshot>(`/api/v1/novel-workflows/${runId}/status`);
+      if (status.status === "succeeded" || status.status === "paused" || status.status === "failed") {
+        return status;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+
+  const createNovelWorkflowAndWait = async (
+    payload: NovelWorkflowCreatePayload,
+  ): Promise<{ run: NovelWorkflowListItem; status: NovelWorkflowStatusSnapshot }> => {
+    const run = await request<NovelWorkflowListItem>("/api/v1/novel-workflows", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const status = await pollNovelWorkflow(run.id);
+    if (status.status === "failed") {
+      throw new Error(status.error_message || "工作流执行失败");
+    }
+    return { run, status };
+  };
+
   return {
     getSetupStatus: () => request<SetupStatusResponse>("/api/v1/setup/status"),
     setup: (payload: SetupPayload) =>
@@ -171,11 +247,42 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/projects/${id}`, {
         method: "DELETE",
       }),
-    generateConcepts: (payload: ConceptGeneratePayload, options?: RegenerateOptions) =>
-      request<ConceptGenerateResult>("/api/v1/projects/generate-concepts", {
+    createNovelWorkflow: (payload: NovelWorkflowCreatePayload) =>
+      request<NovelWorkflowListItem>("/api/v1/novel-workflows", {
         method: "POST",
-        body: JSON.stringify({ ...payload, ...regenerateFields(options) }),
+        body: JSON.stringify(payload),
       }),
+    getNovelWorkflowStatus: (id: string) =>
+      request<NovelWorkflowStatusSnapshot>(`/api/v1/novel-workflows/${id}/status`),
+    getNovelWorkflow: (id: string) =>
+      request<NovelWorkflow>(`/api/v1/novel-workflows/${id}`),
+    getNovelWorkflowLogs: (id: string, offset = 0) =>
+      request<NovelWorkflowLogs>(`/api/v1/novel-workflows/${id}/logs?offset=${offset}`),
+    getNovelWorkflowArtifact: (id: string, artifactName: string) =>
+      request<string>(`/api/v1/novel-workflows/${id}/artifacts/${artifactName}`),
+    pauseNovelWorkflow: (id: string) =>
+      request<NovelWorkflowStatusSnapshot>(`/api/v1/novel-workflows/${id}/pause`, {
+        method: "POST",
+      }),
+    resumeNovelWorkflow: (id: string) =>
+      request<NovelWorkflowStatusSnapshot>(`/api/v1/novel-workflows/${id}/resume`, {
+        method: "POST",
+      }),
+    decideNovelWorkflow: (id: string, payload: NovelWorkflowDecisionPayload) =>
+      request<NovelWorkflowStatusSnapshot>(`/api/v1/novel-workflows/${id}/decision`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    waitForNovelWorkflow: pollNovelWorkflow,
+    generateConcepts: async (payload: ConceptGeneratePayload, options?: RegenerateOptions) => {
+      const { run } = await createNovelWorkflowAndWait({
+        intent_type: "concept_bootstrap",
+        ...payload,
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload);
+      const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/concepts_markdown`);
+      return parseMarkdownConcepts(markdown);
+    },
     getStyleAnalysisJobs: (params?: { offset?: number; limit?: number }) => {
       const offset = params?.offset ?? 0;
       const limit = params?.limit ?? 50;
@@ -312,25 +419,27 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/plot-profiles/${id}`, {
         method: "DELETE",
       }),
-    completeEditor: (
+    runContinuationWorkflow: async (
       projectId: string,
       textBeforeCursor: string,
       currentChapterContext = "",
       previousChapterContext = "",
       totalContentLength = 0,
       generationProfile?: GenerationProfile | null,
-    ) =>
-      request.raw(`/api/v1/projects/${projectId}/editor/complete`, {
-        method: "POST",
-        body: JSON.stringify({
-          text_before_cursor: textBeforeCursor,
-          current_chapter_context: currentChapterContext,
-          previous_chapter_context: previousChapterContext,
-          total_content_length: totalContentLength,
-          ...(generationProfile ? { generation_profile: generationProfile } : {}),
-        }),
-      }),
-    proposeBibleUpdate: (
+    ) => {
+      const { run } = await createNovelWorkflowAndWait({
+        intent_type: "continuation_write",
+        project_id: projectId,
+        text_before_cursor: textBeforeCursor,
+        current_chapter_context: currentChapterContext,
+        previous_chapter_context: previousChapterContext,
+        total_content_length: totalContentLength,
+        ...(generationProfile ? { generation_profile: generationProfile } : {}),
+      } as NovelWorkflowCreatePayload);
+      const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`);
+      return buildSseResponse(markdown);
+    },
+    proposeBibleUpdate: async (
       projectId: string,
       currentCharactersStatus: string,
       currentRuntimeState: string,
@@ -338,19 +447,32 @@ export function createApiClient(request: Requester) {
       contentToCheck: string,
       syncScope: "generated_fragment" | "chapter_full",
       options?: RegenerateOptions,
-    ) =>
-      request<BibleUpdateResponse>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
-        method: "POST",
-        body: JSON.stringify({
-          current_characters_status: currentCharactersStatus,
-          current_runtime_state: currentRuntimeState,
-          current_runtime_threads: currentRuntimeThreads,
-          content_to_check: contentToCheck,
-          sync_scope: syncScope,
-          ...regenerateFields(options),
-        }),
-      }),
-    generateBeats: (
+    ) => {
+      const { run } = await createNovelWorkflowAndWait({
+        intent_type: "memory_refresh",
+        project_id: projectId,
+        content_to_check: contentToCheck,
+        sync_scope: syncScope,
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload);
+      const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/memory_update_bundle`);
+      const chapterSummary = syncScope === "chapter_full"
+        ? await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/chapter_summary_markdown`).catch(() => "")
+        : "";
+      const parsed = parseMemoryBundle(markdown);
+      return {
+        proposed_characters_status: parsed.proposedCharactersStatus,
+        proposed_runtime_state: parsed.proposedRuntimeState,
+        proposed_runtime_threads: parsed.proposedRuntimeThreads,
+        proposed_summary: chapterSummary || null,
+        changed:
+          parsed.proposedCharactersStatus !== currentCharactersStatus
+          || parsed.proposedRuntimeState !== currentRuntimeState
+          || parsed.proposedRuntimeThreads !== currentRuntimeThreads
+          || Boolean(chapterSummary),
+      } satisfies NovelMemoryWorkflowResult;
+    },
+    runBeatsWorkflow: async (
       projectId: string,
       textBeforeCursor: string,
       runtimeState: string,
@@ -360,21 +482,22 @@ export function createApiClient(request: Requester) {
       previousChapterContext?: string,
       totalContentLength = 0,
       options?: RegenerateOptions,
-    ) =>
-      request<BeatGenerateResponse>(`/api/v1/projects/${projectId}/editor/generate-beats`, {
-        method: "POST",
-        body: JSON.stringify({
-          text_before_cursor: textBeforeCursor,
-          runtime_state: runtimeState,
-          runtime_threads: runtimeThreads,
-          outline_detail: outlineDetail,
-          ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
-          ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
-          total_content_length: totalContentLength,
-          ...regenerateFields(options),
-        }),
-      }),
-    expandBeat: (
+    ) => {
+      const { run } = await createNovelWorkflowAndWait({
+        intent_type: "beats_generate",
+        project_id: projectId,
+        text_before_cursor: textBeforeCursor,
+        current_chapter_context: currentChapterContext ?? "",
+        previous_chapter_context: previousChapterContext ?? "",
+        total_content_length: totalContentLength,
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload);
+      const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/beats_markdown`);
+      return {
+        beats: markdown.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+      } satisfies NovelBeatWorkflowResult;
+    },
+    runBeatExpandWorkflow: async (
       projectId: string,
       textBeforeCursor: string,
       runtimeState: string,
@@ -387,24 +510,23 @@ export function createApiClient(request: Requester) {
       currentChapterContext?: string,
       previousChapterContext?: string,
       options?: RegenerateOptions,
-    ) =>
-      request.raw(`/api/v1/projects/${projectId}/editor/expand-beat`, {
-        method: "POST",
-        body: JSON.stringify({
-          text_before_cursor: textBeforeCursor,
-          runtime_state: runtimeState,
-          runtime_threads: runtimeThreads,
-          outline_detail: outlineDetail,
-          beat,
-          beat_index: beatIndex,
-          total_beats: totalBeats,
-          preceding_beats_prose: precedingBeatsProse,
-          ...(currentChapterContext ? { current_chapter_context: currentChapterContext } : {}),
-          ...(previousChapterContext ? { previous_chapter_context: previousChapterContext } : {}),
-          ...regenerateFields(options),
-        }),
-      }),
-    generateSection: (
+    ) => {
+      const { run } = await createNovelWorkflowAndWait({
+        intent_type: "beat_expand",
+        project_id: projectId,
+        text_before_cursor: textBeforeCursor,
+        beat,
+        beat_index: beatIndex,
+        total_beats: totalBeats,
+        preceding_beats_prose: precedingBeatsProse,
+        current_chapter_context: currentChapterContext ?? "",
+        previous_chapter_context: previousChapterContext ?? "",
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload);
+      const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`);
+      return buildSseResponse(markdown);
+    },
+    runSectionWorkflow: (
       projectId: string,
       payload: {
         section: string;
@@ -419,23 +541,45 @@ export function createApiClient(request: Requester) {
       },
       options?: RegenerateOptions,
     ) =>
-      request.raw(`/api/v1/projects/${projectId}/editor/generate-section`, {
-        method: "POST",
-        body: JSON.stringify({ ...payload, ...regenerateFields(options) }),
+      createNovelWorkflowAndWait({
+        intent_type: "section_generate",
+        project_id: projectId,
+        section: payload.section,
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload).then(async ({ run }) => {
+        const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/section_markdown`);
+        return buildSseResponse(markdown);
       }),
-    generateVolumes: (projectId: string, options?: RegenerateOptions) =>
-      request.raw(`/api/v1/projects/${projectId}/editor/generate-volumes`, {
-        method: "POST",
-        body: JSON.stringify(regenerateFields(options)),
+    streamNovelWorkflowArtifact: async (runId: string, artifactName: string) => {
+      const status = await pollNovelWorkflow(runId);
+      if (status.status === "failed") {
+        throw new Error(status.error_message || "工作流执行失败");
+      }
+      const markdown = await request<string>(`/api/v1/novel-workflows/${runId}/artifacts/${artifactName}`);
+      return buildSseResponse(markdown);
+    },
+    runVolumeWorkflow: (projectId: string, options?: RegenerateOptions) =>
+      createNovelWorkflowAndWait({
+        intent_type: "volume_generate",
+        project_id: projectId,
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload).then(async ({ run }) => {
+        const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/volumes_markdown`);
+        return buildSseResponse(markdown);
       }),
-    generateVolumeChapters: (
+    runVolumeChaptersWorkflow: (
       projectId: string,
       volumeIndex: number,
       options?: RegenerateOptions,
     ) =>
-      request.raw(`/api/v1/projects/${projectId}/editor/generate-volume-chapters`, {
-        method: "POST",
-        body: JSON.stringify({ volume_index: volumeIndex, ...regenerateFields(options) }),
+      createNovelWorkflowAndWait({
+        intent_type: "volume_chapters_generate",
+        project_id: projectId,
+        volume_index: volumeIndex,
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload).then(async ({ run }) => {
+        const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/volume_chapters_markdown`);
+        return buildSseResponse(markdown);
       }),
   };
 }

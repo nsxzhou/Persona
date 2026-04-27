@@ -4,8 +4,8 @@ import { describe, expect, test, vi } from "vitest";
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
 
 const apiMock = vi.hoisted(() => ({
-  generateVolumes: vi.fn(),
-  generateVolumeChapters: vi.fn(),
+  runVolumeWorkflow: vi.fn(),
+  runVolumeChaptersWorkflow: vi.fn(),
   updateProject: vi.fn(),
 }));
 
@@ -52,8 +52,8 @@ describe("OutlineDetailTab", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "预览" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "编辑" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "预览" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "AI 生成" })).toBeInTheDocument();
     expect(screen.getByText("第一卷 反派开局")).toBeInTheDocument();
     expect(screen.getByText("已完成 1/2 章")).toBeInTheDocument();

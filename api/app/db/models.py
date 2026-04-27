@@ -58,6 +58,9 @@ class User(TimestampMixin, Base):
     projects: Mapped[list["Project"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     style_sample_files: Mapped[list["StyleSampleFile"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -132,6 +135,9 @@ class ProviderConfig(TimestampMixin, Base):
     plot_profiles: Mapped[list["PlotProfile"]] = relationship(
         back_populates="provider"
     )
+    novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
+        back_populates="provider"
+    )
     user: Mapped["User"] = relationship(back_populates="provider_configs")
 
     @property
@@ -185,6 +191,9 @@ class Project(TimestampMixin, Base):
     chapters: Mapped[list["ProjectChapter"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
     @property
     def generation_profile(self) -> dict | None:
@@ -208,6 +217,7 @@ class ProjectBible(TimestampMixin, Base):
     characters_status: Mapped[str] = mapped_column(Text, nullable=False, default="")
     runtime_state: Mapped[str] = mapped_column(Text, nullable=False, default="")
     runtime_threads: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    story_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
     project: Mapped["Project"] = relationship(back_populates="bible")
 
@@ -231,6 +241,7 @@ class ProjectChapter(TimestampMixin, Base):
     chapter_index: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False, default="")
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    beats_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
     word_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     memory_sync_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -247,6 +258,88 @@ class ProjectChapter(TimestampMixin, Base):
     memory_sync_proposed_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="chapters")
+    novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
+        back_populates="chapter"
+    )
+
+
+class NovelWorkflowRun(TimestampMixin, Base):
+    __tablename__ = "novel_workflow_runs"
+    __table_args__ = (
+        Index(
+            "ix_novel_workflow_runs_status_created_at",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_novel_workflow_runs_status_attempt_count_created_at",
+            "status",
+            "attempt_count",
+            "created_at",
+        ),
+        Index(
+            "ix_novel_workflow_runs_status_last_heartbeat_at",
+            "status",
+            "last_heartbeat_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    chapter_id: Mapped[str | None] = mapped_column(
+        ForeignKey("project_chapters.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    provider_id: Mapped[str | None] = mapped_column(
+        ForeignKey("provider_configs.id"), nullable=True, index=True
+    )
+    intent_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", index=True)
+    stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    checkpoint_kind: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    request_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    latest_artifacts_payload: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    warnings_payload: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    decision_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    pause_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    paused_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    user: Mapped["User"] = relationship(back_populates="novel_workflow_runs")
+    project: Mapped["Project | None"] = relationship(back_populates="novel_workflow_runs")
+    chapter: Mapped["ProjectChapter | None"] = relationship(back_populates="novel_workflow_runs")
+    provider: Mapped["ProviderConfig | None"] = relationship(back_populates="novel_workflow_runs")
+
+    @property
+    def latest_artifacts(self) -> list[str]:
+        return list(self.latest_artifacts_payload or [])
+
+    @property
+    def warnings(self) -> list[str]:
+        return list(self.warnings_payload or [])
 
 
 class StyleSampleFile(TimestampMixin, Base):
@@ -311,8 +404,7 @@ class StyleAnalysisJob(TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     analysis_meta_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     analysis_report_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
-    style_summary_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
-    prompt_pack_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    voice_profile_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 多 worker 并发场景下的抢占锁持有者标识
     locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     locked_at: Mapped[datetime | None] = mapped_column(
@@ -368,8 +460,7 @@ class StyleProfile(TimestampMixin, Base):
     source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     style_name: Mapped[str] = mapped_column(String(120), nullable=False)
     analysis_report_payload: Mapped[str] = mapped_column(Text, nullable=False)
-    style_summary_payload: Mapped[str] = mapped_column(Text, nullable=False)
-    prompt_pack_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    voice_profile_payload: Mapped[str] = mapped_column(Text, nullable=False)
 
     source_job: Mapped["StyleAnalysisJob"] = relationship(
         back_populates="style_profile"
@@ -439,8 +530,7 @@ class PlotAnalysisJob(TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     analysis_meta_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     analysis_report_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
-    plot_summary_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
-    prompt_pack_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    story_engine_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     plot_skeleton_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     locked_at: Mapped[datetime | None] = mapped_column(
@@ -496,8 +586,7 @@ class PlotProfile(TimestampMixin, Base):
     source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     plot_name: Mapped[str] = mapped_column(String(120), nullable=False)
     analysis_report_payload: Mapped[str] = mapped_column(Text, nullable=False)
-    plot_summary_payload: Mapped[str] = mapped_column(Text, nullable=False)
-    prompt_pack_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    story_engine_payload: Mapped[str] = mapped_column(Text, nullable=False)
     plot_skeleton_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     source_job: Mapped["PlotAnalysisJob"] = relationship(

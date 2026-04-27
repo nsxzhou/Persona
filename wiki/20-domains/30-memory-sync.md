@@ -45,15 +45,15 @@ Diff 计算与折叠逻辑由 `web/lib/diff-utils.ts:32` 和 `web/components/bib
 
 ## 后端接口 / Service / Repository 链路
 
-后端入口只有一个：`POST /projects/{project_id}/editor/propose-bible-update`，见 `api/app/api/routes/editor.py:78`。
+后端入口是 novel workflow：`POST /api/v1/novel-workflows`，`intent_type=memory_refresh`。
 
-Service 在 `api/app/services/editor.py:230`：
+Service 在 `api/app/services/novel_workflow_pipeline.py` 与 `api/app/services/novel_workflow_agents.py`：
 
 - 先读取项目并确保已配置 Provider
-- 再用 `build_bible_update_system_prompt()` 与 `build_bible_update_user_message()` 构造 Prompt
-- 最后调用 `invoke_completion()` 返回完整候选文本
+- 再由 `MemorySyncAgent.refresh()` 调用 `build_bible_update_system_prompt()` 与 `build_bible_update_user_message()`
+- 最后把候选文本写成 `memory_update_bundle` artifact，并由前端 diff 确认后写回 Bible
 
-Prompt 规则定义在 `api/app/prompts/editor.py` 的 `build_bible_update_system_prompt()` 与 `build_bible_update_user_message()`。解析逻辑在同文件的 `parse_bible_update_response()`：
+Prompt 规则定义在 `api/app/prompts/memory_sync.py`。解析逻辑在同文件的 `parse_bible_update_response()`：
 
 - 如果模型输出了两个 `##` 区块，就拆成 `runtime_state` 与 `runtime_threads`
 - 如果格式退化，所有内容都进 `runtime_state`
@@ -87,7 +87,7 @@ Prompt 规则定义在 `api/app/prompts/editor.py` 的 `build_bible_update_syste
 - 它也不是生成Story Engine
 - 它只提炼“后文必须继续遵守或继续追踪的持续性变化”
 
-`_BIBLE_UPDATE_SYSTEM` 在 `api/app/prompts/editor.py` 里明确要求：
+`build_bible_update_system_prompt()` 在 `api/app/prompts/memory_sync.py` 里明确要求：
 
 - 只保留持续性变化
 - 不记录一次性动作和气氛描写
@@ -103,9 +103,10 @@ Prompt 规则定义在 `api/app/prompts/editor.py` 的 `build_bible_update_syste
 - `web/components/memory-sync-button.tsx`
 - `web/components/bible-diff-dialog.tsx`
 - `web/lib/diff-utils.ts`
-- `api/app/api/routes/editor.py`
-- `api/app/services/editor.py`
-- `api/app/prompts/editor.py`
+- `api/app/api/routes/novel_workflows.py`
+- `api/app/services/novel_workflow_pipeline.py`
+- `api/app/services/novel_workflow_agents.py`
+- `api/app/prompts/memory_sync.py`
 - `api/app/services/project_chapters.py`
 - `api/app/db/models.py`
 

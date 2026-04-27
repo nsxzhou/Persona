@@ -45,7 +45,7 @@ export const BIBLE_TEMPLATES: Record<BibleFieldKey, string> = {
 （只有在主线真的需要时，再写地图扩展、势力延伸或更大的世界）
 `,
 
-  characters: `## 主角：（名字）
+  characters_blueprint: `## 主角：（名字）
 
 - **身份**：
 - **年龄**：
@@ -96,6 +96,16 @@ export const BIBLE_TEMPLATES: Record<BibleFieldKey, string> = {
 - **章末钩子**：（悬念或反转）
 
 （可复制添加更多章节和卷）
+`,
+
+  characters_status: `## 主角：（名字）
+
+- **当前位置与处境**：
+- **伤势/异常状态**：
+- **关键持有物品**：
+- **近期关系变化**：
+
+（可复制添加更多角色的动态状态）
 `,
 
   runtime_state: `## 时间线

@@ -75,7 +75,7 @@ class StyleProfileService(BaseProfileService[StyleProfile]):
                 source_filename=job.sample_file.original_filename,
                 style_name=payload.style_name,
                 analysis_report_payload=analysis_report,
-                prompt_pack_payload=payload.voice_profile_markdown,
+                voice_profile_payload=payload.voice_profile_markdown,
                 user_id=resolved_user_id,
             ),
         )
@@ -97,7 +97,7 @@ class StyleProfileService(BaseProfileService[StyleProfile]):
     ) -> StyleProfile:
         profile = await self.get_or_404(session, profile_id, user_id=user_id)
         profile.style_name = payload.style_name
-        profile.prompt_pack_payload = payload.voice_profile_markdown
+        profile.voice_profile_payload = payload.voice_profile_markdown
         await self.repository.flush(session)
         await self._mount_project(
             session,

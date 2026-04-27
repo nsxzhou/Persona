@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.prompts.style_analysis import VOICE_PROFILE_TEMPLATE
-from app.services.style_analysis_prompts import (
+from app.prompts.style_analysis import (
+    VOICE_PROFILE_TEMPLATE,
     build_chunk_analysis_prompt,
     build_voice_profile_prompt,
 )
@@ -35,6 +35,8 @@ def test_build_chunk_analysis_prompt_keeps_markdown_evidence_contract() -> None:
     assert "固定章节" in prompt
     assert "3/5" in prompt
     assert "独特风格样本：ALPHA-STYLE" in prompt
+    assert "风格现象 -> 可复用写法 -> 证据摘要" in prompt
+    assert "可执行写作资产" in prompt
 
 
 def test_build_voice_profile_prompt_requires_new_heading_and_sections() -> None:
@@ -71,6 +73,10 @@ def test_build_voice_profile_prompt_focuses_on_sentence_level_fingerprint() -> N
 
     assert "只回答“这个文本怎么写”" in prompt
     assert "执行规则" in prompt
+    assert "触发场景和执行方式" in prompt
+    assert "强约束" in prompt
+    assert "弱偏好" in prompt
+    assert "不得把情节设定、世界观机制、角色关系走向写进 Voice Profile" in prompt
     assert "人物名、地名、组织名、专属设定词" in prompt
     assert "genre_mother" not in prompt
     assert "intensity_level" not in prompt

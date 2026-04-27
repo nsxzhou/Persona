@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BibleTabContent } from "@/components/bible-tab-content";
+import { NovelWorkflowRunPanel } from "@/components/novel-workflow-run-panel";
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
 import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { SettingsTab } from "@/components/settings-tab";
@@ -23,6 +24,8 @@ import type {
   Project,
   ProjectBible,
   ProjectChapter,
+  NovelWorkflowCreatePayload,
+  NovelWorkflowListItem,
   ProviderConfig,
   StyleProfileListItem,
 } from "@/lib/types";
@@ -65,7 +68,8 @@ export function WorkbenchTabs({
 
   // ---- AI generation ----
   const [generatingSection, setGeneratingSection] = useState<BibleFieldKey | null>(null);
-  const [regenerateSection, setRegenerateSection] = useState<BibleFieldKey | null>(null);
+  const [rerunSectionWorkflow, setRerunSectionWorkflow] = useState<BibleFieldKey | null>(null);
+  const [activeWorkflowRun, setActiveWorkflowRun] = useState<NovelWorkflowListItem | null>(null);
   const [chapters, setChapters] = useState<ProjectChapter[]>([]);
   const [chaptersLoadError, setChaptersLoadError] = useState<string | null>(null);
   const generationReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
@@ -122,13 +126,17 @@ export function WorkbenchTabs({
       setGeneratingSection(sectionKey);
 
       try {
-        const response = await api.generateSection(
-          project.id,
-          {
-            section: sectionKey,
-            ...fields,
-          },
-          options,
+        const workflowRun = await api.createNovelWorkflow({
+          intent_type: "section_generate",
+          project_id: project.id,
+          section: sectionKey,
+          ...regenerateFieldsForWorkflow(options),
+        } as NovelWorkflowCreatePayload);
+        setActiveWorkflowRun(workflowRun);
+
+        const response = await api.streamNovelWorkflowArtifact(
+          workflowRun.id,
+          "section_markdown",
         );
 
         if (!response.body) throw new Error("No response body");
@@ -171,7 +179,7 @@ export function WorkbenchTabs({
   const handleGenerate = useCallback(
     (sectionKey: BibleFieldKey) => {
       if (fields[sectionKey].trim()) {
-        setRegenerateSection(sectionKey);
+        setRerunSectionWorkflow(sectionKey);
       } else {
         executeGeneration(sectionKey);
       }
@@ -181,15 +189,15 @@ export function WorkbenchTabs({
 
   const handleRegenerateConfirm = useCallback(
     (feedback: string) => {
-      const section = regenerateSection;
+      const section = rerunSectionWorkflow;
       if (!section) return;
-      setRegenerateSection(null);
+      setRerunSectionWorkflow(null);
       executeGeneration(section, {
         previousOutput: fields[section] || undefined,
         userFeedback: feedback || undefined,
       });
     },
-    [regenerateSection, fields, executeGeneration],
+    [rerunSectionWorkflow, fields, executeGeneration],
   );
 
   // Global Escape key listener
@@ -263,6 +271,29 @@ export function WorkbenchTabs({
           </button>
         </div>
       ) : null}
+      {activeWorkflowRun ? (
+        <NovelWorkflowRunPanel
+          run={activeWorkflowRun}
+          className="mb-4"
+          onStatusChange={(status) => {
+            setActiveWorkflowRun((current) =>
+              current
+                ? {
+                    ...current,
+                    status: status.status,
+                    stage: status.stage,
+                    checkpoint_kind: status.checkpoint_kind,
+                    latest_artifacts: status.latest_artifacts ?? [],
+                    warnings: status.warnings ?? [],
+                    error_message: status.error_message,
+                    updated_at: status.updated_at,
+                    pause_requested_at: status.pause_requested_at,
+                  }
+                : current,
+            );
+          }}
+        />
+      ) : null}
       <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
         <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
         {BIBLE_SECTION_META.map((section) => (
@@ -330,20 +361,30 @@ export function WorkbenchTabs({
         </TabsContent>
 
         <RegenerateDialog
-          open={regenerateSection !== null}
+          open={rerunSectionWorkflow !== null}
           title={
-            regenerateSection
+            rerunSectionWorkflow
               ? `重新生成「${
-                  BIBLE_SECTION_META.find((s) => s.key === regenerateSection)?.title ?? regenerateSection
+                  BIBLE_SECTION_META.find((s) => s.key === rerunSectionWorkflow)?.title ?? rerunSectionWorkflow
                 }」`
               : ""
           }
           description="当前已有内容，将在其基础上按你的意见重新生成。意见可填可不填。"
           busy={generatingSection !== null}
-          onCancel={() => setRegenerateSection(null)}
+          onCancel={() => setRerunSectionWorkflow(null)}
           onConfirm={handleRegenerateConfirm}
         />
       </Tabs>
     </div>
   );
+}
+
+function regenerateFieldsForWorkflow(options?: RegenerateOptions): {
+  previous_output?: string;
+  feedback?: string;
+} {
+  return {
+    ...(options?.previousOutput ? { previous_output: options.previousOutput } : {}),
+    ...(options?.userFeedback ? { feedback: options.userFeedback } : {}),
+  };
 }

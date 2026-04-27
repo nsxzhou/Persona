@@ -44,7 +44,7 @@ export function useBeatGeneration({
         ? content.substring(0, textarea.selectionStart)
         : content;
 
-      const data = await api.generateBeats(
+      const data = await api.runBeatsWorkflow(
         project.id,
         textBeforeCursor,
         projectBible.runtime_state ?? "",
@@ -81,7 +81,7 @@ export function useBeatGeneration({
       setIsExpandingBeat(true);
 
       try {
-        const response = await api.expandBeat(
+        const response = await api.runBeatExpandWorkflow(
           project.id,
           textBeforeCursor,
           projectBible.runtime_state ?? "",

@@ -128,7 +128,7 @@ def test_build_style_profile_response_payload_only_depends_on_voice_profile_fiel
         source_filename="sample.txt",
         style_name="冷白",
         analysis_report_payload=build_fake_analysis_report(),
-        prompt_pack_payload=build_fake_voice_profile(),
+        voice_profile_payload=build_fake_voice_profile(),
         created_at="2025-01-01T00:00:00Z",
         updated_at="2025-01-01T00:00:00Z",
     )

@@ -28,7 +28,7 @@ class StyleProfileCreateData:
     source_filename: str
     style_name: str
     analysis_report_payload: str
-    prompt_pack_payload: str
+    voice_profile_payload: str
     user_id: str
 
 
@@ -60,8 +60,7 @@ class StyleProfileRepository:
                 # 在列表页我们只需要显示名称、创建时间等基本信息
                 # 所以使用defer延迟加载这些大字段，大幅减少网络传输和内存占用
                 defer(StyleProfile.analysis_report_payload),
-                defer(StyleProfile.style_summary_payload),
-                defer(StyleProfile.prompt_pack_payload),
+                defer(StyleProfile.voice_profile_payload),
             )
             # 按创建时间倒序，最新的在前
             .order_by(StyleProfile.created_at.desc())
@@ -171,8 +170,7 @@ class StyleProfileRepository:
             source_filename=data.source_filename,
             style_name=data.style_name,
             analysis_report_payload=data.analysis_report_payload,
-            style_summary_payload="",
-            prompt_pack_payload=data.prompt_pack_payload,
+            voice_profile_payload=data.voice_profile_payload,
             user_id=data.user_id,
         )
         # 将对象添加到会话

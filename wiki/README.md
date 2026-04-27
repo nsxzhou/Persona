@@ -118,7 +118,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 
 优先使用“`文件路径 + 关键符号 / 路由 / 组件名`”的稳定引用方式，例如：
 
-- `api/app/api/routes/editor.py` 中的 `generate_beats()`
+- `api/app/api/routes/novel_workflows.py` 中的 `create_novel_workflow()`
 - `web/components/workbench-tabs.tsx` 中的 `OutlineDetailTab`
 
 只有在字段、迁移号或小型工具函数这类相对稳定的位置，才补充 `路径:行号`。发现 wiki 与代码不一致时，应以代码为准并修复本文档。

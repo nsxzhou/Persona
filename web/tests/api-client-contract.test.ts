@@ -3,9 +3,9 @@ import { describe, expect, test, vi } from "vitest";
 import { createApiClient } from "@/lib/api-client";
 import { createJsonRequester } from "@/lib/api/transport";
 import type {
-  BeatGenerateResponse,
-  BibleUpdateResponse,
   ConceptGeneratePayload,
+  NovelBeatWorkflowResult,
+  NovelMemoryWorkflowResult,
   PlotProfile,
   SetupResponse,
   SetupStatusResponse,
@@ -16,7 +16,68 @@ import type {
 
 describe("API contracts", () => {
   test("api client methods align with exported OpenAPI contract types", async () => {
-    const request = vi.fn(async <T,>(_path: string) => undefined as T) as unknown as {
+    const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
+      if (path === "/api/v1/novel-workflows" && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body ?? "{}")) as { intent_type?: string };
+        return {
+          id: `${payload.intent_type ?? "workflow"}-1`,
+          intent_type: payload.intent_type ?? "section_generate",
+          project_id: "project-1",
+          chapter_id: null,
+          provider_id: null,
+          model_name: null,
+          status: "pending",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: [],
+          warnings: [],
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-04-27T00:00:00Z",
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.startsWith("/api/v1/novel-workflows/") && path.endsWith("/status")) {
+        return {
+          id: "workflow-1",
+          status: "succeeded",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: ["artifact"],
+          warnings: [],
+          error_message: null,
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.includes("/artifacts/concepts_markdown")) {
+        return "### 标题A\n简介A" as T;
+      }
+      if (path.includes("/artifacts/memory_update_bundle")) {
+        return "## 角色动态状态\n\n角色状态\n\n## 运行时状态\n\n运行时状态\n\n## 伏笔与线索追踪\n\n伏笔" as T;
+      }
+      if (path.includes("/artifacts/chapter_summary_markdown")) {
+        return "章节摘要" as T;
+      }
+      if (path.includes("/artifacts/beats_markdown")) {
+        return "beat 1\nbeat 2" as T;
+      }
+      if (path.includes("/artifacts/prose_markdown")) {
+        return "正文内容" as T;
+      }
+      if (path.includes("/artifacts/section_markdown")) {
+        return "区块内容" as T;
+      }
+      if (path.includes("/artifacts/volumes_markdown")) {
+        return "卷结构" as T;
+      }
+      if (path.includes("/artifacts/volume_chapters_markdown")) {
+        return "章节结构" as T;
+      }
+      return undefined as T;
+    }) as unknown as {
       <T>(path: string, init?: RequestInit): Promise<T>;
       raw: (path: string, init?: RequestInit) => Promise<Response>;
     };
@@ -37,15 +98,16 @@ describe("API contracts", () => {
       },
     });
     const statusPromise: Promise<StyleAnalysisJobStatusSnapshot> = client.getStyleAnalysisJobStatus("job-1");
-    const beatsPromise: Promise<BeatGenerateResponse> = client.generateBeats(
+    const beatsPromise: Promise<NovelBeatWorkflowResult> = client.runBeatsWorkflow(
       "project-1",
       "",
       "",
       "",
       "",
     );
-    const biblePromise: Promise<BibleUpdateResponse> = client.proposeBibleUpdate(
+    const biblePromise: Promise<NovelMemoryWorkflowResult> = client.proposeBibleUpdate(
       "project-1",
+      "",
       "",
       "",
       "new content",
@@ -93,7 +155,46 @@ describe("API contracts", () => {
   });
 
   test("concept generation payload accepts selected profile ids", async () => {
-    const request = vi.fn(async <T,>(_path: string) => ({ concepts: [] }) as T) as unknown as {
+    const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
+      if (path === "/api/v1/novel-workflows") {
+        return {
+          id: "concept-bootstrap-1",
+          intent_type: "concept_bootstrap",
+          project_id: null,
+          chapter_id: null,
+          provider_id: "provider-1",
+          model_name: null,
+          status: "pending",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: [],
+          warnings: [],
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-04-27T00:00:00Z",
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.endsWith("/status")) {
+        return {
+          id: "concept-bootstrap-1",
+          status: "succeeded",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: ["concepts_markdown"],
+          warnings: [],
+          error_message: null,
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.includes("/artifacts/concepts_markdown")) {
+        return "### 标题A\n简介A" as T;
+      }
+      return undefined as T;
+    }) as unknown as {
       <T>(path: string, init?: RequestInit): Promise<T>;
       raw: (path: string, init?: RequestInit) => Promise<Response>;
     };
@@ -105,6 +206,7 @@ describe("API contracts", () => {
       model: null,
       count: 3,
       generation_profile: {
+        target_market: "mainstream",
         genre_mother: "xianxia",
         desire_overlays: ["harem_collect"],
         intensity_level: "explicit",
@@ -119,16 +221,61 @@ describe("API contracts", () => {
     await client.generateConcepts(payload);
 
     expect(request).toHaveBeenCalledWith(
-      "/api/v1/projects/generate-concepts",
+      "/api/v1/novel-workflows",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          intent_type: "concept_bootstrap",
+          ...payload,
+        }),
       }),
     );
   });
 
   test("proposeBibleUpdate sends content_to_check and sync_scope", async () => {
-    const request = vi.fn(async <T,>(_path: string) => undefined as T) as unknown as {
+    const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
+      if (path === "/api/v1/novel-workflows") {
+        return {
+          id: "memory-refresh-1",
+          intent_type: "memory_refresh",
+          project_id: "project-1",
+          chapter_id: null,
+          provider_id: null,
+          model_name: null,
+          status: "pending",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: [],
+          warnings: [],
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-04-27T00:00:00Z",
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.endsWith("/status")) {
+        return {
+          id: "memory-refresh-1",
+          status: "succeeded",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: ["memory_update_bundle"],
+          warnings: [],
+          error_message: null,
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.includes("/artifacts/memory_update_bundle")) {
+        return "## 角色动态状态\n\n角色状态\n\n## 运行时状态\n\n当前状态\n\n## 伏笔与线索追踪\n\n当前伏笔" as T;
+      }
+      if (path.includes("/artifacts/chapter_summary_markdown")) {
+        return "章节摘要" as T;
+      }
+      return undefined as T;
+    }) as unknown as {
       <T>(path: string, init?: RequestInit): Promise<T>;
       raw: (path: string, init?: RequestInit) => Promise<Response>;
     };
@@ -137,6 +284,7 @@ describe("API contracts", () => {
 
     await client.proposeBibleUpdate(
       "project-1",
+      "当前角色状态",
       "当前状态",
       "当前伏笔",
       "整章正文",
@@ -144,12 +292,12 @@ describe("API contracts", () => {
     );
 
     expect(request).toHaveBeenCalledWith(
-      "/api/v1/projects/project-1/editor/propose-bible-update",
+      "/api/v1/novel-workflows",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          current_runtime_state: "当前状态",
-          current_runtime_threads: "当前伏笔",
+          intent_type: "memory_refresh",
+          project_id: "project-1",
           content_to_check: "整章正文",
           sync_scope: "chapter_full",
         }),

@@ -151,7 +151,7 @@ class StyleAnalysisJobExecutor:
                 1,
                 min(get_settings().style_analysis_chunk_max_concurrency, 32),
             )
-            # 运行主流程，产出结构化结果（analysis_meta/report/summary/prompt_pack）
+            # 运行主流程，产出结构化结果（analysis_meta/report/voice_profile）
             result = await pipeline.run(
                 job_id=job_id,
                 chunk_count=context.chunk_count,

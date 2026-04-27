@@ -19,6 +19,7 @@ class ProjectChapterResponse(BaseModel):
     chapter_index: int
     title: str
     content: str
+    beats_markdown: str
     summary: str
     word_count: int
     memory_sync_status: MemorySyncStatus | None = None
@@ -38,6 +39,7 @@ class ProjectChapterResponse(BaseModel):
 class ProjectChapterUpdate(BaseModel):
     title: str | None = None
     content: str | None = None
+    beats_markdown: str | None = None
     summary: str | None = None
     memory_sync_status: MemorySyncStatus | None = None
     memory_sync_source: MemorySyncSource | None = None

@@ -31,6 +31,7 @@ export type EditorLayoutProps = {
   chapterBannerAction: React.ReactNode;
   canContinueWrite: boolean;
   memorySyncButton: React.ReactNode;
+  workflowRunPanel?: React.ReactNode;
   sidePanelProps: React.ComponentProps<typeof EditorSidePanel>;
   rightPanel: React.ReactNode;
   children: React.ReactNode;
@@ -62,6 +63,7 @@ export function EditorLayout({
   chapterBannerAction,
   canContinueWrite,
   memorySyncButton,
+  workflowRunPanel,
   sidePanelProps,
   rightPanel,
   children,
@@ -187,7 +189,7 @@ export function EditorLayout({
           </div>
 
           <div className="px-6 pb-3">
-            <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/30 px-4 py-3 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   当前章节
@@ -219,6 +221,11 @@ export function EditorLayout({
                 <div>{chapterBannerAction}</div>
               </div>
             </div>
+            {workflowRunPanel ? (
+              <div className="mt-3">
+                {workflowRunPanel}
+              </div>
+            ) : null}
           </div>
         </header>
 

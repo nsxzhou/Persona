@@ -79,11 +79,11 @@ Plot Lab 横跨三张主表（均定义在 `api/app/db/models.py`）：
 
 - `api/app/db/models.py:361` 的 `PlotSampleFile`：原始 TXT 的元信息（文件名、content type、存储路径、字节数、字符数、sha256）
 - `api/app/db/models.py:379` 的 `PlotAnalysisJob`：分析任务、阶段、日志与阶段产物
-  - 五个 payload 字段：`analysis_meta_payload`、`analysis_report_payload`、`plot_summary_payload`、`prompt_pack_payload`、`plot_skeleton_payload`
+  - 四个 payload 字段：`analysis_meta_payload`、`analysis_report_payload`、`story_engine_payload`、`plot_skeleton_payload`
   - `plot_skeleton_payload` 位于 `api/app/db/models.py:423`，由 `0013_plot_skeleton_payload` 迁移引入
   - 故障恢复字段：`locked_by`、`locked_at`、`last_heartbeat_at`、`pause_requested_at`、`paused_at`、`attempt_count`
 - `api/app/db/models.py:461` 的 `PlotProfile`：长期复用的情节档案
-  - 四份资产镜像：`analysis_report_payload` / `plot_summary_payload` / `prompt_pack_payload` / `plot_skeleton_payload`（骨架字段在 `api/app/db/models.py:480`）
+  - 三份资产镜像：`analysis_report_payload` / `story_engine_payload` / `plot_skeleton_payload`
   - 通过 `source_job_id` 唯一绑定任务，通过 `projects` 反向关系允许多个项目挂载
 
 它们的关系是：
@@ -98,7 +98,7 @@ Plot Lab 不是一次 LLM 调用，而是多阶段流水线，管道节点顺序
 
 `sketch → skeleton` 这一前置预览是 Plot Lab 相对 Style Lab 的核心架构差异：情节维度（阶段划分、主爽点兑现节奏、主角能力走向、关系演变、结局形状）几乎都需要全书视角，而文风是 chunk-local 的。
 
-Prompt 模板与构造器的实际实现集中在 `api/app/prompts/plot_analysis.py`；流水线通过 `api/app/services/plot_analysis_prompts.py` 的兼容导出层引用这些 builder。核心 8 个 builder 如下：
+Prompt 模板与构造器的实际实现集中在 `api/app/prompts/plot_analysis.py`；流水线直接引用这些 builder。核心 7 个 builder 如下：
 
 - `build_sketch_prompt()`（`:161`）——分块速写，**全文件唯一允许 JSON 输出的分支**，见模块里与 `SHARED_ANALYSIS_RULES` 并列的 `SKETCH_ANALYSIS_RULES`（`:21`）
 - `build_skeleton_reduce_prompt()`（`:206`）——把 sketches 归约成 ≤2500 tokens 的 `plot-skeleton.md`

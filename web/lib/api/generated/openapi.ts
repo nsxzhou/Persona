@@ -345,67 +345,59 @@ export interface paths {
         patch: operations["update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch"];
         trace?: never;
     };
-    "/api/v1/projects/generate-concepts": {
+    "/api/v1/novel-workflows": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Novel Workflows */
+        get: operations["list_novel_workflows_api_v1_novel_workflows_get"];
         put?: never;
-        /**
-         * Generate Concepts
-         * @description Generate concept candidates for a new project.
-         */
-        post: operations["generate_concepts_api_v1_projects_generate_concepts_post"];
+        /** Create Novel Workflow */
+        post: operations["create_novel_workflow_api_v1_novel_workflows_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/complete": {
+    "/api/v1/novel-workflows/{run_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Novel Workflow */
+        get: operations["get_novel_workflow_api_v1_novel_workflows__run_id__get"];
         put?: never;
-        /**
-         * Editor Complete
-         * @description Stream continuation text for the active project editor session.
-         */
-        post: operations["editor_complete_api_v1_projects__project_id__editor_complete_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/generate-section": {
+    "/api/v1/novel-workflows/{run_id}/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Novel Workflow Status */
+        get: operations["get_novel_workflow_status_api_v1_novel_workflows__run_id__status_get"];
         put?: never;
-        /**
-         * Generate Section
-         * @description Stream generated bible content for a single planning section.
-         */
-        post: operations["generate_section_api_v1_projects__project_id__editor_generate_section_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/propose-bible-update": {
+    "/api/v1/novel-workflows/{run_id}/pause": {
         parameters: {
             query?: never;
             header?: never;
@@ -414,18 +406,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Propose Bible Update
-         * @description Propose runtime-state and thread updates from newly written content.
-         */
-        post: operations["propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post"];
+        /** Pause Novel Workflow */
+        post: operations["pause_novel_workflow_api_v1_novel_workflows__run_id__pause_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/generate-beats": {
+    "/api/v1/novel-workflows/{run_id}/resume": {
         parameters: {
             query?: never;
             header?: never;
@@ -434,18 +423,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Generate Beats
-         * @description Generate beat outlines for the current chapter context.
-         */
-        post: operations["generate_beats_api_v1_projects__project_id__editor_generate_beats_post"];
+        /** Resume Novel Workflow */
+        post: operations["resume_novel_workflow_api_v1_novel_workflows__run_id__resume_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/expand-beat": {
+    "/api/v1/novel-workflows/{run_id}/decision": {
         parameters: {
             query?: never;
             header?: never;
@@ -454,48 +440,42 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Expand Beat
-         * @description Stream prose that expands a selected beat into chapter text.
-         */
-        post: operations["expand_beat_api_v1_projects__project_id__editor_expand_beat_post"];
+        /** Submit Novel Workflow Decision */
+        post: operations["submit_novel_workflow_decision_api_v1_novel_workflows__run_id__decision_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/generate-volumes": {
+    "/api/v1/novel-workflows/{run_id}/logs": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Novel Workflow Logs */
+        get: operations["get_novel_workflow_logs_api_v1_novel_workflows__run_id__logs_get"];
         put?: never;
-        /**
-         * Generate Volumes
-         * @description Stream top-level volume planning output for the project.
-         */
-        post: operations["generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{project_id}/editor/generate-volume-chapters": {
+    "/api/v1/novel-workflows/{run_id}/artifacts/{artifact_name}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Novel Workflow Artifact */
+        get: operations["get_novel_workflow_artifact_api_v1_novel_workflows__run_id__artifacts__artifact_name__get"];
         put?: never;
-        /** Generate Volume Chapters */
-        post: operations["generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -960,163 +940,6 @@ export interface components {
          * @description Markdown analysis report for Style Lab.
          */
         AnalysisReportMarkdown: string;
-        /** BeatExpandRequest */
-        BeatExpandRequest: {
-            /**
-             * Previous Output
-             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
-             */
-            user_feedback?: string | null;
-            /** Text Before Cursor */
-            text_before_cursor: string;
-            /**
-             * Runtime State
-             * @default
-             */
-            runtime_state: string;
-            /**
-             * Runtime Threads
-             * @default
-             */
-            runtime_threads: string;
-            /**
-             * Outline Detail
-             * @default
-             */
-            outline_detail: string;
-            /** Beat */
-            beat: string;
-            /** Beat Index */
-            beat_index: number;
-            /** Total Beats */
-            total_beats: number;
-            /**
-             * Preceding Beats Prose
-             * @default
-             */
-            preceding_beats_prose: string;
-            /**
-             * Current Chapter Context
-             * @description 当前章节的结构化上下文
-             * @default
-             */
-            current_chapter_context: string;
-            /**
-             * Previous Chapter Context
-             * @description 前序章节上下文
-             * @default
-             */
-            previous_chapter_context: string;
-        };
-        /** BeatGenerateRequest */
-        BeatGenerateRequest: {
-            /**
-             * Previous Output
-             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
-             */
-            user_feedback?: string | null;
-            /** Text Before Cursor */
-            text_before_cursor: string;
-            /**
-             * Runtime State
-             * @default
-             */
-            runtime_state: string;
-            /**
-             * Runtime Threads
-             * @default
-             */
-            runtime_threads: string;
-            /**
-             * Outline Detail
-             * @default
-             */
-            outline_detail: string;
-            /**
-             * Num Beats
-             * @default 8
-             */
-            num_beats: number;
-            /**
-             * Current Chapter Context
-             * @description 当前章节的结构化上下文
-             * @default
-             */
-            current_chapter_context: string;
-            /**
-             * Previous Chapter Context
-             * @description 前序章节上下文
-             * @default
-             */
-            previous_chapter_context: string;
-            /**
-             * Total Content Length
-             * @default 0
-             */
-            total_content_length: number;
-        };
-        /** BeatGenerateResponse */
-        BeatGenerateResponse: {
-            /** Beats */
-            beats: string[];
-        };
-        /** BibleUpdateRequest */
-        BibleUpdateRequest: {
-            /**
-             * Previous Output
-             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
-             */
-            user_feedback?: string | null;
-            /**
-             * Current Runtime State
-             * @default
-             */
-            current_runtime_state: string;
-            /**
-             * Current Runtime Threads
-             * @default
-             */
-            current_runtime_threads: string;
-            /**
-             * Content To Check
-             * @description 待检查的正文内容
-             */
-            content_to_check: string;
-            /**
-             * Sync Scope
-             * @description 本次检查的正文范围
-             * @enum {string}
-             */
-            sync_scope: "generated_fragment" | "chapter_full";
-        };
-        /** BibleUpdateResponse */
-        BibleUpdateResponse: {
-            /** Proposed Runtime State */
-            proposed_characters_status: string;
-            /** Proposed Runtime State */
-            proposed_runtime_state: string;
-            /** Proposed Runtime Threads */
-            proposed_runtime_threads: string;
-            /** Proposed Summary */
-            proposed_summary?: string | null;
-            /** Changed */
-            changed: boolean;
-        };
         /** Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post */
         Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post: {
             /** Plot Name */
@@ -1139,90 +962,12 @@ export interface components {
             /** File */
             file: string;
         };
-        /** ConceptGenerateRequest */
-        ConceptGenerateRequest: {
-            /**
-             * Inspiration
-             * @description 用户灵感描述文本
-             */
-            inspiration: string;
-            /**
-             * Provider Id
-             * @description AI 服务商 ID
-             */
-            provider_id: string;
-            /**
-             * Model
-             * @description 可选模型覆盖
-             */
-            model?: string | null;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
-            /**
-             * Style Profile Id
-             * @description 可选风格档案 ID
-             */
-            style_profile_id?: string | null;
-            /**
-             * Plot Profile Id
-             * @description 可选情节档案 ID
-             */
-            plot_profile_id?: string | null;
-            /**
-             * Count
-             * @description 生成候选数量
-             * @default 3
-             */
-            count: number;
-            /**
-             * Previous Output
-             * @description 上一版生成结果，用于旧稿修订式重生成（可选）
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），作为高优先级要求
-             */
-            user_feedback?: string | null;
-        };
-        /** ConceptGenerateResponse */
-        ConceptGenerateResponse: {
-            /** Concepts */
-            concepts: components["schemas"]["ConceptItem"][];
-        };
-        /** ConceptItem */
-        ConceptItem: {
-            /** Title */
-            title: string;
-            /** Synopsis */
-            synopsis: string;
-        };
         /** ConnectionTestResponse */
         ConnectionTestResponse: {
             /** Status */
             status: string;
             /** Message */
             message: string;
-        };
-        /** EditorCompletionRequest */
-        EditorCompletionRequest: {
-            /** Text Before Cursor */
-            text_before_cursor: string;
-            /**
-             * Current Chapter Context
-             * @default
-             */
-            current_chapter_context: string;
-            /**
-             * Previous Chapter Context
-             * @default
-             */
-            previous_chapter_context: string;
-            /**
-             * Total Content Length
-             * @default 0
-             */
-            total_content_length: number;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
         };
         /** GenerationProfile */
         GenerationProfile: {
@@ -1271,6 +1016,259 @@ export interface components {
             username: string;
             /** Password */
             password: string;
+        };
+        /**
+         * MarkdownArtifactResponse
+         * @description Markdown artifact content.
+         */
+        MarkdownArtifactResponse: string;
+        /** NovelWorkflowBaseResponse */
+        NovelWorkflowBaseResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Intent Type
+             * @enum {string}
+             */
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            /** Project Id */
+            project_id: string | null;
+            /** Chapter Id */
+            chapter_id: string | null;
+            /** Provider Id */
+            provider_id: string | null;
+            /** Model Name */
+            model_name: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
+            /** Stage */
+            stage: ("preparing" | "generating" | "waiting_decision" | "persisting" | "postprocessing") | null;
+            /** Checkpoint Kind */
+            checkpoint_kind?: ("outline_bundle" | "beats" | "memory_update") | null;
+            /** Latest Artifacts */
+            latest_artifacts?: string[];
+            /** Warnings */
+            warnings?: string[];
+            /** Error Message */
+            error_message: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
+        };
+        /** NovelWorkflowCreateRequest */
+        NovelWorkflowCreateRequest: {
+            /**
+             * Intent Type
+             * @enum {string}
+             */
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            /** Project Id */
+            project_id?: string | null;
+            /** Chapter Id */
+            chapter_id?: string | null;
+            /** Volume Index */
+            volume_index?: number | null;
+            /** Section */
+            section?: string | null;
+            /**
+             * Text Before Cursor
+             * @default
+             */
+            text_before_cursor: string;
+            /**
+             * Current Chapter Context
+             * @default
+             */
+            current_chapter_context: string;
+            /**
+             * Previous Chapter Context
+             * @default
+             */
+            previous_chapter_context: string;
+            /**
+             * Total Content Length
+             * @default 0
+             */
+            total_content_length: number;
+            /** Beat */
+            beat?: string | null;
+            /** Beat Index */
+            beat_index?: number | null;
+            /** Total Beats */
+            total_beats?: number | null;
+            /**
+             * Preceding Beats Prose
+             * @default
+             */
+            preceding_beats_prose: string;
+            /**
+             * Content To Check
+             * @default
+             */
+            content_to_check: string;
+            /** Sync Scope */
+            sync_scope?: ("generated_fragment" | "chapter_full") | null;
+            /**
+             * Inspiration
+             * @default
+             */
+            inspiration: string;
+            /** Count */
+            count?: number | null;
+            /** Provider Id */
+            provider_id?: string | null;
+            /** Model Name */
+            model_name?: string | null;
+            /** Style Profile Id */
+            style_profile_id?: string | null;
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
+            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /** Feedback */
+            feedback?: string | null;
+            /** Previous Output */
+            previous_output?: string | null;
+            model_overrides?: components["schemas"]["NovelWorkflowModelOverrides"] | null;
+        };
+        /** NovelWorkflowDecisionRequest */
+        NovelWorkflowDecisionRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "approve" | "revise";
+            /** Artifact Name */
+            artifact_name: string;
+            /** Edited Markdown */
+            edited_markdown?: string | null;
+            /** Feedback */
+            feedback?: string | null;
+        };
+        /** NovelWorkflowLogsResponse */
+        NovelWorkflowLogsResponse: {
+            /**
+             * Content
+             * @description Incremental log content from the requested offset.
+             */
+            content: string;
+            /**
+             * Next Offset
+             * @description Next byte offset the client should request.
+             */
+            next_offset: number;
+            /**
+             * Truncated
+             * @description Whether the requested offset was reset because it exceeded the log length.
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** NovelWorkflowModelOverrides */
+        NovelWorkflowModelOverrides: {
+            /** Model Name */
+            model_name?: string | null;
+            /** Enable Editor Pass */
+            enable_editor_pass?: boolean | null;
+        };
+        /** NovelWorkflowResponse */
+        NovelWorkflowResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Intent Type
+             * @enum {string}
+             */
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            /** Project Id */
+            project_id: string | null;
+            /** Chapter Id */
+            chapter_id: string | null;
+            /** Provider Id */
+            provider_id: string | null;
+            /** Model Name */
+            model_name: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
+            /** Stage */
+            stage: ("preparing" | "generating" | "waiting_decision" | "persisting" | "postprocessing") | null;
+            /** Checkpoint Kind */
+            checkpoint_kind?: ("outline_bundle" | "beats" | "memory_update") | null;
+            /** Latest Artifacts */
+            latest_artifacts?: string[];
+            /** Warnings */
+            warnings?: string[];
+            /** Error Message */
+            error_message: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
+            /** Request Payload */
+            request_payload: {
+                [key: string]: unknown;
+            };
+            /** Decision Payload */
+            decision_payload?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** NovelWorkflowStatusResponse */
+        NovelWorkflowStatusResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "paused" | "succeeded" | "failed";
+            /** Stage */
+            stage: ("preparing" | "generating" | "waiting_decision" | "persisting" | "postprocessing") | null;
+            /** Checkpoint Kind */
+            checkpoint_kind?: ("outline_bundle" | "beats" | "memory_update") | null;
+            /** Latest Artifacts */
+            latest_artifacts?: string[];
+            /** Warnings */
+            warnings?: string[];
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Pause Requested At */
+            pause_requested_at?: string | null;
         };
         /** PlotAnalysisJobBaseResponse */
         PlotAnalysisJobBaseResponse: {
@@ -1616,10 +1614,8 @@ export interface components {
             inspiration: string;
             /** World Building */
             world_building: string;
-            /** Characters */
+            /** Characters Blueprint */
             characters_blueprint: string;
-            /** Characters Status */
-            characters_status: string;
             /** Outline Master */
             outline_master: string;
             /** Outline Detail */
@@ -1630,6 +1626,8 @@ export interface components {
             runtime_state: string;
             /** Runtime Threads */
             runtime_threads: string;
+            /** Story Summary */
+            story_summary: string;
             /**
              * Created At
              * Format: date-time
@@ -1647,18 +1645,20 @@ export interface components {
             inspiration?: string | null;
             /** World Building */
             world_building?: string | null;
-            /** Characters */
+            /** Characters Blueprint */
             characters_blueprint?: string | null;
-            /** Characters Status */
-            characters_status?: string | null;
             /** Outline Master */
             outline_master?: string | null;
             /** Outline Detail */
             outline_detail?: string | null;
+            /** Characters Status */
+            characters_status?: string | null;
             /** Runtime State */
             runtime_state?: string | null;
             /** Runtime Threads */
             runtime_threads?: string | null;
+            /** Story Summary */
+            story_summary?: string | null;
         };
         /** ProjectChapterResponse */
         ProjectChapterResponse: {
@@ -1674,6 +1674,8 @@ export interface components {
             title: string;
             /** Content */
             content: string;
+            /** Beats Markdown */
+            beats_markdown: string;
             /** Summary */
             summary: string;
             /** Word Count */
@@ -1690,7 +1692,7 @@ export interface components {
             memory_sync_checked_content_hash?: string | null;
             /** Memory Sync Error Message */
             memory_sync_error_message?: string | null;
-            /** Memory Sync Proposed State */
+            /** Memory Sync Proposed Characters Status */
             memory_sync_proposed_characters_status?: string | null;
             /** Memory Sync Proposed State */
             memory_sync_proposed_state?: string | null;
@@ -1715,6 +1717,8 @@ export interface components {
             title?: string | null;
             /** Content */
             content?: string | null;
+            /** Beats Markdown */
+            beats_markdown?: string | null;
             /** Summary */
             summary?: string | null;
             /** Memory Sync Status */
@@ -1729,7 +1733,7 @@ export interface components {
             memory_sync_checked_content_hash?: string | null;
             /** Memory Sync Error Message */
             memory_sync_error_message?: string | null;
-            /** Memory Sync Proposed State */
+            /** Memory Sync Proposed Characters Status */
             memory_sync_proposed_characters_status?: string | null;
             /** Memory Sync Proposed State */
             memory_sync_proposed_state?: string | null;
@@ -1949,61 +1953,6 @@ export interface components {
             default_model: string;
             /** Is Enabled */
             is_enabled: boolean;
-        };
-        /** SectionGenerateRequest */
-        SectionGenerateRequest: {
-            /**
-             * Previous Output
-             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
-             */
-            user_feedback?: string | null;
-            /**
-             * Section
-             * @description 要生成的区块名称
-             */
-            section: string;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /**
-             * World Building
-             * @default
-             */
-            world_building: string;
-            /**
-             * Characters
-             * @default
-             */
-            characters_blueprint: string;
-            /** Characters Status */
-            characters_status: string;
-            /**
-             * Outline Master
-             * @default
-             */
-            outline_master: string;
-            /**
-             * Outline Detail
-             * @default
-             */
-            outline_detail: string;
-            /**
-             * Runtime State
-             * @default
-             */
-            runtime_state: string;
-            /**
-             * Runtime Threads
-             * @default
-             */
-            runtime_threads: string;
         };
         /** SetupRequest */
         SetupRequest: {
@@ -2335,40 +2284,6 @@ export interface components {
          * @description Reusable markdown voice profile.
          */
         VoiceProfileMarkdown: string;
-        /** VolumeChaptersRequest */
-        VolumeChaptersRequest: {
-            /**
-             * Previous Output
-             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
-             */
-            user_feedback?: string | null;
-            /**
-             * Volume Index
-             * @description 要生成章节的卷索引（0-based）
-             */
-            volume_index: number;
-        };
-        /**
-         * VolumeGenerateRequest
-         * @description Payload for volume structure generation (only used for regeneration).
-         */
-        VolumeGenerateRequest: {
-            /**
-             * Previous Output
-             * @description 上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成
-             */
-            previous_output?: string | null;
-            /**
-             * User Feedback
-             * @description 用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt
-             */
-            user_feedback?: string | null;
-        };
     };
     responses: never;
     parameters: never;
@@ -3110,7 +3025,39 @@ export interface operations {
             };
         };
     };
-    generate_concepts_api_v1_projects_generate_concepts_post: {
+    list_novel_workflows_api_v1_novel_workflows_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowBaseResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_novel_workflow_api_v1_novel_workflows_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -3119,17 +3066,17 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ConceptGenerateRequest"];
+                "application/json": components["schemas"]["NovelWorkflowCreateRequest"];
             };
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConceptGenerateResponse"];
+                    "application/json": components["schemas"]["NovelWorkflowBaseResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3143,18 +3090,142 @@ export interface operations {
             };
         };
     };
-    editor_complete_api_v1_projects__project_id__editor_complete_post: {
+    get_novel_workflow_api_v1_novel_workflows__run_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_novel_workflow_status_api_v1_novel_workflows__run_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_novel_workflow_api_v1_novel_workflows__run_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_novel_workflow_api_v1_novel_workflows__run_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_novel_workflow_decision_api_v1_novel_workflows__run_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EditorCompletionRequest"];
+                "application/json": components["schemas"]["NovelWorkflowDecisionRequest"];
             };
         };
         responses: {
@@ -3164,7 +3235,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NovelWorkflowStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3178,20 +3249,18 @@ export interface operations {
             };
         };
     };
-    generate_section_api_v1_projects__project_id__editor_generate_section_post: {
+    get_novel_workflow_logs_api_v1_novel_workflows__run_id__logs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                offset?: number;
+            };
             header?: never;
             path: {
-                project_id: string;
+                run_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SectionGenerateRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3199,7 +3268,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NovelWorkflowLogsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3213,20 +3282,17 @@ export interface operations {
             };
         };
     };
-    propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post: {
+    get_novel_workflow_artifact_api_v1_novel_workflows__run_id__artifacts__artifact_name__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                project_id: string;
+                run_id: string;
+                artifact_name: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BibleUpdateRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3234,147 +3300,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BibleUpdateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_beats_api_v1_projects__project_id__editor_generate_beats_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BeatGenerateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BeatGenerateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    expand_beat_api_v1_projects__project_id__editor_expand_beat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BeatExpandRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["VolumeGenerateRequest"] | null;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VolumeChaptersRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MarkdownArtifactResponse"];
                 };
             };
             /** @description Validation Error */

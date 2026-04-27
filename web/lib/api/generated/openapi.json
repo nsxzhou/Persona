@@ -990,349 +990,88 @@
         }
       }
     },
-    "/api/v1/projects/generate-concepts": {
-      "post": {
+    "/api/v1/novel-workflows": {
+      "get": {
         "tags": [
-          "editor"
+          "novel-workflows"
         ],
-        "summary": "Generate Concepts",
-        "description": "Generate concept candidates for a new project.",
-        "operationId": "generate_concepts_api_v1_projects_generate_concepts_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConceptGenerateRequest"
-              }
+        "summary": "List Novel Workflows",
+        "operationId": "list_novel_workflows_api_v1_novel_workflows_get",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
             }
           },
-          "required": true
-        },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConceptGenerateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/{project_id}/editor/complete": {
-      "post": {
-        "tags": [
-          "editor"
-        ],
-        "summary": "Editor Complete",
-        "description": "Stream continuation text for the active project editor session.",
-        "operationId": "editor_complete_api_v1_projects__project_id__editor_complete_post",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Project Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EditorCompletionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/{project_id}/editor/generate-section": {
-      "post": {
-        "tags": [
-          "editor"
-        ],
-        "summary": "Generate Section",
-        "description": "Stream generated bible content for a single planning section.",
-        "operationId": "generate_section_api_v1_projects__project_id__editor_generate_section_post",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Project Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SectionGenerateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/{project_id}/editor/propose-bible-update": {
-      "post": {
-        "tags": [
-          "editor"
-        ],
-        "summary": "Propose Bible Update",
-        "description": "Propose runtime-state and thread updates from newly written content.",
-        "operationId": "propose_bible_update_api_v1_projects__project_id__editor_propose_bible_update_post",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Project Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BibleUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BibleUpdateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/{project_id}/editor/generate-beats": {
-      "post": {
-        "tags": [
-          "editor"
-        ],
-        "summary": "Generate Beats",
-        "description": "Generate beat outlines for the current chapter context.",
-        "operationId": "generate_beats_api_v1_projects__project_id__editor_generate_beats_post",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Project Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BeatGenerateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeatGenerateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/{project_id}/editor/expand-beat": {
-      "post": {
-        "tags": [
-          "editor"
-        ],
-        "summary": "Expand Beat",
-        "description": "Stream prose that expands a selected beat into chapter text.",
-        "operationId": "expand_beat_api_v1_projects__project_id__editor_expand_beat_post",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Project Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BeatExpandRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/projects/{project_id}/editor/generate-volumes": {
-      "post": {
-        "tags": [
-          "editor"
-        ],
-        "summary": "Generate Volumes",
-        "description": "Stream top-level volume planning output for the project.",
-        "operationId": "generate_volumes_api_v1_projects__project_id__editor_generate_volumes_post",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Project Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/VolumeGenerateRequest"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NovelWorkflowBaseResponse"
                   },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Payload"
+                  "title": "Response List Novel Workflows Api V1 Novel Workflows Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Create Novel Workflow",
+        "operationId": "create_novel_workflow_api_v1_novel_workflows_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NovelWorkflowCreateRequest"
               }
             }
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowBaseResponse"
+                }
               }
             }
           },
@@ -1349,21 +1088,189 @@
         }
       }
     },
-    "/api/v1/projects/{project_id}/editor/generate-volume-chapters": {
-      "post": {
+    "/api/v1/novel-workflows/{run_id}": {
+      "get": {
         "tags": [
-          "editor"
+          "novel-workflows"
         ],
-        "summary": "Generate Volume Chapters",
-        "operationId": "generate_volume_chapters_api_v1_projects__project_id__editor_generate_volume_chapters_post",
+        "summary": "Get Novel Workflow",
+        "operationId": "get_novel_workflow_api_v1_novel_workflows__run_id__get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "run_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/novel-workflows/{run_id}/status": {
+      "get": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Get Novel Workflow Status",
+        "operationId": "get_novel_workflow_status_api_v1_novel_workflows__run_id__status_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/novel-workflows/{run_id}/pause": {
+      "post": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Pause Novel Workflow",
+        "operationId": "pause_novel_workflow_api_v1_novel_workflows__run_id__pause_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/novel-workflows/{run_id}/resume": {
+      "post": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Resume Novel Workflow",
+        "operationId": "resume_novel_workflow_api_v1_novel_workflows__run_id__resume_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/novel-workflows/{run_id}/decision": {
+      "post": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Submit Novel Workflow Decision",
+        "operationId": "submit_novel_workflow_decision_api_v1_novel_workflows__run_id__decision_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
             }
           }
         ],
@@ -1372,7 +1279,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VolumeChaptersRequest"
+                "$ref": "#/components/schemas/NovelWorkflowDecisionRequest"
               }
             }
           }
@@ -1382,7 +1289,113 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/novel-workflows/{run_id}/logs": {
+      "get": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Get Novel Workflow Logs",
+        "operationId": "get_novel_workflow_logs_api_v1_novel_workflows__run_id__logs_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovelWorkflowLogsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/novel-workflows/{run_id}/artifacts/{artifact_name}": {
+      "get": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Get Novel Workflow Artifact",
+        "operationId": "get_novel_workflow_artifact_api_v1_novel_workflows__run_id__artifacts__artifact_name__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "artifact_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artifact Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkdownArtifactResponse"
+                }
               }
             }
           },
@@ -2919,264 +2932,6 @@
         "title": "AnalysisReportMarkdown",
         "description": "Markdown analysis report for Style Lab."
       },
-      "BeatExpandRequest": {
-        "properties": {
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
-          },
-          "text_before_cursor": {
-            "type": "string",
-            "title": "Text Before Cursor"
-          },
-          "runtime_state": {
-            "type": "string",
-            "title": "Runtime State",
-            "default": ""
-          },
-          "runtime_threads": {
-            "type": "string",
-            "title": "Runtime Threads",
-            "default": ""
-          },
-          "outline_detail": {
-            "type": "string",
-            "title": "Outline Detail",
-            "default": ""
-          },
-          "beat": {
-            "type": "string",
-            "title": "Beat"
-          },
-          "beat_index": {
-            "type": "integer",
-            "title": "Beat Index"
-          },
-          "total_beats": {
-            "type": "integer",
-            "title": "Total Beats"
-          },
-          "preceding_beats_prose": {
-            "type": "string",
-            "title": "Preceding Beats Prose",
-            "default": ""
-          },
-          "current_chapter_context": {
-            "type": "string",
-            "title": "Current Chapter Context",
-            "description": "当前章节的结构化上下文",
-            "default": ""
-          },
-          "previous_chapter_context": {
-            "type": "string",
-            "title": "Previous Chapter Context",
-            "description": "前序章节上下文",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "text_before_cursor",
-          "beat",
-          "beat_index",
-          "total_beats"
-        ],
-        "title": "BeatExpandRequest"
-      },
-      "BeatGenerateRequest": {
-        "properties": {
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
-          },
-          "text_before_cursor": {
-            "type": "string",
-            "title": "Text Before Cursor"
-          },
-          "runtime_state": {
-            "type": "string",
-            "title": "Runtime State",
-            "default": ""
-          },
-          "runtime_threads": {
-            "type": "string",
-            "title": "Runtime Threads",
-            "default": ""
-          },
-          "outline_detail": {
-            "type": "string",
-            "title": "Outline Detail",
-            "default": ""
-          },
-          "num_beats": {
-            "type": "integer",
-            "maximum": 15.0,
-            "minimum": 3.0,
-            "title": "Num Beats",
-            "default": 8
-          },
-          "current_chapter_context": {
-            "type": "string",
-            "title": "Current Chapter Context",
-            "description": "当前章节的结构化上下文",
-            "default": ""
-          },
-          "previous_chapter_context": {
-            "type": "string",
-            "title": "Previous Chapter Context",
-            "description": "前序章节上下文",
-            "default": ""
-          },
-          "total_content_length": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total Content Length",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "text_before_cursor"
-        ],
-        "title": "BeatGenerateRequest"
-      },
-      "BeatGenerateResponse": {
-        "properties": {
-          "beats": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Beats"
-          }
-        },
-        "type": "object",
-        "required": [
-          "beats"
-        ],
-        "title": "BeatGenerateResponse"
-      },
-      "BibleUpdateRequest": {
-        "properties": {
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
-          },
-          "current_runtime_state": {
-            "type": "string",
-            "title": "Current Runtime State",
-            "default": ""
-          },
-          "current_runtime_threads": {
-            "type": "string",
-            "title": "Current Runtime Threads",
-            "default": ""
-          },
-          "content_to_check": {
-            "type": "string",
-            "title": "Content To Check",
-            "description": "待检查的正文内容"
-          },
-          "sync_scope": {
-            "type": "string",
-            "enum": [
-              "generated_fragment",
-              "chapter_full"
-            ],
-            "title": "Sync Scope",
-            "description": "本次检查的正文范围"
-          }
-        },
-        "type": "object",
-        "required": [
-          "content_to_check",
-          "sync_scope"
-        ],
-        "title": "BibleUpdateRequest"
-      },
-      "BibleUpdateResponse": {
-        "properties": {
-          "proposed_runtime_state": {
-            "type": "string",
-            "title": "Proposed Runtime State"
-          },
-          "proposed_runtime_threads": {
-            "type": "string",
-            "title": "Proposed Runtime Threads"
-          },
-          "changed": {
-            "type": "boolean",
-            "title": "Changed"
-          }
-        },
-        "type": "object",
-        "required": [
-          "proposed_runtime_state",
-          "proposed_runtime_threads",
-          "changed"
-        ],
-        "title": "BibleUpdateResponse"
-      },
       "Body_create_plot_analysis_job_api_v1_plot_analysis_jobs_post": {
         "properties": {
           "plot_name": {
@@ -3247,140 +3002,6 @@
         ],
         "title": "Body_create_style_analysis_job_api_v1_style_analysis_jobs_post"
       },
-      "ConceptGenerateRequest": {
-        "properties": {
-          "inspiration": {
-            "type": "string",
-            "maxLength": 8000,
-            "minLength": 1,
-            "title": "Inspiration",
-            "description": "用户灵感描述文本"
-          },
-          "provider_id": {
-            "type": "string",
-            "title": "Provider Id",
-            "description": "AI 服务商 ID"
-          },
-          "model": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model",
-            "description": "可选模型覆盖"
-          },
-          "generation_profile": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GenerationProfile"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "style_profile_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Style Profile Id",
-            "description": "可选风格档案 ID"
-          },
-          "plot_profile_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plot Profile Id",
-            "description": "可选情节档案 ID"
-          },
-          "count": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Count",
-            "description": "生成候选数量",
-            "default": 3
-          },
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果，用于旧稿修订式重生成（可选）"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），作为高优先级要求"
-          }
-        },
-        "type": "object",
-        "required": [
-          "inspiration",
-          "provider_id"
-        ],
-        "title": "ConceptGenerateRequest"
-      },
-      "ConceptGenerateResponse": {
-        "properties": {
-          "concepts": {
-            "items": {
-              "$ref": "#/components/schemas/ConceptItem"
-            },
-            "type": "array",
-            "title": "Concepts"
-          }
-        },
-        "type": "object",
-        "required": [
-          "concepts"
-        ],
-        "title": "ConceptGenerateResponse"
-      },
-      "ConceptItem": {
-        "properties": {
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "synopsis": {
-            "type": "string",
-            "title": "Synopsis"
-          }
-        },
-        "type": "object",
-        "required": [
-          "title",
-          "synopsis"
-        ],
-        "title": "ConceptItem"
-      },
       "ConnectionTestResponse": {
         "properties": {
           "status": {
@@ -3398,45 +3019,6 @@
           "message"
         ],
         "title": "ConnectionTestResponse"
-      },
-      "EditorCompletionRequest": {
-        "properties": {
-          "text_before_cursor": {
-            "type": "string",
-            "title": "Text Before Cursor"
-          },
-          "current_chapter_context": {
-            "type": "string",
-            "title": "Current Chapter Context",
-            "default": ""
-          },
-          "previous_chapter_context": {
-            "type": "string",
-            "title": "Previous Chapter Context",
-            "default": ""
-          },
-          "total_content_length": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Total Content Length",
-            "default": 0
-          },
-          "generation_profile": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GenerationProfile"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "text_before_cursor"
-        ],
-        "title": "EditorCompletionRequest"
       },
       "GenerationProfile": {
         "properties": {
@@ -3559,6 +3141,890 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MarkdownArtifactResponse": {
+        "type": "string",
+        "minLength": 0,
+        "title": "MarkdownArtifactResponse",
+        "description": "Markdown artifact content."
+      },
+      "NovelWorkflowBaseResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "intent_type": {
+            "type": "string",
+            "enum": [
+              "concept_bootstrap",
+              "project_bootstrap",
+              "chapter_write",
+              "memory_refresh",
+              "section_generate",
+              "volume_generate",
+              "volume_chapters_generate",
+              "continuation_write",
+              "beats_generate",
+              "beat_expand"
+            ],
+            "title": "Intent Type"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing",
+                  "generating",
+                  "waiting_decision",
+                  "persisting",
+                  "postprocessing"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "checkpoint_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outline_bundle",
+                  "beats",
+                  "memory_update"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Kind"
+          },
+          "latest_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Latest Artifacts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "intent_type",
+          "project_id",
+          "chapter_id",
+          "provider_id",
+          "model_name",
+          "status",
+          "stage",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "NovelWorkflowBaseResponse"
+      },
+      "NovelWorkflowCreateRequest": {
+        "properties": {
+          "intent_type": {
+            "type": "string",
+            "enum": [
+              "concept_bootstrap",
+              "project_bootstrap",
+              "chapter_write",
+              "memory_refresh",
+              "section_generate",
+              "volume_generate",
+              "volume_chapters_generate",
+              "continuation_write",
+              "beats_generate",
+              "beat_expand"
+            ],
+            "title": "Intent Type"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "volume_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Index"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "text_before_cursor": {
+            "type": "string",
+            "title": "Text Before Cursor",
+            "default": ""
+          },
+          "current_chapter_context": {
+            "type": "string",
+            "title": "Current Chapter Context",
+            "default": ""
+          },
+          "previous_chapter_context": {
+            "type": "string",
+            "title": "Previous Chapter Context",
+            "default": ""
+          },
+          "total_content_length": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Content Length",
+            "default": 0
+          },
+          "beat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat"
+          },
+          "beat_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat Index"
+          },
+          "total_beats": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Beats"
+          },
+          "preceding_beats_prose": {
+            "type": "string",
+            "title": "Preceding Beats Prose",
+            "default": ""
+          },
+          "content_to_check": {
+            "type": "string",
+            "title": "Content To Check",
+            "default": ""
+          },
+          "sync_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "generated_fragment",
+                  "chapter_full"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Scope"
+          },
+          "inspiration": {
+            "type": "string",
+            "title": "Inspiration",
+            "default": ""
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          },
+          "plot_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Profile Id"
+          },
+          "generation_profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback"
+          },
+          "previous_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Output"
+          },
+          "model_overrides": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NovelWorkflowModelOverrides"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "intent_type"
+        ],
+        "title": "NovelWorkflowCreateRequest"
+      },
+      "NovelWorkflowDecisionRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "revise"
+            ],
+            "title": "Action"
+          },
+          "artifact_name": {
+            "type": "string",
+            "title": "Artifact Name"
+          },
+          "edited_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Markdown"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "artifact_name"
+        ],
+        "title": "NovelWorkflowDecisionRequest"
+      },
+      "NovelWorkflowLogsResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "Incremental log content from the requested offset."
+          },
+          "next_offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Next Offset",
+            "description": "Next byte offset the client should request."
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "description": "Whether the requested offset was reset because it exceeded the log length.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "next_offset"
+        ],
+        "title": "NovelWorkflowLogsResponse"
+      },
+      "NovelWorkflowModelOverrides": {
+        "properties": {
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "enable_editor_pass": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enable Editor Pass"
+          }
+        },
+        "type": "object",
+        "title": "NovelWorkflowModelOverrides"
+      },
+      "NovelWorkflowResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "intent_type": {
+            "type": "string",
+            "enum": [
+              "concept_bootstrap",
+              "project_bootstrap",
+              "chapter_write",
+              "memory_refresh",
+              "section_generate",
+              "volume_generate",
+              "volume_chapters_generate",
+              "continuation_write",
+              "beats_generate",
+              "beat_expand"
+            ],
+            "title": "Intent Type"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing",
+                  "generating",
+                  "waiting_decision",
+                  "persisting",
+                  "postprocessing"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "checkpoint_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outline_bundle",
+                  "beats",
+                  "memory_update"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Kind"
+          },
+          "latest_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Latest Artifacts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
+          },
+          "request_payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Request Payload"
+          },
+          "decision_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "intent_type",
+          "project_id",
+          "chapter_id",
+          "provider_id",
+          "model_name",
+          "status",
+          "stage",
+          "error_message",
+          "started_at",
+          "completed_at",
+          "created_at",
+          "updated_at",
+          "request_payload"
+        ],
+        "title": "NovelWorkflowResponse"
+      },
+      "NovelWorkflowStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "preparing",
+                  "generating",
+                  "waiting_decision",
+                  "persisting",
+                  "postprocessing"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "checkpoint_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outline_bundle",
+                  "beats",
+                  "memory_update"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Kind"
+          },
+          "latest_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Latest Artifacts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "pause_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Requested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "stage",
+          "error_message",
+          "updated_at"
+        ],
+        "title": "NovelWorkflowStatusResponse"
       },
       "PlotAnalysisJobBaseResponse": {
         "properties": {
@@ -4502,9 +4968,9 @@
             "type": "string",
             "title": "World Building"
           },
-          "characters": {
+          "characters_blueprint": {
             "type": "string",
-            "title": "Characters"
+            "title": "Characters Blueprint"
           },
           "outline_master": {
             "type": "string",
@@ -4514,6 +4980,10 @@
             "type": "string",
             "title": "Outline Detail"
           },
+          "characters_status": {
+            "type": "string",
+            "title": "Characters Status"
+          },
           "runtime_state": {
             "type": "string",
             "title": "Runtime State"
@@ -4521,6 +4991,10 @@
           "runtime_threads": {
             "type": "string",
             "title": "Runtime Threads"
+          },
+          "story_summary": {
+            "type": "string",
+            "title": "Story Summary"
           },
           "created_at": {
             "type": "string",
@@ -4539,11 +5013,13 @@
           "project_id",
           "inspiration",
           "world_building",
-          "characters",
+          "characters_blueprint",
           "outline_master",
           "outline_detail",
+          "characters_status",
           "runtime_state",
           "runtime_threads",
+          "story_summary",
           "created_at",
           "updated_at"
         ],
@@ -4573,7 +5049,7 @@
             ],
             "title": "World Building"
           },
-          "characters": {
+          "characters_blueprint": {
             "anyOf": [
               {
                 "type": "string"
@@ -4582,7 +5058,7 @@
                 "type": "null"
               }
             ],
-            "title": "Characters"
+            "title": "Characters Blueprint"
           },
           "outline_master": {
             "anyOf": [
@@ -4606,6 +5082,17 @@
             ],
             "title": "Outline Detail"
           },
+          "characters_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Characters Status"
+          },
           "runtime_state": {
             "anyOf": [
               {
@@ -4627,6 +5114,17 @@
               }
             ],
             "title": "Runtime Threads"
+          },
+          "story_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Story Summary"
           }
         },
         "type": "object",
@@ -4657,6 +5155,14 @@
           "content": {
             "type": "string",
             "title": "Content"
+          },
+          "beats_markdown": {
+            "type": "string",
+            "title": "Beats Markdown"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
           },
           "word_count": {
             "type": "integer",
@@ -4744,6 +5250,17 @@
             ],
             "title": "Memory Sync Error Message"
           },
+          "memory_sync_proposed_characters_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed Characters Status"
+          },
           "memory_sync_proposed_state": {
             "anyOf": [
               {
@@ -4766,6 +5283,17 @@
             ],
             "title": "Memory Sync Proposed Threads"
           },
+          "memory_sync_proposed_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed Summary"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4785,6 +5313,8 @@
           "chapter_index",
           "title",
           "content",
+          "beats_markdown",
+          "summary",
           "word_count",
           "created_at",
           "updated_at"
@@ -4793,6 +5323,17 @@
       },
       "ProjectChapterUpdate": {
         "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "content": {
             "anyOf": [
               {
@@ -4803,6 +5344,28 @@
               }
             ],
             "title": "Content"
+          },
+          "beats_markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beats Markdown"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "memory_sync_status": {
             "anyOf": [
@@ -4886,6 +5449,17 @@
             ],
             "title": "Memory Sync Error Message"
           },
+          "memory_sync_proposed_characters_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed Characters Status"
+          },
           "memory_sync_proposed_state": {
             "anyOf": [
               {
@@ -4907,6 +5481,17 @@
               }
             ],
             "title": "Memory Sync Proposed Threads"
+          },
+          "memory_sync_proposed_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Sync Proposed Summary"
           }
         },
         "type": "object",
@@ -5591,79 +6176,6 @@
           "is_enabled"
         ],
         "title": "ProviderSummary"
-      },
-      "SectionGenerateRequest": {
-        "properties": {
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
-          },
-          "section": {
-            "type": "string",
-            "title": "Section",
-            "description": "要生成的区块名称"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description",
-            "default": ""
-          },
-          "world_building": {
-            "type": "string",
-            "title": "World Building",
-            "default": ""
-          },
-          "characters": {
-            "type": "string",
-            "title": "Characters",
-            "default": ""
-          },
-          "outline_master": {
-            "type": "string",
-            "title": "Outline Master",
-            "default": ""
-          },
-          "outline_detail": {
-            "type": "string",
-            "title": "Outline Detail",
-            "default": ""
-          },
-          "runtime_state": {
-            "type": "string",
-            "title": "Runtime State",
-            "default": ""
-          },
-          "runtime_threads": {
-            "type": "string",
-            "title": "Runtime Threads",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "section"
-        ],
-        "title": "SectionGenerateRequest"
       },
       "SetupRequest": {
         "properties": {
@@ -6600,76 +7112,6 @@
         "minLength": 1,
         "title": "VoiceProfileMarkdown",
         "description": "Reusable markdown voice profile."
-      },
-      "VolumeChaptersRequest": {
-        "properties": {
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
-          },
-          "volume_index": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Volume Index",
-            "description": "要生成章节的卷索引（0-based）"
-          }
-        },
-        "type": "object",
-        "required": [
-          "volume_index"
-        ],
-        "title": "VolumeChaptersRequest"
-      },
-      "VolumeGenerateRequest": {
-        "properties": {
-          "previous_output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Output",
-            "description": "上一版生成结果（前端从当前稿或缓存中取），用于旧稿修订式重生成"
-          },
-          "user_feedback": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Feedback",
-            "description": "用户本次对生成的意见/期望（可选），会作为高优先级要求写入 prompt"
-          }
-        },
-        "type": "object",
-        "title": "VolumeGenerateRequest",
-        "description": "Payload for volume structure generation (only used for regeneration)."
       }
     }
   }

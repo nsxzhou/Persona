@@ -158,10 +158,8 @@ async def test_update_missing_chapter_returns_404(
 
 
 def test_editor_prompt_builders_include_chapter_scoped_context() -> None:
-    from app.services.editor_prompts import (
-        build_beat_expand_user_message,
-        build_beat_generate_user_message,
-    )
+    from app.prompts.beat import build_beat_generate_user_message
+    from app.prompts.prose_writer import build_beat_expand_user_message
 
     beat_message = build_beat_generate_user_message(
         text_before_cursor="当前章光标前",
@@ -262,6 +260,7 @@ async def test_update_invalidates_memory_sync_snapshot_when_saved_content_change
         memory_sync_checked_at=datetime.now(UTC),
         memory_sync_checked_content_hash="old-hash",
         memory_sync_error_message=None,
+        memory_sync_proposed_characters_status="旧角色快照",
         memory_sync_proposed_state="旧提议状态",
         memory_sync_proposed_threads="旧提议伏笔",
     )
@@ -287,6 +286,7 @@ async def test_update_invalidates_memory_sync_snapshot_when_saved_content_change
     assert updated.memory_sync_checked_at is None
     assert updated.memory_sync_checked_content_hash is None
     assert updated.memory_sync_error_message is None
+    assert updated.memory_sync_proposed_characters_status is None
     assert updated.memory_sync_proposed_state is None
     assert updated.memory_sync_proposed_threads is None
     assert updated.memory_sync_proposed_summary is None

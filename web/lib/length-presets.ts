@@ -2,7 +2,7 @@
  * 篇幅预设配置。
  *
  * 数值范围需与后端 api/app/core/length_presets.py 保持一致；
- * description 展示文案需与 api/app/prompts/editor.py 中的 _LENGTH_HINT_LABELS 保持同步。
+ * description 展示文案需与 api/app/prompts/novel_shared.py 中的 LENGTH_HINT_LABELS 保持同步。
  */
 
 export type LengthPresetKey = "short" | "medium" | "long";
