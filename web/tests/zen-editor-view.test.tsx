@@ -114,7 +114,8 @@ const projectBible: ProjectBible = {
   project_id: "project-1",
   inspiration: "",
   world_building: "",
-  characters: "",
+  characters_blueprint: "",
+  characters_status: "",
   outline_master: "",
   outline_detail: `## 第一卷 反派开局
 > 主打反转与误导
@@ -229,6 +230,7 @@ describe("ZenEditorView", () => {
       word_count: nextContent.length,
     }));
     apiMock.proposeBibleUpdate.mockResolvedValue({
+      proposed_characters_status: "",
       proposed_runtime_state: "",
       proposed_runtime_threads: "",
       changed: false,

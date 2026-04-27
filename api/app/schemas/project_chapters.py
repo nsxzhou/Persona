@@ -27,6 +27,7 @@ class ProjectChapterResponse(BaseModel):
     memory_sync_checked_at: datetime | None = None
     memory_sync_checked_content_hash: str | None = None
     memory_sync_error_message: str | None = None
+    memory_sync_proposed_characters_status: str | None = None
     memory_sync_proposed_state: str | None = None
     memory_sync_proposed_threads: str | None = None
     memory_sync_proposed_summary: str | None = None
@@ -44,6 +45,7 @@ class ProjectChapterUpdate(BaseModel):
     memory_sync_checked_at: datetime | None = None
     memory_sync_checked_content_hash: str | None = None
     memory_sync_error_message: str | None = None
+    memory_sync_proposed_characters_status: str | None = None
     memory_sync_proposed_state: str | None = None
     memory_sync_proposed_threads: str | None = None
     memory_sync_proposed_summary: str | None = None

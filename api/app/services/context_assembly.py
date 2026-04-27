@@ -53,9 +53,10 @@ _WRITING_RULES = """
 class WritingContextSections:
     description: str = ""
     world_building: str = ""
-    characters: str = ""
+    characters_blueprint: str = ""
     outline_master: str = ""
     outline_detail: str = ""
+    characters_status: str = ""
     runtime_state: str = ""
     runtime_threads: str = ""
 
@@ -78,9 +79,10 @@ def assemble_writing_context(
     values = {
         "description": resolved_sections.description,
         "world_building": resolved_sections.world_building,
-        "characters": resolved_sections.characters,
+        "characters_blueprint": resolved_sections.characters_blueprint,
         "outline_master": resolved_sections.outline_master,
         "outline_detail": resolved_sections.outline_detail,
+        "characters_status": resolved_sections.characters_status,
         "runtime_state": resolved_sections.runtime_state,
         "runtime_threads": resolved_sections.runtime_threads,
     }

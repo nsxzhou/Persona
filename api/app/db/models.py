@@ -201,10 +201,11 @@ class ProjectBible(TimestampMixin, Base):
     # 蓝图层：作者手动编辑的创作规划资产
     inspiration: Mapped[str] = mapped_column(Text, nullable=False, default="")
     world_building: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    characters: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    characters_blueprint: Mapped[str] = mapped_column(Text, nullable=False, default="")
     outline_master: Mapped[str] = mapped_column(Text, nullable=False, default="")
     outline_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 活态层：AI 写作后自动提议的运行时状态
+    characters_status: Mapped[str] = mapped_column(Text, nullable=False, default="")
     runtime_state: Mapped[str] = mapped_column(Text, nullable=False, default="")
     runtime_threads: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
@@ -238,10 +239,9 @@ class ProjectChapter(TimestampMixin, Base):
     memory_sync_checked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    memory_sync_checked_content_hash: Mapped[str | None] = mapped_column(
-        String(64), nullable=True
-    )
+    memory_sync_checked_content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     memory_sync_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    memory_sync_proposed_characters_status: Mapped[str | None] = mapped_column(Text, nullable=True)
     memory_sync_proposed_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     memory_sync_proposed_threads: Mapped[str | None] = mapped_column(Text, nullable=True)
     memory_sync_proposed_summary: Mapped[str | None] = mapped_column(Text, nullable=True)

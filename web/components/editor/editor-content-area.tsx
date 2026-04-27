@@ -236,7 +236,7 @@ export function EditorContentArea({
     dismissRuntimeUpdate,
   } = useChapterMemorySync({
     projectId: project.id,
-    projectBible: (projectBible ?? DEFAULT_BIBLE) as any,
+    projectBible: (projectBible ?? { characters_status: "", runtime_state: "", runtime_threads: "" }) as any,
     selectedChapter: selectedChapterRecord,
     getCurrentContent: () => store.getState().content,
     persistProjectBibleUpdate,
@@ -595,7 +595,7 @@ export function EditorContentArea({
         }
         sidePanelProps={{
           project: project,
-          projectBible: projectBible ?? { runtime_state: "", runtime_threads: "", outline_detail: "" } as any,
+          projectBible: projectBible ?? { characters_status: "", runtime_state: "", runtime_threads: "", outline_detail: "" } as any,
           contentLength: totalContentLength,
           parsedOutline: parsedOutline,
           currentChapter: currentChapter,
@@ -649,18 +649,20 @@ export function EditorContentArea({
       </EditorLayout>
 
       <BibleDiffDialog
-        open={bibleDiff.open}
-        currentState={bibleDiff.currentState}
-        proposedState={bibleDiff.proposedState}
-        currentThreads={bibleDiff.currentThreads}
-        proposedThreads={bibleDiff.proposedThreads}
-        proposedSummary={bibleDiff.proposedSummary}
-        chapterTitle={selectedChapterRecord?.title ?? currentChapterTitle ?? null}
-        source={chapterSyncSnapshot?.source ?? null}
-        onAccept={acceptRuntimeUpdate}
-        onRetry={handleRetryMemoryProposal}
-        onDismiss={dismissRuntimeUpdate}
-      />
+          open={bibleDiff.open}
+          currentCharactersStatus={bibleDiff.currentCharactersStatus}
+          proposedCharactersStatus={bibleDiff.proposedCharactersStatus}
+          currentState={bibleDiff.currentState}
+          proposedState={bibleDiff.proposedState}
+          currentThreads={bibleDiff.currentThreads}
+          proposedThreads={bibleDiff.proposedThreads}
+          proposedSummary={bibleDiff.proposedSummary}
+          chapterTitle={selectedChapterRecord?.title ?? currentChapterTitle ?? null}
+          source={chapterSyncSnapshot?.source ?? null}
+          onAccept={acceptRuntimeUpdate}
+          onRetry={handleRetryMemoryProposal}
+          onDismiss={dismissRuntimeUpdate}
+        />
     </>
   );
 }

@@ -35,14 +35,16 @@ class SectionGenerateRequest(_RegenerationFields):
     section: str = Field(description="要生成的区块名称")
     description: str = ""
     world_building: str = ""
-    characters: str = ""
+    characters_blueprint: str = ""
     outline_master: str = ""
     outline_detail: str = ""
+    characters_status: str = ""
     runtime_state: str = ""
     runtime_threads: str = ""
 
 
 class BibleUpdateRequest(_RegenerationFields):
+    current_characters_status: str = ""
     current_runtime_state: str = ""
     current_runtime_threads: str = ""
     content_to_check: str = Field(description="待检查的正文内容")
@@ -50,6 +52,7 @@ class BibleUpdateRequest(_RegenerationFields):
 
 
 class BibleUpdateResponse(BaseModel):
+    proposed_characters_status: str
     proposed_runtime_state: str
     proposed_runtime_threads: str
     proposed_summary: str | None = None

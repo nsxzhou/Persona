@@ -62,9 +62,10 @@ class ProjectResponse(BaseModel):
 class ProjectBibleUpdate(BaseModel):
     inspiration: str | None = None
     world_building: str | None = None
-    characters: str | None = None
+    characters_blueprint: str | None = None
     outline_master: str | None = None
     outline_detail: str | None = None
+    characters_status: str | None = None
     runtime_state: str | None = None
     runtime_threads: str | None = None
 
@@ -76,9 +77,10 @@ class ProjectBibleResponse(BaseModel):
     project_id: str
     inspiration: str
     world_building: str
-    characters: str
+    characters_blueprint: str
     outline_master: str
     outline_detail: str
+    characters_status: str
     runtime_state: str
     runtime_threads: str
     created_at: datetime

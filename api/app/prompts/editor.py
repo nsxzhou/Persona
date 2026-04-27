@@ -232,8 +232,8 @@ _SECTION_META: dict[str, dict[str, str]] = {
             "{hook_framework}\n"
         ),
     },
-    "characters": {
-        "label": "角色设定",
+    "characters_blueprint": {
+        "label": "角色基础设定",
         "instruction_template": (
             "请基于简介、世界观设定和已有上下文，设计这部小说的主要角色。\n\n"
             "角色信息优先回答以下问题：\n"
@@ -257,6 +257,18 @@ _SECTION_META: dict[str, dict[str, str]] = {
     "outline_detail": {
         "label": "分卷与章节细纲",
         "instruction_template": _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE,
+    },
+    "characters_status": {
+        "label": "角色动态状态",
+        "instruction_template": (
+            "请基于已有上下文，生成一份初始的角色动态状态文档。\n\n"
+            "必须包含每个主要角色的：\n"
+            "1. **当前位置与处境**\n"
+            "2. **伤势/异常状态**\n"
+            "3. **关键持有物品**\n"
+            "4. **近期关系变化**\n\n"
+            "每个角色用二级标题分隔，内部用结构化列表。"
+        ),
     },
     "runtime_state": {
         "label": "运行时状态",
@@ -311,9 +323,9 @@ def build_section_system_prompt(
     elif section == "outline_detail":
         instruction = _append_soft_length_hint(instruction, length_preset)
     else:
-        if section in {"world_building", "characters"}:
+        if section in {"world_building", "characters_blueprint"}:
             instruction = _append_soft_length_hint(instruction, length_preset)
-        if section == "characters":
+        if section == "characters_blueprint":
             instruction += _GROUNDED_INTERPRETATION_GUARDRAIL
 
     parts: list[str] = []
@@ -322,7 +334,7 @@ def build_section_system_prompt(
         parts.append("\n\n---\n")
     if plot_prompt and section in {
         "world_building",
-        "characters",
+        "characters_blueprint",
         "outline_master",
         "outline_detail",
     }:
@@ -513,14 +525,14 @@ def build_volume_chapters_user_message(
 # --------------------------------------------------------------------------- #
 
 _BIBLE_UPDATE_SYSTEM = (
-    "你是一个设定维护助手，当前任务是：根据刚写出的最新正文，维护和更新项目的【长期 persistent 事件列表】（即运行时状态）和伏笔线索。\n\n"
+    "你是一个设定维护助手，当前任务是：根据刚写出的最新正文，维护和更新项目的【长期 persistent 事件列表】（即运行时状态）、角色动态状态和伏笔线索。\n\n"
     "【核心原则】\n"
-    "1. 你现在的任务是维护【长期 persistent 事件列表】。严禁像流水账一样记录每章剧情，只能保留对后续章节有长远影响的剧情变化、人物状态、未解决伏笔。\n"
+    "1. 严禁像流水账一样记录每章剧情，只能保留对后续章节有长远影响的剧情变化、人物状态、未解决伏笔。\n"
     "2. 一次性动作、战斗过程、心理描写、气氛渲染等非持久性信息，绝对不要记录。\n"
-    "3. 优先判断是否无需更新：如果本段正文没有对全局设定、人物长期状态或伏笔线索产生实质性改变，你可以完全照抄当前的运行时状态和线索，不要强行编造。\n"
+    "3. 优先判断是否无需更新：如果本段正文没有实质性改变，你可以完全照抄当前内容，不要强行编造。\n"
     "4. 必须输出完整的最终版本：你输出的内容将直接覆盖数据库。即使只有一处小改动，你也必须把未改变的部分完整写出来，严禁使用“沿用旧内容”、“同上”、“其余不变”等占位语。\n\n"
     "【输出格式】\n"
-    "- 必须包含「## 运行时状态」和「## 伏笔与线索追踪」两个二级标题\n"
+    "- 必须包含「## 角色动态状态」、「## 运行时状态」和「## 伏笔与线索追踪」三个二级标题\n"
     "- 直接输出内容，不要添加解释"
 )
 
@@ -531,26 +543,41 @@ _CHAPTER_SUMMARY_SYSTEM = (
     "直接输出摘要文本，不要包含任何标题、解释或多余的客套话。"
 )
 
+_RUNTIME_STATE_HEADING = "## 运行时状态"
 _RUNTIME_THREADS_HEADING = "## 伏笔与线索追踪"
+_CHARACTERS_STATUS_HEADING = "## 角色动态状态"
 
+def parse_bible_update_response(raw: str) -> tuple[str, str, str]:
+    """Split AI bible update response into (characters_status, runtime_state, runtime_threads).
 
-def parse_bible_update_response(raw: str) -> tuple[str, str]:
-    """Split AI bible update response into (runtime_state, runtime_threads).
-
-    The AI is instructed to output two ``##`` sections. If parsing fails,
-    all content goes to runtime_state and runtime_threads is empty.
+    The AI is instructed to output three ``##`` sections.
     """
-    idx = raw.find(_RUNTIME_THREADS_HEADING)
-    if idx == -1:
-        return raw.strip(), ""
-    state_part = raw[:idx].strip()
-    threads_part = raw[idx + len(_RUNTIME_THREADS_HEADING) :].strip()
-    # Remove the "## 运行时状态" heading if present at the start
-    state_heading = "## 运行时状态"
-    if state_part.startswith(state_heading):
-        state_part = state_part[len(state_heading) :].strip()
-    return state_part, threads_part
+    characters_status = ""
+    runtime_state = ""
+    runtime_threads = ""
 
+    parts = re.split(r"(?m)^(##\s+.*)$", raw)
+    current_heading = None
+    
+    for i in range(len(parts)):
+        part = parts[i].strip()
+        if not part:
+            continue
+        
+        if part.startswith("##"):
+            current_heading = part
+        elif current_heading:
+            if "角色动态状态" in current_heading:
+                characters_status = part
+            elif "运行时状态" in current_heading:
+                runtime_state = part
+            elif "伏笔与线索追踪" in current_heading:
+                runtime_threads = part
+        else:
+            # content before any heading
+            characters_status = part
+            
+    return characters_status, runtime_state, runtime_threads
 
 def build_bible_update_system_prompt(regenerating: bool = False) -> str:
     if regenerating:
@@ -567,6 +594,7 @@ def build_chapter_summary_user_message(content: str) -> str:
 
 
 def build_bible_update_user_message(
+    current_characters_status: str,
     current_runtime_state: str,
     current_runtime_threads: str,
     content_to_check: str,
@@ -579,16 +607,47 @@ def build_bible_update_user_message(
         "chapter_full": "## 待检查正文（整章）",
     }.get(sync_scope, "## 待检查正文")
     parts: list[str] = []
+    
+    if current_characters_status.strip():
+        parts.append(f"## 当前角色动态状态\n\n{current_characters_status}")
+    else:
+        parts.append("## 当前角色动态状态\n\n（空，尚未建立）")
+        
     if current_runtime_state.strip():
         parts.append(f"## 当前运行时状态\n\n{current_runtime_state}")
     else:
         parts.append("## 当前运行时状态\n\n（空，尚未建立）")
+        
     if current_runtime_threads.strip():
         parts.append(f"## 当前伏笔与线索追踪\n\n{current_runtime_threads}")
     else:
         parts.append("## 当前伏笔与线索追踪\n\n（空，尚未建立）")
+        
     parts.append(f"{scope_label}\n\n{content_to_check}")
     _append_regeneration_context(parts, previous_output, user_feedback)
+    return "\n\n---\n\n".join(parts)
+
+
+# --------------------------------------------------------------------------- #
+#  Active Character Extraction prompts                                         #
+# --------------------------------------------------------------------------- #
+
+_ACTIVE_CHARACTERS_SYSTEM = (
+    "请分析传入的章节上下文和近期片段，提取出当前场景中「正在出场」或「即将出场」的所有角色姓名。\n"
+    "只需返回包含角色姓名的 JSON 数组（字符串列表），例如：[\"张三\", \"李四\"]。\n"
+    "如果没有任何角色出场，请返回空数组 []。\n"
+    "不要包含任何其他文字或解释。"
+)
+
+def build_active_characters_system_prompt() -> str:
+    return _ACTIVE_CHARACTERS_SYSTEM
+
+def build_active_characters_user_message(text_before_cursor: str, current_chapter_context: str) -> str:
+    parts = []
+    if current_chapter_context.strip():
+        parts.append(f"## 当前章节上下文\n\n{current_chapter_context}")
+    if text_before_cursor.strip():
+        parts.append(f"## 近期正文片段\n\n{text_before_cursor[-2000:]}")  # Limit to last 2000 chars
     return "\n\n---\n\n".join(parts)
 
 

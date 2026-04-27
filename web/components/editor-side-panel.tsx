@@ -45,26 +45,29 @@ export function EditorSidePanel({
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     description: project.description,
     world_building: projectBible.world_building,
-    characters: projectBible.characters,
+    characters_blueprint: projectBible.characters_blueprint,
     outline_master: projectBible.outline_master,
     outline_detail: projectBible.outline_detail,
+    characters_status: projectBible.characters_status,
     runtime_state: projectBible.runtime_state,
     runtime_threads: projectBible.runtime_threads,
   }));
 
   const isFocusedRef = useRef<Record<string, boolean>>({});
 
+  // 同步外部 props 变更，但不覆盖正在编辑的字段
   useEffect(() => {
     setFields((prev) => ({
       description: isFocusedRef.current["description"] ? prev.description : project.description,
       world_building: isFocusedRef.current["world_building"] ? prev.world_building : projectBible.world_building,
-      characters: isFocusedRef.current["characters"] ? prev.characters : projectBible.characters,
+      characters_blueprint: isFocusedRef.current["characters_blueprint"] ? prev.characters_blueprint : projectBible.characters_blueprint,
       outline_master: isFocusedRef.current["outline_master"] ? prev.outline_master : projectBible.outline_master,
       outline_detail: isFocusedRef.current["outline_detail"] ? prev.outline_detail : projectBible.outline_detail,
+      characters_status: isFocusedRef.current["characters_status"] ? prev.characters_status : projectBible.characters_status,
       runtime_state: isFocusedRef.current["runtime_state"] ? prev.runtime_state : projectBible.runtime_state,
       runtime_threads: isFocusedRef.current["runtime_threads"] ? prev.runtime_threads : projectBible.runtime_threads,
     }));
-  }, [project.description, projectBible.world_building, projectBible.characters, projectBible.outline_master, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads]);
+  }, [project.description, projectBible.world_building, projectBible.characters_blueprint, projectBible.outline_master, projectBible.outline_detail, projectBible.characters_status, projectBible.runtime_state, projectBible.runtime_threads]);
 
   const [expandedFields, setExpandedFields] = useState<Set<BibleFieldKey>>(new Set());
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});

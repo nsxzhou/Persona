@@ -51,12 +51,14 @@ export function WorkbenchTabs({
   highlightedVolumeIndex = null,
 }: WorkbenchTabsProps) {
   // ---- Bible field state ----
+
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     description: project.description,
     world_building: projectBible.world_building,
-    characters: projectBible.characters,
+    characters_blueprint: projectBible.characters_blueprint,
     outline_master: projectBible.outline_master,
     outline_detail: projectBible.outline_detail,
+    characters_status: projectBible.characters_status,
     runtime_state: projectBible.runtime_state,
     runtime_threads: projectBible.runtime_threads,
   }));

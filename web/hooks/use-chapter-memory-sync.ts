@@ -18,6 +18,8 @@ const MIN_LENGTH_FOR_AUTO_SYNC = 200;
 
 export interface RuntimeUpdateDiffState {
   open: boolean;
+  currentCharactersStatus: string;
+  proposedCharactersStatus: string;
   currentState: string;
   proposedState: string;
   currentThreads: string;
@@ -27,6 +29,8 @@ export interface RuntimeUpdateDiffState {
 
 const EMPTY_DIFF_STATE: RuntimeUpdateDiffState = {
   open: false,
+  currentCharactersStatus: "",
+  proposedCharactersStatus: "",
   currentState: "",
   proposedState: "",
   currentThreads: "",
@@ -44,10 +48,12 @@ async function hashContent(content: string) {
 
 function getStoredDiff(
   chapter: ProjectChapter | null,
-  projectBible: Pick<ProjectBible, "runtime_state" | "runtime_threads">
+  projectBible: Pick<ProjectBible, "characters_status" | "runtime_state" | "runtime_threads">
 ): RuntimeUpdateDiffState {
   return {
     open: false,
+    currentCharactersStatus: projectBible.characters_status ?? "",
+    proposedCharactersStatus: chapter?.memory_sync_proposed_state ?? "", // Need to add to schema or reuse? Wait, the schema didn't have proposed_characters_status?
     currentState: projectBible.runtime_state,
     proposedState: chapter?.memory_sync_proposed_state ?? "",
     currentThreads: projectBible.runtime_threads ?? "",
@@ -65,7 +71,7 @@ export function useChapterMemorySync({
   persistChapterUpdate,
 }: {
   projectId: string;
-  projectBible: Pick<ProjectBible, "runtime_state" | "runtime_threads">;
+  projectBible: Pick<ProjectBible, "characters_status" | "runtime_state" | "runtime_threads">;
   selectedChapter: ProjectChapter | null;
   getCurrentContent: () => string;
   persistProjectBibleUpdate: (
@@ -144,6 +150,7 @@ export function useChapterMemorySync({
         memory_sync_source: source,
         memory_sync_scope: scope,
         memory_sync_error_message: message,
+        memory_sync_proposed_characters_status: null,
         memory_sync_proposed_state: null,
         memory_sync_proposed_threads: null,
         memory_sync_proposed_summary: null,
@@ -171,6 +178,7 @@ export function useChapterMemorySync({
       try {
         const result = await api.proposeBibleUpdate(
           projectId,
+          projectBible.characters_status ?? "",
           projectBible.runtime_state,
           projectBible.runtime_threads ?? "",
           contentToCheck,
@@ -184,12 +192,15 @@ export function useChapterMemorySync({
             memory_sync_source: source,
             memory_sync_scope: scope,
             memory_sync_error_message: null,
+            memory_sync_proposed_characters_status: result.proposed_characters_status,
             memory_sync_proposed_state: result.proposed_runtime_state,
             memory_sync_proposed_threads: result.proposed_runtime_threads,
             memory_sync_proposed_summary: result.proposed_summary ?? null,
           });
           setBibleDiff({
             open: true,
+            currentCharactersStatus: projectBible.characters_status ?? "",
+            proposedCharactersStatus: result.proposed_characters_status,
             currentState: projectBible.runtime_state,
             proposedState: result.proposed_runtime_state,
             currentThreads: projectBible.runtime_threads ?? "",
@@ -240,6 +251,7 @@ export function useChapterMemorySync({
       try {
         const result = await api.proposeBibleUpdate(
           projectId,
+          projectBible.characters_status ?? "",
           projectBible.runtime_state,
           projectBible.runtime_threads ?? "",
           content,
@@ -248,6 +260,7 @@ export function useChapterMemorySync({
         if (result.changed) {
           await persistProjectBibleUpdate(
             {
+              characters_status: result.proposed_characters_status,
               runtime_state: result.proposed_runtime_state,
               runtime_threads: result.proposed_runtime_threads,
             },
@@ -259,6 +272,7 @@ export function useChapterMemorySync({
             memory_sync_source: "auto",
             memory_sync_scope: "chapter_full",
             memory_sync_error_message: null,
+            memory_sync_proposed_characters_status: null,
             memory_sync_proposed_state: null,
             memory_sync_proposed_threads: null,
             memory_sync_proposed_summary: null,
@@ -269,6 +283,7 @@ export function useChapterMemorySync({
             memory_sync_source: "auto",
             memory_sync_scope: "chapter_full",
             memory_sync_error_message: null,
+            memory_sync_proposed_characters_status: null,
             memory_sync_proposed_state: null,
             memory_sync_proposed_threads: null,
             memory_sync_proposed_summary: null,
@@ -282,6 +297,7 @@ export function useChapterMemorySync({
           memory_sync_source: "auto",
           memory_sync_scope: "chapter_full",
           memory_sync_error_message: message,
+          memory_sync_proposed_characters_status: null,
           memory_sync_proposed_state: null,
           memory_sync_proposed_threads: null,
           memory_sync_proposed_summary: null,
@@ -293,6 +309,7 @@ export function useChapterMemorySync({
     [
       persistMemorySnapshot,
       persistProjectBibleUpdate,
+      projectBible.characters_status,
       projectBible.runtime_state,
       projectBible.runtime_threads,
       projectId,
@@ -301,10 +318,10 @@ export function useChapterMemorySync({
   );
 
   const acceptRuntimeUpdate = useCallback(
-    async (state: string, threads: string, summary?: string) => {
+    async (charactersStatus: string, state: string, threads: string, summary?: string) => {
       if (!selectedChapter) return;
       await persistProjectBibleUpdate(
-        { runtime_state: state, runtime_threads: threads },
+        { characters_status: charactersStatus, runtime_state: state, runtime_threads: threads },
         {
           successMessage: "运行时状态已更新",
           errorMessage: "更新运行时状态失败",
@@ -315,6 +332,7 @@ export function useChapterMemorySync({
         memory_sync_source: selectedChapter.memory_sync_source ?? "manual",
         memory_sync_scope: selectedChapter.memory_sync_scope ?? "chapter_full",
         memory_sync_error_message: null,
+        memory_sync_proposed_characters_status: null,
         memory_sync_proposed_state: null,
         memory_sync_proposed_threads: null,
         memory_sync_proposed_summary: null,

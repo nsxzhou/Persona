@@ -91,10 +91,11 @@ async def propose_bible_update(
     editor_service: EditorServiceDep,
 ) -> BibleUpdateResponse:
     """Propose runtime-state and thread updates from newly written content."""
-    proposed_state, proposed_threads, proposed_summary, changed = await editor_service.memory.propose_bible_update(
+    proposed_characters_status, proposed_state, proposed_threads, proposed_summary, changed = await editor_service.memory.propose_bible_update(
         db_session, project_id, current_user.id, payload,
     )
     return BibleUpdateResponse(
+        proposed_characters_status=proposed_characters_status,
         proposed_runtime_state=proposed_state,
         proposed_runtime_threads=proposed_threads,
         proposed_summary=proposed_summary,

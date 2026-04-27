@@ -106,7 +106,7 @@ def test_editor_prompts_enforce_publishable_adult_tension_boundary() -> None:
     prompts = [
         build_concept_generate_system_prompt(),
         build_section_system_prompt("world_building", length_preset="long"),
-        build_section_system_prompt("characters", length_preset="long"),
+        build_section_system_prompt("characters_blueprint", length_preset="long"),
         build_section_system_prompt("outline_master", length_preset="long"),
         build_section_system_prompt("outline_detail", length_preset="long"),
         build_volume_generate_system_prompt(length_preset="long"),
@@ -121,7 +121,7 @@ def test_editor_prompts_enforce_publishable_adult_tension_boundary() -> None:
 
 
 def test_adjacent_prompts_preserve_grounded_reading() -> None:
-    characters_prompt = build_section_system_prompt("characters", length_preset="long")
+    characters_prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
     outline_prompt = build_section_system_prompt("outline_master", length_preset="long")
 
     assert "沿用世界观已确定的题材解释，不得臆想毫无根据的设定" in characters_prompt
@@ -131,7 +131,7 @@ def test_adjacent_prompts_preserve_grounded_reading() -> None:
 def test_creative_planning_sections_prefer_useful_detail_over_maximal_fill() -> None:
     prompts = [
         build_section_system_prompt("world_building", length_preset="long"),
-        build_section_system_prompt("characters", length_preset="long"),
+        build_section_system_prompt("characters_blueprint", length_preset="long"),
         build_section_system_prompt("outline_master", length_preset="long"),
         build_section_system_prompt("outline_detail", length_preset="long"),
     ]
@@ -155,7 +155,7 @@ def test_bible_generation_sections_inject_plot_prompt_after_style_prompt() -> No
     assert "Plot 是结构约束，不是内容模板" in prompt
 
     characters_prompt = build_section_system_prompt(
-        "characters",
+        "characters_blueprint",
         style_prompt="# Style Prompt\n风格约束\n",
         plot_prompt="# Plot Prompt\n情节约束\n",
         length_preset="long",
@@ -176,7 +176,7 @@ def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
             length_preset="long",
         ),
         build_section_system_prompt(
-            "characters",
+            "characters_blueprint",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
             length_preset="long",
         ),
@@ -240,7 +240,7 @@ def test_concept_generate_prompt_injects_style_and_plot_profiles_before_role_pro
 
 
 def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None:
-    prompt = build_section_system_prompt("characters", length_preset="long")
+    prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
 
     assert "角色信息优先回答以下问题" in prompt
     assert "他是谁，为什么此刻会入局" in prompt
@@ -252,7 +252,7 @@ def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None
 
 
 def test_character_prompt_assigns_reader_hook_functions() -> None:
-    prompt = build_section_system_prompt("characters", length_preset="long")
+    prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
 
     assert "奖励源（如绝色红颜、可掠夺资源）、阻力源、压迫源、反转源、情绪牵引源" in prompt
     assert "角色能让读者期待主角得到什么、压过什么、推倒谁、彻底征服谁，或是提供绝对忠诚的避风港" in prompt
@@ -265,7 +265,7 @@ def test_planning_prompts_use_soft_length_hints_without_hard_branching(
 ) -> None:
     prompts = [
         build_section_system_prompt("world_building", length_preset=length_preset),
-        build_section_system_prompt("characters", length_preset=length_preset),
+        build_section_system_prompt("characters_blueprint", length_preset=length_preset),
         build_section_system_prompt("outline_master", length_preset=length_preset),
         build_section_system_prompt("outline_detail", length_preset=length_preset),
         build_volume_generate_system_prompt(length_preset=length_preset),
@@ -414,7 +414,7 @@ def test_identity_swap_description_regression_is_passed_with_grounded_guardrails
         {
             "description": description,
             "world_building": "",
-            "characters": "",
+            "characters_blueprint": "",
             "outline_master": "",
             "outline_detail": "",
             "runtime_state": "",
@@ -524,7 +524,7 @@ def test_concept_generate_prompt_uses_examples_without_allowing_example_copy() -
 
 def test_creative_section_prompts_adopt_qidian_author_persona() -> None:
     world_building_prompt = build_section_system_prompt("world_building", length_preset="long")
-    characters_prompt = build_section_system_prompt("characters", length_preset="long")
+    characters_prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
     outline_prompt = build_section_system_prompt("outline_master", length_preset="long")
 
     assert "起点白金作家" in world_building_prompt
@@ -651,7 +651,7 @@ def test_section_user_message_appends_previous_output_and_user_feedback() -> Non
         {
             "description": "简介文本",
             "world_building": "",
-            "characters": "",
+            "characters_blueprint": "",
             "outline_master": "",
             "outline_detail": "",
             "runtime_state": "",
@@ -763,7 +763,7 @@ def test_user_messages_omit_regeneration_sections_when_fields_are_none() -> None
         {
             "description": "",
             "world_building": "",
-            "characters": "",
+            "characters_blueprint": "",
             "outline_master": "",
             "outline_detail": "",
             "runtime_state": "",

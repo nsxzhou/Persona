@@ -22,12 +22,14 @@ import {
   type DiffBlock,
 } from "@/lib/diff-utils";
 
-type TabKey = "state" | "threads" | "summary";
+type TabKey = "characters_status" | "state" | "threads" | "summary";
 
 type SourceLabel = "manual" | "auto" | null;
 
 interface BibleDiffDialogProps {
   open: boolean;
+  currentCharactersStatus: string;
+  proposedCharactersStatus: string;
   currentState: string;
   proposedState: string;
   currentThreads: string;
@@ -35,13 +37,15 @@ interface BibleDiffDialogProps {
   proposedSummary?: string;
   chapterTitle?: string | null;
   source?: SourceLabel;
-  onAccept: (state: string, threads: string, summary?: string) => void;
+  onAccept: (charactersStatus: string, state: string, threads: string, summary?: string) => void;
   onRetry?: (feedback: string) => void;
   onDismiss: () => void;
 }
 
 export function BibleDiffDialog({
   open,
+  currentCharactersStatus,
+  proposedCharactersStatus,
   currentState,
   proposedState,
   currentThreads,
@@ -53,63 +57,75 @@ export function BibleDiffDialog({
   onRetry,
   onDismiss,
 }: BibleDiffDialogProps) {
+  const [editedCharactersStatus, setEditedCharactersStatus] = useState(proposedCharactersStatus);
   const [editedState, setEditedState] = useState(proposedState);
   const [editedThreads, setEditedThreads] = useState(proposedThreads);
   const [editedSummary, setEditedSummary] = useState(proposedSummary ?? "");
-  const [activeTab, setActiveTab] = useState<TabKey>("state");
+  const [activeTab, setActiveTab] = useState<TabKey>("characters_status");
   const [onlyChanges, setOnlyChanges] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
   useEffect(() => {
+    setEditedCharactersStatus(proposedCharactersStatus);
     setEditedState(proposedState);
     setEditedThreads(proposedThreads);
     setEditedSummary(proposedSummary ?? "");
     setEditing(false);
-  }, [proposedState, proposedThreads, proposedSummary]);
+  }, [proposedCharactersStatus, proposedState, proposedThreads, proposedSummary]);
 
+  const charactersStatusChanged = proposedCharactersStatus !== currentCharactersStatus;
   const stateChanged = proposedState !== currentState;
   const threadsChanged = proposedThreads !== currentThreads;
 
   useEffect(() => {
-    if (stateChanged) setActiveTab("state");
+    if (charactersStatusChanged) setActiveTab("characters_status");
+    else if (stateChanged) setActiveTab("state");
     else if (threadsChanged) setActiveTab("threads");
-  }, [stateChanged, threadsChanged]);
+  }, [charactersStatusChanged, stateChanged, threadsChanged]);
 
   const current =
-    activeTab === "state"
-      ? currentState
-      : activeTab === "threads"
-        ? currentThreads
-        : ""; // 摘要暂无历史对比内容
+    activeTab === "characters_status"
+      ? currentCharactersStatus
+      : activeTab === "state"
+        ? currentState
+        : activeTab === "threads"
+          ? currentThreads
+          : ""; // 摘要暂无历史对比内容
   const edited =
-    activeTab === "state"
-      ? editedState
-      : activeTab === "threads"
-        ? editedThreads
-        : editedSummary;
+    activeTab === "characters_status"
+      ? editedCharactersStatus
+      : activeTab === "state"
+        ? editedState
+        : activeTab === "threads"
+          ? editedThreads
+          : editedSummary;
   const setEdited =
-    activeTab === "state"
-      ? setEditedState
-      : activeTab === "threads"
-        ? setEditedThreads
-        : setEditedSummary;
+    activeTab === "characters_status"
+      ? setEditedCharactersStatus
+      : activeTab === "state"
+        ? setEditedState
+        : activeTab === "threads"
+          ? setEditedThreads
+          : setEditedSummary;
 
   const diff = useDebouncedDiff(current, edited);
   const stats = useMemo(() => summarizeDiff(diff), [diff]);
 
   const totalStats = useMemo(() => {
+    const charsDiff = computeLineDiff(currentCharactersStatus, editedCharactersStatus);
     const stateDiff = computeLineDiff(currentState, editedState);
     const threadsDiff = computeLineDiff(currentThreads, editedThreads);
     const summaryDiff = proposedSummary !== undefined ? computeLineDiff("", editedSummary) : [];
+    const charsSum = summarizeDiff(charsDiff);
     const stateSum = summarizeDiff(stateDiff);
     const threadsSum = summarizeDiff(threadsDiff);
     const summarySum = summarizeDiff(summaryDiff);
     return {
-      added: stateSum.added + threadsSum.added + summarySum.added,
-      removed: stateSum.removed + threadsSum.removed + summarySum.removed,
+      added: charsSum.added + stateSum.added + threadsSum.added + summarySum.added,
+      removed: charsSum.removed + stateSum.removed + threadsSum.removed + summarySum.removed,
     };
-  }, [currentState, editedState, currentThreads, editedThreads, editedSummary, proposedSummary]);
+  }, [currentCharactersStatus, editedCharactersStatus, currentState, editedState, currentThreads, editedThreads, editedSummary, proposedSummary]);
 
   const changeCount = stats.added + stats.removed;
 
@@ -154,6 +170,15 @@ export function BibleDiffDialog({
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
           <div className="flex gap-1">
+            <TabButton
+              active={activeTab === "characters_status"}
+              onClick={() => {
+                setActiveTab("characters_status");
+                setEditing(false);
+              }}
+              label="角色动态状态"
+              changed={charactersStatusChanged}
+            />
             <TabButton
               active={activeTab === "state"}
               onClick={() => {
@@ -256,7 +281,7 @@ export function BibleDiffDialog({
             <Button size="default" onClick={() => {
               setIsAccepting(true);
               try {
-                onAccept(editedState, editedThreads, proposedSummary !== undefined ? editedSummary : undefined);
+                onAccept(editedCharactersStatus, editedState, editedThreads, proposedSummary !== undefined ? editedSummary : undefined);
               } finally {
                 setIsAccepting(false);
               }

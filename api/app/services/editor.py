@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+import json
 from collections.abc import AsyncGenerator
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -41,6 +42,8 @@ from app.schemas.prompt_profiles import (
 )
 from app.services.editor_prompts import (
     VALID_SECTIONS,
+    build_active_characters_system_prompt,
+    build_active_characters_user_message,
     build_beat_expand_system_prompt,
     build_beat_expand_user_message,
     build_beat_generate_system_prompt,
@@ -145,6 +148,70 @@ class _EditorServiceBase:
             return GenerationProfile.model_validate(project.generation_profile_payload)
         raise BadRequestError("项目未配置 generation_profile，无法进行正式生成")
 
+    async def _extract_active_characters(
+        self,
+        provider_config: dict | None,
+        text_before_cursor: str,
+        current_chapter_context: str,
+    ) -> list[str]:
+        if not provider_config:
+            return []
+        
+        system_prompt = build_active_characters_system_prompt()
+        user_message = build_active_characters_user_message(text_before_cursor, current_chapter_context)
+        
+        raw_response = await self.llm_service.invoke_completion(
+            provider_config=provider_config,
+            system_prompt=system_prompt,
+            user_context=user_message,
+            injection_task=PromptInjectionTask.EDITOR_BEAT_EXPANSION, # Use an existing or a new appropriate task, using BEAT_EXPANSION as fallback.
+        )
+        
+        try:
+            # Simple heuristic to extract JSON array
+            match = re.search(r"\[.*\]", raw_response, flags=re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(0))
+                if isinstance(parsed, list):
+                    return [str(name) for name in parsed]
+            return []
+        except Exception as e:
+            logging.warning(f"Failed to parse active characters JSON: {e}")
+            return []
+
+    def _build_dynamic_character_panel(
+        self,
+        characters_blueprint: str,
+        characters_status: str,
+        active_names: list[str],
+    ) -> tuple[str, str]:
+        if not active_names:
+            return "", ""
+            
+        def _extract_character_section(markdown: str, names: list[str]) -> str:
+            if not markdown.strip():
+                return ""
+                
+            parts = re.split(r"(?m)^(#{2,3}\s+.*)$", markdown)
+            extracted = []
+            current_name_matches = False
+            
+            for i in range(len(parts)):
+                part = parts[i]
+                if part.startswith("##"):
+                    current_name_matches = any(name.lower() in part.lower() for name in names)
+                    if current_name_matches:
+                        extracted.append(part.strip())
+                elif current_name_matches and part.strip():
+                    extracted.append(part.strip())
+                    
+            return "\n\n".join(extracted)
+
+        active_blueprint = _extract_character_section(characters_blueprint, active_names)
+        active_status = _extract_character_section(characters_status, active_names)
+        
+        return active_blueprint, active_status
+
 
 class WritingEditorService(_EditorServiceBase):
     async def stream_completion(
@@ -173,6 +240,18 @@ class WritingEditorService(_EditorServiceBase):
             explicit_profile=payload.generation_profile,
             project=project,
         )
+        
+        active_names = await self._extract_active_characters(
+            project.provider,
+            payload.text_before_cursor,
+            payload.current_chapter_context,
+        )
+        active_blueprint, active_status = self._build_dynamic_character_panel(
+            bible.characters_blueprint,
+            bible.characters_status,
+            active_names,
+        )
+
         chapter_objective_card = build_chapter_objective_card(
             generation_profile,
             current_chapter_context=payload.current_chapter_context,
@@ -187,9 +266,10 @@ class WritingEditorService(_EditorServiceBase):
             sections=WritingContextSections(
                 description=project.description,
                 world_building=bible.world_building,
-                characters=bible.characters,
+                characters_blueprint=active_blueprint or bible.characters_blueprint, # Fallback if empty
                 outline_master=bible.outline_master,
                 outline_detail=bible.outline_detail,
+                characters_status=active_status or bible.characters_status,
                 runtime_state=bible.runtime_state,
                 runtime_threads=bible.runtime_threads,
             ),
@@ -259,9 +339,10 @@ class WritingEditorService(_EditorServiceBase):
             {
                 "description": payload.description,
                 "world_building": payload.world_building,
-                "characters": payload.characters,
+                "characters_blueprint": payload.characters_blueprint,
                 "outline_master": payload.outline_master,
                 "outline_detail": payload.outline_detail,
+                "characters_status": payload.characters_status,
                 "runtime_state": payload.runtime_state,
                 "runtime_threads": payload.runtime_threads,
             },
@@ -341,7 +422,7 @@ class MemoryEditorService(_EditorServiceBase):
         project_id: str,
         user_id: str,
         payload: BibleUpdateRequest,
-    ) -> tuple[str, str, str | None, bool]:
+    ) -> tuple[str, str, str, str | None, bool]:
         project = await self.project_service.get_or_404(
             session, project_id, user_id=user_id,
         )
@@ -354,10 +435,11 @@ class MemoryEditorService(_EditorServiceBase):
         regenerating = bool(payload.previous_output or payload.user_feedback)
         system_prompt = build_bible_update_system_prompt(regenerating=regenerating)
         user_message = build_bible_update_user_message(
-            payload.current_runtime_state,
-            payload.current_runtime_threads,
-            payload.content_to_check,
-            payload.sync_scope,
+            current_characters_status=payload.current_characters_status,
+            current_runtime_state=payload.current_runtime_state,
+            current_runtime_threads=payload.current_runtime_threads,
+            content_to_check=payload.content_to_check,
+            sync_scope=payload.sync_scope,
             previous_output=payload.previous_output,
             user_feedback=payload.user_feedback,
         )
@@ -383,13 +465,14 @@ class MemoryEditorService(_EditorServiceBase):
             raw_bible = await bible_update_task
             raw_summary = None
 
-        proposed_state, proposed_threads = parse_bible_update_response(raw_bible)
+        proposed_characters_status, proposed_state, proposed_threads = parse_bible_update_response(raw_bible)
         changed = (
-            proposed_state != payload.current_runtime_state
+            proposed_characters_status != payload.current_characters_status
+            or proposed_state != payload.current_runtime_state
             or proposed_threads != payload.current_runtime_threads
             or (raw_summary is not None)
         )
-        return proposed_state, proposed_threads, raw_summary, changed
+        return proposed_characters_status, proposed_state, proposed_threads, raw_summary, changed
 
 
 class PlanningEditorService(_EditorServiceBase):

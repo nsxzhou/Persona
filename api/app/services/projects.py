@@ -198,9 +198,9 @@ class ProjectService:
         data = payload.model_dump(exclude_unset=True)
 
         _BIBLE_ASSIGNABLE_FIELDS = {
-            "inspiration", "world_building", "characters",
+            "inspiration", "world_building", "characters_blueprint",
             "outline_master", "outline_detail",
-            "runtime_state", "runtime_threads",
+            "characters_status", "runtime_state", "runtime_threads",
         }
         for field, value in data.items():
             if field in _BIBLE_ASSIGNABLE_FIELDS:

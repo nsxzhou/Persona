@@ -45,7 +45,7 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
         ),
         sections=WritingContextSections(
             description="寒门少年被迫入局。",
-            characters="女主是宗门高位角色。",
+            characters_blueprint="女主是宗门高位角色。",
             outline_detail="本章必须推进关系与境界。",
         ),
     )

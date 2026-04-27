@@ -76,7 +76,7 @@ export function BibleTabContent({
         )}
         <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border">
           <div className="text-4xl opacity-20">
-            {fieldKey === "description" ? "💡" : fieldKey === "world_building" ? "🌍" : fieldKey === "characters" ? "👥" : fieldKey === "outline_master" ? "📋" : fieldKey === "outline_detail" ? "📝" : "📖"}
+            {fieldKey === "description" ? "💡" : fieldKey === "world_building" ? "🌍" : fieldKey === "characters_blueprint" ? "👥" : fieldKey === "characters_status" ? "🎭" : fieldKey === "outline_master" ? "📋" : fieldKey === "outline_detail" ? "📝" : "📖"}
           </div>
           <p className="text-sm text-muted-foreground">
             还没有{title}内容

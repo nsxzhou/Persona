@@ -1107,6 +1107,8 @@ export interface components {
         /** BibleUpdateResponse */
         BibleUpdateResponse: {
             /** Proposed Runtime State */
+            proposed_characters_status: string;
+            /** Proposed Runtime State */
             proposed_runtime_state: string;
             /** Proposed Runtime Threads */
             proposed_runtime_threads: string;
@@ -1615,11 +1617,15 @@ export interface components {
             /** World Building */
             world_building: string;
             /** Characters */
-            characters: string;
+            characters_blueprint: string;
+            /** Characters Status */
+            characters_status: string;
             /** Outline Master */
             outline_master: string;
             /** Outline Detail */
             outline_detail: string;
+            /** Characters Status */
+            characters_status: string;
             /** Runtime State */
             runtime_state: string;
             /** Runtime Threads */
@@ -1642,7 +1648,9 @@ export interface components {
             /** World Building */
             world_building?: string | null;
             /** Characters */
-            characters?: string | null;
+            characters_blueprint?: string | null;
+            /** Characters Status */
+            characters_status?: string | null;
             /** Outline Master */
             outline_master?: string | null;
             /** Outline Detail */
@@ -1683,6 +1691,8 @@ export interface components {
             /** Memory Sync Error Message */
             memory_sync_error_message?: string | null;
             /** Memory Sync Proposed State */
+            memory_sync_proposed_characters_status?: string | null;
+            /** Memory Sync Proposed State */
             memory_sync_proposed_state?: string | null;
             /** Memory Sync Proposed Threads */
             memory_sync_proposed_threads?: string | null;
@@ -1719,6 +1729,8 @@ export interface components {
             memory_sync_checked_content_hash?: string | null;
             /** Memory Sync Error Message */
             memory_sync_error_message?: string | null;
+            /** Memory Sync Proposed State */
+            memory_sync_proposed_characters_status?: string | null;
             /** Memory Sync Proposed State */
             memory_sync_proposed_state?: string | null;
             /** Memory Sync Proposed Threads */
@@ -1969,7 +1981,9 @@ export interface components {
              * Characters
              * @default
              */
-            characters: string;
+            characters_blueprint: string;
+            /** Characters Status */
+            characters_status: string;
             /**
              * Outline Master
              * @default

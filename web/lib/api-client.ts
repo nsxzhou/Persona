@@ -332,6 +332,7 @@ export function createApiClient(request: Requester) {
       }),
     proposeBibleUpdate: (
       projectId: string,
+      currentCharactersStatus: string,
       currentRuntimeState: string,
       currentRuntimeThreads: string,
       contentToCheck: string,
@@ -341,6 +342,7 @@ export function createApiClient(request: Requester) {
       request<BibleUpdateResponse>(`/api/v1/projects/${projectId}/editor/propose-bible-update`, {
         method: "POST",
         body: JSON.stringify({
+          current_characters_status: currentCharactersStatus,
           current_runtime_state: currentRuntimeState,
           current_runtime_threads: currentRuntimeThreads,
           content_to_check: contentToCheck,
@@ -404,7 +406,17 @@ export function createApiClient(request: Requester) {
       }),
     generateSection: (
       projectId: string,
-      payload: Record<string, string>,
+      payload: {
+        section: string;
+        description?: string;
+        world_building?: string;
+        characters_blueprint?: string;
+        outline_master?: string;
+        outline_detail?: string;
+        characters_status?: string;
+        runtime_state?: string;
+        runtime_threads?: string;
+      },
       options?: RegenerateOptions,
     ) =>
       request.raw(`/api/v1/projects/${projectId}/editor/generate-section`, {
