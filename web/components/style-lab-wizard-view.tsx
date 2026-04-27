@@ -63,7 +63,7 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12">
+    <div className="max-w-5xl mx-auto space-y-8 pb-12">
       {isProcessingStatus(job.status) && (
         <Alert className="bg-primary/5 border-primary/20">
           <Info className="h-4 w-4 text-primary" />
