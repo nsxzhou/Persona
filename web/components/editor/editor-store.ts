@@ -4,12 +4,6 @@ import type { ProjectChapter } from "@/lib/types";
 type ChapterSelection = { volumeIndex: number; chapterIndex: number };
 
 export type EditorState = {
-  chapters: ProjectChapter[];
-  setChapters: (chapters: ProjectChapter[] | ((prev: ProjectChapter[]) => ProjectChapter[])) => void;
-  
-  isLoadingChapters: boolean;
-  setIsLoadingChapters: (isLoading: boolean | ((prev: boolean) => boolean)) => void;
-  
   currentChapter: ChapterSelection | null;
   setCurrentChapter: (selection: ChapterSelection | null | ((prev: ChapterSelection | null) => ChapterSelection | null)) => void;
   
@@ -36,16 +30,6 @@ export type EditorState = {
 };
 
 export const createEditorStore = () => createStore<EditorState>((set) => ({
-  chapters: [],
-  setChapters: (updater) => set((state) => ({ 
-    chapters: typeof updater === 'function' ? updater(state.chapters) : updater 
-  })),
-
-  isLoadingChapters: true,
-  setIsLoadingChapters: (updater) => set((state) => ({ 
-    isLoadingChapters: typeof updater === 'function' ? updater(state.isLoadingChapters) : updater 
-  })),
-
   currentChapter: null,
   setCurrentChapter: (updater) => set((state) => ({ 
     currentChapter: typeof updater === 'function' ? updater(state.currentChapter) : updater 

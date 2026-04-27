@@ -11,12 +11,18 @@ import { parseOutline } from "@/lib/outline-parser";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useProjectQuery, useProjectBibleQuery, useUpdateProject, useUpdateProjectBible } from "@/hooks/use-project-query";
+import { useChaptersQuery, useSyncChapters, queryKeys } from "@/hooks/use-chapters-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { EditorLayout } from "./editor-layout";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
 import { MemorySyncButton } from "@/components/memory-sync-button";
 import { BeatPanel } from "@/components/beat-panel";
 import { NovelWorkflowRunPanel } from "@/components/novel-workflow-run-panel";
-import { Sparkles, Workflow } from "lucide-react";
+import { ArrowLeft, BookOpen, Settings, Sparkles, Square, Loader2, ListOrdered, Workflow } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { EditorNovelMenu } from "@/components/editor-novel-menu";
+import { EditorSidePanel } from "@/components/editor-side-panel";
+import { ExportProjectDialog } from "@/components/export-project-dialog";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import type { NovelWorkflowCreatePayload, NovelWorkflowListItem, ProjectChapter, ProjectBible } from "@/lib/types";
@@ -62,11 +68,10 @@ export function EditorContentArea({
 }) {
   const router = useRouter();
   const { project: initialProject, store } = useEditorContext();
+  const queryClient = useQueryClient();
+  const { data: chapters = [], isLoading: isLoadingChapters } = useChaptersQuery(initialProject.id);
+
   const {
-    chapters,
-    setChapters,
-    isLoadingChapters,
-    setIsLoadingChapters,
     currentChapter,
     setCurrentChapter,
     selectedVolumeIndex,
@@ -80,10 +85,6 @@ export function EditorContentArea({
     leftPanelMode,
     setLeftPanelMode,
   } = useEditorStore(useShallow((s: EditorState) => ({
-    chapters: s.chapters,
-    setChapters: s.setChapters,
-    isLoadingChapters: s.isLoadingChapters,
-    setIsLoadingChapters: s.setIsLoadingChapters,
     currentChapter: s.currentChapter,
     setCurrentChapter: s.setCurrentChapter,
     selectedVolumeIndex: s.selectedVolumeIndex,
@@ -170,17 +171,18 @@ export function EditorContentArea({
 
   const syncPersistedChapter = useCallback(
     (updatedChapter: ProjectChapter) => {
-      setChapters((prev) =>
-        prev.map((chapter) =>
+      queryClient.setQueryData(queryKeys.chapters(project.id), (prev: ProjectChapter[] | undefined) => {
+        if (!prev) return [updatedChapter];
+        return prev.map((chapter) =>
           chapter.id === updatedChapter.id ? { ...chapter, ...updatedChapter } : chapter,
-        ),
-      );
+        );
+      });
       if (selectedChapterRecord?.id === updatedChapter.id) {
         store.getState().setSavedChapterContent(updatedChapter.content);
       }
       return updatedChapter;
     },
-    [selectedChapterRecord?.id, setChapters],
+    [project.id, queryClient, selectedChapterRecord?.id, store],
   );
 
   const persistChapterUpdate = useCallback(
@@ -382,25 +384,15 @@ export function EditorContentArea({
     [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord],
   );
 
+  const { mutateAsync: syncChapters } = useSyncChapters();
+
   useEffect(() => {
-    let cancelled = false;
-    async function loadChapters() {
-      setIsLoadingChapters(true);
-      try {
-        const loaded = await api.getProjectChapters(project.id);
-        const next = loaded.length > 0 ? loaded : await api.syncProjectChapters(project.id);
-        if (!cancelled) setChapters(next);
-      } catch (e: unknown) {
-        if (!cancelled) toast.error(e instanceof Error ? e.message : "加载章节失败");
-      } finally {
-        if (!cancelled) setIsLoadingChapters(false);
-      }
+    if (!isLoadingChapters && chapters.length === 0) {
+      syncChapters(project.id).catch((e) => {
+        toast.error(e instanceof Error ? e.message : "加载章节失败");
+      });
     }
-    loadChapters();
-    return () => {
-      cancelled = true;
-    };
-  }, [project.id, setChapters, setIsLoadingChapters]);
+  }, [chapters.length, isLoadingChapters, project.id, syncChapters]);
 
   useEffect(() => {
     if (isLoadingChapters || chapters.length === 0 || currentChapter) return;
@@ -594,43 +586,178 @@ export function EditorContentArea({
   return (
     <>
       <EditorLayout
-        projectId={project.id}
-        projectName={project.name}
-        activeProfileName={activeProfileName}
-        isSaving={isSaving}
-        isStreamingCompletion={isStreamingCompletion}
-        isExpandingBeatProse={isExpandingBeatProse}
         isLeftExpanded={isLeftExpanded}
         isRightExpanded={isRightExpanded}
-        leftPanelMode={leftPanelMode}
-        toggleLeft={toggleLeft}
-        openSettings={openSettings}
-        toggleRight={toggleRight}
-        handleStopWrite={handleStopWrite}
-        handleContinueWrite={handleContinueWrite}
-        missingOutlineStatus={missingOutlineStatus}
-        currentVolumeTitle={currentVolumeTitle}
-        currentChapterTitle={currentChapterTitle}
-        currentChapterStatus={currentChapterStatus}
-        chapterBannerAction={chapterBannerAction}
-        canContinueWrite={Boolean(project.style_profile_id && selectedChapterRecord)}
-        memorySyncButton={
-          <MemorySyncButton
-            snapshot={
-              chapterSyncSnapshot
-                ? {
-                    status: chapterSyncSnapshot.status ?? null,
-                    source: chapterSyncSnapshot.source ?? null,
-                    checkedAt: chapterSyncSnapshot.checkedAt ?? null,
-                    errorMessage: chapterSyncSnapshot.errorMessage ?? null,
-                  }
-                : null
-            }
-            isChecking={isCheckingMemorySync}
-            disabled={!selectedChapterRecord}
-            onClick={handleManualMemorySync}
-            onForceRerun={handleForceMemorySync}
+        quickActions={
+          <>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="default"
+                  size="icon"
+                  className="w-8 h-8 rounded-none mb-3 hover:opacity-90 transition-opacity"
+                  title="快速导航"
+                >
+                  <span className="font-black text-sm">P</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="right" align="start" className="w-64 p-0">
+                <EditorNovelMenu projectId={project.id} projectName={project.name} />
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleLeft}
+              className={`w-9 h-9 rounded-none transition-colors ${
+                isLeftExpanded && leftPanelMode === "navigation" ? "bg-white/15" : "hover:bg-white/10"
+              }`}
+              title="创作导航 (⌘B)"
+            >
+              <BookOpen className="h-[18px] w-[18px] text-white" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={openSettings}
+              className={`w-9 h-9 rounded-none transition-colors ${
+                isLeftExpanded && leftPanelMode === "settings" ? "bg-white/15" : "opacity-50 hover:opacity-80"
+              }`}
+              title="创作设定"
+            >
+              <Settings className="h-[18px] w-[18px] text-white" />
+            </Button>
+
+            <div className="flex-1" />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push(`/projects/${project.id}`)}
+              className="w-9 h-9 rounded-none opacity-50 hover:opacity-80 transition-opacity mb-3"
+              title="返回项目工作台"
+            >
+              <ArrowLeft className="h-[18px] w-[18px] text-white" />
+            </Button>
+          </>
+        }
+        leftPanel={
+          <EditorSidePanel
+            project={project}
+            projectBible={projectBible ?? { characters_status: "", runtime_state: "", runtime_threads: "", outline_detail: "" } as any}
+            contentLength={totalContentLength}
+            parsedOutline={parsedOutline}
+            currentChapter={currentChapter}
+            completedChapters={completedChapters}
+            onSelectChapter={handleSelectChapter}
+            onGenerateBeatsForChapter={handleGenerateBeatsForChapter}
+            onCollapse={() => setIsLeftExpanded(false)}
+            onFieldChange={undefined}
+            onPersistField={persistProjectField}
+            onToggleAutoSyncMemory={handleToggleAutoSyncMemory}
+            onGoGenerateVolume={handleGoGenerateVolume}
+            mode={leftPanelMode}
           />
+        }
+        headerLeft={
+          <>
+            <h1 className="text-lg font-medium">{project.name}</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>保存中...</span>
+                </>
+              ) : (
+                <span>已保存</span>
+              )}
+            </div>
+            {activeProfileName && (
+              <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5 text-sm">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="font-medium">{activeProfileName}</span>
+              </div>
+            )}
+          </>
+        }
+        headerRight={
+          <>
+            <ExportProjectDialog projectId={project.id} projectName={project.name} />
+            <MemorySyncButton
+              snapshot={
+                chapterSyncSnapshot
+                  ? {
+                      status: chapterSyncSnapshot.status ?? null,
+                      source: chapterSyncSnapshot.source ?? null,
+                      checkedAt: chapterSyncSnapshot.checkedAt ?? null,
+                      errorMessage: chapterSyncSnapshot.errorMessage ?? null,
+                    }
+                  : null
+              }
+              isChecking={isCheckingMemorySync}
+              disabled={!selectedChapterRecord}
+              onClick={handleManualMemorySync}
+              onForceRerun={handleForceMemorySync}
+            />
+            {isStreamingCompletion ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStopWrite}
+                className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
+              >
+                <Square className="w-4 h-4" />
+                停止 (Esc)
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleContinueWrite}
+                disabled={!Boolean(project.style_profile_id && selectedChapterRecord)}
+                className="gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                AI 续写 (⌘J)
+              </Button>
+            )}
+          </>
+        }
+        chapterBanner={
+          <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/30 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                当前章节
+              </p>
+              {missingOutlineStatus ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">当前分卷尚未生成章节细纲</p>
+                  <p className="text-xs text-muted-foreground">
+                    请先回到「分卷与章节细纲」页为该分卷生成章节细纲
+                  </p>
+                </>
+              ) : currentChapterTitle ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span>{currentVolumeTitle}</span>
+                    <span>/</span>
+                    <span className="font-medium text-foreground">{currentChapterTitle}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{currentChapterStatus}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">未选择章节</p>
+                  <p className="text-xs text-muted-foreground">{currentChapterStatus}</p>
+                </>
+              )}
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 md:items-end">
+              <div>{chapterBannerAction}</div>
+            </div>
+          </div>
         }
         workflowRunPanel={
           activeWorkflowRun ? (
@@ -656,22 +783,6 @@ export function EditorContentArea({
             />
           ) : null
         }
-        sidePanelProps={{
-          project: project,
-          projectBible: projectBible ?? { characters_status: "", runtime_state: "", runtime_threads: "", outline_detail: "" } as any,
-          contentLength: totalContentLength,
-          parsedOutline: parsedOutline,
-          currentChapter: currentChapter,
-          completedChapters: completedChapters,
-          onSelectChapter: handleSelectChapter,
-          onGenerateBeatsForChapter: handleGenerateBeatsForChapter,
-          onCollapse: () => setIsLeftExpanded(false),
-          onFieldChange: undefined,
-          onPersistField: persistProjectField,
-          onToggleAutoSyncMemory: handleToggleAutoSyncMemory,
-          onGoGenerateVolume: handleGoGenerateVolume,
-          mode: leftPanelMode,
-        }}
         rightPanel={
           <BeatPanel
             beats={beatList}
@@ -698,10 +809,29 @@ export function EditorContentArea({
             hasChapterContent={hasChapterContent}
           />
         }
-        hasBeats={beatList.length > 0}
-        activeBeatIndex={activeBeatIndex}
-        totalBeats={beatList.length}
-        canOpenRightPanel={Boolean(selectedChapterRecord)}
+        rightPanelToggle={
+          <button
+            type="button"
+            onClick={toggleRight}
+            disabled={!Boolean(selectedChapterRecord)}
+            className="w-12 shrink-0 border-l border-border bg-background flex flex-col items-center pt-3 gap-2 hover:bg-muted/30 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            title="展开节拍写作 (⌘⇧J)"
+          >
+            <ListOrdered className="h-[18px] w-[18px] text-muted-foreground" />
+            <span
+              className="text-[10px] text-muted-foreground tracking-widest mt-2"
+              style={{ writingMode: "vertical-rl" }}
+            >
+              节拍写作
+            </span>
+            <div className="flex-1" />
+            {beatList.length > 0 && (
+              <span className="text-[10px] text-primary font-semibold mb-3">
+                {Math.max(activeBeatIndex + 1, 1)}/{beatList.length}
+              </span>
+            )}
+          </button>
+        }
       >
         <EditorTextarea
           handleKeyDown={handleKeyDown}

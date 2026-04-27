@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ChapterTree } from "@/components/chapter-tree";
 import { getProgress, LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
+import { useDebounceSave } from "@/hooks/use-debounce-save";
 import type { ParsedOutline } from "@/lib/outline-parser";
 import type { Project, ProjectBible } from "@/lib/types";
 import { BIBLE_SECTION_META, type BibleFieldKey } from "@/lib/bible-fields";
@@ -70,7 +71,6 @@ export function EditorSidePanel({
   }, [project.description, projectBible.world_building, projectBible.characters_blueprint, projectBible.outline_master, projectBible.outline_detail, projectBible.characters_status, projectBible.runtime_state, projectBible.runtime_threads]);
 
   const [expandedFields, setExpandedFields] = useState<Set<BibleFieldKey>>(new Set());
-  const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   const toggleField = (key: BibleFieldKey) => {
     setExpandedFields((prev) => {
@@ -81,21 +81,10 @@ export function EditorSidePanel({
     });
   };
 
-  const debouncedSave = useCallback(
-    (field: string, value: string) => {
-      if (saveTimers.current[field]) clearTimeout(saveTimers.current[field]);
-      if (!onPersistField) return;
-      saveTimers.current[field] = setTimeout(() => {
-        void onPersistField(field as BibleFieldKey, value);
-      }, 1500);
-    },
-    [onPersistField],
-  );
-
-  useEffect(() => {
-    const timers = saveTimers.current;
-    return () => Object.values(timers).forEach(clearTimeout);
-  }, []);
+  const debouncedSave = useDebounceSave((field: string, value: string) => {
+    if (!onPersistField) return;
+    void onPersistField(field as BibleFieldKey, value);
+  }, 1500);
 
   const handleChange = (key: BibleFieldKey, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));

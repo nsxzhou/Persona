@@ -30,8 +30,6 @@ export function EditorProvider({
   if (!storeRef.current) {
     const store = createEditorStore();
     store.setState({
-      chapters: [],
-      isLoadingChapters: true,
       currentChapter: initialChapterSelection,
       selectedVolumeIndex: initialChapterSelection?.volumeIndex ?? null,
       chapterFocusMode: initialChapterSelection ? (initialIntent ?? "navigate") : "idle",

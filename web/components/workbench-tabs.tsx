@@ -6,13 +6,14 @@ import { toast } from "sonner";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BibleTabContent } from "@/components/bible-tab-content";
-import { NovelWorkflowRunPanel } from "@/components/novel-workflow-run-panel";
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
 import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { SettingsTab } from "@/components/settings-tab";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
 import { consumeTextEventStream } from "@/lib/sse";
+import { useChaptersQuery } from "@/hooks/use-chapters-query";
+import { useDebounceSave } from "@/hooks/use-debounce-save";
 import {
   AI_ENABLED_SECTIONS,
   BIBLE_SECTION_META,
@@ -24,8 +25,6 @@ import type {
   Project,
   ProjectBible,
   ProjectChapter,
-  NovelWorkflowCreatePayload,
-  NovelWorkflowListItem,
   ProviderConfig,
   StyleProfileListItem,
 } from "@/lib/types";
@@ -69,39 +68,14 @@ export function WorkbenchTabs({
   // ---- AI generation ----
   const [generatingSection, setGeneratingSection] = useState<BibleFieldKey | null>(null);
   const [rerunSectionWorkflow, setRerunSectionWorkflow] = useState<BibleFieldKey | null>(null);
-  const [activeWorkflowRun, setActiveWorkflowRun] = useState<NovelWorkflowListItem | null>(null);
-  const [chapters, setChapters] = useState<ProjectChapter[]>([]);
-  const [chaptersLoadError, setChaptersLoadError] = useState<string | null>(null);
   const generationReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    api.getProjectChapters(project.id)
-      .then((loaded) => {
-        if (!cancelled) {
-          setChaptersLoadError(null);
-          setChapters(loaded);
-        }
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) {
-          setChaptersLoadError(e instanceof Error ? e.message : "加载章节失败");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [project.id]);
+  const { data: chapters = [], error: chaptersError, refetch: refetchChapters } = useChaptersQuery(project.id);
+  const chaptersLoadError = chaptersError ? (chaptersError instanceof Error ? chaptersError.message : "加载章节失败") : null;
 
-  const handleRetryChapters = useCallback(async () => {
-    try {
-      const loaded = await api.getProjectChapters(project.id);
-      setChaptersLoadError(null);
-      setChapters(loaded);
-    } catch (e: unknown) {
-      setChaptersLoadError(e instanceof Error ? e.message : "加载章节失败");
-    }
-  }, [project.id]);
+  const handleRetryChapters = useCallback(() => {
+    void refetchChapters();
+  }, [refetchChapters]);
 
   const handleStopGeneration = useCallback(() => {
     generationReaderRef.current?.cancel();
@@ -126,17 +100,10 @@ export function WorkbenchTabs({
       setGeneratingSection(sectionKey);
 
       try {
-        const workflowRun = await api.createNovelWorkflow({
-          intent_type: "section_generate",
-          project_id: project.id,
-          section: sectionKey,
-          ...regenerateFieldsForWorkflow(options),
-        } as NovelWorkflowCreatePayload);
-        setActiveWorkflowRun(workflowRun);
-
-        const response = await api.streamNovelWorkflowArtifact(
-          workflowRun.id,
-          "section_markdown",
+        const response = await api.runSectionWorkflow(
+          project.id,
+          { section: sectionKey, ...fields },
+          options
         );
 
         if (!response.body) throw new Error("No response body");
@@ -212,34 +179,17 @@ export function WorkbenchTabs({
   }, [generatingSection, handleStopGeneration]);
 
   // ---- Auto-save ----
-  const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
-
-  const debouncedSave = useCallback(
-    (field: string, value: string) => {
-      if (saveTimers.current[field]) {
-        clearTimeout(saveTimers.current[field]);
+  const debouncedSave = useDebounceSave(async (field: string, value: string) => {
+    try {
+      if (field === "description") {
+        await api.updateProject(project.id, { [field]: value });
+      } else {
+        await api.updateProjectBible(project.id, { [field]: value });
       }
-      saveTimers.current[field] = setTimeout(async () => {
-        try {
-          if (field === "description") {
-            await api.updateProject(project.id, { [field]: value });
-          } else {
-            await api.updateProjectBible(project.id, { [field]: value });
-          }
-        } catch {
-          toast.error(`保存 ${field} 失败`);
-        }
-      }, 1000);
-    },
-    [project.id],
-  );
-
-  useEffect(() => {
-    const timers = saveTimers.current;
-    return () => {
-      Object.values(timers).forEach(clearTimeout);
-    };
-  }, []);
+    } catch {
+      toast.error(`保存 ${field} 失败`);
+    }
+  }, 1000);
 
   const handleFieldChange = (key: BibleFieldKey, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -270,29 +220,6 @@ export function WorkbenchTabs({
             重试加载章节
           </button>
         </div>
-      ) : null}
-      {activeWorkflowRun ? (
-        <NovelWorkflowRunPanel
-          run={activeWorkflowRun}
-          className="mb-4"
-          onStatusChange={(status) => {
-            setActiveWorkflowRun((current) =>
-              current
-                ? {
-                    ...current,
-                    status: status.status,
-                    stage: status.stage,
-                    checkpoint_kind: status.checkpoint_kind,
-                    latest_artifacts: status.latest_artifacts ?? [],
-                    warnings: status.warnings ?? [],
-                    error_message: status.error_message,
-                    updated_at: status.updated_at,
-                    pause_requested_at: status.pause_requested_at,
-                  }
-                : current,
-            );
-          }}
-        />
       ) : null}
       <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
         <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
@@ -377,14 +304,4 @@ export function WorkbenchTabs({
       </Tabs>
     </div>
   );
-}
-
-function regenerateFieldsForWorkflow(options?: RegenerateOptions): {
-  previous_output?: string;
-  feedback?: string;
-} {
-  return {
-    ...(options?.previousOutput ? { previous_output: options.previousOutput } : {}),
-    ...(options?.userFeedback ? { feedback: options.userFeedback } : {}),
-  };
 }

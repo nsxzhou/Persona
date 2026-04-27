@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ChevronRight as Breadcrumb,
   PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDebounceSave } from "@/hooks/use-debounce-save";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,30 +59,13 @@ function ProjectWorkbenchInner({
     setActiveTab(initialTab);
   }, [initialTab]);
 
-  const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
-
-  const debouncedSave = useCallback(
-    (field: string, value: string) => {
-      if (saveTimers.current[field]) {
-        clearTimeout(saveTimers.current[field]);
-      }
-      saveTimers.current[field] = setTimeout(async () => {
-        try {
-          await updateProjectAction(initialProject.id, { [field]: value });
-        } catch {
-          toast.error(`保存 ${field === "name" ? "项目名称" : "状态"} 失败`);
-        }
-      }, 1000);
-    },
-    [initialProject.id]
-  );
-
-  useEffect(() => {
-    const timers = saveTimers.current;
-    return () => {
-      Object.values(timers).forEach(clearTimeout);
-    };
-  }, []);
+  const debouncedSave = useDebounceSave(async (field: string, value: string) => {
+    try {
+      await updateProjectAction(initialProject.id, { [field]: value });
+    } catch {
+      toast.error(`保存 ${field === "name" ? "项目名称" : "状态"} 失败`);
+    }
+  }, 1000);
 
   const handleNameChange = (val: string) => {
     setDisplayName(val);
