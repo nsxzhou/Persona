@@ -36,6 +36,9 @@ class BaseProfileService(Generic[T]):
             raise NotFoundError(f"{self.profile_name}不存在")
         return profile
 
+    async def _check_delete_constraints(self, session: AsyncSession, profile: T) -> None:
+        pass
+
     async def delete(
         self,
         session: AsyncSession,
@@ -50,6 +53,5 @@ class BaseProfileService(Generic[T]):
         )
         if profile is None:
             raise NotFoundError(f"{self.profile_name}不存在")
-        if profile.projects:
-            raise ConflictError(f"该{self.profile_name}正被项目引用，无法删除")
+        await self._check_delete_constraints(session, profile)
         await self.repository.delete(session, profile)

@@ -40,6 +40,10 @@ class PlotProfileService(BaseProfileService[PlotProfile]):
         if project is None:
             raise NotFoundError("项目不存在")
 
+    async def _check_delete_constraints(self, session: AsyncSession, profile: PlotProfile) -> None:
+        if profile.projects:
+            raise ConflictError(f"该{self.profile_name}正被项目引用，无法删除")
+
     async def create(
         self,
         session: AsyncSession,

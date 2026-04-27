@@ -35,6 +35,7 @@ _TASK_TO_MODE: dict[PromptInjectionTask, PromptInjectionMode] = {
     PromptInjectionTask.EDITOR_SECTION_GENERATION: "analysis",
     PromptInjectionTask.EDITOR_BEAT_EXPANSION: "immersion",
     PromptInjectionTask.EDITOR_BIBLE_UPDATE: "analysis",
+    PromptInjectionTask.EDITOR_CHAPTER_SUMMARY: "analysis",
     PromptInjectionTask.EDITOR_BEAT_GENERATION: "analysis",
     PromptInjectionTask.EDITOR_CONCEPT_GENERATION: "analysis",
     PromptInjectionTask.EDITOR_VOLUME_GENERATION: "analysis",
