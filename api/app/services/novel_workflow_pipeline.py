@@ -701,11 +701,12 @@ class NovelWorkflowPipeline:
     ) -> str:
         if self.should_pause is not None and self.should_pause():
             raise NovelWorkflowAwaitingHuman("manual_pause")
-        return await self.llm_complete(
+        content = await self.llm_complete(
             system_prompt=system_prompt,
             user_context=user_context,
             mode=mode,
         )
+        return re.sub(r"<think>.*?(?:</think>\n*|\Z)", "", content, flags=re.DOTALL).strip()
 
     async def _set_stage(self, stage: str | None) -> None:
         if self.stage_callback is not None:
