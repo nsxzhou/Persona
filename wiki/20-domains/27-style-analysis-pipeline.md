@@ -16,7 +16,7 @@
 
 这个子系统没有独立的“管道页面”，它通过 Style Lab Wizard 侧向暴露：
 
-- `web/components/style-lab-wizard-view.tsx:18` 决定当前展示报告、摘要还是 Voice Profile
+- `web/components/style-lab-wizard-view.tsx:18` 决定当前展示报告还是 Voice Profile
 - `web/components/style-lab-wizard-report-step.tsx:15` 在运行期显示日志与阶段状态
 - `web/hooks/use-style-lab-wizard-logic.ts:65` 轮询 status
 - `web/hooks/use-style-lab-wizard-logic.ts:80` 增量拉取 execution logs
@@ -32,8 +32,7 @@
 - `GET /style-analysis-jobs/{id}/status`，见 `api/app/api/routes/style_analysis_jobs.py:57`
 - `GET /style-analysis-jobs/{id}/logs`，见 `api/app/api/routes/style_analysis_jobs.py:123`
 - `GET /style-analysis-jobs/{id}/analysis-report`，见 `api/app/api/routes/style_analysis_jobs.py:152`
-- `GET /style-analysis-jobs/{id}/style-summary`，见 `api/app/api/routes/style_analysis_jobs.py:166`
-- `GET /style-analysis-jobs/{id}/prompt-pack`，见 `api/app/api/routes/style_analysis_jobs.py:180`
+- `GET /style-analysis-jobs/{id}/voice-profile`，见 `api/app/api/routes/style_analysis_jobs.py:166`
 
 ### LangGraph 主图
 
@@ -44,8 +43,7 @@
 - `analyze_chunk()`，见 `api/app/services/style_analysis_pipeline.py:254`
 - `merge_chunks()`，见 `api/app/services/style_analysis_pipeline.py:300`
 - `build_report()`，见 `api/app/services/style_analysis_pipeline.py:384`
-- `build_summary()`，见 `api/app/services/style_analysis_pipeline.py:414`
-- `build_prompt_pack()`，见 `api/app/services/style_analysis_pipeline.py:455`
+- `build_voice_profile()`，见 `api/app/services/style_analysis_pipeline.py:414`
 - `persist_result()`，见 `api/app/services/style_analysis_pipeline.py:485`
 
 `thread_id = job_id` 被写进 LangGraph config，见 `api/app/services/style_analysis_pipeline.py:169`。这保证 checkpoint 的寻址键和业务任务键完全一致。
