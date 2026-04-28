@@ -32,6 +32,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 
 ### 20 业务领域 — 前后端贯通的功能纵切
 
+- [19 Novel Workflow 创作流引擎](./20-domains/19-novel-workflow.md)
 - [20 项目（Project）](./20-domains/20-projects.md)
 - [21 章节树（Chapter Tree）](./20-domains/21-chapter-tree.md)
 - [22 沉浸编辑器（Zen Editor）](./20-domains/22-zen-editor.md)
@@ -80,9 +81,10 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 2. `10-architecture/10-high-level-architecture.md` → `11-backend-layering.md` → `12-frontend-architecture.md` — 三张关键图先看
 3. `10-architecture/13-data-model.md` — 所有领域都靠这些表
 4. `20-domains/20-projects.md` → `21-chapter-tree.md` → `22-zen-editor.md` — 最简纵切链路
-5. `20-domains/26-style-lab.md` → `27-style-analysis-pipeline.md` — 项目里最复杂的子系统，吃透它就吃透了本项目的 LangGraph 用法；想进一步看带骨架预览的变体，接着看 `28-plot-lab.md` → `29-plot-analysis-pipeline.md`
-6. `30-prompt-engineering/` 三篇 + `50-standards/50-coding-standards.md` — 约束规则与落地范式
-7. `40-operations/` 全部 — 确保你能本地跑起来并调试
+5. `20-domains/19-novel-workflow.md` — 长篇生成工作流核心机制，了解 LangGraph 基础
+6. `20-domains/26-style-lab.md` → `27-style-analysis-pipeline.md` — 项目里最复杂的子系统，吃透它就吃透了本项目的 LangGraph 用法；想进一步看带骨架预览的变体，接着看 `28-plot-lab.md` → `29-plot-analysis-pipeline.md`
+7. `30-prompt-engineering/` 三篇 + `50-standards/50-coding-standards.md` — 约束规则与落地范式
+8. `40-operations/` 全部 — 确保你能本地跑起来并调试
 
 ### 🔧 仅做后端（API / Service / LangGraph）
 
@@ -90,6 +92,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 - `10-architecture/13-data-model.md`
 - `10-architecture/14-auth-and-session.md`
 - `10-architecture/15-llm-provider-integration.md`
+- `20-domains/19-novel-workflow.md`（长篇创作异步流与 LangGraph 基础）
 - `20-domains/27-style-analysis-pipeline.md`（LangGraph 最深的案例）
 - `30-prompt-engineering/31-prompt-schema-coupling.md`
 - `50-standards/50-coding-standards.md`（后端部分）+ 根目录 `AGENT.md`
@@ -98,6 +101,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 
 - `10-architecture/12-frontend-architecture.md`
 - `10-architecture/16-sse-and-streaming.md`
+- `20-domains/19-novel-workflow.md`（了解前后端工作流的状态机生命周期）
 - `20-domains/22-zen-editor.md`
 - `20-domains/23-bible-worldbuilding.md`
 - `20-domains/24-outline-and-beats.md`

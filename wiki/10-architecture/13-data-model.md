@@ -2,7 +2,7 @@
 
 ## 要解决什么问题
 
-Persona 的业务逻辑全部建立在 **12 张核心表** 之上（其中 10 张是业务表，外加 `users` / `sessions` 两张基础表）。本章回答四个问题：
+Persona 的业务逻辑全部建立在 **13 张核心表** 之上（其中 11 张是业务表，外加 `users` / `sessions` 两张基础表）。本章回答四个问题：
 
 - 每张表有什么字段、用途、约束？表与表之间如何连通？
 - 为什么所有业务资源都携带 `user_id`？
@@ -26,12 +26,14 @@ erDiagram
     users ||--o{ plot_sample_files : "上传情节样本"
     users ||--o{ plot_analysis_jobs : "情节分析任务"
     users ||--o{ plot_profiles : "情节档案"
+    users ||--o{ novel_workflow_runs : "写作流运行记录"
 
     provider_configs ||--o{ projects : "default_provider"
     provider_configs ||--o{ style_analysis_jobs : "执行 provider"
     provider_configs ||--o{ style_profiles : "生成所用 provider"
     provider_configs ||--o{ plot_analysis_jobs : "执行 provider"
     provider_configs ||--o{ plot_profiles : "生成所用 provider"
+    provider_configs ||--o{ novel_workflow_runs : "执行 provider"
 
     style_sample_files ||--|| style_analysis_jobs : "sample_file_id 1:1"
     style_analysis_jobs ||--o| style_profiles : "source_job_id 1:0..1"
@@ -43,6 +45,8 @@ erDiagram
 
     projects ||--|| project_bibles : "Bible"
     projects ||--o{ project_chapters : "章节"
+    projects ||--o{ novel_workflow_runs : "项目级运行"
+    project_chapters ||--o{ novel_workflow_runs : "章节级运行"
 
     users {
         string id PK
@@ -91,11 +95,13 @@ erDiagram
         string project_id FK
         text inspiration
         text world_building
-        text characters
+        text characters_blueprint
         text outline_master
         text outline_detail
+        text characters_status
         text runtime_state
         text runtime_threads
+        text story_summary
     }
     project_chapters {
         string id PK
@@ -104,15 +110,44 @@ erDiagram
         int chapter_index
         text title
         text content
+        text beats_markdown
         int word_count
+        text summary
         string memory_sync_status
         string memory_sync_source
         string memory_sync_scope
         datetime memory_sync_checked_at
         string memory_sync_checked_content_hash
         text memory_sync_error_message
+        text memory_sync_proposed_characters_status
         text memory_sync_proposed_state
         text memory_sync_proposed_threads
+        text memory_sync_proposed_summary
+    }
+    novel_workflow_runs {
+        string id PK
+        string user_id FK
+        string project_id FK
+        string chapter_id FK
+        string provider_id FK
+        string intent_type
+        string status
+        string stage
+        string checkpoint_kind
+        string model_name
+        json request_payload
+        json latest_artifacts_payload
+        json warnings_payload
+        json decision_payload
+        text error_message
+        string locked_by
+        datetime locked_at
+        datetime last_heartbeat_at
+        datetime pause_requested_at
+        datetime paused_at
+        int attempt_count
+        datetime started_at
+        datetime completed_at
     }
     style_sample_files {
         string id PK
@@ -213,6 +248,7 @@ erDiagram
 - **`plot_sample_files ↔ plot_analysis_jobs` 是 1:1**：`PlotAnalysisJob.sample_file_id` 带 `unique=True`，一个样本最多绑一个任务
 - **`plot_analysis_jobs → plot_profiles` 是 1:0..1**：`PlotProfile.source_job_id` 带 `unique=True`，成功任务可保存成长期情节档案
 - **`projects → plot_profiles` 是 N:0..1**：项目可以挂载一个 Plot Profile（也可以不挂）
+- **`projects / project_chapters → novel_workflow_runs` 是 1:N**：写作流的每一次运行都会记录，可能关联到具体的项目与章节
 
 ### 表结构逐项
 
@@ -229,7 +265,7 @@ erDiagram
 | `password_hash` | String(255) | not null | Argon2 哈希，非明文；见 `api/app/core/security.py` |
 | `created_at` / `updated_at` | DateTime(tz) | not null | TimestampMixin |
 
-Relationships：`sessions`, `provider_configs`, `projects`, `style_sample_files`, `style_analysis_jobs`, `style_profiles`, `plot_sample_files`, `plot_analysis_jobs`, `plot_profiles`，全部 `cascade="all, delete-orphan"`——删 user 一锅端。
+Relationships：`sessions`, `provider_configs`, `projects`, `style_sample_files`, `style_analysis_jobs`, `style_profiles`, `plot_sample_files`, `plot_analysis_jobs`, `plot_profiles`, `novel_workflow_runs`，全部 `cascade="all, delete-orphan"`——删 user 一锅端。
 
 #### `sessions`（`models.py:72-90`）
 
@@ -259,7 +295,7 @@ Relationships：`sessions`, `provider_configs`, `projects`, `style_sample_files`
 | `last_test_error` | Text | nullable | 测试错误详情 |
 | `last_tested_at` | DateTime(tz) | nullable | 测试时间 |
 
-Relationship：`projects`, `style_analysis_jobs`, `style_profiles`, `plot_analysis_jobs`, `plot_profiles` 都引用它（作为 `default_provider` / `provider`）。`api_key_hint` 是 Python 属性（`f"****{last4}"`），不是列。
+Relationship：`projects`, `style_analysis_jobs`, `style_profiles`, `plot_analysis_jobs`, `plot_profiles`, `novel_workflow_runs` 都引用它（作为 `default_provider` / `provider`）。`api_key_hint` 是 Python 属性（`f"****{last4}"`），不是列。
 
 #### `projects`（`models.py:127-172`）
 
@@ -303,7 +339,7 @@ Bible 字段不再直接挂在 `Project` 上，而是拆成 1:1 的 `ProjectBibl
 | --- | --- | --- |
 | `inspiration` | Text | 灵感笔记 / 项目起盘说明 |
 | `world_building` | Text | 世界观设定 |
-| `characters` | Text | 角色档案 |
+| `characters_blueprint` | Text | 角色档案（蓝图层） |
 | `outline_master` | Text | 总纲 / 分卷结构 |
 | `outline_detail` | Text | 分章详细大纲 |
 
@@ -311,8 +347,10 @@ Bible 字段不再直接挂在 `Project` 上，而是拆成 1:1 的 `ProjectBibl
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
+| `characters_status` | Text | 当前稳定生效的角色状态 |
 | `runtime_state` | Text | 当前稳定生效的运行时状态 |
 | `runtime_threads` | Text | 当前仍需追踪的线索、伏笔与约束 |
+| `story_summary` | Text | 故事总结 |
 
 #### `project_chapters`（`models.py:174-207`）
 
@@ -324,15 +362,19 @@ Bible 字段不再直接挂在 `Project` 上，而是拆成 1:1 的 `ProjectBibl
 | `chapter_index` | Integer | not null | 章序号 |
 | `title` | Text | default "" | 章节标题 |
 | `content` | Text | default "" | 正文 |
+| `beats_markdown` | Text | default "" | 分节写作提纲 |
 | `word_count` | Integer | default 0 | 字数缓存 |
+| `summary` | Text | default "" | 章节内容总结 |
 | `memory_sync_status` | String(32) | nullable | `checking` / `pending_review` / `synced` / `no_change` / `failed` |
 | `memory_sync_source` | String(32) | nullable | `auto` / `manual` |
 | `memory_sync_scope` | String(32) | nullable | `generated_fragment` / `chapter_full` |
 | `memory_sync_checked_at` | DateTime(tz) | nullable | 最近校验时间 |
 | `memory_sync_checked_content_hash` | String(64) | nullable | 校验时的 content 哈希（变了需重检） |
 | `memory_sync_error_message` | Text | nullable | 同步错误 |
+| `memory_sync_proposed_characters_status` | Text | nullable | AI 提议的新 `characters_status` |
 | `memory_sync_proposed_state` | Text | nullable | AI 提议的新 `runtime_state` |
 | `memory_sync_proposed_threads` | Text | nullable | AI 提议的新 `runtime_threads` |
+| `memory_sync_proposed_summary` | Text | nullable | AI 提议的新 `story_summary` |
 
 **表级约束**：
 ```python
@@ -340,6 +382,42 @@ UniqueConstraint("project_id", "volume_index", "chapter_index",
                  name="uq_project_chapter_position")
 ```
 保证同一项目内 (卷, 章) 组合唯一——防止重复插入。
+
+#### `novel_workflow_runs`
+
+| 字段 | 类型 | 约束 | 用途 |
+| --- | --- | --- | --- |
+| `id` | String(36) | PK | 运行 ID |
+| `user_id` | String(36) | FK CASCADE + Index | 所属用户 |
+| `project_id` | String(36) | FK CASCADE + Index | 所属项目（可选） |
+| `chapter_id` | String(36) | FK CASCADE + Index | 所属章节（可选） |
+| `provider_id` | String(36) | FK + Index | 执行所用 Provider（可选） |
+| `intent_type` | String(64) | not null, Index | 运行意图（如 `novel_write`） |
+| `status` | String(16) | not null, Index, default `pending` | `pending` / `running` / `paused` / `succeeded` / `failed` |
+| `stage` | String(64) | nullable | 当前运行阶段 |
+| `checkpoint_kind` | String(64) | nullable | 检查点类型 |
+| `model_name` | String(100) | nullable | 模型名 |
+| `request_payload` | **JSON** | not null, default `{}` | 触发运行时的完整请求参数 |
+| `latest_artifacts_payload` | **JSON** | not null, default `[]` | 运行产物列表 |
+| `warnings_payload` | **JSON** | not null, default `[]` | 运行中的警告列表 |
+| `decision_payload` | **JSON** | nullable | Agent 决策上下文记录 |
+| `error_message` | Text | nullable | 失败原因 |
+| `locked_by` | String(64) | nullable | 当前持有者 Worker ID |
+| `locked_at` | DateTime(tz) | nullable | 锁获取时间 |
+| `last_heartbeat_at` | DateTime(tz) | nullable | 最近心跳 |
+| `pause_requested_at` | DateTime(tz) | nullable | 用户请求暂停的时间 |
+| `paused_at` | DateTime(tz) | nullable | 实际暂停生效时间 |
+| `attempt_count` | Integer | not null, default 0 | 重试次数 |
+| `started_at` | DateTime(tz) | nullable | 首次进入 `running` |
+| `completed_at` | DateTime(tz) | nullable | 首次进入 `succeeded` |
+
+**索引**（表级定义在 `models.py`）：
+
+- `ix_novel_workflow_runs_status_created_at`：Worker claim 扫描用
+- `ix_novel_workflow_runs_status_attempt_count_created_at`：重试计数策略用
+- `ix_novel_workflow_runs_status_last_heartbeat_at`：卡死检测用
+
+这张表是 Persona 写作流的底层调度支撑，基于与 Style/Plot Job 类似的“状态机+心跳”机制进行任务分发与状态流转。
 
 #### `style_sample_files`（`models.py:210-225`）
 
@@ -554,7 +632,7 @@ Persona 里的"长文本"大多是 Markdown（`analysis_report_payload` / `voice
 | 增量 diff 有语义（Markdown 行级） | 整块替换 |
 | Prompt 模板直接注入 | 需要子字段独立查询 |
 
-当前主要的 JSON 列是 `style_analysis_jobs.analysis_meta_payload` 与 `plot_analysis_jobs.analysis_meta_payload`——都属于**分析元数据**（分块数、字符数、输入分类字典），程序读为主，没有人工编辑需求。
+当前主要的 JSON 列是 `style_analysis_jobs.analysis_meta_payload`、`plot_analysis_jobs.analysis_meta_payload` 以及 `novel_workflow_runs` 表中的各项 payload（如 `request_payload`、`latest_artifacts_payload` 等）——都属于**结构化数据或分析元数据**（分块数、字符数、输入分类字典、请求参数等），程序读为主，没有人工编辑需求。
 
 **反模式**：用 Text 存 JSON 串再 `json.loads(...)`——Pydantic V2 + 原生 JSON 列能在 DB 层保持结构化，应用层直接拿 dict。
 
@@ -755,6 +833,7 @@ uv run alembic heads        # 查看分支（健康代码库只应一个 head）
 - [11 后端分层](./11-backend-layering.md) — Repository 层如何消费这些表
 - [14 鉴权与 Session](./14-auth-and-session.md) — `users` / `sessions` 的使用细节
 - [15 LLM Provider 接入](./15-llm-provider-integration.md) — `provider_configs` 的使用
+- [19 写作流](../20-domains/19-novel-workflow.md) — `novel_workflow_runs` 的底层调度
 - [20 项目](../20-domains/20-projects.md) — `projects` 纵切
 - [21 章节树](../20-domains/21-chapter-tree.md) — `project_chapters` 纵切
 - [26 Style Lab](../20-domains/26-style-lab.md) — `style_sample_files` / `style_analysis_jobs` / `style_profiles` 纵切

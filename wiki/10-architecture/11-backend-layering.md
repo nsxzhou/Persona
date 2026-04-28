@@ -358,6 +358,8 @@ def build_job_detail_response(job: StyleAnalysisJob) -> StyleAnalysisJobResponse
 
 Router 只需 `return build_job_detail_response(job)`。
 
+**业务映射**：Persona 包含 **Plot（剧情）** 和 **Style（文风）** 两条并行的核心分析管道。两者的 API 路由（`plot_analysis_jobs`, `plot_profiles`, `style_analysis_jobs`, `style_profiles`）及后台 Worker 处理逻辑高度对称，因此它们的大量响应组装逻辑都统一沉淀在 `assemblers.py` 中。
+
 **位置选择**：
 
 - 单端点用一次、纯 `model_validate(obj)` → 直接写在 Router（范本即是 `projects.py` 里的 `ProjectResponse.model_validate(project)`）
@@ -443,6 +445,7 @@ Router 只需 `return build_job_detail_response(job)`。
 
 - `api/app/api/deps.py` — 所有 `Annotated` 依赖别名
 - `api/app/api/routes/projects.py` — Router 的范本
+- `api/app/api/routes/style_analysis_jobs.py` / `plot_analysis_jobs.py` — 核心分析管道的 Router 示例
 - `api/app/services/projects.py` — Service 的范本（含 `get_or_404` / `create` / `update`）
 - `api/app/db/repositories/projects.py` — Repository 的范本（含 `load_only` + `joinedload`）
 - `api/app/db/repositories/style_profiles.py` — 含 `selectinload` + `defer` 的对照样例
@@ -460,6 +463,6 @@ Router 只需 `return build_job_detail_response(job)`。
 - [13 数据模型](./13-data-model.md) — Repository 下面的表结构
 - [14 鉴权与 Session](./14-auth-and-session.md) — `CurrentUserDep` 和 `user_id` scope 的来源
 - [15 LLM Provider 接入](./15-llm-provider-integration.md) — Service 如何调用外部 LLM
-- [27 Style Analysis 管道](../20-domains/27-style-analysis-pipeline.md) — Worker 的事务范式实战
+- [29 Plot Analysis 管道](../20-domains/29-plot-analysis-pipeline.md) 与 [27 Style Analysis 管道](../20-domains/27-style-analysis-pipeline.md) — 核心分析管道及 Worker 的事务范式实战
 - [50 编码规范](../50-standards/50-coding-standards.md) — 叙事向导
 - 根目录 `AGENT.md` — 硬约束出处
