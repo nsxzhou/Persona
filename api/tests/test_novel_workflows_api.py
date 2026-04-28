@@ -122,35 +122,27 @@ async def test_novel_workflow_decision_endpoint_requeues_paused_run(
 
     class FakePipeline:
         async def run(self, *, run_id: str, initial_state: dict[str, object]):
-            call_count["count"] += 1
-            if call_count["count"] == 1:
+                call_count["count"] += 1
+                if call_count["count"] == 1:
+                    await storage.write_stage_markdown_artifact(
+                        run_id,
+                        name="outline_bundle",
+                        markdown="- beat 1\n- beat 2",
+                    )
+                    raise NovelWorkflowAwaitingHuman("outline_bundle")
                 await storage.write_stage_markdown_artifact(
                     run_id,
-                    name="beats_markdown",
-                    markdown="- beat 1\n- beat 2",
+                    name="outline_master",
+                    markdown="终稿正文",
                 )
-                raise NovelWorkflowAwaitingHuman("beats")
-            await storage.write_stage_markdown_artifact(
-                run_id,
-                name="prose_markdown",
-                markdown="终稿正文",
-            )
-            return NovelWorkflowPipelineResult(
-                persist_payload={
-                    "chapter": {
-                        "content": "终稿正文",
-                        "beats_markdown": "- beat 1\n- beat 2",
-                        "summary": "摘要",
+                return NovelWorkflowPipelineResult(
+                    persist_payload={
+                        "project_bible": {
+                            "outline_master": "终稿正文",
+                        },
                     },
-                    "project_bible": {
-                        "characters_status": "",
-                        "runtime_state": "",
-                        "runtime_threads": "",
-                        "story_summary": "",
-                    },
-                },
-                latest_artifacts=["beats_markdown", "prose_markdown"],
-            )
+                    latest_artifacts=["outline_bundle", "outline_master"],
+                )
 
     async def fake_build_pipeline(self, **_):
         return FakePipeline()
@@ -164,7 +156,7 @@ async def test_novel_workflow_decision_endpoint_requeues_paused_run(
     create_response = await initialized_client.post(
         "/api/v1/novel-workflows",
         json={
-            "intent_type": "chapter_write",
+            "intent_type": "project_bootstrap",
             "project_id": project["id"],
             "current_chapter_context": "**第1章：醒在死牢**",
         },
@@ -181,13 +173,13 @@ async def test_novel_workflow_decision_endpoint_requeues_paused_run(
     )
     assert paused_status.status_code == 200
     assert paused_status.json()["status"] == "paused"
-    assert paused_status.json()["checkpoint_kind"] == "beats"
+    assert paused_status.json()["checkpoint_kind"] == "outline_bundle"
 
     decision_response = await initialized_client.post(
         f"/api/v1/novel-workflows/{created['id']}/decision",
         json={
             "action": "approve",
-            "artifact_name": "beats_markdown",
+            "artifact_name": "outline_bundle",
         },
     )
     assert decision_response.status_code == 200
@@ -201,4 +193,4 @@ async def test_novel_workflow_decision_endpoint_requeues_paused_run(
     )
     assert final_status.status_code == 200
     assert final_status.json()["status"] == "succeeded"
-    assert "prose_markdown" in final_status.json()["latest_artifacts"]
+    assert "outline_master" in final_status.json()["latest_artifacts"]

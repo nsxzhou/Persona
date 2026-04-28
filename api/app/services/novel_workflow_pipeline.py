@@ -179,9 +179,6 @@ class NovelWorkflowPipeline:
         builder.add_node("run_project_bootstrap", self._run_project_bootstrap)
         builder.add_node("review_outline_bundle", self._review_outline_bundle)
         builder.add_node("finalize_project_bootstrap", self._finalize_project_bootstrap)
-        builder.add_node("run_chapter_write", self._run_chapter_write)
-        builder.add_node("review_beats", self._review_beats)
-        builder.add_node("finalize_chapter_write", self._finalize_chapter_write)
         builder.add_node("run_concept_bootstrap", self._run_concept_bootstrap)
         builder.add_node("run_simple_intent", self._run_simple_intent)
 
@@ -192,17 +189,15 @@ class NovelWorkflowPipeline:
             self._select_intent_node,
             [
                 "run_project_bootstrap",
-                "run_chapter_write",
                 "run_concept_bootstrap",
                 "run_simple_intent",
             ],
         )
+
         builder.add_edge("run_project_bootstrap", "review_outline_bundle")
         builder.add_edge("review_outline_bundle", "finalize_project_bootstrap")
         builder.add_edge("finalize_project_bootstrap", END)
-        builder.add_edge("run_chapter_write", "review_beats")
-        builder.add_edge("review_beats", "finalize_chapter_write")
-        builder.add_edge("finalize_chapter_write", END)
+
         builder.add_edge("run_concept_bootstrap", END)
         builder.add_edge("run_simple_intent", END)
         return builder.compile(checkpointer=self.checkpointer)
@@ -374,93 +369,6 @@ class NovelWorkflowPipeline:
                     "story_summary": state.get("story_summary", ""),
                 }
             }
-        }
-
-    async def _run_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
-        await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
-        current_bible = state.get("current_bible", {})
-        beats_markdown = await self.beat_agent.generate(
-            state=state,
-            current_bible=current_bible,
-            generation_profile=self._generation_profile_obj(state),
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="beats_markdown",
-            markdown=beats_markdown,
-        )
-        return {
-            "beats_markdown": beats_markdown,
-            "checkpoint_kind": "beats",
-            "latest_artifacts": ["beats_markdown"],
-        }
-
-    async def _review_beats(self, state: NovelWorkflowState) -> dict[str, Any]:
-        await self._set_stage(NOVEL_WORKFLOW_STAGE_WAITING_DECISION)
-        decision = self.decision_loader(state["run_id"])
-        if not decision or decision.get("artifact_name") != "beats_markdown":
-            raise NovelWorkflowAwaitingHuman("beats")
-        approved = decision.get("edited_markdown") or state.get("beats_markdown", "")
-        return {"beats_markdown": approved, "checkpoint_kind": None}
-
-    async def _finalize_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
-        await self._set_stage(NOVEL_WORKFLOW_STAGE_PERSISTING)
-        current_bible = state.get("current_bible", {})
-        prose_markdown, warnings = await self._write_chapter_from_beats(state)
-        chapter_continuity = await self.continuity_agent.review(
-            prose_markdown=prose_markdown,
-            current_bible=current_bible,
-            current_chapter_context=state.get("current_chapter_context", ""),
-            previous_chapter_context=state.get("previous_chapter_context", ""),
-            beat=None,
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="continuity_report",
-            markdown=chapter_continuity,
-        )
-        if self.continuity_agent.extract_verdict(chapter_continuity) == "fail":
-            warnings.append("chapter_continuity_failed")
-
-        if state.get("enable_editor_pass"):
-            prose_markdown = await self.editor_agent.polish(prose_markdown)
-
-        memory_result = await self.memory_sync_agent.refresh(
-            current_bible=current_bible,
-            content_to_check=prose_markdown,
-            sync_scope="chapter_full",
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="prose_markdown",
-            markdown=prose_markdown,
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="memory_update_bundle",
-            markdown=memory_result.markdown,
-        )
-        return {
-            "warnings": warnings,
-            "latest_artifacts": [
-                "beats_markdown",
-                "prose_markdown",
-                "continuity_report",
-                "memory_update_bundle",
-            ],
-            "persist_payload": {
-                "chapter": {
-                    "content": prose_markdown,
-                    "beats_markdown": state.get("beats_markdown", ""),
-                    "summary": memory_result.chapter_summary,
-                },
-                "project_bible": {
-                    "characters_status": memory_result.characters_status,
-                    "runtime_state": memory_result.runtime_state,
-                    "runtime_threads": memory_result.runtime_threads,
-                    "story_summary": memory_result.story_summary,
-                },
-            },
         }
 
     async def _run_concept_bootstrap(self, state: NovelWorkflowState) -> dict[str, Any]:

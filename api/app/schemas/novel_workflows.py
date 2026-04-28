@@ -36,7 +36,6 @@ NovelWorkflowCheckpointKind: TypeAlias = Literal[
 NovelWorkflowIntentType: TypeAlias = Literal[
     "concept_bootstrap",
     "project_bootstrap",
-    "chapter_write",
     "memory_refresh",
     "section_generate",
     "volume_generate",

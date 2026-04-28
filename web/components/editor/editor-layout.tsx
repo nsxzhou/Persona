@@ -12,7 +12,6 @@ export type EditorLayoutProps = {
   chapterBanner?: React.ReactNode;
   rightPanel: React.ReactNode;
   rightPanelToggle: React.ReactNode;
-  workflowRunPanel?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -26,7 +25,6 @@ export function EditorLayout({
   chapterBanner,
   rightPanel,
   rightPanelToggle,
-  workflowRunPanel,
   children,
 }: EditorLayoutProps) {
   return (
@@ -56,11 +54,6 @@ export function EditorLayout({
 
           <div className="px-6 pb-3">
             {chapterBanner}
-            {workflowRunPanel ? (
-              <div className="mt-3">
-                {workflowRunPanel}
-              </div>
-            ) : null}
           </div>
         </header>
 

@@ -17,15 +17,14 @@ import { EditorLayout } from "./editor-layout";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
 import { MemorySyncButton } from "@/components/memory-sync-button";
 import { BeatPanel } from "@/components/beat-panel";
-import { NovelWorkflowRunPanel } from "@/components/novel-workflow-run-panel";
-import { ArrowLeft, BookOpen, Settings, Sparkles, Square, Loader2, ListOrdered, Workflow } from "lucide-react";
+import { ArrowLeft, BookOpen, Settings, Sparkles, Square, Loader2, ListOrdered } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EditorNovelMenu } from "@/components/editor-novel-menu";
 import { EditorSidePanel } from "@/components/editor-side-panel";
 import { ExportProjectDialog } from "@/components/export-project-dialog";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import type { NovelWorkflowCreatePayload, NovelWorkflowListItem, ProjectChapter, ProjectBible } from "@/lib/types";
+import type { ProjectChapter, ProjectBible } from "@/lib/types";
 
 const EditorTextarea = React.memo(({ 
   disabled, 
@@ -103,8 +102,6 @@ export function EditorContentArea({
 
   const { data: project = initialProject } = useProjectQuery(initialProject.id, initialProject);
   const { data: projectBible } = useProjectBibleQuery(initialProject.id, initialProjectBible);
-  const [activeWorkflowRun, setActiveWorkflowRun] = useState<NovelWorkflowListItem | null>(null);
-  const [isStartingChapterWorkflow, setIsStartingChapterWorkflow] = useState(false);
   
   const updateProjectMutation = useUpdateProject();
   const updateProjectBibleMutation = useUpdateProjectBible();
@@ -464,36 +461,6 @@ export function EditorContentArea({
     setTimeout(() => handleGenerateBeatPlan(), 100);
   }, [handleGenerateBeatPlan, selectedChapterRecord, setIsRightExpanded]);
 
-  const handleStartChapterWorkflow = useCallback(async () => {
-    if (!selectedChapterRecord) return;
-    setIsStartingChapterWorkflow(true);
-    try {
-      const run = await api.createNovelWorkflow({
-        intent_type: "chapter_write",
-        project_id: project.id,
-        chapter_id: selectedChapterRecord.id,
-        text_before_cursor: store.getState().content,
-        current_chapter_context: currentChapterContext,
-        previous_chapter_context: previousChapterContext,
-        total_content_length: totalContentLength,
-      } as NovelWorkflowCreatePayload);
-      setActiveWorkflowRun(run);
-      setIsRightExpanded(true);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "启动章节工作流失败");
-    } finally {
-      setIsStartingChapterWorkflow(false);
-    }
-  }, [
-    currentChapterContext,
-    previousChapterContext,
-    project.id,
-    selectedChapterRecord,
-    setIsRightExpanded,
-    store,
-    totalContentLength,
-  ]);
-
   const handleSelectChapter = useCallback(async (volumeIndex: number, chapterIndex: number) => {
     try {
       await flushPendingSave();
@@ -543,10 +510,6 @@ export function EditorContentArea({
       <Button variant="outline" className="gap-2" size="sm" onClick={handleGenerateBeatsForChapter}>
         <Sparkles className="h-4 w-4" />
         生成节拍
-      </Button>
-      <Button className="gap-2" size="sm" onClick={handleStartChapterWorkflow} disabled={isStartingChapterWorkflow}>
-        <Workflow className="h-4 w-4" />
-        {isStartingChapterWorkflow ? "启动中..." : "章节工作流"}
       </Button>
     </div>
   ) : (
@@ -758,30 +721,6 @@ export function EditorContentArea({
               <div>{chapterBannerAction}</div>
             </div>
           </div>
-        }
-        workflowRunPanel={
-          activeWorkflowRun ? (
-            <NovelWorkflowRunPanel
-              run={activeWorkflowRun}
-              onStatusChange={(status) => {
-                setActiveWorkflowRun((current) =>
-                  current
-                    ? {
-                        ...current,
-                        status: status.status,
-                        stage: status.stage,
-                        checkpoint_kind: status.checkpoint_kind,
-                        latest_artifacts: status.latest_artifacts ?? [],
-                        warnings: status.warnings ?? [],
-                        error_message: status.error_message,
-                        updated_at: status.updated_at,
-                        pause_requested_at: status.pause_requested_at,
-                      }
-                    : current,
-                );
-              }}
-            />
-          ) : null
         }
         rightPanel={
           <BeatPanel
