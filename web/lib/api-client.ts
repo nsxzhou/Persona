@@ -526,6 +526,11 @@ export function createApiClient(request: Requester) {
       const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`);
       return buildSseResponse(markdown);
     },
+    runProjectBootstrapWorkflow: (projectId: string) =>
+      createNovelWorkflowAndWait({
+        intent_type: "project_bootstrap",
+        project_id: projectId,
+      } as NovelWorkflowCreatePayload),
     runSectionWorkflow: (
       projectId: string,
       payload: {
