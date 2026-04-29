@@ -3158,7 +3158,6 @@
             "type": "string",
             "enum": [
               "concept_bootstrap",
-              "project_bootstrap",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3247,7 +3246,6 @@
               {
                 "type": "string",
                 "enum": [
-                  "outline_bundle",
                   "beats",
                   "memory_update"
                 ]
@@ -3354,7 +3352,6 @@
             "type": "string",
             "enum": [
               "concept_bootstrap",
-              "project_bootstrap",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3732,7 +3729,6 @@
             "type": "string",
             "enum": [
               "concept_bootstrap",
-              "project_bootstrap",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3821,7 +3817,6 @@
               {
                 "type": "string",
                 "enum": [
-                  "outline_bundle",
                   "beats",
                   "memory_update"
                 ]
@@ -3980,7 +3975,6 @@
               {
                 "type": "string",
                 "enum": [
-                  "outline_bundle",
                   "beats",
                   "memory_update"
                 ]
