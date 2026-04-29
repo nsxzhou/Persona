@@ -37,41 +37,17 @@ from app.prompts.prose_writer import (
     build_beat_expand_system_prompt,
     build_beat_expand_user_message,
 )
-from app.prompts.section_router import (
-    build_section_system_prompt,
-    build_section_user_message,
-)
 
 LLMComplete = Callable[..., Awaitable[str]]
 
 
 class Orchestrator:
     def select_intent_node(self, intent_type: str) -> str:
-        if intent_type == "project_bootstrap":
-            return "run_project_bootstrap"
         if intent_type == "chapter_write":
             return "run_chapter_write"
         if intent_type == "concept_bootstrap":
             return "run_concept_bootstrap"
         return "run_simple_intent"
-
-
-class ContextSelectorAgent:
-    def select(self, state: dict[str, Any]) -> dict[str, str]:
-        current_bible = state.get("current_bible", {})
-        if not isinstance(current_bible, dict):
-            current_bible = {}
-        return {
-            "description": str(state.get("project_description", "")),
-            "world_building": str(current_bible.get("world_building", "")),
-            "characters_blueprint": str(current_bible.get("characters_blueprint", "")),
-            "outline_master": str(current_bible.get("outline_master", "")),
-            "outline_detail": str(current_bible.get("outline_detail", "")),
-            "characters_status": str(current_bible.get("characters_status", "")),
-            "runtime_state": str(current_bible.get("runtime_state", "")),
-            "runtime_threads": str(current_bible.get("runtime_threads", "")),
-            "story_summary": str(current_bible.get("story_summary", "")),
-        }
 
 
 @dataclass
@@ -124,50 +100,6 @@ def _strip_json_fence(markdown: str) -> str:
     if match:
         return match.group(1).strip()
     return stripped
-
-
-@dataclass
-class OutlineAgent:
-    llm_complete: LLMComplete | None = None
-
-    async def generate(
-        self,
-        *,
-        section: str,
-        context: dict[str, str],
-        style_prompt: str | None,
-        plot_prompt: str | None,
-        generation_profile: Any,
-        length_preset: str = "long",
-    ) -> str:
-        return await self._call(
-            system_prompt=build_section_system_prompt(
-                section,
-                style_prompt=style_prompt,
-                plot_prompt=plot_prompt,
-                generation_profile=generation_profile,
-                length_preset=length_preset,
-            ),
-            user_context=build_section_user_message(section, context),
-            mode="analysis",
-        )
-
-    async def _call(self, **kwargs: str) -> str:
-        if self.llm_complete is None:
-            raise RuntimeError("llm_complete is required")
-        return await self.llm_complete(**kwargs)
-
-
-class WorldBuildingAgent(OutlineAgent):
-    pass
-
-
-class CharacterBlueprintAgent(OutlineAgent):
-    pass
-
-
-class ChapterPlanAgent(OutlineAgent):
-    pass
 
 
 @dataclass
@@ -338,20 +270,6 @@ class MemorySyncResult:
 @dataclass
 class MemorySyncAgent:
     llm_complete: LLMComplete | None = None
-
-    async def generate_section(
-        self,
-        *,
-        section: str,
-        context: dict[str, str],
-    ) -> str:
-        if self.llm_complete is None:
-            raise RuntimeError("llm_complete is required")
-        return await self.llm_complete(
-            system_prompt=build_section_system_prompt(section),
-            user_context=build_section_user_message(section, context),
-            mode="analysis",
-        )
 
     async def refresh(
         self,

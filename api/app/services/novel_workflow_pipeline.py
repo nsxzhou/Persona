@@ -28,16 +28,11 @@ from app.services.context_assembly import WritingContextSections, assemble_writi
 from app.services.novel_workflow_agents import (
     ActiveCharactersAgent,
     BeatAgent,
-    CharacterBlueprintAgent,
-    ChapterPlanAgent,
     ConceptAgent,
-    ContextSelectorAgent,
     ContinuityAgent,
     EditorAgent,
     MemorySyncAgent,
     Orchestrator,
-    OutlineAgent,
-    WorldBuildingAgent,
 )
 from app.services.novel_workflow_storage import NovelWorkflowStorageService
 from app.services.writing_context_selection import (
@@ -51,9 +46,6 @@ DecisionLoader = Callable[[str], dict[str, Any] | None]
 StageCallback = Callable[[str | None], Awaitable[None]]
 
 _BEAT_LINE_RE = re.compile(r"^\s*[-*+]?\s*")
-_BUNDLE_SECTION_RE = re.compile(
-    r"(?ms)^## (?P<name>[a-z_]+)\n(?P<body>.*?)(?=^## [a-z_]+\n|\Z)"
-)
 
 
 class NovelWorkflowAwaitingHuman(Exception):
@@ -141,13 +133,8 @@ class NovelWorkflowPipeline:
         self.should_pause = should_pause
         agent_llm = self._call_prompt
         self.orchestrator = Orchestrator()
-        self.context_selector = ContextSelectorAgent()
         self.active_characters_agent = ActiveCharactersAgent(agent_llm)
         self.concept_agent = ConceptAgent(agent_llm)
-        self.outline_agent = OutlineAgent(agent_llm)
-        self.world_building_agent = WorldBuildingAgent(agent_llm)
-        self.character_blueprint_agent = CharacterBlueprintAgent(agent_llm)
-        self.chapter_plan_agent = ChapterPlanAgent(agent_llm)
         self.beat_agent = BeatAgent(agent_llm)
         self.continuity_agent = ContinuityAgent(agent_llm)
         self.editor_agent = EditorAgent(agent_llm)
@@ -186,9 +173,6 @@ class NovelWorkflowPipeline:
         builder = StateGraph(NovelWorkflowState)
         builder.add_node("prepare_input", self._prepare_input)
         builder.add_node("route_intent", self._route_intent)
-        builder.add_node("run_project_bootstrap", self._run_project_bootstrap)
-        builder.add_node("review_outline_bundle", self._review_outline_bundle)
-        builder.add_node("finalize_project_bootstrap", self._finalize_project_bootstrap)
         builder.add_node("run_chapter_write", self._run_chapter_write)
         builder.add_node("review_beats", self._review_beats)
         builder.add_node("finalize_chapter_write", self._finalize_chapter_write)
@@ -201,16 +185,11 @@ class NovelWorkflowPipeline:
             "route_intent",
             self._select_intent_node,
             [
-                "run_project_bootstrap",
                 "run_chapter_write",
                 "run_concept_bootstrap",
                 "run_simple_intent",
             ],
         )
-
-        builder.add_edge("run_project_bootstrap", "review_outline_bundle")
-        builder.add_edge("review_outline_bundle", "finalize_project_bootstrap")
-        builder.add_edge("finalize_project_bootstrap", END)
 
         builder.add_edge("run_chapter_write", "review_beats")
         builder.add_edge("review_beats", "finalize_chapter_write")
@@ -233,161 +212,6 @@ class NovelWorkflowPipeline:
 
     def _select_intent_node(self, state: NovelWorkflowState) -> str:
         return self.orchestrator.select_intent_node(state["intent_type"])
-
-    async def _run_project_bootstrap(self, state: NovelWorkflowState) -> dict[str, Any]:
-        await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
-        context = self.context_selector.select(state)
-        generation_profile = self._generation_profile_obj(state)
-        outline_master = await self.outline_agent.generate(
-            section="outline_master",
-            context=context,
-            style_prompt=state.get("style_prompt"),
-            plot_prompt=state.get("plot_prompt"),
-            generation_profile=generation_profile,
-            length_preset=state.get("length_preset", "long"),
-        )
-        world_building = await self.world_building_agent.generate(
-            section="world_building",
-            context={**context, "outline_master": outline_master},
-            style_prompt=state.get("style_prompt"),
-            plot_prompt=state.get("plot_prompt"),
-            generation_profile=generation_profile,
-            length_preset=state.get("length_preset", "long"),
-        )
-        characters_blueprint = await self.character_blueprint_agent.generate(
-            section="characters_blueprint",
-            context={
-                **context,
-                "world_building": world_building,
-                "outline_master": outline_master,
-            },
-            style_prompt=state.get("style_prompt"),
-            plot_prompt=state.get("plot_prompt"),
-            generation_profile=generation_profile,
-            length_preset=state.get("length_preset", "long"),
-        )
-        outline_detail = await self.chapter_plan_agent.generate(
-            section="outline_detail",
-            context={
-                **context,
-                "world_building": world_building,
-                "characters_blueprint": characters_blueprint,
-                "outline_master": outline_master,
-            },
-            style_prompt=state.get("style_prompt"),
-            plot_prompt=state.get("plot_prompt"),
-            generation_profile=generation_profile,
-            length_preset=state.get("length_preset", "long"),
-        )
-        characters_status = await self.character_blueprint_agent.generate(
-            section="characters_status",
-            context={
-                **context,
-                "world_building": world_building,
-                "characters_blueprint": characters_blueprint,
-                "outline_master": outline_master,
-                "outline_detail": outline_detail,
-            },
-            style_prompt=None,
-            plot_prompt=None,
-            generation_profile=None,
-        )
-        runtime_state = await self.memory_sync_agent.generate_section(
-            section="runtime_state",
-            context={
-                **context,
-                "world_building": world_building,
-                "characters_blueprint": characters_blueprint,
-                "outline_master": outline_master,
-                "outline_detail": outline_detail,
-                "characters_status": characters_status,
-            },
-        )
-        runtime_threads = await self.memory_sync_agent.generate_section(
-            section="runtime_threads",
-            context={
-                **context,
-                "world_building": world_building,
-                "characters_blueprint": characters_blueprint,
-                "outline_master": outline_master,
-                "outline_detail": outline_detail,
-                "characters_status": characters_status,
-                "runtime_state": runtime_state,
-            },
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="outline_master",
-            markdown=outline_master,
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="world_building",
-            markdown=world_building,
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="characters_blueprint",
-            markdown=characters_blueprint,
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="outline_detail",
-            markdown=outline_detail,
-        )
-        bundle = self._format_outline_bundle(
-            outline_master=outline_master,
-            world_building=world_building,
-            characters_blueprint=characters_blueprint,
-            outline_detail=outline_detail,
-            characters_status=characters_status,
-            runtime_state=runtime_state,
-            runtime_threads=runtime_threads,
-        )
-        await self.storage_service.write_stage_markdown_artifact(
-            state["run_id"],
-            name="outline_bundle",
-            markdown=bundle,
-        )
-        return {
-            "outline_master": outline_master,
-            "world_building": world_building,
-            "characters_blueprint": characters_blueprint,
-            "outline_detail": outline_detail,
-            "characters_status": characters_status,
-            "runtime_state": runtime_state,
-            "runtime_threads": runtime_threads,
-            "checkpoint_kind": "outline_bundle",
-            "latest_artifacts": ["outline_bundle"],
-        }
-
-    async def _review_outline_bundle(self, state: NovelWorkflowState) -> dict[str, Any]:
-        await self._set_stage(NOVEL_WORKFLOW_STAGE_WAITING_DECISION)
-        decision = self.decision_loader(state["run_id"])
-        if not decision or decision.get("artifact_name") != "outline_bundle":
-            raise NovelWorkflowAwaitingHuman("outline_bundle")
-
-        if decision.get("action") == "revise" and decision.get("edited_markdown"):
-            bundle_fields = self._parse_outline_bundle(decision["edited_markdown"])
-            return {**bundle_fields, "checkpoint_kind": None}
-        return {"checkpoint_kind": None}
-
-    async def _finalize_project_bootstrap(self, state: NovelWorkflowState) -> dict[str, Any]:
-        await self._set_stage(NOVEL_WORKFLOW_STAGE_PERSISTING)
-        return {
-            "persist_payload": {
-                "project_bible": {
-                    "world_building": state.get("world_building", ""),
-                    "characters_blueprint": state.get("characters_blueprint", ""),
-                    "outline_master": state.get("outline_master", ""),
-                    "outline_detail": state.get("outline_detail", ""),
-                    "characters_status": state.get("characters_status", ""),
-                    "runtime_state": state.get("runtime_state", ""),
-                    "runtime_threads": state.get("runtime_threads", ""),
-                    "story_summary": state.get("story_summary", ""),
-                }
-            }
-        }
 
     async def _run_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
         await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
@@ -835,24 +659,3 @@ class NovelWorkflowPipeline:
         if payload:
             return GenerationProfile.model_validate(payload)
         return default_generation_profile()
-
-    @staticmethod
-    def _format_outline_bundle(**sections: str) -> str:
-        ordered_keys = [
-            "outline_master",
-            "world_building",
-            "characters_blueprint",
-            "outline_detail",
-            "characters_status",
-            "runtime_state",
-            "runtime_threads",
-        ]
-        parts = [f"## {key}\n{sections.get(key, '').strip()}" for key in ordered_keys]
-        return "\n\n".join(parts).strip()
-
-    @staticmethod
-    def _parse_outline_bundle(markdown: str) -> dict[str, str]:
-        parsed: dict[str, str] = {}
-        for match in _BUNDLE_SECTION_RE.finditer(markdown.strip()):
-            parsed[match.group("name")] = match.group("body").strip()
-        return parsed

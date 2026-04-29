@@ -29,13 +29,11 @@ NovelWorkflowStage: TypeAlias = Literal[
     "postprocessing",
 ]
 NovelWorkflowCheckpointKind: TypeAlias = Literal[
-    "outline_bundle",
     "beats",
     "memory_update",
 ]
 NovelWorkflowIntentType: TypeAlias = Literal[
     "concept_bootstrap",
-    "project_bootstrap",
     "memory_refresh",
     "section_generate",
     "volume_generate",

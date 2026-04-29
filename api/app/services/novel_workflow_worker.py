@@ -350,12 +350,6 @@ class NovelWorkflowJobExecutor:
                     ProjectBibleUpdate(**payload["project_bible"]),
                     user_id=run.user_id,
                 )
-                if run.intent_type == "project_bootstrap":
-                    await self.project_chapter_service.sync_outline(
-                        session,
-                        run.project_id,
-                        user_id=run.user_id,
-                    )
             if run.project_id and run.chapter_id and "chapter" in payload:
                 await self.project_chapter_service.update(
                     session,
