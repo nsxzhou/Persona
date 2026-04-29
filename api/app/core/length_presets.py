@@ -22,6 +22,12 @@ class LengthPresetConfig(TypedDict):
     ending_zone_ratio: float  # 达到 target_max 的此比例时进入收束区
 
 
+class PlanningBudget(TypedDict):
+    character_count: tuple[int, int]
+    volume_count: tuple[int, int]
+    first_volume_chapters: tuple[int, int]
+
+
 LENGTH_PRESETS: dict[LengthPresetKey, LengthPresetConfig] = {
     "short": {
         "label": "短篇",
@@ -55,6 +61,24 @@ LENGTH_PRESETS: dict[LengthPresetKey, LengthPresetConfig] = {
     },
 }
 
+PLANNING_BUDGETS: dict[LengthPresetKey, PlanningBudget] = {
+    "short": {
+        "character_count": (6, 9),
+        "volume_count": (3, 5),
+        "first_volume_chapters": (8, 15),
+    },
+    "medium": {
+        "character_count": (10, 14),
+        "volume_count": (5, 8),
+        "first_volume_chapters": (12, 25),
+    },
+    "long": {
+        "character_count": (14, 22),
+        "volume_count": (8, 12),
+        "first_volume_chapters": (20, 40),
+    },
+}
+
 ProgressPhase = Literal["writing", "ending_zone", "over_target"]
 
 
@@ -64,6 +88,11 @@ class LengthProgress(TypedDict):
     target_max: int
     percentage: float
     phase: ProgressPhase
+
+
+def get_planning_budget(preset_key: LengthPresetKey) -> PlanningBudget:
+    """返回初始化规划阶段使用的软预算。"""
+    return PLANNING_BUDGETS[preset_key]
 
 
 def get_progress(content_length: int, preset_key: LengthPresetKey) -> LengthProgress:
