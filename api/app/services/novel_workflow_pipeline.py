@@ -26,6 +26,7 @@ from app.schemas.novel_workflows import (
 from app.schemas.prompt_profiles import build_chapter_objective_card, build_intensity_profile
 from app.services.context_assembly import WritingContextSections, assemble_writing_context
 from app.services.novel_workflow_agents import (
+    ActiveCharactersAgent,
     BeatAgent,
     CharacterBlueprintAgent,
     ChapterPlanAgent,
@@ -39,6 +40,10 @@ from app.services.novel_workflow_agents import (
     WorldBuildingAgent,
 )
 from app.services.novel_workflow_storage import NovelWorkflowStorageService
+from app.services.writing_context_selection import (
+    SelectedWritingContext,
+    select_writing_context,
+)
 
 
 LLMComplete = Callable[..., Awaitable[str]]
@@ -133,6 +138,7 @@ class NovelWorkflowPipeline:
         agent_llm = self._call_prompt
         self.orchestrator = Orchestrator()
         self.context_selector = ContextSelectorAgent()
+        self.active_characters_agent = ActiveCharactersAgent(agent_llm)
         self.concept_agent = ConceptAgent(agent_llm)
         self.outline_agent = OutlineAgent(agent_llm)
         self.world_building_agent = WorldBuildingAgent(agent_llm)
@@ -179,6 +185,9 @@ class NovelWorkflowPipeline:
         builder.add_node("run_project_bootstrap", self._run_project_bootstrap)
         builder.add_node("review_outline_bundle", self._review_outline_bundle)
         builder.add_node("finalize_project_bootstrap", self._finalize_project_bootstrap)
+        builder.add_node("run_chapter_write", self._run_chapter_write)
+        builder.add_node("review_beats", self._review_beats)
+        builder.add_node("finalize_chapter_write", self._finalize_chapter_write)
         builder.add_node("run_concept_bootstrap", self._run_concept_bootstrap)
         builder.add_node("run_simple_intent", self._run_simple_intent)
 
@@ -189,6 +198,7 @@ class NovelWorkflowPipeline:
             self._select_intent_node,
             [
                 "run_project_bootstrap",
+                "run_chapter_write",
                 "run_concept_bootstrap",
                 "run_simple_intent",
             ],
@@ -197,6 +207,10 @@ class NovelWorkflowPipeline:
         builder.add_edge("run_project_bootstrap", "review_outline_bundle")
         builder.add_edge("review_outline_bundle", "finalize_project_bootstrap")
         builder.add_edge("finalize_project_bootstrap", END)
+
+        builder.add_edge("run_chapter_write", "review_beats")
+        builder.add_edge("review_beats", "finalize_chapter_write")
+        builder.add_edge("finalize_chapter_write", END)
 
         builder.add_edge("run_concept_bootstrap", END)
         builder.add_edge("run_simple_intent", END)
@@ -371,6 +385,60 @@ class NovelWorkflowPipeline:
             }
         }
 
+    async def _run_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
+        await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
+        current_bible = state.get("current_bible", {})
+        markdown = await self.beat_agent.generate(
+            state=state,
+            current_bible=current_bible,
+            generation_profile=self._generation_profile_obj(state),
+            regenerating=bool(state.get("previous_output") or state.get("feedback")),
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name="beats_markdown",
+            markdown=markdown,
+        )
+        return {
+            "beats_markdown": markdown,
+            "checkpoint_kind": "beats",
+            "latest_artifacts": ["beats_markdown"],
+        }
+
+    async def _review_beats(self, state: NovelWorkflowState) -> dict[str, Any]:
+        await self._set_stage(NOVEL_WORKFLOW_STAGE_WAITING_DECISION)
+        decision = self.decision_loader(state["run_id"])
+        if not decision or decision.get("artifact_name") != "beats_markdown":
+            raise NovelWorkflowAwaitingHuman("beats")
+
+        if decision.get("action") == "revise" and decision.get("edited_markdown"):
+            return {
+                "beats_markdown": decision["edited_markdown"],
+                "checkpoint_kind": None,
+            }
+        return {"checkpoint_kind": None}
+
+    async def _finalize_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
+        await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
+        prose_markdown, warnings = await self._write_chapter_from_beats(state)
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name="prose_markdown",
+            markdown=prose_markdown,
+        )
+        await self._set_stage(NOVEL_WORKFLOW_STAGE_PERSISTING)
+        return {
+            "latest_artifacts": ["beats_markdown", "prose_markdown"],
+            "warnings": warnings,
+            "persist_payload": {
+                "chapter": {
+                    "content": prose_markdown,
+                    "beats_markdown": state.get("beats_markdown", ""),
+                },
+                "markdown": prose_markdown,
+            },
+        }
+
     async def _run_concept_bootstrap(self, state: NovelWorkflowState) -> dict[str, Any]:
         await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
         markdown = await self.concept_agent.generate(
@@ -530,9 +598,12 @@ class NovelWorkflowPipeline:
 
     async def _handle_beat_expand(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         artifact_name = "prose_markdown"
+        focused_bible = (
+            await self._select_writing_context(state, current_bible)
+        ).as_bible()
         markdown = await self.beat_agent.expand(
             state=state,
-            current_bible=current_bible,
+            current_bible=focused_bible,
             generation_profile=generation_profile,
             beat=state.get("beat") or "",
             beat_index=state.get("beat_index") or 0,
@@ -608,11 +679,12 @@ class NovelWorkflowPipeline:
 
     async def _generate_continuation(self, state: NovelWorkflowState) -> str:
         current_bible = state.get("current_bible", {})
+        selected_context = await self._select_writing_context(state, current_bible)
         generation_profile = self._generation_profile_obj(state)
         objective_card = build_chapter_objective_card(
             generation_profile,
             current_chapter_context=state.get("current_chapter_context", ""),
-            outline_detail=current_bible.get("outline_detail", ""),
+            outline_detail=selected_context.outline_detail,
         )
         system_prompt = assemble_writing_context(
             voice_profile_markdown=state.get("style_prompt"),
@@ -622,13 +694,15 @@ class NovelWorkflowPipeline:
             chapter_objective_card=objective_card,
             sections=WritingContextSections(
                 description=state.get("project_description", ""),
-                world_building=current_bible.get("world_building", ""),
-                characters_blueprint=current_bible.get("characters_blueprint", ""),
-                outline_master=current_bible.get("outline_master", ""),
-                outline_detail=current_bible.get("outline_detail", ""),
-                characters_status=current_bible.get("characters_status", ""),
-                runtime_state=current_bible.get("runtime_state", ""),
-                runtime_threads=current_bible.get("runtime_threads", ""),
+                world_building=selected_context.world_building,
+                characters_blueprint=selected_context.characters_blueprint,
+                outline_master=selected_context.outline_master,
+                outline_detail=selected_context.outline_detail,
+                characters_status=selected_context.characters_status,
+                runtime_state=selected_context.runtime_state,
+                runtime_threads=selected_context.runtime_threads,
+                story_summary=selected_context.story_summary,
+                active_character_focus=selected_context.active_character_focus,
             ),
             length_preset=state.get("length_preset", "long"),
             content_length=state.get("total_content_length", 0),
@@ -638,6 +712,8 @@ class NovelWorkflowPipeline:
             parts.append(f"## 前序章节\n\n{state.get('previous_chapter_context', '')}")
         if state.get("current_chapter_context", "").strip():
             parts.append(f"## 当前章节\n\n{state.get('current_chapter_context', '')}")
+        if selected_context.active_character_focus.strip():
+            parts.append("# Active Character Focus\n\n" + selected_context.active_character_focus)
         parts.append(
             "请从以下当前章节光标位置继续写作，保持自然衔接：\n\n"
             f"{state.get('text_before_cursor', '')}"
@@ -653,6 +729,8 @@ class NovelWorkflowPipeline:
         state: NovelWorkflowState,
     ) -> tuple[str, list[str]]:
         current_bible = state.get("current_bible", {})
+        selected_context = await self._select_writing_context(state, current_bible)
+        focused_bible = selected_context.as_bible()
         beats = [
             _BEAT_LINE_RE.sub("", line.strip())
             for line in state.get("beats_markdown", "").splitlines()
@@ -666,7 +744,7 @@ class NovelWorkflowPipeline:
             for attempt in range(3):
                 prose_candidate = await self.beat_agent.expand(
                     state=state,
-                    current_bible=current_bible,
+                    current_bible=focused_bible,
                     generation_profile=self._generation_profile_obj(state),
                     beat=beat,
                     beat_index=index,
@@ -677,7 +755,7 @@ class NovelWorkflowPipeline:
                 )
                 continuity = await self.continuity_agent.review(
                     prose_markdown=prose_candidate,
-                    current_bible=current_bible,
+                    current_bible=focused_bible,
                     current_chapter_context=state.get("current_chapter_context", ""),
                     previous_chapter_context=state.get("previous_chapter_context", ""),
                     beat=beat,
@@ -692,6 +770,23 @@ class NovelWorkflowPipeline:
             prose_parts.append(accepted)
 
         return "".join(prose_parts), warnings
+
+    async def _select_writing_context(
+        self,
+        state: NovelWorkflowState,
+        current_bible: dict[str, str],
+    ) -> SelectedWritingContext:
+        active_character_names = await self.active_characters_agent.extract(
+            text_before_cursor=state.get("text_before_cursor", ""),
+            current_chapter_context=state.get("current_chapter_context", ""),
+        )
+        return select_writing_context(
+            current_bible=current_bible,
+            active_character_names=active_character_names,
+            current_chapter_context=state.get("current_chapter_context", ""),
+            text_before_cursor=state.get("text_before_cursor", ""),
+            description=state.get("project_description", ""),
+        )
 
     async def _call_prompt(
         self,

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.core.bible_fields import BIBLE_SECTION_ORDER
 from app.core.length_presets import LengthPresetKey, get_progress
 from app.schemas.prompt_profiles import (
     ChapterObjectiveCard,
@@ -19,6 +18,15 @@ from app.schemas.prompt_profiles import (
     default_generation_profile,
     derive_voice_profile,
 )
+
+STORY_SUMMARY_CONTEXT_BUDGET = 4000
+WORLD_BUILDING_CONTEXT_BUDGET = 4000
+OUTLINE_MASTER_CONTEXT_BUDGET = 3000
+OUTLINE_DETAIL_CONTEXT_BUDGET = 7000
+RUNTIME_STATE_CONTEXT_BUDGET = 5000
+RUNTIME_THREADS_CONTEXT_BUDGET = 4000
+
+_TRUNCATED_MARKER = "\n\n（已按上下文预算截断）"
 
 
 _PLOT_APPLICATION_RULES = """
@@ -59,6 +67,8 @@ class WritingContextSections:
     characters_status: str = ""
     runtime_state: str = ""
     runtime_threads: str = ""
+    story_summary: str = ""
+    active_character_focus: str = ""
 
 
 def assemble_writing_context(
@@ -78,13 +88,32 @@ def assemble_writing_context(
     resolved_sections = sections or WritingContextSections()
     values = {
         "description": resolved_sections.description,
-        "world_building": resolved_sections.world_building,
+        "world_building": _limit_text(
+            resolved_sections.world_building,
+            WORLD_BUILDING_CONTEXT_BUDGET,
+        ),
         "characters_blueprint": resolved_sections.characters_blueprint,
-        "outline_master": resolved_sections.outline_master,
-        "outline_detail": resolved_sections.outline_detail,
+        "outline_master": _limit_text(
+            resolved_sections.outline_master,
+            OUTLINE_MASTER_CONTEXT_BUDGET,
+        ),
+        "outline_detail": _limit_text(
+            resolved_sections.outline_detail,
+            OUTLINE_DETAIL_CONTEXT_BUDGET,
+        ),
         "characters_status": resolved_sections.characters_status,
-        "runtime_state": resolved_sections.runtime_state,
-        "runtime_threads": resolved_sections.runtime_threads,
+        "runtime_state": _limit_text(
+            resolved_sections.runtime_state,
+            RUNTIME_STATE_CONTEXT_BUDGET,
+        ),
+        "runtime_threads": _limit_text(
+            resolved_sections.runtime_threads,
+            RUNTIME_THREADS_CONTEXT_BUDGET,
+        ),
+        "story_summary": _limit_text(
+            resolved_sections.story_summary,
+            STORY_SUMMARY_CONTEXT_BUDGET,
+        ),
     }
 
     resolved_voice_markdown = (voice_profile_markdown or style_prompt or "").strip()
@@ -99,11 +128,23 @@ def assemble_writing_context(
     )
 
     context_sections: list[str] = []
-    for label, key in BIBLE_SECTION_ORDER:
+    writing_section_order = [
+        ("简介", "description"),
+        ("故事摘要", "story_summary"),
+        ("世界观设定", "world_building"),
+        ("总纲", "outline_master"),
+        ("分卷与章节细纲", "outline_detail"),
+        ("角色基础设定", "characters_blueprint"),
+        ("角色动态状态", "characters_status"),
+        ("运行时状态", "runtime_state"),
+        ("伏笔与线索追踪", "runtime_threads"),
+    ]
+    for label, key in writing_section_order:
         text = values[key].strip()
         if text:
             context_sections.append(f"## {label}\n\n{text}")
 
+    active_character_focus = resolved_sections.active_character_focus.strip()
     parts: list[str] = [
         "# Output Contract\n"
         "- 直接输出正文。\n"
@@ -119,6 +160,12 @@ def assemble_writing_context(
                 "adult_expression_mode": resolved_objective_card.adult_expression_mode,
                 "hook_type": resolved_objective_card.hook_type,
             }
+        ),
+        "# Active Character Focus\n"
+        + (
+            active_character_focus
+            if active_character_focus
+            else "（未识别到明确活跃角色；按当前章节上下文保持人物一致。）"
         ),
         "# Voice Profile\n" + _strip_duplicate_top_heading(resolved_voice_markdown, "# Voice Profile"),
         "# Plot Writing Guide\n"
@@ -180,3 +227,11 @@ def _strip_duplicate_top_heading(markdown: str, heading: str) -> str:
 
 def _format_mapping(values: dict[str, str]) -> str:
     return "\n".join(f"{key}: {value}" for key, value in values.items())
+
+
+def _limit_text(text: str, max_chars: int) -> str:
+    stripped = (text or "").strip()
+    if len(stripped) <= max_chars:
+        return stripped
+    body_budget = max(max_chars - len(_TRUNCATED_MARKER), 0)
+    return stripped[:body_budget].rstrip() + _TRUNCATED_MARKER
