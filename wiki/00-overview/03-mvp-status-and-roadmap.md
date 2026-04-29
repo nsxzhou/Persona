@@ -78,13 +78,12 @@
 | 功能 | 状态 | 入口 |
 | --- | --- | --- |
 | 极简编辑器（原生 textarea + 预览）| ✅ | `web/components/zen-editor-view.tsx` |
-| 编辑器菜单（续写 / 改写 / 压缩等指令） | ✅ | `web/components/editor-novel-menu.tsx` |
+| 编辑器菜单（蓝图 / 活态字段导航） | ✅ | `web/components/editor-novel-menu.tsx` |
 | 自动保存 | ✅ | `web/hooks/use-editor-autosave.ts` |
-| 续写补全 | ✅ | `web/hooks/use-editor-completion.ts` |
-| SSE 流式生成 | ✅ | `web/hooks/use-streaming-text.ts`、`api/app/api/sse.py` |
+| 选区局部改写 | ✅ | `web/hooks/use-selection-rewrite.ts` |
+| Workflow run 生成 | ✅ | `api/app/api/routes/novel_workflows.py` |
 | Markdown 预览 | ✅ | `web/components/markdown-preview.tsx` |
-| 划词改写（Cmd+K Inline Copilot）| ✅ | 菜单指令集成 |
-| **Ghost Text 自动续写**（实时补全）| ⏳ | **未开始** |
+| 划词改写（Inline Copilot）| ✅ | `web/components/editor/selection-rewrite-dialog.tsx` |
 
 ### 概念抽卡（Concept Gacha）
 
@@ -182,8 +181,8 @@
 | --- | --- |
 | 极简编辑器 | ✅ |
 | 概念生成与灵感卡片（Concept Gacha） | ✅ |
-| AI 续写与风格挂载 | ✅ |
-| Ghost Text 自动续写 / 划词改写增强 | ⏳（划词改写有菜单版，但 Ghost Text 自动补全未开始）|
+| 节拍写作与风格挂载 | ✅ |
+| 划词改写增强 | ⏳ |
 
 ### Phase 3：Memory
 
@@ -215,7 +214,7 @@
 下一步优化集中在：
 
 1. **Style Lab 的多样本合并**、更稳定的长文本特征提取、独立证据账本持久化
-2. **Ghost Text 自动补全续写** + 更流畅的划词改写（Inline Copilot）
+2. **更流畅的划词改写（Inline Copilot）**
 3. **更轻量的上下文缓存策略**（探索 native Prompt Caching 与 KV Cache 复用）
 
 ---

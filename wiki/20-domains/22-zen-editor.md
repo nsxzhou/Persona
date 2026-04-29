@@ -2,15 +2,15 @@
 
 ## 一句话定义 + 价值
 
-Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、自动保存、流式续写、节拍驱动写作、记忆同步与导出收拢进一个低干扰工作台里。
+Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、自动保存、选区局部改写、节拍驱动写作、记忆同步与导出收拢进一个低干扰工作台里。
 
 ## 用户视角流程
 
 1. 用户从项目卡片点击“开始写作”，进入 `/projects/:id/editor`。
 2. 编辑器先自动拉取或同步章节树，再选中目标章节。
 3. 用户直接写正文，系统在 1 秒防抖后自动保存。
-4. 用户可触发 AI 续写，也可先生成节拍再逐拍写作。
-5. 续写完成后，如项目开启自动同步记忆，会继续把新增正文送去运行时状态更新。
+4. 用户先生成节拍并逐拍展开完整章节。
+5. 用户选中正文片段后触发局部改写，输入修改要求，预览确认后替换选区。
 
 ## 前端入口与组件链路
 
@@ -32,9 +32,9 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 几个关键 hook 分工如下：
 
 - `web/hooks/use-editor-autosave.ts:8` 负责 1 秒防抖自动保存、切章前 flush、手动 `saveNow()`
-- `web/hooks/use-editor-completion.ts:7` 负责从光标位置发起流式续写
+- `web/hooks/use-selection-rewrite.ts:7` 负责选区局部改写
 - `web/hooks/use-beat-generation.ts:7` 负责生成节拍与逐拍展开
-- `web/hooks/use-chapter-memory-sync.ts:53` 负责续写后或手动触发的记忆同步
+- `web/hooks/use-chapter-memory-sync.ts:53` 负责节拍写作后或手动触发的记忆同步
 
 辅助组件：
 
@@ -46,7 +46,7 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 编辑器 AI 能力统一走 `api/app/api/routes/novel_workflows.py`：
 
-- `POST /api/v1/novel-workflows` 创建 `continuation_write`、`beats_generate`、`beat_expand`、`memory_refresh` 等 run
+- `POST /api/v1/novel-workflows` 创建 `selection_rewrite`、`beats_generate`、`beat_expand`、`memory_refresh` 等 run
 - `GET /api/v1/novel-workflows/{id}/status` 轮询 run 状态、阶段、断点与产物列表
 - `GET /api/v1/novel-workflows/{id}/logs` 读取任务日志
 - `GET /api/v1/novel-workflows/{id}/artifacts/{artifact_name}` 读取正文、节拍、记忆更新等 Markdown 产物
@@ -80,9 +80,9 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 - **动态目标与欲望计算**：在 workflow pipeline 生成正文时，系统会根据 `GenerationProfile` 动态计算出本章的写作目标卡片（`ChapterObjectiveCard`）以及包含欲望叠加规则的表达强度（`IntensityProfile`），从而决定当前剧情的推进方向与张力类型。
 - **系统提示词组装**：`api/app/services/context_assembly.py` 负责将上述计算出的动态目标与欲望，连同挂载的风格档案（`voice_profile_payload`）、剧情引擎（`story_engine_payload`）以及 Bible 的各个区块（如 `world_building`、`outline_detail`、`runtime_state` 等）拼装成完整的系统提示词。
-- **局部正文上下文**：前端 `web/hooks/use-editor-completion.ts` 发起续写时，只把光标前的文本送给模型，不会把光标后的文本当成写作上下文。
+- **局部正文上下文**：前端 `web/hooks/use-selection-rewrite.ts` 发起局部改写时，会把选中文本、选区前文、选区后文、章节上下文和用户修改要求一起送给模型。
 
-这里的核心哲学是：续写不是“随便让模型接着写”，而是“让模型在完整风格 + 动态意图（目标与欲望叠加） + 局部上下文下写”。
+这里的核心哲学是：章节正文由节拍链路生成完整草稿，后续 AI 只针对作者选中的片段做可确认、可回滚的局部改写。
 
 ## 关键文件索引
 
@@ -90,9 +90,10 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 - `web/components/zen-editor-view.tsx`
 - `web/components/editor-novel-menu.tsx`
 - `web/hooks/use-editor-autosave.ts`
-- `web/hooks/use-editor-completion.ts`
+- `web/hooks/use-selection-rewrite.ts`
 - `web/hooks/use-beat-generation.ts`
 - `web/hooks/use-chapter-memory-sync.ts`
+- `web/components/editor/selection-rewrite-dialog.tsx`
 - `web/components/novel-workflow-run-panel.tsx`
 - `api/app/api/routes/novel_workflows.py`
 - `api/app/api/routes/project_chapters.py`
@@ -102,7 +103,6 @@ Zen Editor 是 Persona 的主写作界面。它把章节选择、正文编辑、
 
 ## 相关章节
 
-- [16 SSE 与流式响应](../10-architecture/16-sse-and-streaming.md) — 流式续写的底层协议
 - [21 章节树](./21-chapter-tree.md) — 编辑器如何切章
 - [23 圣经与世界观](./23-bible-worldbuilding.md) — 左侧菜单跳回的蓝图与活态字段
 - [24 大纲与节拍](./24-outline-and-beats.md) — 逐拍写作的上游

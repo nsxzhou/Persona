@@ -16,7 +16,7 @@
 | Runtime State | 会影响后续章节连续性的稳定事实、关系变化和新规则。 |
 | Runtime Threads | 尚未回收的伏笔、风险、线索与设定约束备忘。 |
 | Chapter Tree | `outline_detail` 的结构化投影层，对应 `project_chapters`。 |
-| Zen Editor | Persona 的主写作界面，承载正文编辑、节拍写作、续写和记忆同步。 |
+| Zen Editor | Persona 的主写作界面，承载正文编辑、节拍写作、局部改写和记忆同步。 |
 | Beat | 一个最小叙事单元，用一句话概括接下来要发生的事。 |
 | SSE | Server-Sent Events。Persona 用它做流式文本生成。 |
 | RSC | React Server Components。Next.js App Router 默认的组件执行形态。 |

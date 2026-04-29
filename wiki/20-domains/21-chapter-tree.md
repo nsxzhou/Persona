@@ -54,10 +54,10 @@ Service 在 `api/app/services/project_chapters.py`：
 
 ## Prompt / LLM 调用要点
 
-章节树本身不直接调用 LLM，但它是后续两类 AI 流程的上下文源：
+章节树本身不直接调用 LLM，但它是后续 AI 写作流程的上下文源：
 
 - 节拍生成与逐拍展开会读取当前章节与前序章节上下文，入口在 `web/hooks/use-beat-generation.ts:45`
-- 编辑器续写会把当前章节光标前文本、当前章节结构和前序章节尾部拼成用户消息，入口在 `web/hooks/use-editor-completion.ts:53`
+- 选区局部改写会读取选中文本、选区前后文、当前章节结构和前序章节尾部，入口在 `web/hooks/use-selection-rewrite.ts`
 
 也就是说，`project_chapters` 决定了“LLM 看到的是哪一章、前文能看到多少、该把结果写回哪一章”。
 

@@ -107,7 +107,7 @@
 
 - 项目 CRUD + 归档 / 恢复 + 挂载风格档案 + 导出 txt / epub
 - 章节树（多级层次结构、排序、CRUD）
-- Zen Editor（写作 + 自动保存 + 续写补全 + 菜单指令）
+- Zen Editor（写作 + 自动保存 + 选区局部改写 + 菜单指令）
 - 蓝图字段手动编辑 + 活态字段 AI 提议 + Diff 确认
 - 大纲总纲 / 分卷 / 分章 / 节拍
 - 节拍驱动的结对写作
@@ -123,7 +123,6 @@
 - ❌ 多 Agent 编排（写手 Agent / 审校 Agent / 主编 Agent）
 - ❌ 自动五维质量打分
 - ❌ AI 味自动检测与消痕后处理
-- ❌ Ghost Text 流式自动补全（目前还是手动触发续写）
 - ❌ 自动数值 / 战力 / 体系一致性校验
 - ❌ 自动实体抽取 + 知识图谱构建
 
@@ -218,7 +217,6 @@
 | 独立证据账本 | Style Analysis Pipeline 的 merge 节点目前直接生成报告，未来可拆出 Evidence Ledger 表 |
 | 外部任务队列 | Worker 现在是进程内 + DB lease，换成 Celery / Dramatiq 只需实现同样接口 |
 | Style Generator Graph（Critic Node） | `services/style_analysis_pipeline.py` 同模式可复用 |
-| Ghost Text 续写 | `useStreamingText` hook + SSE 通道已经打通，只差前端 UX |
 
 **重要**：这些扩展点目前都是**空的**。不要依赖它们来做当前功能的架构决策。
 

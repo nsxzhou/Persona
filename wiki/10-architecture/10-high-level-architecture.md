@@ -78,7 +78,7 @@ flowchart LR
 
 | 进程 | 职责 | 启动方式 | 日志 |
 | --- | --- | --- | --- |
-| **FastAPI API** | HTTP API、SSE、业务 CRUD、编辑器续写 | `uvicorn app.main:app --reload --port 8000` | `.run/api.log` |
+| **FastAPI API** | HTTP API、SSE、业务 CRUD、选区改写与节拍写作 | `uvicorn app.main:app --reload --port 8000` | `.run/api.log` |
 | **Background Worker** | 同一进程内并发轮询 Style / Plot 两类分析任务，驱动 LangGraph 管道并回写结果 | `python -m app.worker` | `.run/worker.log` |
 | **Next.js Web** | 前端页面、SSR、Server Actions | `pnpm dev --port 3000` | `.run/web.log` |
 

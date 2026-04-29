@@ -110,7 +110,7 @@ sequenceDiagram
         Worker->>DB: 回写 plot_profiles
         用户->>Web: 查看骨架与报告 → 保存情节档案 → 挂载项目
     end
-    用户->>Web: 打开 Zen Editor → 章节树 → 生成节拍 → 分段续写
+    用户->>Web: 打开 Zen Editor → 章节树 → 生成节拍 → 逐拍展开正文
     Web->>API: SSE /api/v1/editor/... 流式生成
 ```
 
@@ -136,11 +136,11 @@ sequenceDiagram
 - ✅ 单用户鉴权、Provider 配置、项目 CRUD —— **已完成**
 - ✅ Style Lab 单 TXT 深度分析闭环（上传 → 分析 → 报告 → Voice Profile → 档案 → 挂载）—— **已完成：深度分析闭环**
 - ✅ Plot Lab 单 TXT 情节分析闭环（上传 → 骨架 → 报告 → Story Engine → 档案 → 挂载）—— **已完成**
-- ✅ Zen Editor 极简编辑器、AI 续写、节拍驱动、蓝图/活态双层架构、Diff 确认 —— **已完成**
+- ✅ Zen Editor 极简编辑器、节拍驱动、选区局部改写、蓝图/活态双层架构、Diff 确认 —— **已完成**
 - ✅ 概念抽卡（Concept Gacha）—— **已完成**
 - ✅ 章节记忆同步（chapter → bible 活态层）—— **已完成**
 - ✅ 项目导出 txt / epub —— **已完成**
-- ⏳ 多 TXT 合并、独立证据账本、外部任务队列、Ghost Text 自动补全 —— **未开始**
+- ⏳ 多 TXT 合并、独立证据账本、外部任务队列 —— **未开始**
 
 ## 为什么值得读完整个 wiki
 

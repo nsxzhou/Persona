@@ -79,7 +79,7 @@ Repository 层在 `api/app/db/repositories/projects.py`：
 - `default_provider_id` 和 `default_model` 是编辑器、节拍、大纲生成与 Style Lab 之外的一切写作默认入口
 - `style_profile_id` 决定 Voice Profile 是否会被注入到写作系统提示词中
 - `plot_profile_id` 决定 Story Engine 是否会被注入到规划和写作链路中
-- `length_preset` 会影响大纲、节拍和续写时的篇幅感知，见 `api/app/services/context_assembly.py:49`
+- `length_preset` 会影响大纲、节拍和正文生成时的篇幅感知，见 `api/app/services/context_assembly.py:49`
 - `generation_profile`（即 `generation_profile_payload`）直接决定 AI 生成的具体风格参数（如题材母类、视角、强度档位、节奏密度等），在写作链路中作为核心生成策略注入。
 
 换句话说，Project 不是“纯表单对象”，它是后续 Prompt 组装的主配置源。
