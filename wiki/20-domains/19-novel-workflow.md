@@ -21,7 +21,6 @@ Novel Workflow 底层使用 [LangGraph](https://python.langchain.com/v0.1/docs/l
 ### 2. Intent Routing（意图路由）
 
 根据任务类型的不同，工作流会路由到不同的处理节点（Intent Handlers）：
-- `project_bootstrap`：项目初始化，生成世界观、角色蓝图、大纲等。
 - `concept_bootstrap`：概念抽卡，生成创意设定。
 - `section_generate`：生成/重写特定设定。
 - `volume_generate` / `volume_chapters_generate`：卷纲与章节大纲生成。
@@ -48,7 +47,7 @@ Novel Workflow 底层使用 [LangGraph](https://python.langchain.com/v0.1/docs/l
 
 ### 5. 人工介入（Human-in-the-Loop）
 
-复杂流（如 `project_bootstrap`）中设置了明确的检查点（`checkpoint_kind`）。
+复杂流中可以设置明确的检查点（`checkpoint_kind`）。
 - 抛出 `NovelWorkflowAwaitingHuman` 异常主动中断流程。
 - 任务进入 `paused` 状态，等待用户通过 `/decision` 接口提交决策（如修改并确认生成的大纲 Bundle）。
 - 提交决策后，工作流带着用户的修改结果重新入队，继续向下执行。

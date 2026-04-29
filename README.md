@@ -9,7 +9,7 @@ Persona 是一个面向长篇小说创作的本地优先工作台。它不追求
 ## 核心能力
 
 - **BYOK Provider 配置中心**：统一维护 OpenAI-compatible 网关、默认模型与 API Key 掩码，支持测试连接。
-- **Concept Gacha（概念抽卡）**：基于简短灵感，由 AI 快速生成 3 张差异化概念卡（包含标题与简介），一键初始化带有篇幅预设的项目。
+- **Concept Gacha（概念抽卡）**：基于简短灵感，由 AI 快速生成 3 张差异化概念卡（包含标题与简介），用于创建带有篇幅预设的项目。
 - **Style Lab**：把单个 TXT 样本沉淀为分析报告和 Voice Profile，并保存为可挂载的 Style Profile。
 - **Plot Lab**：把单个 TXT 样本沉淀为全书骨架、分析报告和 Story Engine，并保存为可挂载的 Plot Profile。
 - **Project Workbench / Zen Editor**：围绕蓝图与活态设定（双层 Bible）、节拍驱动大纲、章节管理、AI 协作写作与划词改写（Inline Copilot）、记忆同步（Memory Sync）与 txt/epub 导出组织完整创作流程。

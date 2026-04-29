@@ -48,7 +48,7 @@ flowchart LR
 
 ### 人工断点是产品语义
 
-`project_bootstrap` 会在 `outline_bundle` 停下，`chapter_write` 会在 `beats_markdown` 停下。用户可以：
+长流程可以在明确的检查点停下。例如 `chapter_write` 会在 `beats_markdown` 停下。用户可以：
 
 - 查看 artifact
 - 直接编辑 Markdown
