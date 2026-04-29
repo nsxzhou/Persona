@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -29,12 +29,6 @@ vi.mock("sonner", () => ({
   },
 }));
 
-const completionMock = vi.hoisted(() => ({
-  isGenerating: false,
-  handleGenerate: vi.fn(),
-  handleStop: vi.fn(),
-}));
-
 const beatGenerationMock = vi.hoisted(() => ({
   beats: [] as string[],
   setBeats: vi.fn(),
@@ -62,6 +56,7 @@ const apiMock = vi.hoisted(() => ({
   updateProject: vi.fn(),
   updateProjectBible: vi.fn(),
   proposeBibleUpdate: vi.fn(),
+  runSelectionRewriteWorkflow: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -74,15 +69,12 @@ vi.mock("@/lib/api", () => ({
     updateProject: apiMock.updateProject,
     updateProjectBible: apiMock.updateProjectBible,
     proposeBibleUpdate: apiMock.proposeBibleUpdate,
+    runSelectionRewriteWorkflow: apiMock.runSelectionRewriteWorkflow,
   },
 }));
 
 vi.mock("@/hooks/use-editor-autosave", () => ({
   useEditorAutosave: () => autosaveMock,
-}));
-
-vi.mock("@/hooks/use-editor-completion", () => ({
-  useEditorCompletion: () => completionMock,
 }));
 
 vi.mock("@/hooks/use-beat-generation", () => ({
@@ -141,6 +133,15 @@ const project: Project = {
   default_model: "gpt-4.1-mini",
   style_profile_id: "style-1",
   plot_profile_id: null,
+  generation_profile: {
+    genre_mother: "historical_power",
+    intensity_level: "edge",
+    pov_mode: "limited_third",
+    morality_axis: "gray_pragmatism",
+    pace_density: "fast",
+    target_market: "mainstream",
+    desire_overlays: [],
+  },
   length_preset: "short",
   auto_sync_memory: false,
   archived_at: null,
@@ -206,9 +207,6 @@ describe("ZenEditorView", () => {
     apiMock.getProject.mockResolvedValue(project);
     apiMock.getProjectBible.mockResolvedValue(projectBible);
 
-    completionMock.isGenerating = false;
-    completionMock.handleGenerate.mockReset();
-    completionMock.handleStop.mockReset();
     beatGenerationMock.beats = [];
     beatGenerationMock.setBeats.mockReset();
     beatGenerationMock.currentBeatIndex = -1;
@@ -226,6 +224,7 @@ describe("ZenEditorView", () => {
     apiMock.updateProjectChapter.mockReset();
     apiMock.updateProject.mockReset();
     apiMock.proposeBibleUpdate.mockReset();
+    apiMock.runSelectionRewriteWorkflow.mockReset();
     apiMock.getProjectChapters.mockResolvedValue(chapters);
     apiMock.syncProjectChapters.mockResolvedValue(chapters);
     apiMock.updateProjectChapter.mockImplementation(async (_projectId, chapterId, payload) => ({
@@ -245,6 +244,7 @@ describe("ZenEditorView", () => {
       proposed_runtime_threads: "",
       changed: false,
     });
+    apiMock.runSelectionRewriteWorkflow.mockResolvedValue("改写结果");
   });
 
   test("selects the first unwritten chapter by default", async () => {
@@ -328,15 +328,60 @@ describe("ZenEditorView", () => {
     expect(autosaveMock.clearSaveError).not.toHaveBeenCalled();
   });
 
-  test("disables the editor textarea while streaming completion is active", async () => {
-    completionMock.isGenerating = true;
+  test("shows a prompt when rewrite is triggered without selected text", async () => {
+    const { toast } = await import("sonner");
 
     renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox")).toBeDisabled();
+      expect(screen.getByRole("textbox")).not.toBeDisabled();
     });
-    expect(screen.getByRole("button", { name: /停止 \(Esc\)/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /局部改写/ }));
+
+    expect(toast.message).toHaveBeenCalledWith("请先选择要修改的文本");
+    expect(apiMock.runSelectionRewriteWorkflow).not.toHaveBeenCalled();
+  });
+
+  test("opens selection rewrite dialog and applies preview after confirmation", async () => {
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("");
+    });
+    fireEvent.click(screen.getByTitle("创作导航 (⌘B)"));
+    fireEvent.click(screen.getByRole("button", { name: /第1章 反派开局，短命名单/ }));
+
+    const textbox = await screen.findByRole("textbox") as HTMLTextAreaElement;
+    await waitFor(() => expect(textbox).toHaveValue("第一章正文"));
+    textbox.setSelectionRange(0, 3);
+    fireEvent.select(textbox);
+    fireEvent.click(screen.getByRole("button", { name: /局部改写/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("第一章")).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText("修改要求"), {
+      target: { value: "加强悬念" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "生成改写" }));
+
+    await waitFor(() => {
+      expect(apiMock.runSelectionRewriteWorkflow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedText: "第一章",
+          textBeforeSelection: "",
+          textAfterSelection: "正文",
+          rewriteInstruction: "加强悬念",
+        }),
+      );
+    });
+    expect(await within(dialog).findByText("改写结果")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "替换选区" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toHaveValue("改写结果正文");
+    });
   });
 
   test("disables the editor textarea while beat expansion is active", async () => {

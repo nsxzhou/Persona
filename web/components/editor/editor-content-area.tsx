@@ -4,7 +4,7 @@ import { useEditorContext, useEditorStore } from "./editor-context";
 import type { EditorState } from "./editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
-import { useEditorCompletion } from "@/hooks/use-editor-completion";
+import { useSelectionRewrite } from "@/hooks/use-selection-rewrite";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
 import { useChapterMemorySync } from "@/hooks/use-chapter-memory-sync";
 import { parseOutline } from "@/lib/outline-parser";
@@ -17,33 +17,35 @@ import { EditorLayout } from "./editor-layout";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
 import { MemorySyncButton } from "@/components/memory-sync-button";
 import { BeatPanel } from "@/components/beat-panel";
-import { ArrowLeft, BookOpen, Settings, Sparkles, Square, Loader2, ListOrdered } from "lucide-react";
+import { ArrowLeft, BookOpen, Settings, Sparkles, Loader2, ListOrdered } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EditorNovelMenu } from "@/components/editor-novel-menu";
 import { EditorSidePanel } from "@/components/editor-side-panel";
+import { SelectionRewriteDialog } from "@/components/editor/selection-rewrite-dialog";
 import { ExportProjectDialog } from "@/components/export-project-dialog";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import type { ProjectChapter, ProjectBible } from "@/lib/types";
 
-const EditorTextarea = React.memo(({ 
-  disabled, 
-  placeholder, 
-  className, 
-  handleKeyDown 
-}: { 
+type EditorTextareaProps = {
   disabled: boolean; 
   placeholder: string; 
   className: string; 
   handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void; 
-}) => {
+};
+
+const EditorTextarea = React.memo(React.forwardRef<HTMLTextAreaElement, EditorTextareaProps>(({ 
+  disabled, 
+  placeholder, 
+  className, 
+  handleKeyDown 
+}, ref) => {
   const content = useEditorStore(s => s.content);
   const setContent = useEditorStore(s => s.setContent);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <textarea
-      ref={textareaRef}
+      ref={ref}
       value={content}
       onChange={(e) => setContent(e.target.value)}
       onKeyDown={handleKeyDown}
@@ -53,7 +55,7 @@ const EditorTextarea = React.memo(({
       style={{ fontFamily: "var(--font-serif), serif" }}
     />
   );
-});
+}));
 EditorTextarea.displayName = "EditorTextarea";
 
 const DEFAULT_BIBLE = { runtime_state: "", runtime_threads: "", outline_detail: "" };
@@ -229,7 +231,6 @@ export function EditorContentArea({
     bibleDiff,
     isChecking: isCheckingMemorySync,
     chapterSyncSnapshot,
-    handleGeneratedContent,
     handleManualSync,
     handleAutoChapterSync,
     markSyncFailed,
@@ -266,10 +267,20 @@ export function EditorContentArea({
     [persistProjectUpdate],
   );
 
-  const { isGenerating: isStreamingCompletion, handleGenerate: handleContinueWrite, handleStop: handleStopWrite } = useEditorCompletion({
+  const {
+    isOpen: isRewriteOpen,
+    isGenerating: isRewritingSelection,
+    selection: rewriteSelection,
+    instruction: rewriteInstruction,
+    setInstruction: setRewriteInstruction,
+    preview: rewritePreview,
+    openRewrite: handleOpenRewrite,
+    closeRewrite: handleCloseRewrite,
+    generatePreview: handleGenerateRewritePreview,
+    applyPreview: handleApplyRewritePreview,
+  } = useSelectionRewrite({
     project: project,
     textareaRef,
-    onGeneratedContent: handleGeneratedContent,
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
@@ -288,7 +299,7 @@ export function EditorContentArea({
     project: project,
     projectBible: (projectBible ?? DEFAULT_BIBLE) as any,
     textareaRef,
-    isGenerating: isStreamingCompletion,
+    isGenerating: isRewritingSelection,
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
@@ -299,7 +310,7 @@ export function EditorContentArea({
   const { isSaving, saveNow, flushPendingSave, clearSaveError } = useEditorAutosave(
     project.id,
     selectedChapterRecord?.id ?? null,
-    isStreamingCompletion || isExpandingBeatProse,
+    isRewritingSelection || isExpandingBeatProse,
     syncPersistedChapter,
   );
 
@@ -525,11 +536,6 @@ export function EditorContentArea({
       : "max-w-[720px]";
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape" && isStreamingCompletion) {
-      e.preventDefault();
-      handleStopWrite();
-      return;
-    }
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
       e.preventDefault();
       toggleLeft();
@@ -542,9 +548,9 @@ export function EditorContentArea({
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "j") {
       e.preventDefault();
-      handleContinueWrite();
+      handleOpenRewrite();
     }
-  }, [handleContinueWrite, handleStopWrite, isStreamingCompletion, toggleLeft, toggleRight]);
+  }, [handleOpenRewrite, toggleLeft, toggleRight]);
 
   return (
     <>
@@ -664,28 +670,16 @@ export function EditorContentArea({
               onClick={handleManualMemorySync}
               onForceRerun={handleForceMemorySync}
             />
-            {isStreamingCompletion ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleStopWrite}
-                className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
-              >
-                <Square className="w-4 h-4" />
-                停止 (Esc)
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleContinueWrite}
-                disabled={!Boolean(project.style_profile_id && selectedChapterRecord)}
-                className="gap-2"
-              >
-                <Sparkles className="w-4 h-4" />
-                AI 续写 (⌘J)
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenRewrite}
+              disabled={!Boolean(project.style_profile_id && selectedChapterRecord) || isRewritingSelection}
+              className="gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              局部改写 (⌘J)
+            </Button>
           </>
         }
         chapterBanner={
@@ -773,12 +767,27 @@ export function EditorContentArea({
         }
       >
         <EditorTextarea
+          ref={textareaRef}
           handleKeyDown={handleKeyDown}
-          disabled={!selectedChapterRecord || isStreamingCompletion || isExpandingBeatProse}
-          placeholder={selectedChapterRecord ? "开始创作... (按 ⌘J 进行 AI 续写)" : "请先选择章节..."}
+          disabled={!selectedChapterRecord || isRewritingSelection || isExpandingBeatProse}
+          placeholder={selectedChapterRecord ? "开始创作... 选中文本后按 ⌘J 局部改写" : "请先选择章节..."}
           className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed`}
         />
       </EditorLayout>
+
+      <SelectionRewriteDialog
+        open={isRewriteOpen}
+        selectedText={rewriteSelection?.selectedText ?? ""}
+        instruction={rewriteInstruction}
+        preview={rewritePreview}
+        isGenerating={isRewritingSelection}
+        onInstructionChange={setRewriteInstruction}
+        onGenerate={handleGenerateRewritePreview}
+        onApply={handleApplyRewritePreview}
+        onOpenChange={(open) => {
+          if (!open) handleCloseRewrite();
+        }}
+      />
 
       <BibleDiffDialog
           open={bibleDiff.open}

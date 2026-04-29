@@ -165,7 +165,7 @@ export function BibleDiffDialog({
             运行时记忆更新确认
           </DialogTitle>
           <DialogDescription>
-            AI 根据本次续写内容提议了运行时状态的更新。你可以直接接受、编辑后接受或忽略。
+            AI 根据本次章节内容提议了运行时状态的更新。你可以直接接受、编辑后接受或忽略。
           </DialogDescription>
         </DialogHeader>
 
@@ -434,7 +434,7 @@ function DiffLineRow({
 }
 
 function formatSource(source: SourceLabel, chapterTitle?: string | null): string {
-  const sourceName = source === "manual" ? "手动触发" : source === "auto" ? "续写后自动" : "未知来源";
+  const sourceName = source === "manual" ? "手动触发" : source === "auto" ? "节拍写作后自动" : "未知来源";
   if (chapterTitle) return `来源：${chapterTitle} · ${sourceName}`;
   return `来源：${sourceName}`;
 }
