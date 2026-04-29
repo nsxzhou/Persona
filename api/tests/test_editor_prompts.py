@@ -14,9 +14,12 @@ from app.prompts.concept import (
     build_concept_generate_system_prompt,
     build_concept_generate_user_message,
 )
+from app.prompts.continuity import build_continuity_system_prompt
 from app.prompts.memory_sync import (
     build_bible_update_system_prompt,
     build_bible_update_user_message,
+    build_chapter_summary_system_prompt,
+    build_story_summary_system_prompt,
 )
 from app.prompts.outline import (
     build_volume_generate_system_prompt,
@@ -196,6 +199,33 @@ def test_character_prompt_assigns_reader_hook_functions() -> None:
     assert "角色能让读者期待主角得到什么、压过什么、推倒谁、彻底征服谁，或是提供绝对忠诚的避风港" in prompt
     assert "避免只写人设标签或空泛魅力描述" in prompt
 
+
+def test_character_prompt_uses_length_budget_and_importance_tiers() -> None:
+    short_prompt = build_section_system_prompt("characters_blueprint", length_preset="short")
+    medium_prompt = build_section_system_prompt("characters_blueprint", length_preset="medium")
+    long_prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
+
+    assert "关键角色池目标：6-9 个" in short_prompt
+    assert "关键角色池目标：10-14 个" in medium_prompt
+    assert "关键角色池目标：14-22 个" in long_prompt
+    assert "T0：主角" in long_prompt
+    assert "T1：核心关系人/核心对手" in long_prompt
+    assert "T2：重要配角/阶段性阻力/奖励源" in long_prompt
+    assert "T3：伏笔角色/后期引线/势力代表" in long_prompt
+    assert "先满足角色池数量，再按重要程度分配详略" in long_prompt
+
+
+def test_character_budget_hint_ties_each_tier_to_reader_function_and_prompt_weight() -> None:
+    prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
+
+    assert "角色不是设定展示位，而是追读功能位" in prompt
+    assert "T0 主角承担欲望入口、升级反馈和最终胜负" in prompt
+    assert "T1 承担核心压迫、核心奖励、核心背叛或核心关系兑现" in prompt
+    assert "T2 承担阶段性阻力、资源入口、情绪缓冲或小高潮触发" in prompt
+    assert "T3 只保留一个可回收的钩子" in prompt
+    assert "不要把 T2/T3 写成完整人物小传" in prompt
+
+
 def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() -> None:
     prompt = build_section_system_prompt("outline_master", length_preset="long")
 
@@ -214,6 +244,24 @@ def test_outline_master_prompt_requires_driver_axis_payoff_and_hook_types() -> N
     assert "当前阶段的核心兑现物" in prompt
     assert "读者下一阶段最想看主角拿到什么、压过谁、推倒谁、彻底征服谁" in prompt
     assert "钩子类型" in prompt
+
+
+def test_outline_master_prompt_requires_complete_story_closure() -> None:
+    prompt = build_section_system_prompt("outline_master", length_preset="long")
+
+    assert "必须覆盖开局局面、核心矛盾、中段升级、终局对抗、结局与余波" in prompt
+    assert "必须写明终局结局/最终代价" in prompt
+    assert "不能只写近期方向" in prompt
+
+
+def test_outline_closure_hint_requires_payoff_chain_not_official_summary() -> None:
+    prompt = build_section_system_prompt("outline_master", length_preset="long")
+
+    assert "总纲不是世界设定摘要，而是全书追读承诺" in prompt
+    assert "开局压制如何逼主角入局" in prompt
+    assert "中段升级如何把金钱、武力、身份或关系转成更大筹码" in prompt
+    assert "终局要写清主角最终压过谁、拿到什么、失去或付出什么" in prompt
+    assert "余波要留下新的秩序、关系归属或禁忌后果" in prompt
 
 
 def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -258,6 +306,23 @@ def test_outline_detail_prompt_targets_next_chapter_reader_payoff() -> None:
     assert "悬念必须明确勾着特定的多巴胺反馈、征服欲或生理/情感期待" in prompt
 
 
+def test_outline_detail_prompt_limits_detailed_chapters_to_first_or_current_volume() -> None:
+    prompt = build_section_system_prompt("outline_detail", length_preset="long")
+
+    assert "全书卷级/阶段级规划目标：8-12 个规划块" in prompt
+    assert "章节详纲默认只详拆首卷或当前卷：20-40 章" in prompt
+    assert "后续卷只保留主驱动轴、兑现物、核心阻力、卷尾推动点和角色状态变化" in prompt
+
+
+def test_volume_budget_hint_separates_full_book_volume_promise_from_current_chapter_detail() -> None:
+    prompt = build_section_system_prompt("outline_detail", length_preset="long")
+
+    assert "卷纲负责全书追读承诺，章节详纲负责当前卷执行" in prompt
+    assert "首卷/当前卷要拆到章末期待" in prompt
+    assert "后续卷不要虚构完整章节目录" in prompt
+    assert "每个后续卷至少交代压制来源、半兑现、反噬、新地图或新关系筹码" in prompt
+
+
 def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None:
     prompt = build_volume_generate_system_prompt(
         length_preset="long",
@@ -288,6 +353,8 @@ def test_volume_generate_prompt_requires_driver_axis_and_payoff_rhythm() -> None
     assert "本卷主打的兑现物" in prompt
     assert "压制后兑现、兑现后反噬" in prompt
     assert "不要把分卷写成只有地图扩大、势力变多的目录扩写" in prompt
+    assert "全书卷级/阶段级规划目标：8-12 个规划块" in prompt
+    assert "后续卷只保留主驱动轴、兑现物、核心阻力、卷尾推动点和角色状态变化" in prompt
 
 
 def test_volume_chapters_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -300,6 +367,13 @@ def test_volume_chapters_prompt_injects_plot_prompt_after_style_prompt() -> None
     assert "# Plot Prompt\n情节约束" in prompt
     assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
+
+
+def test_volume_chapters_prompt_uses_current_volume_chapter_budget() -> None:
+    prompt = build_volume_chapters_system_prompt(length_preset="medium")
+
+    assert "章节详纲默认只详拆首卷或当前卷：12-25 章" in prompt
+    assert "只为当前卷输出章节详纲" in prompt
 
 
 def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -475,6 +549,123 @@ def test_creative_fixed_prompts_remove_old_external_helper_language() -> None:
         assert "小说执笔者" not in prompt
 
 
+def test_creative_fixed_prompts_embed_commercial_male_reader_engine() -> None:
+    prompts = [
+        build_concept_generate_system_prompt(),
+        build_section_system_prompt("world_building", length_preset="long"),
+        build_section_system_prompt("characters_blueprint", length_preset="long"),
+        build_section_system_prompt("outline_master", length_preset="long"),
+        build_section_system_prompt("outline_detail", length_preset="long"),
+        build_volume_generate_system_prompt(length_preset="long"),
+        build_volume_chapters_system_prompt(length_preset="long"),
+        build_beat_generate_system_prompt(),
+        build_beat_expand_system_prompt(),
+    ]
+
+    for prompt in prompts:
+        assert "男频商业驱动内核" in prompt
+        assert "力量与权力的扩张" in prompt
+        assert "欲望满足" in prompt
+        assert "压制 -> 反制 -> 兑现 -> 新压力" in prompt
+        assert "升级反馈、资源掠夺、身份逆转、关系占有" in prompt
+        assert "安全地打破禁忌" in prompt
+        assert "读者下一章到底在等什么" in prompt
+
+
+def test_maintenance_prompts_track_serial_payoff_debt_without_breaking_contracts() -> None:
+    bible_prompt = build_bible_update_system_prompt()
+    chapter_summary_prompt = build_chapter_summary_system_prompt()
+    story_summary_prompt = build_story_summary_system_prompt()
+    continuity_prompt = build_continuity_system_prompt()
+
+    assert "追读债务" in bible_prompt
+    assert "权力进度、关系里程碑、伏笔债务、兑现成果" in bible_prompt
+    assert "## 角色动态状态" in bible_prompt
+    assert "## 运行时状态" in bible_prompt
+    assert "## 伏笔与线索追踪" in bible_prompt
+
+    assert "只保留会改变后续局面的内容" in chapter_summary_prompt
+    assert "爽点兑现、关系变化、伏笔债务" in story_summary_prompt
+    assert "不是语病审稿，而是追读风险审校" in continuity_prompt
+    assert "## Verdict" in continuity_prompt
+
+
+def test_runtime_initialization_prompts_are_serial_state_ledgers_not_generic_docs() -> None:
+    characters_status = build_section_system_prompt("characters_status")
+    runtime_state = build_section_system_prompt("runtime_state")
+    runtime_threads = build_section_system_prompt("runtime_threads")
+
+    assert "连载状态账本" in characters_status
+    assert "谁的欲望被撬动、谁欠了债、谁刚得到或失去筹码" in characters_status
+    assert "不要写成角色百科" in characters_status
+
+    assert "剧情总账" in runtime_state
+    assert "只记录会改变后续局面的事件" in runtime_state
+    assert "爽点兑现、压制来源、反噬和新压力" in runtime_state
+
+    assert "追读债务清单" in runtime_threads
+    assert "伏笔必须服务后续兑现、反转、打脸、关系突破或禁忌后果" in runtime_threads
+    assert "不要罗列装饰性谜语" in runtime_threads
+
+
+def test_common_runtime_prompt_rules_drop_official_assistant_tone() -> None:
+    from app.prompts.common import JSON_ONLY_RULE, MARKDOWN_ONLY_RULE, NO_PREFACE_RULES
+
+    assert "直接落正文/条目，不要写工作汇报" in MARKDOWN_ONLY_RULE
+    assert "只吐 JSON 本体" in JSON_ONLY_RULE
+    assert "不要写“好的”“下面是”“基于你提供的报告/摘要”“作为……我将……”" in NO_PREFACE_RULES
+    assert "额外解释" not in MARKDOWN_ONLY_RULE
+
+
+def test_non_analysis_fixed_prompts_do_not_keep_generic_official_sections() -> None:
+    prompts = [
+        build_section_system_prompt("world_building", length_preset="long"),
+        build_section_system_prompt("characters_blueprint", length_preset="long"),
+        build_section_system_prompt("outline_master", length_preset="long"),
+        build_section_system_prompt("outline_detail", length_preset="long"),
+        build_volume_generate_system_prompt(length_preset="long"),
+        build_volume_chapters_system_prompt(length_preset="long"),
+        build_beat_generate_system_prompt(),
+        build_beat_expand_system_prompt(),
+        build_bible_update_system_prompt(),
+        build_chapter_summary_system_prompt(),
+        build_story_summary_system_prompt(),
+    ]
+
+    banned = [
+        "输出要求：",
+        "当前任务是：",
+        "请根据传入",
+        "请基于已有上下文，生成一份",
+        "你是一个专业",
+        "额外解释",
+    ]
+    for prompt in prompts:
+        for phrase in banned:
+            assert phrase not in prompt
+
+
+def test_user_messages_avoid_polite_assistant_request_wording() -> None:
+    concept_message = build_concept_generate_user_message("灵感", 3)
+    section_message = build_section_user_message(
+        "world_building",
+        {
+            "description": "",
+            "world_building": "",
+            "characters_blueprint": "",
+            "outline_master": "",
+            "outline_detail": "",
+            "runtime_state": "",
+            "runtime_threads": "",
+        },
+    )
+
+    assert "灵感输入，产出 3 个小说概念" in concept_message
+    assert "请根据以下灵感描述生成" not in concept_message
+    assert "没有其他设定，直接按当前创意开局" in section_message
+    assert "请基于你的创意自由发挥" not in section_message
+
+
 def test_section_generate_request_only_uses_project_context_fields() -> None:
     adapter = TypeAdapter(NovelWorkflowCreateRequest)
 
@@ -553,7 +744,7 @@ def test_concept_user_message_appends_regeneration_context() -> None:
         user_feedback="标题更短",
     )
 
-    assert "请根据以下灵感描述生成 3 个小说概念" in message
+    assert "灵感输入，产出 3 个小说概念" in message
     assert "## 上一版结果" in message
     assert "[{\"title\":\"A\"}]" in message
     assert "## 用户意见（本次必须遵循）" in message

@@ -2,7 +2,13 @@
 
 import pytest
 
+from app.core import length_presets
 from app.core.length_presets import LENGTH_PRESETS, get_progress
+
+
+def _get_planning_budget(preset_key: str):
+    assert hasattr(length_presets, "get_planning_budget")
+    return length_presets.get_planning_budget(preset_key)
 
 
 class TestGetProgress:
@@ -66,3 +72,25 @@ class TestGetProgress:
     def test_current_chars_matches_input(self):
         result = get_progress(42_000, "short")
         assert result["current_chars"] == 42_000
+
+
+class TestGetPlanningBudget:
+    """测试创作规划预算随篇幅预设变化。"""
+
+    def test_short_planning_budget(self):
+        budget = _get_planning_budget("short")
+        assert budget["character_count"] == (6, 9)
+        assert budget["volume_count"] == (3, 5)
+        assert budget["first_volume_chapters"] == (8, 15)
+
+    def test_medium_planning_budget(self):
+        budget = _get_planning_budget("medium")
+        assert budget["character_count"] == (10, 14)
+        assert budget["volume_count"] == (5, 8)
+        assert budget["first_volume_chapters"] == (12, 25)
+
+    def test_long_planning_budget(self):
+        budget = _get_planning_budget("long")
+        assert budget["character_count"] == (14, 22)
+        assert budget["volume_count"] == (8, 12)
+        assert budget["first_volume_chapters"] == (20, 40)
