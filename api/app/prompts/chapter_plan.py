@@ -3,16 +3,18 @@ from __future__ import annotations
 from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
+    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_volume_planning_budget_hint,
     get_hook_framework,
 )
 from app.prompts.section_context import build_section_user_message
 from app.schemas.prompt_profiles import GenerationProfile
 
 _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
-    "请基于总纲和已有上下文，展开规划结构与章节细纲。\n\n"
-    "必须使用章节悬念节奏法，但不要输出推理过程：\n"
+    "从总纲和已有上下文里展开规划结构与章节细纲。\n\n"
+    "用章节悬念节奏法压住推进，但不要输出推理过程：\n"
     "- 3-5章构成一个悬念单元，每个单元包含一次小高潮或强兑现\n"
     "- 使用认知过山车模式：连续2章紧张后安排1章缓冲或关系/奖励兑现\n"
     "- 伏笔三步法：埋设 → 强化 → 回收，标注关键伏笔在章节中的位置\n"
@@ -38,12 +40,15 @@ _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
 
 _VOLUME_CHAPTERS_SYSTEM_TEMPLATE = (
     "你是一位起点白金作家，正在为自己的当前卷拆章节细纲，控制章节推进、情绪起伏和章末钩子。\n\n"
+    f"{MALE_COMMERCIAL_ENGINE}"
+    "{planning_budget_hint}\n\n"
     "为指定的卷设计章节。每章用三级标题（### ），格式如下：\n\n"
     "### 第 N 章：章名\n"
     "- **核心事件**：一句话概括\n"
     "- **情绪走向**：如「平静 → 震惊 → 愤怒」\n"
     "- **章末钩子**：驱动读者继续阅读的悬念或反转\n\n"
-    "要求：\n"
+    "落笔规则：\n"
+    "- 只为当前卷输出章节详纲，不要顺手拆后续卷章节\n"
     "- 章节之间情绪有起伏，不要连续同一情绪\n"
     "- 每章末必须有钩子\n"
     "- 每章末推动点要能让人立刻知道下一章最想看的兑现是什么\n"
@@ -65,6 +70,7 @@ def build_outline_detail_system_prompt(
         _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
     )
+    instruction += build_volume_planning_budget_hint(length_preset)
     parts: list[str] = []
     append_profile_blocks(
         parts,
@@ -75,8 +81,9 @@ def build_outline_detail_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「分卷与章节细纲」。\n"
+        f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "输出要求：\n"
+        "落笔规则：\n"
         "- 使用 Markdown 格式，标题层级清晰\n"
         "- 具体且有用，避免空泛概括\n"
         "- 直接输出内容，不要添加任何解释性前言或总结"
@@ -100,6 +107,7 @@ def build_outline_detail_user_message(
 
 
 def build_volume_chapters_system_prompt(
+    length_preset: LengthPresetKey = "long",
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
     generation_profile: GenerationProfile | None = None,
@@ -114,7 +122,12 @@ def build_volume_chapters_system_prompt(
         generation_profile=generation_profile,
     )
     hook_framework = get_hook_framework(generation_profile)
-    parts.append(_VOLUME_CHAPTERS_SYSTEM_TEMPLATE.format(hook_framework=hook_framework))
+    parts.append(
+        _VOLUME_CHAPTERS_SYSTEM_TEMPLATE.format(
+            planning_budget_hint=build_volume_planning_budget_hint(length_preset).strip(),
+            hook_framework=hook_framework,
+        )
+    )
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)
     return "\n".join(parts)

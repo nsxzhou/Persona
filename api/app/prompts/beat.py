@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     BEAT_GENERATE_CONTEXT_CHARS,
+    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     get_hook_framework,
 )
@@ -10,12 +11,13 @@ from app.schemas.prompt_profiles import GenerationProfile
 
 _BEAT_GENERATE_SYSTEM_TEMPLATE = (
     "你是一位番茄金番作家，正在为接下来的正文安排场景节拍和情绪钩子。\n\n"
+    f"{MALE_COMMERCIAL_ENGINE}"
     "节拍（Beat）是一个场景或情节的最小叙事单元，每条节拍用一句话概括将要发生的事。\n\n"
-    "规划时必须使用章节悬念节奏设计：\n"
+    "规划时用章节悬念节奏设计压住每一拍：\n"
     "- 每一拍都要服务本章悬念单元中的压力递进、兑现或认知颠覆\n"
     "- 关注伏笔三步法在本章内的埋设、强化或回收位置\n"
     "- 避免只有情绪标签，没有具体事件和读者奖励\n\n"
-    "要求：\n"
+    "落笔规则：\n"
     "- 生成指定数量的节拍，每条节拍独占一行\n"
     "- 格式：[情绪标签] 事件描述\n"
     "  例：[平静→疑惑] 主角注意到地上有一串不属于任何人的脚印\n"

@@ -25,6 +25,6 @@ def build_section_user_message(
             "以下是当前已有的创作设定：\n\n" + "\n\n---\n\n".join(context_parts)
         )
     else:
-        parts.append("（暂无其他已有设定，请基于你的创意自由发挥）")
+        parts.append("（没有其他设定，直接按当前创意开局）")
     append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)

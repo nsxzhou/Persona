@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.length_presets import LengthPresetKey
+from app.core.length_presets import LengthPresetKey, get_planning_budget
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.schemas.prompt_profiles import GenerationProfile
 
@@ -47,6 +47,17 @@ GROUNDED_INTERPRETATION_GUARDRAIL = (
     "\n\n题材收束提醒：\n- 沿用世界观已确定的题材解释，不得臆想毫无根据的设定\n"
 )
 
+MALE_COMMERCIAL_ENGINE = (
+    "\n\n男频商业驱动内核：\n"
+    "- 先判断这本书的主燃料：力量与权力的扩张、欲望满足，或二者叠加。\n"
+    "- 每个设定、角色、事件都要挂到可追读的反馈链：压制 -> 反制 -> 兑现 -> 新压力。\n"
+    "- 优先制造清晰进度条：升级反馈、资源掠夺、身份逆转、关系占有、势力扩张或禁忌突破。\n"
+    "- 爽点不是口号，必须落成可见动作：主角拿到什么、压过谁、夺回什么、征服谁、让谁付出代价。\n"
+    "- 主流市场用打脸、暴富、长生、权力扩张和隐晦暧昧承载刺激；NSFW 市场允许把欲望满足、征服欲、背德感和生理唤醒作为主驱动。\n"
+    "- 可以充分利用“安全地打破禁忌”的心理张力，但必须服从项目已选择的 target_market、intensity_level 和边界规则。\n"
+    "- 每个规划单元都要回答：读者下一章到底在等什么，以及这个期待会在何处半兑现或反噬。\n"
+)
+
 
 def get_hook_framework(generation_profile: GenerationProfile | None) -> str:
     target_market = generation_profile.target_market if generation_profile else "mainstream"
@@ -62,6 +73,54 @@ def build_soft_length_hint(length_preset: LengthPresetKey) -> str:
         f"- 当前小说{label}，把它当作展开密度和推进节奏的软参考\n"
         "- 不必为了匹配预设篇幅，硬性限制结构层级、角色数量或设定规模\n"
         "- 以故事实际需要决定哪些部分细写、略写、前置或后置"
+    )
+
+
+def _format_range(value: tuple[int, int]) -> str:
+    return f"{value[0]}-{value[1]}"
+
+
+def build_character_planning_budget_hint(length_preset: LengthPresetKey) -> str:
+    budget = get_planning_budget(length_preset)
+    character_count = _format_range(budget["character_count"])
+    return (
+        "\n\n角色池预算提示：\n"
+        f"- 关键角色池目标：{character_count} 个；这里指长期有叙事功能的关键角色，不包含临时 NPC\n"
+        "- 角色不是设定展示位，而是追读功能位；先满足角色池数量，再按重要程度分配详略\n"
+        "- T0：主角，完整动力学详卡；T0 主角承担欲望入口、升级反馈和最终胜负\n"
+        "- T1：核心关系人/核心对手，较详卡；T1 承担核心压迫、核心奖励、核心背叛或核心关系兑现\n"
+        "- T2：重要配角/阶段性阻力/奖励源，轻卡；T2 承担阶段性阻力、资源入口、情绪缓冲或小高潮触发\n"
+        "- T3：伏笔角色/后期引线/势力代表，极简卡；T3 只保留一个可回收的钩子\n"
+        "- 不要把 T2/T3 写成完整人物小传；他们只需要明确功能、弱点、入场时机和能撬动的爽点\n"
+        "- 临时 NPC 和后期新势力角色可以留给后续卷纲、章节生成和记忆同步增补"
+    )
+
+
+def build_outline_closure_hint() -> str:
+    return (
+        "\n\n全书闭环硬账：\n"
+        "- 总纲不是世界设定摘要，而是全书追读承诺；每一阶段都要能看见读者为什么继续翻下一章\n"
+        "- 必须覆盖开局局面、核心矛盾、中段升级、终局对抗、结局与余波\n"
+        "- 必须写明终局结局/最终代价，不能只写近期方向\n"
+        "- 开局压制如何逼主角入局，中段升级如何把金钱、武力、身份或关系转成更大筹码，都要写清\n"
+        "- 终局要写清主角最终压过谁、拿到什么、失去或付出什么；余波要留下新的秩序、关系归属或禁忌后果\n"
+        "- 结局可以保留执行细节弹性，但主线胜负、代价和余波方向必须明确"
+    )
+
+
+def build_volume_planning_budget_hint(length_preset: LengthPresetKey) -> str:
+    budget = get_planning_budget(length_preset)
+    volume_count = _format_range(budget["volume_count"])
+    chapter_count = _format_range(budget["first_volume_chapters"])
+    return (
+        "\n\n规划预算提示：\n"
+        "- 卷纲负责全书追读承诺，章节详纲负责当前卷执行；不要把两层写成同一种目录\n"
+        f"- 全书卷级/阶段级规划目标：{volume_count} 个规划块\n"
+        f"- 章节详纲默认只详拆首卷或当前卷：{chapter_count} 章\n"
+        "- 首卷/当前卷要拆到章末期待：每章发生什么、读者下一章等什么、阶段性兑现如何反噬\n"
+        "- 后续卷只保留主驱动轴、兑现物、核心阻力、卷尾推动点和角色状态变化\n"
+        "- 每个后续卷至少交代压制来源、半兑现、反噬、新地图或新关系筹码\n"
+        "- 后续卷不要虚构完整章节目录，不要一次性把全书所有章节都拆成详纲"
     )
 
 

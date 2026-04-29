@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE
 from app.prompts.novel_shared import (
+    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
     get_hook_framework,
@@ -11,14 +12,14 @@ from app.prompts.section_context import build_section_user_message
 from app.schemas.prompt_profiles import GenerationProfile
 
 _WORLD_BUILDING_INSTRUCTION_TEMPLATE = (
-    "请基于简介和已有上下文，生成一份足以支撑人物、冲突和前期展开的必要设定。\n\n"
-    "生成前先做隐式判断，不要把判断过程写出来：\n"
+    "从简介和已有上下文里抽出足以支撑人物、冲突和前期展开的必要设定。\n\n"
+    "落笔前先做隐式判断，不要把判断过程写出来：\n"
     "1. 先判断这部作品更接近哪种题材；"
     "2. 再判断哪些设定模块对当前故事真正必要；"
     "3. 若简介未明确写出超自然，则默认不存在超自然；"
     "4. 只保留当前故事真正需要的模块，只生成当前故事真正需要的模块，不追求完美。\n\n"
     "世界观不是资料库，而是主角欲望和读者期待的供给系统；设定可以是极端的阶层落差与禁忌秩序，或者是为了让主角装逼打脸、开后宫而量身定制的无敌金手指与系统。\n\n"
-    "必须使用三维世界构建法，但不要输出推理过程：\n"
+    "用三维世界构建法压住设定，但不要输出推理过程：\n"
     "- 物理维度、社会维度、隐喻维度都要服务角色冲突\n"
     "- 每个维度至少给出一条会影响角色选择的断层线\n"
     "- 写清世界基本法则、薄弱点或可被利用的漏洞\n\n"
@@ -63,8 +64,9 @@ def build_world_building_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书只保留真正必要的设定，现在要完成「世界观设定」。\n"
+        f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "输出要求：\n"
+        "落笔规则：\n"
         "- 使用 Markdown 格式，标题层级清晰\n"
         "- 具体且有用，避免空泛概括\n"
         "- 直接输出内容，不要添加任何解释性前言或总结"

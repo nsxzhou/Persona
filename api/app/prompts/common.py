@@ -33,11 +33,11 @@ REGENERATION_GUIDANCE = (
 )
 
 
-MARKDOWN_ONLY_RULE = "输出必须使用中文简体 Markdown，不要输出 JSON、不要输出代码块、不要输出额外解释。"
-JSON_ONLY_RULE = "输出必须是一个合法的 JSON 对象，仅输出该 JSON 对象本身；不要输出 Markdown、不要输出代码块、不要输出额外解释或前后缀。"
+MARKDOWN_ONLY_RULE = "输出使用中文简体 Markdown，直接落正文/条目，不要写工作汇报，不要输出 JSON 或代码块。"
+JSON_ONLY_RULE = "输出必须是一个合法 JSON 对象，只吐 JSON 本体；不要输出 Markdown、代码块、解释、寒暄或前后缀。"
 NO_PREFACE_RULES = (
     "输出必须直接从指定模板的第一个标题开始。\n"
-    "不要输出任何前言、任务说明、来源说明、总结或解释性开场。\n"
+    "不要输出任何前言、任务说明、来源说明、总结或解释性开场，不要写工作汇报。\n"
     "不要写“好的”“下面是”“基于你提供的报告/摘要”“作为……我将……”这类句式。"
 )
 SCHEMA_ALIGNMENT_RULE = "Prompt 中声明的字段、标题和输出形状必须与对应 Pydantic Schema 或解析器保持一致。"

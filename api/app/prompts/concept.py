@@ -6,7 +6,11 @@ from pydantic import BaseModel
 
 from app.core.domain_errors import UnprocessableEntityError
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
-from app.prompts.novel_shared import append_profile_blocks, get_hook_framework
+from app.prompts.novel_shared import (
+    MALE_COMMERCIAL_ENGINE,
+    append_profile_blocks,
+    get_hook_framework,
+)
 from app.schemas.prompt_profiles import GenerationProfile
 
 
@@ -35,7 +39,9 @@ def parse_concept_response(raw: str, expected_count: int) -> list[ConceptCard]:
 
 
 _CONCEPT_GENERATE_SYSTEM_TEMPLATE = (
-    "你是一位深耕网文市场（起点、番茄等平台）的资深策划编辑。\n\n"
+    "你是一位深耕网文市场（起点、番茄等平台）的资深策划编辑，判断标准是读者会不会点、会不会追、会不会等更新。\n\n"
+    f"{MALE_COMMERCIAL_ENGINE}"
+    "\n"
     "你需要根据用户给出的灵感描述，先提炼小说核心DNA，再产出指定数量的小说概念卡。"
     "核心DNA公式必须在内部约束所有概念：当[主角+身份]遭遇[核心事件]，必须[关键行动]，否则[灾难后果]；"
     "与此同时，[隐藏的更大危机]正在发酵。"
@@ -152,6 +158,6 @@ def build_concept_generate_user_message(
     previous_output: str | None = None,
     user_feedback: str | None = None,
 ) -> str:
-    parts: list[str] = [f"请根据以下灵感描述生成 {count} 个小说概念：\n\n{inspiration}"]
+    parts: list[str] = [f"灵感输入，产出 {count} 个小说概念：\n\n{inspiration}"]
     append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)

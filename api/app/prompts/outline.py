@@ -4,21 +4,24 @@ from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     GROUNDED_INTERPRETATION_GUARDRAIL,
+    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_outline_closure_hint,
+    build_volume_planning_budget_hint,
     get_hook_framework,
 )
 from app.prompts.section_context import build_section_user_message
 from app.schemas.prompt_profiles import GenerationProfile
 
 _OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
-    "请基于简介、世界观、角色设定和已有上下文，设计这部小说的总纲。\n\n"
+    "从简介、世界观、角色设定和已有上下文里压出这部小说的总纲。\n\n"
     "必须吸收三幕式情节架构，但不要机械套模板：\n"
     "- 第一幕建立日常异常、催化事件与错误抉择\n"
     "- 第二幕推进双重压力、虚假胜利与灵魂黑夜\n"
     "- 第三幕呈现代价显现、嵌套转折与余波设定\n"
     "- 总纲里必须能看见日常异常、催化事件、虚假胜利、灵魂黑夜、代价显现这些功能点如何落位\n\n"
-    "生成前先做隐式判断，不要把判断过程写出来：\n"
+    "落笔前先做隐式判断，不要把判断过程写出来：\n"
     "- 先判断这本书当前真正靠什么让人继续看下去，是力量与权力的扩张还是欲望的满足\n"
     "- 围绕同一条主爽点主线组织推进，不要为了显得更大而额外加设定\n"
     "- 不要为了拉大规模而额外铺地图、体系、势力层级\n\n"
@@ -32,7 +35,7 @@ _OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
     "- **核心爽点事件**（1-2 个，必须服务主爽点）\n"
     "- **钩子类型**（悬念、反转、兑现、新压力、关系升温、局势失控中的哪一种）\n"
     "- **阶段末推动点**（悬念、反转、兑现或新压力）\n\n"
-    "全局节奏要求：\n"
+    "全局节奏硬账：\n"
     "- 遵循「小高潮-缓冲-大高潮」循环\n"
     "- 开篇尽快建立核心冲突与角色魅力\n"
     "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
@@ -42,7 +45,7 @@ _OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
 )
 
 _VOLUME_GENERATE_INSTRUCTION_TEMPLATE = (
-    "请基于总纲，设计整体规划结构。\n\n"
+    "从总纲里拆出全书整体规划结构。\n\n"
     "每个规划块用二级标题（## ）标注该阶段、卷或幕的名称，必要时可在标题下使用引用行（> ）补充主题、局势或阶段说明。\n"
     "不要求固定写成三幕、几卷或多少个阶段，应按总纲中的实际推进自然拆分。\n\n"
     "卷级规则：\n"
@@ -69,6 +72,7 @@ def build_outline_master_system_prompt(
         _OUTLINE_MASTER_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
     )
+    instruction += build_outline_closure_hint()
     instruction += GROUNDED_INTERPRETATION_GUARDRAIL
     parts: list[str] = []
     append_profile_blocks(
@@ -80,8 +84,9 @@ def build_outline_master_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「总纲」。\n"
+        f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "输出要求：\n"
+        "落笔规则：\n"
         "- 使用 Markdown 格式，标题层级清晰\n"
         "- 具体且有用，避免空泛概括\n"
         "- 直接输出内容，不要添加任何解释性前言或总结"
@@ -116,6 +121,7 @@ def build_volume_generate_system_prompt(
         _VOLUME_GENERATE_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
     )
+    instruction += build_volume_planning_budget_hint(length_preset)
     parts: list[str] = []
     append_profile_blocks(
         parts,
@@ -126,8 +132,9 @@ def build_volume_generate_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书规划整体结构，梳理分卷规划。\n\n"
+        f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "输出要求：\n"
+        "落笔规则：\n"
         "- 使用 Markdown 格式\n"
         "- 只输出规划结构，不要输出任何章节内容\n"
         "- 直接输出内容，不要添加解释性前言或总结"
@@ -146,6 +153,6 @@ def build_volume_generate_user_message(
     if outline_master.strip():
         parts.append(f"## 总纲\n\n{outline_master}")
     else:
-        parts.append("（总纲尚未填写，请基于创意自由规划分卷）")
+        parts.append("（总纲尚未填写，直接按当前创意规划分卷）")
     append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)

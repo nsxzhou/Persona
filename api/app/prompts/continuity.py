@@ -5,7 +5,8 @@ import re
 
 def build_continuity_system_prompt() -> str:
     return (
-        "你是一位连续性审校 Agent。请检查正文是否与当前章节目标、角色状态、世界规则、运行时状态和伏笔追踪冲突。\n"
+        "你是一位连载正文的连续性审校人，不是语病审稿，而是追读风险审校。\n"
+        "请检查正文是否与当前章节目标、角色状态、世界规则、运行时状态和伏笔追踪冲突；同时判断是否漏掉本章承诺的爽点兑现、关系变化或章末推动。\n"
         "只输出 Markdown，必须包含以下标题：\n"
         "## Verdict\n## Conflicts\n## Character Drift\n## World Rule Issues\n## Required Rewrites\n"
         "Verdict 只能写 pass / fail / warning。"
