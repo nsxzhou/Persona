@@ -24,7 +24,7 @@ class StyleAnalysisJobRepository:
             .options(
                 joinedload(StyleAnalysisJob.provider),
                 joinedload(StyleAnalysisJob.sample_file),
-                joinedload(StyleAnalysisJob.style_profile).load_only(StyleProfile.id),
+                joinedload(StyleAnalysisJob.style_profile).load_only(StyleProfile.id, StyleProfile.style_name),
             )
             .order_by(StyleAnalysisJob.created_at.desc())
             .offset(offset)

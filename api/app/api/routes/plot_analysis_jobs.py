@@ -38,7 +38,12 @@ async def list_plot_analysis_jobs(
         offset=offset,
         limit=limit,
     )
-    return [PlotAnalysisJobListItemResponse.model_validate(job) for job in jobs]
+    responses = []
+    for job in jobs:
+        response = PlotAnalysisJobListItemResponse.model_validate(job)
+        response.profile_plot_name = job.plot_profile.plot_name if job.plot_profile else None
+        responses.append(response)
+    return responses
 
 
 @router.get("/{job_id}", response_model=PlotAnalysisJobResponse)

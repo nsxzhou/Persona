@@ -176,6 +176,7 @@ class PlotAnalysisJobBaseResponse(BaseModel):
     provider: ProviderSummary
     sample_file: PlotSampleFileResponse
     plot_profile_id: str | None = None
+    profile_plot_name: str | None = None
     pause_requested_at: datetime | None = None
 
 

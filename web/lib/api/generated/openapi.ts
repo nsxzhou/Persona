@@ -1030,7 +1030,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1077,7 +1077,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id?: string | null;
             /** Chapter Id */
@@ -1194,7 +1194,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1307,6 +1307,8 @@ export interface components {
             sample_file: components["schemas"]["PlotSampleFileResponse"];
             /** Plot Profile Id */
             plot_profile_id?: string | null;
+            /** Profile Plot Name */
+            profile_plot_name?: string | null;
             /** Pause Requested At */
             pause_requested_at?: string | null;
         };
@@ -1366,6 +1368,8 @@ export interface components {
             sample_file: components["schemas"]["PlotSampleFileResponse"];
             /** Plot Profile Id */
             plot_profile_id?: string | null;
+            /** Profile Plot Name */
+            profile_plot_name?: string | null;
             /** Pause Requested At */
             pause_requested_at?: string | null;
             plot_profile?: components["schemas"]["PlotProfileEmbeddedResponse"] | null;
@@ -2014,6 +2018,8 @@ export interface components {
             sample_file: components["schemas"]["StyleSampleFileResponse"];
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Profile Style Name */
+            profile_style_name?: string | null;
             /** Pause Requested At */
             pause_requested_at?: string | null;
         };
@@ -2073,6 +2079,8 @@ export interface components {
             sample_file: components["schemas"]["StyleSampleFileResponse"];
             /** Style Profile Id */
             style_profile_id?: string | null;
+            /** Profile Style Name */
+            profile_style_name?: string | null;
             /** Pause Requested At */
             pause_requested_at?: string | null;
             style_profile?: components["schemas"]["StyleProfileEmbeddedResponse"] | null;

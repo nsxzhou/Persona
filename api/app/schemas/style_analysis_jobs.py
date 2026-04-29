@@ -137,6 +137,7 @@ class StyleAnalysisJobBaseResponse(BaseModel):
     provider: ProviderSummary
     sample_file: StyleSampleFileResponse
     style_profile_id: str | None = None
+    profile_style_name: str | None = None
     pause_requested_at: datetime | None = None
 
 

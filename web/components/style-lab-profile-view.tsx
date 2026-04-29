@@ -54,7 +54,7 @@ export function StyleLabProfileView({
             <Link href="/style-lab"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div className="text-xs font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-2">
-            Style Lab <span className="font-normal text-border">/</span> Profile
+            Style Lab <span className="font-normal text-border">/</span> {profile.style_name}
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
@@ -70,7 +70,7 @@ export function StyleLabProfileView({
           ) : (
             <>
               <span className="text-muted-foreground flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div> 
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 已保存
               </span>
               <Button variant="ghost" size="sm" onClick={onEditStart} className="text-muted-foreground hover:text-foreground">
@@ -104,14 +104,14 @@ export function StyleLabProfileView({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex justify-center mb-8">
             <TabsList className="bg-transparent border-b border-border rounded-none p-0 h-auto space-x-6">
-              <TabsTrigger 
-                value="summary" 
+              <TabsTrigger
+                value="summary"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground"
               >
                 Voice Profile
               </TabsTrigger>
-              <TabsTrigger 
-                value="report" 
+              <TabsTrigger
+                value="report"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-3 text-base font-medium text-muted-foreground data-[state=active]:text-foreground"
               >
                 原始分析报告

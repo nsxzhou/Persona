@@ -150,7 +150,7 @@ export default function PlotLabPage() {
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <CardTitle className="text-lg leading-tight hover:underline line-clamp-1">
-                      <Link href={`/plot-lab/${job.id}`}>{job.plot_name}</Link>
+                      <Link href={`/plot-lab/${job.id}`}>{job.profile_plot_name ?? job.plot_name}</Link>
                     </CardTitle>
                     <Badge variant={getStyleAnalysisJobBadgeVariant(job)} className="shrink-0">
                       {job.status}
@@ -185,9 +185,9 @@ export default function PlotLabPage() {
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="px-3 text-destructive hover:bg-destructive hover:text-destructive-foreground"
                         disabled={deleteJobMutation.isPending}
                         title="删除任务"
@@ -231,8 +231,8 @@ export default function PlotLabPage() {
             <Pagination className="mt-8 justify-end">
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
+                  <PaginationPrevious
+                    href="#"
                     onClick={(e) => {
                       e.preventDefault();
                       if (page > 1) setPage(p => p - 1);
@@ -240,20 +240,20 @@ export default function PlotLabPage() {
                     className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
                 </PaginationItem>
-                
+
                 <PaginationItem>
-                  <PaginationLink 
-                    href="#" 
+                  <PaginationLink
+                    href="#"
                     onClick={(e) => e.preventDefault()}
                     isActive
                   >
                     {page}
                   </PaginationLink>
                 </PaginationItem>
-                
+
                 <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
+                  <PaginationNext
+                    href="#"
                     onClick={(e) => {
                       e.preventDefault();
                       if (hasNextPage) setPage(p => p + 1);

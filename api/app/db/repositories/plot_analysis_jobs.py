@@ -26,7 +26,7 @@ class PlotAnalysisJobRepository:
             .options(
                 joinedload(PlotAnalysisJob.provider),
                 joinedload(PlotAnalysisJob.sample_file),
-                joinedload(PlotAnalysisJob.plot_profile).load_only(PlotProfile.id),
+                joinedload(PlotAnalysisJob.plot_profile).load_only(PlotProfile.id, PlotProfile.plot_name),
             )
             .order_by(PlotAnalysisJob.created_at.desc())
             .offset(offset)

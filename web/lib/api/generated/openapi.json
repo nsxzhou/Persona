@@ -3159,7 +3159,6 @@
             "enum": [
               "concept_bootstrap",
               "project_bootstrap",
-              "chapter_write",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3356,7 +3355,6 @@
             "enum": [
               "concept_bootstrap",
               "project_bootstrap",
-              "chapter_write",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3714,7 +3712,6 @@
             "enum": [
               "concept_bootstrap",
               "project_bootstrap",
-              "chapter_write",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -4137,6 +4134,17 @@
             ],
             "title": "Plot Profile Id"
           },
+          "profile_plot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Plot Name"
+          },
           "pause_requested_at": {
             "anyOf": [
               {
@@ -4305,6 +4313,17 @@
               }
             ],
             "title": "Plot Profile Id"
+          },
+          "profile_plot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Plot Name"
           },
           "pause_requested_at": {
             "anyOf": [
@@ -6347,6 +6366,17 @@
             ],
             "title": "Style Profile Id"
           },
+          "profile_style_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Style Name"
+          },
           "pause_requested_at": {
             "anyOf": [
               {
@@ -6513,6 +6543,17 @@
               }
             ],
             "title": "Style Profile Id"
+          },
+          "profile_style_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Style Name"
           },
           "pause_requested_at": {
             "anyOf": [

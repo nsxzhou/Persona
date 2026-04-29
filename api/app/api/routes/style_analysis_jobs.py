@@ -36,7 +36,12 @@ async def list_style_analysis_jobs(
         offset=offset,
         limit=limit,
     )
-    return [StyleAnalysisJobListItemResponse.model_validate(job) for job in jobs]
+    responses = []
+    for job in jobs:
+        response = StyleAnalysisJobListItemResponse.model_validate(job)
+        response.profile_style_name = job.style_profile.style_name if job.style_profile else None
+        responses.append(response)
+    return responses
 
 @router.get("/{job_id}", response_model=StyleAnalysisJobResponse)
 async def get_style_analysis_job(

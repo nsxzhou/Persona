@@ -54,7 +54,7 @@ export function PlotLabProfileView({
             <Link href="/plot-lab"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div className="text-xs font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-2">
-            Plot Lab <span className="font-normal text-border">/</span> Profile
+            Plot Lab <span className="font-normal text-border">/</span> {profile.plot_name}
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
