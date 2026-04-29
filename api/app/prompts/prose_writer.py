@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     BEAT_EXPAND_CONTEXT_CHARS,
+    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     get_hook_framework,
 )
@@ -12,7 +13,8 @@ from app.schemas.prompt_profiles import GenerationProfile
 def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str = "") -> str:
     return (
         "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
-        "要求：\n"
+        f"{MALE_COMMERCIAL_ENGINE}"
+        "落笔规则：\n"
         f"- 按照节拍描述展开约 {beat_expand_chars} 字的叙事段落\n"
         "- 保持与前文的语感和风格一致\n"
         "- 自然衔接前文，不要重复已有内容\n"
