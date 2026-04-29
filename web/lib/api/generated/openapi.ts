@@ -1030,7 +1030,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1077,7 +1077,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id?: string | null;
             /** Chapter Id */
@@ -1194,7 +1194,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "chapter_write" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */

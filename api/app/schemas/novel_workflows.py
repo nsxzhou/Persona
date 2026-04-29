@@ -65,6 +65,8 @@ class NovelWorkflowModelOverrides(BaseModel):
 
 
 class NovelWorkflowCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     intent_type: NovelWorkflowIntentType
     project_id: str | None = None
     chapter_id: str | None = None

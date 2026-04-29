@@ -103,7 +103,16 @@ describe("ConceptGachaPage", () => {
       {
         inspiration: "一个被迫冒名顶替入局的寒门书生。",
         provider_id: "provider-1",
-        model: null,
+        model_name: null,
+        generation_profile: {
+          target_market: "mainstream",
+          genre_mother: "xianxia",
+          desire_overlays: [],
+          intensity_level: "plot_only",
+          pov_mode: "limited_third",
+          morality_axis: "gray_pragmatism",
+          pace_density: "balanced",
+        },
         count: 3,
         style_profile_id: "profile-1",
         plot_profile_id: "plot-1",

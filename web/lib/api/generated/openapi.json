@@ -3159,7 +3159,6 @@
             "enum": [
               "concept_bootstrap",
               "project_bootstrap",
-              "chapter_write",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3356,7 +3355,6 @@
             "enum": [
               "concept_bootstrap",
               "project_bootstrap",
-              "chapter_write",
               "memory_refresh",
               "section_generate",
               "volume_generate",
@@ -3598,6 +3596,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "intent_type"
@@ -3714,7 +3713,6 @@
             "enum": [
               "concept_bootstrap",
               "project_bootstrap",
-              "chapter_write",
               "memory_refresh",
               "section_generate",
               "volume_generate",

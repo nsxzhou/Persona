@@ -66,7 +66,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
         {
           inspiration: inspiration.trim(),
           provider_id: providerId,
-          model: model.trim() || null,
+          model_name: model.trim() || null,
           generation_profile: {
             target_market: targetMarket,
             genre_mother: "xianxia",
