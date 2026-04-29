@@ -47,12 +47,15 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
             description="寒门少年被迫入局。",
             characters_blueprint="女主是宗门高位角色。",
             outline_detail="本章必须推进关系与境界。",
+            story_summary="前情摘要。",
+            active_character_focus="## 女主\n- 当前必须保持高位压迫感。",
         ),
     )
 
     headers = (
         "# Output Contract",
         "# Chapter Objective Card",
+        "# Active Character Focus",
         "# Voice Profile",
         "# Plot Writing Guide",
         "# Intensity Profile",
@@ -71,3 +74,25 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
     assert "用压力迫使主角行动" in prompt
     assert "intensity_level: explicit" in prompt
     assert "chapter_goal: seduce" in prompt
+    assert "当前必须保持高位压迫感" in prompt
+    assert "## 故事摘要" in prompt
+
+
+def test_writing_context_applies_static_section_budgets() -> None:
+    prompt = assemble_writing_context(
+        sections=WritingContextSections(
+            world_building="世" * 6000,
+            outline_master="纲" * 5000,
+            outline_detail="章" * 9000,
+            runtime_state="态" * 7000,
+            runtime_threads="线" * 7000,
+            story_summary="摘" * 6000,
+        ),
+    )
+
+    assert "世" * 4500 not in prompt
+    assert "纲" * 3500 not in prompt
+    assert "章" * 7500 not in prompt
+    assert "态" * 5500 not in prompt
+    assert "线" * 4500 not in prompt
+    assert "摘" * 4500 not in prompt

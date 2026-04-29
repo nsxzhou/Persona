@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from app.prompts.active_characters import (
+    build_active_characters_system_prompt,
+    build_active_characters_user_message,
+)
 from app.prompts.continuity import (
     build_continuity_system_prompt,
     build_continuity_user_message,
@@ -66,6 +72,58 @@ class ContextSelectorAgent:
             "runtime_threads": str(current_bible.get("runtime_threads", "")),
             "story_summary": str(current_bible.get("story_summary", "")),
         }
+
+
+@dataclass
+class ActiveCharactersAgent:
+    llm_complete: LLMComplete | None = None
+
+    async def extract(
+        self,
+        *,
+        text_before_cursor: str,
+        current_chapter_context: str,
+    ) -> list[str]:
+        if self.llm_complete is None:
+            raise RuntimeError("llm_complete is required")
+        try:
+            response = await self.llm_complete(
+                system_prompt=build_active_characters_system_prompt(),
+                user_context=build_active_characters_user_message(
+                    text_before_cursor=text_before_cursor[-2000:],
+                    current_chapter_context=current_chapter_context[-4000:],
+                ),
+                mode="analysis",
+            )
+        except Exception:
+            return []
+        return self.parse_names(response)
+
+    @staticmethod
+    def parse_names(markdown: str) -> list[str]:
+        payload = _strip_json_fence(markdown)
+        try:
+            parsed = json.loads(payload)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(parsed, list):
+            return []
+        names: list[str] = []
+        for item in parsed:
+            if not isinstance(item, str):
+                continue
+            name = item.strip()
+            if name and name not in names:
+                names.append(name)
+        return names
+
+
+def _strip_json_fence(markdown: str) -> str:
+    stripped = markdown.strip()
+    match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return stripped
 
 
 @dataclass
@@ -214,6 +272,7 @@ class BeatAgent:
                 runtime_threads=current_bible.get("runtime_threads", ""),
                 current_chapter_context=state.get("current_chapter_context", ""),
                 previous_chapter_context=state.get("previous_chapter_context", ""),
+                active_character_focus=current_bible.get("active_character_focus", ""),
                 previous_output=previous_output,
                 user_feedback=None,
             ),

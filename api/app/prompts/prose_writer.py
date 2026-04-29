@@ -64,12 +64,15 @@ def build_beat_expand_user_message(
     runtime_threads: str,
     current_chapter_context: str = "",
     previous_chapter_context: str = "",
+    active_character_focus: str = "",
     previous_output: str | None = None,
     user_feedback: str | None = None,
 ) -> str:
     parts: list[str] = []
     if current_chapter_context.strip():
         parts.append(f"## 当前章节\n\n{current_chapter_context}")
+    if active_character_focus.strip():
+        parts.append(f"# Active Character Focus\n\n{active_character_focus}")
     if outline_detail.strip():
         parts.append(f"## 章节细纲\n\n{outline_detail}")
     if runtime_state.strip():
