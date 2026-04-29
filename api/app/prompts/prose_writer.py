@@ -43,7 +43,7 @@ def build_beat_expand_system_prompt(
         parts,
         style_prompt=style_prompt,
         plot_prompt=plot_prompt,
-        plot_usage="续写只用于防止情节跑偏和洗白，不得复制样本角色、设定、事件或桥段。",
+        plot_usage="写作时只用于防止情节跑偏和洗白，不得复制样本角色、设定、事件或桥段。",
         generation_profile=generation_profile,
     )
     hook_framework = get_hook_framework(generation_profile)

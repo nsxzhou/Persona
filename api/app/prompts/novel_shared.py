@@ -153,7 +153,7 @@ def format_generation_profile(generation_profile: GenerationProfile | None) -> s
         f"pov_mode: {generation_profile.pov_mode}\n"
         f"morality_axis: {generation_profile.morality_axis}\n"
         f"pace_density: {generation_profile.pace_density}\n\n"
-        "这些字段是显式创作目标，必须直接作用于规划与续写。"
+        "这些字段是显式创作目标，必须直接作用于规划与正文生成。"
     )
 
 
