@@ -7,40 +7,17 @@ def test_novel_workflow_agents_are_split_into_named_components() -> None:
     from app.services.novel_workflow_agents import (
         ActiveCharactersAgent,
         BeatAgent,
-        ContextSelectorAgent,
         ContinuityAgent,
         EditorAgent,
         MemorySyncAgent,
         Orchestrator,
-        OutlineAgent,
-        WorldBuildingAgent,
     )
 
     orchestrator = Orchestrator()
-    assert orchestrator.select_intent_node("project_bootstrap") == "run_project_bootstrap"
     assert orchestrator.select_intent_node("chapter_write") == "run_chapter_write"
     assert orchestrator.select_intent_node("concept_bootstrap") == "run_concept_bootstrap"
 
-    context = ContextSelectorAgent().select(
-        {
-            "project_description": "desc",
-            "current_bible": {
-                "world_building": "world",
-                "characters_blueprint": "chars",
-                "outline_master": "master",
-                "outline_detail": "detail",
-                "characters_status": "status",
-                "runtime_state": "state",
-                "runtime_threads": "threads",
-            },
-        }
-    )
-    assert context["description"] == "desc"
-    assert context["runtime_threads"] == "threads"
-
     for agent in (
-        OutlineAgent,
-        WorldBuildingAgent,
         ActiveCharactersAgent,
         BeatAgent,
         ContinuityAgent,

@@ -242,6 +242,92 @@ describe("API contracts", () => {
     );
   });
 
+  test("concept generation ignores assistant preamble and parses numbered cards", async () => {
+    const markdown = `好的，作为资深策划编辑，我已根据你的反馈完成修订。
+
+---
+
+### 1. 给我砸了
+简介一第一段。
+
+简介一第二段。
+
+### 2、系统逼我做坏人，但怎么惩罚你
+简介二，不能吞掉第三张卡。
+
+### 3 等我报复完，你再告诉她好不好
+简介三。`;
+    const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
+      if (path === "/api/v1/novel-workflows" && init?.method === "POST") {
+        return {
+          id: "concept-bootstrap-1",
+          intent_type: "concept_bootstrap",
+          project_id: null,
+          chapter_id: null,
+          provider_id: "provider-1",
+          model_name: null,
+          status: "pending",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: [],
+          warnings: [],
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-04-27T00:00:00Z",
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.endsWith("/status")) {
+        return {
+          id: "concept-bootstrap-1",
+          status: "succeeded",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: ["concepts_markdown"],
+          warnings: [],
+          error_message: null,
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.includes("/artifacts/concepts_markdown")) {
+        return markdown as T;
+      }
+      return undefined as T;
+    }) as unknown as {
+      <T>(path: string, init?: RequestInit): Promise<T>;
+      raw: (path: string, init?: RequestInit) => Promise<Response>;
+    };
+    request.raw = vi.fn(async () => new Response(null, { status: 204 }));
+    const client = createApiClient(request);
+
+    const result = await client.generateConcepts({
+      inspiration: "庄子昂被系统惩罚续命。",
+      provider_id: "provider-1",
+      count: 3,
+      generation_profile: null,
+      style_profile_id: null,
+      plot_profile_id: null,
+    });
+
+    expect(result.concepts).toEqual([
+      {
+        title: "给我砸了",
+        synopsis: "简介一第一段。\n\n简介一第二段。",
+      },
+      {
+        title: "系统逼我做坏人，但怎么惩罚你",
+        synopsis: "简介二，不能吞掉第三张卡。",
+      },
+      {
+        title: "等我报复完，你再告诉她好不好",
+        synopsis: "简介三。",
+      },
+    ]);
+  });
+
   test("regeneration options use canonical feedback field", async () => {
     const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
       if (path === "/api/v1/novel-workflows" && init?.method === "POST") {
