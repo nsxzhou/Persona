@@ -203,7 +203,7 @@ describe("API contracts", () => {
     const payload: ConceptGeneratePayload = {
       inspiration: "一个被迫冒名顶替入局的寒门书生。",
       provider_id: "provider-1",
-      model: null,
+      model_name: "gpt-4.1-mini",
       count: 3,
       generation_profile: {
         target_market: "mainstream",
@@ -220,16 +220,101 @@ describe("API contracts", () => {
 
     await client.generateConcepts(payload);
 
+    const createCall = (request as unknown as { mock: { calls: Array<[string, RequestInit?]> } }).mock.calls.find(
+      ([path, init]) => path === "/api/v1/novel-workflows" && init?.method === "POST",
+    );
+    expect(createCall).toBeDefined();
+    const [, createInit] = createCall!;
+    const body = JSON.parse(String(createInit?.body ?? "{}")) as Record<string, unknown>;
+
+    expect(body).toEqual({
+      intent_type: "concept_bootstrap",
+      ...payload,
+    });
+    expect(body).toHaveProperty("model_name", "gpt-4.1-mini");
+    expect(body).not.toHaveProperty("model");
     expect(request).toHaveBeenCalledWith(
       "/api/v1/novel-workflows",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({
-          intent_type: "concept_bootstrap",
-          ...payload,
-        }),
+        body: JSON.stringify(body),
       }),
     );
+  });
+
+  test("regeneration options use canonical feedback field", async () => {
+    const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
+      if (path === "/api/v1/novel-workflows" && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body ?? "{}")) as { intent_type?: string };
+        return {
+          id: `${payload.intent_type ?? "workflow"}-1`,
+          intent_type: payload.intent_type ?? "section_generate",
+          project_id: null,
+          chapter_id: null,
+          provider_id: null,
+          model_name: null,
+          status: "pending",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: [],
+          warnings: [],
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-04-27T00:00:00Z",
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.endsWith("/status")) {
+        return {
+          id: "concept-bootstrap-1",
+          status: "succeeded",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: ["concepts_markdown"],
+          warnings: [],
+          error_message: null,
+          updated_at: "2026-04-27T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path.includes("/artifacts/concepts_markdown")) {
+        return "### 标题A\n简介A" as T;
+      }
+      return undefined as T;
+    }) as unknown as {
+      <T>(path: string, init?: RequestInit): Promise<T>;
+      raw: (path: string, init?: RequestInit) => Promise<Response>;
+    };
+    request.raw = vi.fn(async () => new Response(null, { status: 204 }));
+    const client = createApiClient(request);
+
+    await client.generateConcepts(
+      {
+        inspiration: "旧灵感",
+        provider_id: "provider-1",
+        count: 3,
+        generation_profile: null,
+        style_profile_id: null,
+        plot_profile_id: null,
+      },
+      {
+        previousOutput: "上一版",
+        userFeedback: "主角换名，剧情微调",
+      },
+    );
+
+    const createCall = (request as unknown as { mock: { calls: Array<[string, RequestInit?]> } }).mock.calls.find(
+      ([path, init]) => path === "/api/v1/novel-workflows" && init?.method === "POST",
+    );
+    expect(createCall).toBeDefined();
+    const [, init] = createCall!;
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+
+    expect(body.previous_output).toBe("上一版");
+    expect(body.feedback).toBe("主角换名，剧情微调");
+    expect(body).not.toHaveProperty("user_feedback");
   });
 
   test("proposeBibleUpdate sends content_to_check and sync_scope", async () => {

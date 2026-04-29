@@ -101,6 +101,6 @@ export type ConceptGeneratePayload = Pick<
   | "generation_profile"
   | "style_profile_id"
   | "plot_profile_id"
+  | "model_name"
 > & {
-  model?: string | null;
 };

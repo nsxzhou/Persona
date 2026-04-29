@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from app.prompts.beat import (
     build_beat_generate_system_prompt,
     build_beat_generate_user_message,
@@ -713,7 +713,8 @@ def test_system_prompts_include_regeneration_guidance_only_when_requested(
     assert _REGEN_MARKER not in default_prompt
     assert _REGEN_MARKER in regen_prompt
     assert "【用户意见】" in regen_prompt
-    assert "以下方【上一版结果】为基础进行修订" in regen_prompt
+    assert "用户意见的优先级高于上一版结果" in regen_prompt
+    assert "不能只改标题、标签或表层包装" in regen_prompt
 
 
 def test_section_user_message_appends_previous_output_and_user_feedback() -> None:
@@ -904,6 +905,30 @@ def test_request_schemas_default_regeneration_fields_to_none(
 
     assert parsed_with_regen.previous_output == "旧稿"
     assert parsed_with_regen.feedback == "意见"
+    assert parsed_with_regen.model_dump(exclude_none=True)["feedback"] == "意见"
     if base_payload["intent_type"] == "concept_bootstrap":
         assert parsed_with_regen.style_profile_id == "style-1"
         assert parsed_with_regen.plot_profile_id == "plot-1"
+
+
+@pytest.mark.parametrize(
+    "unexpected_field",
+    [
+        {"user_feedback": "意见"},
+        {"model": "gpt-4.1-mini"},
+    ],
+)
+def test_request_schema_rejects_noncanonical_workflow_fields(
+    unexpected_field,
+) -> None:
+    adapter = TypeAdapter(NovelWorkflowCreateRequest)
+
+    with pytest.raises(ValidationError):
+        adapter.validate_python(
+            {
+                "intent_type": "concept_bootstrap",
+                "inspiration": "灵感",
+                "provider_id": "p-1",
+                **unexpected_field,
+            },
+        )

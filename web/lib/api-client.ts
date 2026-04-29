@@ -72,7 +72,7 @@ function regenerateFields(options?: RegenerateOptions): Record<string, string> {
     out.previous_output = options.previousOutput;
   }
   if (options.userFeedback !== undefined && options.userFeedback !== null) {
-    out.user_feedback = options.userFeedback;
+    out.feedback = options.userFeedback;
   }
   return out;
 }
