@@ -6,14 +6,12 @@ import { useRouter } from "next/navigation";
 import {
   ChevronRight as Breadcrumb,
   PenLine,
-  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDebounceSave } from "@/hooks/use-debounce-save";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ProjectBootstrapDialog } from "@/components/project-bootstrap-dialog";
 import {
   Select,
   SelectContent,
@@ -23,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { WorkbenchTabs } from "@/components/workbench-tabs";
 import { updateProjectAction } from "@/app/(workspace)/projects/actions";
-import { api } from "@/lib/api";
 import type { PlotProfileListItem, Project, ProjectBible, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 
 export function ProjectWorkbench(props: {
@@ -59,23 +56,10 @@ function ProjectWorkbenchInner({
   const [displayName, setDisplayName] = useState(initialProject.name);
   const [status, setStatus] = useState(initialProject.status);
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [bootstrapRunId, setBootstrapRunId] = useState<string | null>(null);
-  const [bootstrapBundle, setBootstrapBundle] = useState("");
-  const [showBootstrapDialog, setShowBootstrapDialog] = useState(false);
-  const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
-
-  const isBlankProjectBible = (bible: ProjectBible) =>
-    !bible.world_building.trim()
-    && !bible.characters_blueprint.trim()
-    && !bible.outline_master.trim()
-    && !bible.outline_detail.trim()
-    && !bible.characters_status.trim()
-    && !bible.runtime_state.trim()
-    && !bible.runtime_threads.trim();
 
   const debouncedSave = useDebounceSave(async (field: string, value: string) => {
     try {
@@ -93,94 +77,6 @@ function ProjectWorkbenchInner({
   const handleStatusChange = (val: "draft" | "active" | "paused") => {
     setStatus(val);
     debouncedSave("status", val);
-  };
-
-  const waitBootstrapToFinish = async (runId: string) => {
-    const status = await api.waitForNovelWorkflow(runId);
-    if (status.status === "failed") {
-      throw new Error(status.error_message || "项目初始化失败");
-    }
-    if (status.status === "paused") {
-      throw new Error("项目初始化仍处于暂停状态，请在审核对话框中继续");
-    }
-    toast.success("项目初始化完成");
-    router.refresh();
-  };
-
-  const handleProjectBootstrap = async () => {
-    if (isBootstrapping) return;
-    setIsBootstrapping(true);
-    try {
-      const latestBible = await api.getProjectBible(initialProject.id);
-      if (!isBlankProjectBible(latestBible)) {
-        toast.info("该项目已存在 Bible 内容，无法一键初始化");
-        return;
-      }
-
-      const { run, status } = await api.runProjectBootstrapWorkflow(initialProject.id);
-      setBootstrapRunId(run.id);
-
-      if (status.status === "failed") {
-        throw new Error(status.error_message || "项目初始化失败");
-      }
-
-      if (status.status === "paused" && status.checkpoint_kind === "outline_bundle") {
-        const bundle = await api.getNovelWorkflowArtifact(run.id, "outline_bundle");
-        setBootstrapBundle(bundle);
-        setShowBootstrapDialog(true);
-        return;
-      }
-
-      if (status.status === "succeeded") {
-        toast.success("项目初始化完成");
-        router.refresh();
-        return;
-      }
-
-      throw new Error("项目初始化状态异常");
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "项目初始化失败";
-      toast.error(message);
-    } finally {
-      setIsBootstrapping(false);
-    }
-  };
-
-  const handleBootstrapApprove = async () => {
-    if (!bootstrapRunId || isBootstrapping) return;
-    setIsBootstrapping(true);
-    try {
-      await api.decideNovelWorkflow(bootstrapRunId, {
-        action: "approve",
-        artifact_name: "outline_bundle",
-      });
-      setShowBootstrapDialog(false);
-      await waitBootstrapToFinish(bootstrapRunId);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "提交失败";
-      toast.error(message);
-    } finally {
-      setIsBootstrapping(false);
-    }
-  };
-
-  const handleBootstrapRevise = async (editedMarkdown: string) => {
-    if (!bootstrapRunId || isBootstrapping) return;
-    setIsBootstrapping(true);
-    try {
-      await api.decideNovelWorkflow(bootstrapRunId, {
-        action: "revise",
-        artifact_name: "outline_bundle",
-        edited_markdown: editedMarkdown,
-      });
-      setShowBootstrapDialog(false);
-      await waitBootstrapToFinish(bootstrapRunId);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "提交失败";
-      toast.error(message);
-    } finally {
-      setIsBootstrapping(false);
-    }
   };
 
   return (
@@ -236,15 +132,6 @@ function ProjectWorkbenchInner({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
-          <Button
-            variant="outline"
-            className="gap-2"
-            disabled={isBootstrapping || !isBlankProjectBible(initialProjectBible)}
-            onClick={handleProjectBootstrap}
-          >
-            <Wand2 className={`h-4 w-4 ${isBootstrapping ? "animate-spin" : ""}`} />
-            一键初始化 (AI)
-          </Button>
           <Button asChild className="gap-2">
             <Link href={`/projects/${initialProject.id}/editor`}>
               <PenLine className="h-4 w-4" />
@@ -265,15 +152,6 @@ function ProjectWorkbenchInner({
         activeTab={activeTab}
         onActiveTabChange={setActiveTab}
         highlightedVolumeIndex={highlightedVolumeIndex}
-      />
-
-      <ProjectBootstrapDialog
-        open={showBootstrapDialog}
-        bundleMarkdown={bootstrapBundle}
-        busy={isBootstrapping}
-        onApprove={handleBootstrapApprove}
-        onRevise={handleBootstrapRevise}
-        onDismiss={() => setShowBootstrapDialog(false)}
       />
     </div>
   );

@@ -103,16 +103,14 @@ function buildSseResponse(text: string): Response {
 }
 
 function parseMarkdownConcepts(markdown: string): ConceptGenerateResult {
-  const concepts = markdown
-    .split(/^###\s+/m)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const [titleLine, ...rest] = part.split("\n");
-      return {
-        title: titleLine.trim(),
-        synopsis: rest.join("\n").trim(),
-      };
+  const headings = Array.from(markdown.matchAll(/^###\s+([^\n]+)\s*$/gm));
+  const concepts = headings
+    .map((match, index) => {
+      const title = match[1].trim().replace(/^\d+[.、\s]+/, "");
+      const synopsisStart = (match.index ?? 0) + match[0].length;
+      const synopsisEnd = headings[index + 1]?.index ?? markdown.length;
+      const synopsis = markdown.slice(synopsisStart, synopsisEnd).trim();
+      return { title, synopsis };
     })
     .filter((item) => item.title && item.synopsis);
   return { concepts };
@@ -544,11 +542,6 @@ export function createApiClient(request: Requester) {
       const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`);
       return buildSseResponse(markdown);
     },
-    runProjectBootstrapWorkflow: (projectId: string) =>
-      createNovelWorkflowAndWait({
-        intent_type: "project_bootstrap",
-        project_id: projectId,
-      } as NovelWorkflowCreatePayload),
     runSectionWorkflow: (
       projectId: string,
       payload: {
