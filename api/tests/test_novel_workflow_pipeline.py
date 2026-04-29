@@ -120,7 +120,7 @@ async def test_project_bootstrap_pipeline_pauses_for_outline_review_and_resumes(
 
 
 @pytest.mark.asyncio
-async def test_continuation_write_selects_active_characters_before_prose(
+async def test_selection_rewrite_selects_active_characters_and_includes_selection_context(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -131,7 +131,7 @@ async def test_continuation_write_selects_active_characters_before_prose(
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
 
     get_settings.cache_clear()
-    llm = StubLLM(['["沈砚"]', "沈砚推门而入。"])
+    llm = StubLLM(['["沈砚"]', "沈砚压低声音，指节扣住账册边缘。"])
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
         storage_service=NovelWorkflowStorageService(),
@@ -139,12 +139,15 @@ async def test_continuation_write_selects_active_characters_before_prose(
     )
 
     result = await pipeline.run(
-        run_id="run-continuation-focused-context",
+        run_id="run-selection-rewrite-focused-context",
         initial_state={
-            "intent_type": "continuation_write",
+            "intent_type": "selection_rewrite",
             "project_description": "寒门少年入局。",
             "current_chapter_context": "沈砚正在逼问账房。",
-            "text_before_cursor": "沈砚按住账册。",
+            "text_before_selection": "烛火摇了一下。",
+            "selected_text": "沈砚按住账册。",
+            "text_after_selection": "账房的脸色白了。",
+            "rewrite_instruction": "加强压迫感，保留动作含义。",
             "current_bible": {
                 "world_building": "世界规则",
                 "characters_blueprint": (
@@ -164,7 +167,7 @@ async def test_continuation_write_selects_active_characters_before_prose(
         },
     )
 
-    assert result.persist_payload["markdown"] == "沈砚推门而入。"
+    assert result.persist_payload["markdown"] == "沈砚压低声音，指节扣住账册边缘。"
     assert [call["mode"] for call in llm.calls] == ["analysis", "immersion"]
     prose_call = llm.calls[1]
     assert "# Active Character Focus" in prose_call["system_prompt"]
@@ -172,6 +175,10 @@ async def test_continuation_write_selects_active_characters_before_prose(
     assert "IRRELEVANT_BLUEPRINT" not in prose_call["system_prompt"]
     assert "IRRELEVANT_STATUS" not in prose_call["system_prompt"]
     assert "# Active Character Focus" in prose_call["user_context"]
+    assert "## 选中文本" in prose_call["user_context"]
+    assert "沈砚按住账册。" in prose_call["user_context"]
+    assert "加强压迫感，保留动作含义。" in prose_call["user_context"]
+    assert "只输出改写后的选中文本" in prose_call["user_context"]
 
 
 @pytest.mark.asyncio
@@ -313,4 +320,3 @@ async def test_chapter_write_pipeline_pauses_on_beats_then_expands_with_one_focu
         "immersion",
         "analysis",
     ]
-

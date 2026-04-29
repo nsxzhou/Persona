@@ -183,8 +183,9 @@ def test_project_and_novel_workflow_requests_accept_generation_profile() -> None
     )
     update_payload = ProjectUpdate(generation_profile=generation_profile)
     workflow_payload = NovelWorkflowCreateRequest(
-        intent_type="continuation_write",
-        text_before_cursor="他看着她，没有说话。",
+        intent_type="selection_rewrite",
+        selected_text="他看着她，没有说话。",
+        rewrite_instruction="加强潜台词。",
         generation_profile=generation_profile,
     )
     response = ProjectResponse(

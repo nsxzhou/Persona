@@ -76,6 +76,10 @@ class NovelWorkflowState(TypedDict):
     current_bible: NotRequired[dict[str, str]]
     chapter_snapshot: NotRequired[dict[str, str]]
     text_before_cursor: NotRequired[str]
+    selected_text: NotRequired[str]
+    text_before_selection: NotRequired[str]
+    text_after_selection: NotRequired[str]
+    rewrite_instruction: NotRequired[str]
     current_chapter_context: NotRequired[str]
     previous_chapter_context: NotRequired[str]
     total_content_length: NotRequired[int]
@@ -152,7 +156,7 @@ class NovelWorkflowPipeline:
             "section_generate": self._handle_section_generate,
             "volume_generate": self._handle_volume_generate,
             "volume_chapters_generate": self._handle_volume_chapters_generate,
-            "continuation_write": self._handle_continuation_write,
+            "selection_rewrite": self._handle_selection_rewrite,
             "beats_generate": self._handle_beats_generate,
             "beat_expand": self._handle_beat_expand,
             "memory_refresh": self._handle_memory_refresh,
@@ -565,9 +569,9 @@ class NovelWorkflowPipeline:
             "persist_payload": {"markdown": markdown},
         }
 
-    async def _handle_continuation_write(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+    async def _handle_selection_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         artifact_name = "prose_markdown"
-        markdown = await self._generate_continuation(state)
+        markdown = await self._generate_selection_rewrite(state)
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
             name=artifact_name,
@@ -677,9 +681,16 @@ class NovelWorkflowPipeline:
             "persist_payload": {"markdown": markdown},
         }
 
-    async def _generate_continuation(self, state: NovelWorkflowState) -> str:
+    async def _generate_selection_rewrite(self, state: NovelWorkflowState) -> str:
         current_bible = state.get("current_bible", {})
-        selected_context = await self._select_writing_context(state, current_bible)
+        state_for_context: NovelWorkflowState = {
+            **state,
+            "text_before_cursor": (
+                f"{state.get('text_before_selection', '')}\n"
+                f"{state.get('selected_text', '')}"
+            ),
+        }
+        selected_context = await self._select_writing_context(state_for_context, current_bible)
         generation_profile = self._generation_profile_obj(state)
         objective_card = build_chapter_objective_card(
             generation_profile,
@@ -714,9 +725,18 @@ class NovelWorkflowPipeline:
             parts.append(f"## 当前章节\n\n{state.get('current_chapter_context', '')}")
         if selected_context.active_character_focus.strip():
             parts.append("# Active Character Focus\n\n" + selected_context.active_character_focus)
+        if state.get("text_before_selection", "").strip():
+            parts.append(f"## 选区前文\n\n{state.get('text_before_selection', '')[-3000:]}")
         parts.append(
-            "请从以下当前章节光标位置继续写作，保持自然衔接：\n\n"
-            f"{state.get('text_before_cursor', '')}"
+            "## 选中文本\n\n"
+            f"{state.get('selected_text', '')}"
+        )
+        if state.get("text_after_selection", "").strip():
+            parts.append(f"## 选区后文\n\n{state.get('text_after_selection', '')[:3000]}")
+        parts.append(
+            "## 修改要求\n\n"
+            f"{state.get('rewrite_instruction', '').strip() or '在不改变原意的前提下优化表达。'}\n\n"
+            "只输出改写后的选中文本。不要生成选区后的内容，不要输出解释、标题、引号或 Markdown 包装。"
         )
         return await self._call_prompt(
             system_prompt=system_prompt,

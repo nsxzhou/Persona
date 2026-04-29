@@ -40,7 +40,7 @@ NovelWorkflowIntentType: TypeAlias = Literal[
     "section_generate",
     "volume_generate",
     "volume_chapters_generate",
-    "continuation_write",
+    "selection_rewrite",
     "beats_generate",
     "beat_expand",
 ]
@@ -73,6 +73,10 @@ class NovelWorkflowCreateRequest(BaseModel):
     volume_index: int | None = Field(default=None, ge=0)
     section: str | None = None
     text_before_cursor: str = ""
+    selected_text: str = ""
+    text_before_selection: str = ""
+    text_after_selection: str = ""
+    rewrite_instruction: str = ""
     current_chapter_context: str = ""
     previous_chapter_context: str = ""
     total_content_length: int = Field(default=0, ge=0)
