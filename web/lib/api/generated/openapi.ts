@@ -1030,7 +1030,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1077,7 +1077,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id?: string | null;
             /** Chapter Id */
@@ -1091,6 +1091,26 @@ export interface components {
              * @default
              */
             text_before_cursor: string;
+            /**
+             * Selected Text
+             * @default
+             */
+            selected_text: string;
+            /**
+             * Text Before Selection
+             * @default
+             */
+            text_before_selection: string;
+            /**
+             * Text After Selection
+             * @default
+             */
+            text_after_selection: string;
+            /**
+             * Rewrite Instruction
+             * @default
+             */
+            rewrite_instruction: string;
             /**
              * Current Chapter Context
              * @default
@@ -1194,7 +1214,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "continuation_write" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "project_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */

@@ -3163,7 +3163,7 @@
               "section_generate",
               "volume_generate",
               "volume_chapters_generate",
-              "continuation_write",
+              "selection_rewrite",
               "beats_generate",
               "beat_expand"
             ],
@@ -3359,7 +3359,7 @@
               "section_generate",
               "volume_generate",
               "volume_chapters_generate",
-              "continuation_write",
+              "selection_rewrite",
               "beats_generate",
               "beat_expand"
             ],
@@ -3413,6 +3413,26 @@
           "text_before_cursor": {
             "type": "string",
             "title": "Text Before Cursor",
+            "default": ""
+          },
+          "selected_text": {
+            "type": "string",
+            "title": "Selected Text",
+            "default": ""
+          },
+          "text_before_selection": {
+            "type": "string",
+            "title": "Text Before Selection",
+            "default": ""
+          },
+          "text_after_selection": {
+            "type": "string",
+            "title": "Text After Selection",
+            "default": ""
+          },
+          "rewrite_instruction": {
+            "type": "string",
+            "title": "Rewrite Instruction",
             "default": ""
           },
           "current_chapter_context": {
@@ -3717,7 +3737,7 @@
               "section_generate",
               "volume_generate",
               "volume_chapters_generate",
-              "continuation_write",
+              "selection_rewrite",
               "beats_generate",
               "beat_expand"
             ],

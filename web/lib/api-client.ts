@@ -65,6 +65,18 @@ type RegenerateOptions = {
 
 export type { RegenerateOptions };
 
+export type SelectionRewriteWorkflowPayload = {
+  projectId: string;
+  selectedText: string;
+  textBeforeSelection: string;
+  textAfterSelection: string;
+  rewriteInstruction: string;
+  currentChapterContext?: string;
+  previousChapterContext?: string;
+  totalContentLength?: number;
+  generationProfile?: GenerationProfile | null;
+};
+
 function regenerateFields(options?: RegenerateOptions): Record<string, string> {
   if (!options) return {};
   const out: Record<string, string> = {};
@@ -420,25 +432,30 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/plot-profiles/${id}`, {
         method: "DELETE",
       }),
-    runContinuationWorkflow: async (
-      projectId: string,
-      textBeforeCursor: string,
+    runSelectionRewriteWorkflow: async ({
+      projectId,
+      selectedText,
+      textBeforeSelection,
+      textAfterSelection,
+      rewriteInstruction,
       currentChapterContext = "",
       previousChapterContext = "",
       totalContentLength = 0,
-      generationProfile?: GenerationProfile | null,
-    ) => {
+      generationProfile,
+    }: SelectionRewriteWorkflowPayload) => {
       const { run } = await createNovelWorkflowAndWait({
-        intent_type: "continuation_write",
+        intent_type: "selection_rewrite",
         project_id: projectId,
-        text_before_cursor: textBeforeCursor,
+        selected_text: selectedText,
+        text_before_selection: textBeforeSelection,
+        text_after_selection: textAfterSelection,
+        rewrite_instruction: rewriteInstruction,
         current_chapter_context: currentChapterContext,
         previous_chapter_context: previousChapterContext,
         total_content_length: totalContentLength,
-        ...(generationProfile ? { generation_profile: generationProfile } : {}),
-      } as NovelWorkflowCreatePayload);
-      const markdown = await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`);
-      return buildSseResponse(markdown);
+      ...(generationProfile ? { generation_profile: generationProfile } : {}),
+    } as NovelWorkflowCreatePayload);
+      return await request<string>(`/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`);
     },
     proposeBibleUpdate: async (
       projectId: string,
