@@ -471,6 +471,7 @@ class NovelWorkflowPipeline:
         artifact_name = "volume_chapters_markdown"
         markdown = await self._call_prompt(
             system_prompt=build_volume_chapters_system_prompt(
+                length_preset=state.get("length_preset", "long"),
                 style_prompt=state.get("style_prompt"),
                 plot_prompt=state.get("plot_prompt"),
                 generation_profile=generation_profile,
