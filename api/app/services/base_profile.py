@@ -4,7 +4,7 @@ from typing import Generic, TypeVar, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.domain_errors import ConflictError, NotFoundError
+from app.core.domain_errors import NotFoundError
 
 T = TypeVar("T")
 

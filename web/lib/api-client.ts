@@ -20,6 +20,7 @@ import type {
   ProjectChapter,
   ProjectChapterUpdate,
   ProjectPayload,
+  ProjectUpdatePayload,
   ProjectSummary,
   ProjectBible,
   ProjectBibleUpdate,
@@ -215,7 +216,7 @@ export function createApiClient(request: Requester) {
         method: "POST",
         body: JSON.stringify(payload),
       }),
-    updateProject: (id: string, payload: Partial<ProjectPayload>) =>
+    updateProject: (id: string, payload: Partial<ProjectUpdatePayload>) =>
       request<Project>(`/api/v1/projects/${id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),

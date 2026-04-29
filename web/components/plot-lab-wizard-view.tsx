@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PlotLabWizardPromptPackStep } from "@/components/plot-lab-wizard-prompt-pack-step";
 import { PlotLabWizardReportStep } from "@/components/plot-lab-wizard-report-step";
 import { PlotLabWizardSkeletonStep } from "@/components/plot-lab-wizard-skeleton-step";
 import { PlotLabWizardSummaryStep } from "@/components/plot-lab-wizard-summary-step";

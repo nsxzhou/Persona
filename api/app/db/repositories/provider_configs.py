@@ -8,12 +8,17 @@ from app.db.models import (
     PlotAnalysisJob,
     PlotProfile,
     ProviderConfig,
+    User,
     StyleAnalysisJob,
     StyleProfile,
 )
 
 
 class ProviderConfigRepository:
+    async def get_first_user_id(self, session: AsyncSession) -> str | None:
+        stmt = select(User.id).limit(1)
+        return await session.scalar(stmt)
+
     async def list(
         self,
         session: AsyncSession,

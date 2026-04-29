@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Project, ProjectPayload, ProjectBible, ProjectBibleUpdate } from "@/lib/types";
+import type { Project, ProjectBible, ProjectBibleUpdate, ProjectUpdatePayload } from "@/lib/types";
 import { toast } from "sonner";
 
 export const projectKeys = {
@@ -29,16 +29,16 @@ export function useUpdateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<ProjectPayload> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<ProjectUpdatePayload> }) =>
       api.updateProject(id, payload),
     onMutate: async ({ id, payload }) => {
       await queryClient.cancelQueries({ queryKey: projectKeys.detail(id) });
       const previousProject = queryClient.getQueryData<Project>(projectKeys.detail(id));
 
       if (previousProject) {
-        queryClient.setQueryData<Project>(projectKeys.detail(id), {
+        queryClient.setQueryData(projectKeys.detail(id), {
           ...previousProject,
-          ...(payload as any),
+          ...payload,
         });
       }
 

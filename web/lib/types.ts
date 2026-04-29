@@ -75,6 +75,7 @@ export type ConnectionTestResponse = OpenApiSchema<"ConnectionTestResponse">;
 export type SetupPayload = components["schemas"]["SetupRequest"];
 export type LoginPayload = components["schemas"]["LoginRequest"];
 export type ProjectPayload = components["schemas"]["ProjectCreate"];
+export type ProjectUpdatePayload = components["schemas"]["ProjectUpdate"];
 export type ProjectChapterUpdate = components["schemas"]["ProjectChapterUpdate"];
 export type ProviderPayload = components["schemas"]["ProviderConfigCreate"];
 

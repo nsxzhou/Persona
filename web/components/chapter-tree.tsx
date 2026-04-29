@@ -13,10 +13,20 @@ interface ChapterTreeProps {
 }
 
 type FlatItem =
-  | { type: "volume"; vi: number; vol: ParsedOutline["volumes"][0] }
-  | { type: "empty-volume"; vi: number; vol: ParsedOutline["volumes"][0] }
-  | { type: "chapter"; vi: number; ci: number; ch: any }
-  | { type: "chapter-details"; vi: number; ci: number; ch: any };
+  | { type: "volume"; vi: number; vol: ParsedOutline["volumes"][number] }
+  | { type: "empty-volume"; vi: number; vol: ParsedOutline["volumes"][number] }
+  | {
+      type: "chapter";
+      vi: number;
+      ci: number;
+      ch: ParsedOutline["volumes"][number]["chapters"][number];
+    }
+  | {
+      type: "chapter-details";
+      vi: number;
+      ci: number;
+      ch: ParsedOutline["volumes"][number]["chapters"][number];
+    };
 
 function getFlatItemKey(item: FlatItem): string {
   if (item.type === "volume") return `volume-${item.vi}`;

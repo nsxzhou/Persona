@@ -30,6 +30,7 @@ import type {
   GenerationProfile,
   PlotProfileListItem,
   Project,
+  ProjectUpdatePayload,
   ProviderConfig,
   StyleProfileListItem,
 } from "@/lib/types";
@@ -135,11 +136,8 @@ export function SettingsTab({
     generationPaceDensity !== (project.generation_profile?.pace_density ?? "balanced");
 
   const saveMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      updateProjectAction(
-        project.id,
-        payload as Partial<Record<string, string>>,
-      ),
+    mutationFn: (payload: Partial<ProjectUpdatePayload>) =>
+      updateProjectAction(project.id, payload),
     onError: (error) => toast.error(error.message),
     onSuccess: () => toast.success("项目设置已保存"),
   });

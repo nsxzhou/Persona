@@ -5,7 +5,6 @@ import io
 import urllib.parse
 from fastapi.responses import StreamingResponse
 
-import ebooklib
 from ebooklib import epub
 
 from collections.abc import AsyncGenerator

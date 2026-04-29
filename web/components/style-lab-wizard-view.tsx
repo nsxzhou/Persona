@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { StyleLabWizardPromptPackStep } from "@/components/style-lab-wizard-prompt-pack-step";
 import { StyleLabWizardReportStep } from "@/components/style-lab-wizard-report-step";
 import { StyleLabWizardSummaryStep } from "@/components/style-lab-wizard-summary-step";
 import { StyleLabProfileView } from "@/components/style-lab-profile-view";

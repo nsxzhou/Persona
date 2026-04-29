@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUserDep, DbSessionDep, NovelWorkflowServiceDep
 from app.schemas.novel_workflows import (

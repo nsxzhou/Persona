@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession

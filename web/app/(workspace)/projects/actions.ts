@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerApi } from "@/lib/server-api";
-import type { ProjectPayload } from "@/lib/types";
+import type { ProjectPayload, ProjectUpdatePayload } from "@/lib/types";
 
 export async function createProjectAction(payload: ProjectPayload) {
   const api = await getServerApi();
@@ -11,7 +11,7 @@ export async function createProjectAction(payload: ProjectPayload) {
   return project;
 }
 
-export async function updateProjectAction(id: string, payload: Partial<ProjectPayload>) {
+export async function updateProjectAction(id: string, payload: Partial<ProjectUpdatePayload>) {
   const api = await getServerApi();
   const project = await api.updateProject(id, payload);
   revalidatePath("/projects");

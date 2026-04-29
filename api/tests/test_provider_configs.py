@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from httpx import AsyncClient
 
 
@@ -113,6 +113,106 @@ async def test_provider_delete_rejects_when_referenced_by_style_analysis_job(
 
     assert delete_response.status_code == 409
     assert delete_response.json()["detail"] == "该 Provider 正被 Style Lab 引用，无法删除"
+
+
+@pytest.mark.asyncio
+async def test_provider_config_repository_returns_first_user_id(
+    app_with_db: FastAPI,
+) -> None:
+    from app.core.security import hash_password
+    from app.db.repositories.auth import AuthRepository
+    from app.db.repositories.provider_configs import ProviderConfigRepository
+
+    async with app_with_db.state.session_factory() as session:
+        user = await AuthRepository().create_user(
+            session,
+            username="provider-owner",
+            password_hash=hash_password("password123"),
+        )
+        resolved_user_id = await ProviderConfigRepository().get_first_user_id(session)
+
+    assert resolved_user_id == user.id
+
+
+@pytest.mark.asyncio
+async def test_provider_config_service_create_uses_repository_user_lookup() -> None:
+    from app.schemas.provider_configs import ProviderConfigCreate
+    from app.services.provider_configs import ProviderConfigService
+
+    calls: list[str] = []
+
+    class RepositoryStub:
+        async def get_first_user_id(self, session) -> str | None:
+            del session
+            calls.append("get_first_user_id")
+            return "user-1"
+
+        async def create(
+            self,
+            session,
+            *,
+            label: str,
+            base_url: str,
+            api_key_encrypted: str,
+            api_key_hint_last4: str,
+            default_model: str,
+            is_enabled: bool,
+            user_id: str,
+        ):
+            del session
+            calls.append("create")
+            return SimpleNamespace(
+                label=label,
+                base_url=base_url,
+                api_key_encrypted=api_key_encrypted,
+                api_key_hint_last4=api_key_hint_last4,
+                default_model=default_model,
+                is_enabled=is_enabled,
+                user_id=user_id,
+            )
+
+    service = ProviderConfigService(repository=RepositoryStub())  # type: ignore[arg-type]
+    created_provider = await service.create(
+        SimpleNamespace(),
+        ProviderConfigCreate(
+            label="Backup Gateway",
+            base_url="https://gateway.example.com/v1",
+            api_key="sk-backup-5678",
+            default_model="gpt-4.1-nano",
+            is_enabled=True,
+        ),
+    )
+
+    assert calls == ["get_first_user_id", "create"]
+    assert created_provider.user_id == "user-1"
+
+
+@pytest.mark.asyncio
+async def test_provider_config_service_create_without_users_raises_unprocessable_entity() -> None:
+    from app.core.domain_errors import UnprocessableEntityError
+    from app.schemas.provider_configs import ProviderConfigCreate
+    from app.services.provider_configs import ProviderConfigService
+
+    class RepositoryStub:
+        async def get_first_user_id(self, session) -> str | None:
+            del session
+            return None
+
+    service = ProviderConfigService(repository=RepositoryStub())  # type: ignore[arg-type]
+
+    with pytest.raises(UnprocessableEntityError) as exc_info:
+        await service.create(
+            SimpleNamespace(),
+            ProviderConfigCreate(
+                label="Backup Gateway",
+                base_url="https://gateway.example.com/v1",
+                api_key="sk-backup-5678",
+                default_model="gpt-4.1-nano",
+                is_enabled=True,
+            ),
+        )
+
+    assert exc_info.value.detail == "缺少用户上下文，无法创建 Provider"
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import (
@@ -13,7 +12,7 @@ from app.core.domain_errors import (
 )
 from app.core.security import encrypt_secret
 from app.core.redaction import redact_sensitive_text
-from app.db.models import ProviderConfig, User
+from app.db.models import ProviderConfig
 from app.db.repositories.provider_configs import ProviderConfigRepository
 from app.schemas.provider_configs import ProviderConfigCreate, ProviderConfigUpdate
 from app.services.llm_provider import LLMProviderService
@@ -38,7 +37,7 @@ class ProviderConfigService:
     ) -> str:
         if user_id is not None:
             return user_id
-        resolved = await session.scalar(select(User.id).limit(1))
+        resolved = await self.repository.get_first_user_id(session)
         if resolved is None:
             raise UnprocessableEntityError("缺少用户上下文，无法创建 Provider")
         return resolved

@@ -58,16 +58,18 @@ describe("SettingsTab", () => {
       />,
     );
 
-    expect(screen.getByText("生成策略（Generation Profile）")).toBeInTheDocument();
+    expect(screen.getByText("生成策略 (Generation Profile)")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "保存配置" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "后宫收集" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存更改" }));
 
     expect(updateProjectActionMock).toHaveBeenCalledWith(
       "project-1",
       expect.objectContaining({
         generation_profile: {
+          target_market: "mainstream",
           genre_mother: "urban",
-          desire_overlays: ["harem_collect"],
+          desire_overlays: [],
           intensity_level: "edge",
           pov_mode: "limited_third",
           morality_axis: "gray_pragmatism",
