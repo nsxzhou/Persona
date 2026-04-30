@@ -9,8 +9,8 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import (
     CurrentUserDep,
     DbSessionDep,
+    ProjectExportServiceDep,
     ProjectServiceDep,
-    ProjectChapterServiceDep,
 )
 from app.schemas.projects import (
     ProjectCreate,
@@ -177,18 +177,11 @@ async def export_project(
     format: Literal["txt", "epub"],
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
-    project_service: ProjectServiceDep,
-    project_chapter_service: ProjectChapterServiceDep,
+    project_export_service: ProjectExportServiceDep,
 ) -> StreamingResponse:
-    from app.services.export import ExportService
-
-    project = await project_service.get_or_404(
+    return await project_export_service.build_project_export_response(
         db_session,
         project_id,
         user_id=current_user.id,
+        fmt=format,
     )
-    chapters = await project_chapter_service.list(
-        db_session, project_id, user_id=current_user.id
-    )
-
-    return ExportService.build_export_response(project, chapters, format)

@@ -10,6 +10,8 @@ from ebooklib import epub
 from collections.abc import AsyncGenerator
 
 from app.db.models import Project, ProjectChapter
+from app.services.project_chapters import ProjectChapterService
+from app.services.projects import ProjectService
 
 
 class ExportService:
@@ -102,3 +104,33 @@ class ExportService:
                 media_type=media_type,
                 headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
             )
+
+
+class ProjectExportService:
+    def __init__(
+        self,
+        project_service: ProjectService | None = None,
+        project_chapter_service: ProjectChapterService | None = None,
+    ) -> None:
+        self.project_service = project_service or ProjectService()
+        self.project_chapter_service = project_chapter_service or ProjectChapterService()
+
+    async def build_project_export_response(
+        self,
+        session,
+        project_id: str,
+        *,
+        user_id: str,
+        fmt: str,
+    ) -> StreamingResponse:
+        project = await self.project_service.get_or_404(
+            session,
+            project_id,
+            user_id=user_id,
+        )
+        chapters = await self.project_chapter_service.list(
+            session,
+            project_id,
+            user_id=user_id,
+        )
+        return ExportService.build_export_response(project, chapters, fmt)
