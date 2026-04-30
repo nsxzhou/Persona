@@ -5,7 +5,7 @@ from fastapi import APIRouter, Response, status
 from app.api.deps import (
     AuthServiceDep,
     DbSessionDep,
-    ProviderConfigServiceDep,
+    SetupServiceDep,
     set_session_cookie,
 )
 from app.schemas.provider_configs import ProviderConfigResponse
@@ -26,21 +26,12 @@ async def run_setup(
     payload: SetupRequest,
     response: Response,
     db_session: DbSessionDep,
-    auth_service: AuthServiceDep,
-    provider_service: ProviderConfigServiceDep,
+    setup_service: SetupServiceDep,
 ) -> SetupResponse:
-    await auth_service.ensure_not_initialized(db_session)
-    user = await auth_service.create_initial_admin(db_session, payload.username, payload.password)
-    provider = await provider_service.create(
-        db_session,
-        payload.provider,
-        user_id=user.id,
-    )
-    _, raw_token = await auth_service.create_session(db_session, user)
-
-    set_session_cookie(response, raw_token)
+    result = await setup_service.run_initial_setup(db_session, payload)
+    set_session_cookie(response, result.raw_token)
 
     return SetupResponse(
-        user=user,
-        provider=ProviderConfigResponse.model_validate(provider),
+        user=result.user,
+        provider=ProviderConfigResponse.model_validate(result.provider),
     )

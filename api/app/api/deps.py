@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_db_session
 from app.services.auth import AuthService
-from app.services.llm_provider import LLMProviderService
+from app.services.export import ProjectExportService
 from app.services.novel_workflows import NovelWorkflowService
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
@@ -19,7 +19,10 @@ from app.services.plot_profiles import PlotProfileService
 from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
+from app.services.setup import SetupService
+from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
 from app.services.style_analysis_jobs import StyleAnalysisJobService
+from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_profiles import StyleProfileService
 
 DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
@@ -91,8 +94,43 @@ ProjectChapterServiceDep = Annotated[
 ]
 
 
-def get_style_analysis_job_service() -> StyleAnalysisJobService:
-    return StyleAnalysisJobService()
+def get_setup_service(
+    auth_service: AuthServiceDep,
+    provider_service: ProviderConfigServiceDep,
+) -> SetupService:
+    return SetupService(
+        auth_service=auth_service,
+        provider_service=provider_service,
+    )
+
+
+SetupServiceDep = Annotated[SetupService, Depends(get_setup_service)]
+
+
+def get_project_export_service(
+    project_service: ProjectServiceDep,
+    project_chapter_service: ProjectChapterServiceDep,
+) -> ProjectExportService:
+    return ProjectExportService(
+        project_service=project_service,
+        project_chapter_service=project_chapter_service,
+    )
+
+
+ProjectExportServiceDep = Annotated[
+    ProjectExportService,
+    Depends(get_project_export_service),
+]
+
+
+def get_style_analysis_job_service(
+    provider_service: ProviderConfigServiceDep,
+) -> StyleAnalysisJobService:
+    return StyleAnalysisJobService(
+        provider_service=provider_service,
+        storage_service=StyleAnalysisStorageService(),
+        checkpointer_factory=StyleAnalysisCheckpointerFactory(),
+    )
 
 
 StyleAnalysisJobServiceDep = Annotated[
@@ -111,9 +149,11 @@ StyleProfileServiceDep = Annotated[
 ]
 
 
-def get_plot_analysis_job_service() -> PlotAnalysisJobService:
+def get_plot_analysis_job_service(
+    provider_service: ProviderConfigServiceDep,
+) -> PlotAnalysisJobService:
     return PlotAnalysisJobService(
-        provider_service=ProviderConfigService(),
+        provider_service=provider_service,
         storage_service=PlotAnalysisStorageService(),
         checkpointer_factory=PlotAnalysisCheckpointerFactory(),
     )
@@ -132,16 +172,6 @@ def get_plot_profile_service() -> PlotProfileService:
 PlotProfileServiceDep = Annotated[
     PlotProfileService,
     Depends(get_plot_profile_service),
-]
-
-
-def get_llm_provider_service() -> LLMProviderService:
-    return LLMProviderService()
-
-
-LLMProviderServiceDep = Annotated[
-    LLMProviderService,
-    Depends(get_llm_provider_service),
 ]
 
 
