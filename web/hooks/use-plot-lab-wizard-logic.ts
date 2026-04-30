@@ -18,11 +18,7 @@ import {
 
 type WizardStep = 1 | 2 | 3;
 
-import {
-  type DetailQueryLike,
-  type DetailResource,
-  makeDetailResource,
-} from "@/lib/wizard-utils";
+import { makeDetailResource } from "@/lib/wizard-utils";
 
 export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   preparing_input: "正在准备输入",
@@ -222,19 +218,6 @@ function usePlotLabJobQueries(jobId: string) {
   return usePlotLabJobDetail(jobId);
 }
 
-function useMountableProjects(enabled: boolean) {
-  const projectsQuery = useQuery({
-    queryKey: ["projects"],
-    queryFn: () => api.getProjects({ includeArchived: false, limit: 100 }),
-    enabled,
-  });
-
-  return {
-    projects: projectsQuery.data ?? [],
-    isLoading: projectsQuery.isLoading,
-  };
-}
-
 function usePlotLabWizardState({
   jobId,
   job,
@@ -249,7 +232,6 @@ function usePlotLabWizardState({
   storyEngineMarkdown: string | null;
 }) {
   const [step, setStep] = React.useState<WizardStep>(1);
-  const [mountProjectId, setMountProjectId] = React.useState<string | null>(null);
   const initializedJobId = React.useRef<string | null>(null);
 
   const form = useForm<FormValues>({
@@ -260,7 +242,6 @@ function usePlotLabWizardState({
   React.useEffect(() => {
     initializedJobId.current = null;
     setStep(1);
-    setMountProjectId(null);
     form.reset(makeEmptyFormValues());
   }, [jobId, form]);
 
@@ -290,8 +271,6 @@ function usePlotLabWizardState({
   return {
     step,
     setStep,
-    mountProjectId,
-    setMountProjectId,
     form,
     handleStep3Next: () => setStep(3),
   };
@@ -300,12 +279,10 @@ function usePlotLabWizardState({
 function useSavePlotProfileMutation({
   job,
   form,
-  mountProjectId,
   onSuccessCallback,
 }: {
   job: PlotAnalysisJob | null;
   form: UseFormReturn<FormValues>;
-  mountProjectId: string | null;
   onSuccessCallback?: () => void;
 }) {
   const router = useRouter();
@@ -316,9 +293,7 @@ function useSavePlotProfileMutation({
       const values = form.getValues();
       if (!job) throw new Error("缺少保存数据");
 
-      const mountPayload = mountProjectId ? { mount_project_id: mountProjectId } : {};
       const payload = {
-        ...mountPayload,
         plot_name: values.plotName,
         plot_skeleton_markdown: values.plotSkeletonMarkdown,
         story_engine_markdown: values.storyEngineMarkdown,
@@ -389,13 +364,11 @@ function usePlotLabWizardMutations(
   {
     job,
     form,
-    mountProjectId,
     isEditing,
     setIsEditing,
   }: {
     job: PlotAnalysisJob | null;
     form: UseFormReturn<FormValues>;
-    mountProjectId: string | null;
     isEditing: boolean;
     setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
   },
@@ -403,7 +376,6 @@ function usePlotLabWizardMutations(
   const saveProfileMutation = useSavePlotProfileMutation({
     job,
     form,
-    mountProjectId,
     onSuccessCallback: isEditing ? () => setIsEditing(false) : undefined,
   });
   const resumeJobMutation = useResumePlotAnalysisJobMutation(jobId);
@@ -429,12 +401,9 @@ export function usePlotLabWizardLogic(jobId: string) {
     skeletonMarkdown: detail.skeletonResource.data,
     storyEngineMarkdown: detail.storyEngineResource.data,
   });
-  const shouldLoadProjects = wizardState.step === 3 && !detail.existingProfile;
-  const { projects } = useMountableProjects(shouldLoadProjects);
   const mutations = usePlotLabWizardMutations(jobId, {
     job: detail.job,
     form: wizardState.form,
-    mountProjectId: wizardState.mountProjectId,
     isEditing,
     setIsEditing,
   });
@@ -448,7 +417,6 @@ export function usePlotLabWizardLogic(jobId: string) {
     reportResource: detail.reportResource,
     skeletonResource: detail.skeletonResource,
     storyEngineResource: detail.storyEngineResource,
-    projects,
     saveProfileMutation: mutations.saveProfileMutation,
     resumeJobMutation: mutations.resumeJobMutation,
     pauseJobMutation: mutations.pauseJobMutation,

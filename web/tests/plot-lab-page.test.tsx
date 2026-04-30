@@ -14,7 +14,6 @@ const apiMock = vi.hoisted(() => ({
   getPlotProfile: vi.fn(),
   createPlotProfile: vi.fn(),
   updatePlotProfile: vi.fn(),
-  getProjects: vi.fn(),
   resumePlotAnalysisJob: vi.fn(),
   pausePlotAnalysisJob: vi.fn(),
 }));
@@ -122,33 +121,9 @@ beforeEach(() => {
     next_offset: 0,
     truncated: false,
   });
-  apiMock.getProjects.mockResolvedValue([]);
 });
 
-test("plot lab wizard saves profile and mounts project", async () => {
-  apiMock.getProjects.mockResolvedValue([
-    {
-      id: "project-1",
-      name: "情节挂载项目",
-      description: "",
-      status: "draft",
-      default_provider_id: "provider-1",
-      default_model: "gpt-4.1-mini",
-      style_profile_id: null,
-      plot_profile_id: null,
-      generation_profile: null,
-      archived_at: null,
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:00:00Z",
-      provider: {
-        id: "provider-1",
-        label: "Primary Gateway",
-        base_url: "https://api.openai.com/v1",
-        default_model: "gpt-4.1-mini",
-        is_enabled: true,
-      },
-    },
-  ]);
+test("plot lab wizard saves profile", async () => {
   apiMock.createPlotProfile.mockResolvedValueOnce({
     id: "plot-profile-1",
     source_job_id: "job-1",
@@ -222,7 +197,7 @@ test("plot lab profile view shows and updates skeleton markdown", async () => {
   fireEvent.change(screen.getByLabelText("全书骨架 Markdown"), {
     target: { value: "# 全书骨架\n- 更新后的骨架\n" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "保存修改" })[0]);
 
   await waitFor(() =>
     expect(apiMock.updatePlotProfile).toHaveBeenCalledWith(

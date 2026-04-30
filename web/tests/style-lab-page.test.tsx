@@ -12,7 +12,6 @@ const apiMock = vi.hoisted(() => ({
   getStyleProfile: vi.fn(),
   createStyleProfile: vi.fn(),
   updateStyleProfile: vi.fn(),
-  getProjects: vi.fn(),
   resumeStyleAnalysisJob: vi.fn(),
   pauseStyleAnalysisJob: vi.fn(),
 }));
@@ -114,43 +113,18 @@ beforeEach(() => {
   apiMock.getStyleAnalysisJob.mockResolvedValue(buildSucceededJob());
   apiMock.getStyleAnalysisJobAnalysisReport.mockResolvedValue(buildReport());
   apiMock.getStyleAnalysisJobVoiceProfile.mockResolvedValue(buildVoiceProfile());
-  apiMock.getProjects.mockResolvedValue([]);
 });
 
-test("style lab wizard fetches mountable projects only after entering voice profile step", async () => {
+test("style lab wizard advances to voice profile step without fetching projects", async () => {
   renderWizard();
 
   expect(await screen.findByText(/执行摘要/)).toBeInTheDocument();
-  expect(apiMock.getProjects).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "审阅完毕，下一步" }));
-  await waitFor(() => expect(apiMock.getProjects).toHaveBeenCalledTimes(1));
+  expect(await screen.findByLabelText("Voice Profile Markdown")).toBeInTheDocument();
 });
 
 test("style lab wizard saves new profile with voice profile markdown", async () => {
-  apiMock.getProjects.mockResolvedValue([
-    {
-      id: "project-1",
-      name: "风格挂载项目",
-      description: "项目简介",
-      status: "draft",
-      default_provider_id: "provider-1",
-      default_model: "gpt-4.1-mini",
-      style_profile_id: null,
-      plot_profile_id: null,
-      generation_profile: null,
-      archived_at: null,
-      created_at: "2026-04-09T00:00:00Z",
-      updated_at: "2026-04-09T00:00:00Z",
-      provider: {
-        id: "provider-1",
-        label: "Primary Gateway",
-        base_url: "https://api.openai.com/v1",
-        default_model: "gpt-4.1-mini",
-        is_enabled: true,
-      },
-    },
-  ]);
   apiMock.createStyleProfile.mockResolvedValueOnce({
     id: "profile-1",
     source_job_id: "job-1",
@@ -233,7 +207,7 @@ test("style lab profile view allows editing voice profile", async () => {
   fireEvent.change(await screen.findByLabelText("Voice Profile Markdown"), {
     target: { value: "# Voice Profile\n## 3.1 口头禅与常用表达\n- 更碎的短句推进\n" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "保存修改" })[0]);
 
   await waitFor(() =>
     expect(apiMock.updateStyleProfile).toHaveBeenCalledWith(

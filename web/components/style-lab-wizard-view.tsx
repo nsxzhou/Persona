@@ -18,11 +18,8 @@ export function StyleLabWizardView({ jobId }: { jobId: string }) {
   const {
     step,
     setStep,
-    mountProjectId,
-    setMountProjectId,
     form,
     job,
-    projects,
     existingProfile,
     reportResource,
     voiceProfileResource,

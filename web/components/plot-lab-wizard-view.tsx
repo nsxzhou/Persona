@@ -19,11 +19,8 @@ export function PlotLabWizardView({ jobId }: { jobId: string }) {
   const {
     step,
     setStep,
-    mountProjectId,
-    setMountProjectId,
     form,
     job,
-    projects,
     existingProfile,
     reportResource,
     skeletonResource,

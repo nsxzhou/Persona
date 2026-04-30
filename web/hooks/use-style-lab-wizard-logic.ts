@@ -15,11 +15,7 @@ import {
   type StyleAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 
-import {
-  type DetailQueryLike,
-  type DetailResource,
-  makeDetailResource,
-} from "@/lib/wizard-utils";
+import { makeDetailResource } from "@/lib/wizard-utils";
 
 type WizardStep = 1 | 2;
 
@@ -175,19 +171,6 @@ function useStyleLabJobDetail(jobId: string) {
   };
 }
 
-function useMountableProjects(enabled: boolean) {
-  const projectsQuery = useQuery({
-    queryKey: ["projects"],
-    queryFn: () => api.getProjects({ includeArchived: false, limit: 100 }),
-    enabled,
-  });
-
-  return {
-    projects: projectsQuery.data ?? [],
-    isLoading: projectsQuery.isLoading,
-  };
-}
-
 function useStyleLabWizardState({
   jobId,
   job,
@@ -200,7 +183,6 @@ function useStyleLabWizardState({
   voiceProfileMarkdown: string | null;
 }) {
   const [step, setStep] = React.useState<WizardStep>(1);
-  const [mountProjectId, setMountProjectId] = React.useState<string | null>(null);
   const initializedJobId = React.useRef<string | null>(null);
 
   const form = useForm<FormValues>({
@@ -211,7 +193,6 @@ function useStyleLabWizardState({
   React.useEffect(() => {
     initializedJobId.current = null;
     setStep(1);
-    setMountProjectId(null);
     form.reset(makeEmptyFormValues());
   }, [jobId, form]);
 
@@ -239,8 +220,6 @@ function useStyleLabWizardState({
   return {
     step,
     setStep,
-    mountProjectId,
-    setMountProjectId,
     form,
     handleStep2Next: () => setStep(2),
   };
@@ -249,12 +228,10 @@ function useStyleLabWizardState({
 function useSaveStyleProfileMutation({
   job,
   form,
-  mountProjectId,
   onSuccessCallback,
 }: {
   job: StyleAnalysisJob | null;
   form: UseFormReturn<FormValues>;
-  mountProjectId: string | null;
   onSuccessCallback?: () => void;
 }) {
   const router = useRouter();
@@ -265,9 +242,7 @@ function useSaveStyleProfileMutation({
       const values = form.getValues();
       if (!job) throw new Error("缺少保存数据");
 
-      const mountPayload = mountProjectId ? { mount_project_id: mountProjectId } : {};
       const payload = {
-        ...mountPayload,
         style_name: values.styleName,
         voice_profile_markdown: values.voiceProfileMarkdown,
       };
@@ -340,12 +315,9 @@ export function useStyleLabWizardLogic(jobId: string) {
     existingProfile: detail.existingProfile,
     voiceProfileMarkdown: detail.voiceProfileResource.data,
   });
-  const shouldLoadProjects = wizardState.step === 2 && !detail.existingProfile;
-  const { projects } = useMountableProjects(shouldLoadProjects);
   const saveProfileMutation = useSaveStyleProfileMutation({
     job: detail.job,
     form: wizardState.form,
-    mountProjectId: wizardState.mountProjectId,
     onSuccessCallback: isEditing ? () => setIsEditing(false) : undefined,
   });
   const resumeJobMutation = useResumeStyleAnalysisJobMutation(jobId);
@@ -359,7 +331,6 @@ export function useStyleLabWizardLogic(jobId: string) {
     existingProfile: detail.existingProfile,
     reportResource: detail.reportResource,
     voiceProfileResource: detail.voiceProfileResource,
-    projects,
     saveProfileMutation,
     resumeJobMutation,
     pauseJobMutation,
