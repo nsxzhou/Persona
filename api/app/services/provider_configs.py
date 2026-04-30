@@ -147,7 +147,6 @@ class ProviderConfigService:
             status_value="error",
             error_message=error_summary,
         )
-        await session.commit()
         raise BadRequestError(
             f"{PROVIDER_CONNECTION_TEST_ERROR_MESSAGE}（原因：{error_summary}）"
         )

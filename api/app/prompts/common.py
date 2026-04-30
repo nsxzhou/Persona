@@ -35,7 +35,7 @@ REGENERATION_GUIDANCE = (
 )
 
 
-MARKDOWN_ONLY_RULE = "输出使用中文简体 Markdown，直接落正文/条目，不要写工作汇报，不要输出 JSON 或代码块。"
+MARKDOWN_ONLY_RULE = "输出必须使用中文简体 Markdown，直接落正文/条目，不要写工作汇报，不要输出 JSON，不要输出代码块。"
 JSON_ONLY_RULE = "输出必须是一个合法 JSON 对象，只吐 JSON 本体；不要输出 Markdown、代码块、解释、寒暄或前后缀。"
 NO_PREFACE_RULES = (
     "输出必须直接从指定模板的第一个标题开始。\n"

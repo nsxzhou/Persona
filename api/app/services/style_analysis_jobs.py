@@ -75,11 +75,14 @@ class StyleAnalysisJobService:
     def __init__(
         self,
         repository: StyleAnalysisJobRepository | None = None,
+        provider_service: ProviderConfigService | None = None,
+        storage_service: StyleAnalysisStorageService | None = None,
+        checkpointer_factory: StyleAnalysisCheckpointerFactory | None = None,
     ) -> None:
         self.repository = repository or StyleAnalysisJobRepository()
-        self.provider_service = ProviderConfigService()
-        self.storage_service = StyleAnalysisStorageService()
-        self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
+        self.provider_service = provider_service or ProviderConfigService()
+        self.storage_service = storage_service or StyleAnalysisStorageService()
+        self.checkpointer_factory = checkpointer_factory or StyleAnalysisCheckpointerFactory()
 
     async def list(
         self,

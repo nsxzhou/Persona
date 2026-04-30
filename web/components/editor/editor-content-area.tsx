@@ -807,7 +807,3 @@ export function EditorContentArea({
     </>
   );
 }
-
-function getVolumeTitle(title: string) {
-  return title.trim() || "未分卷章节";
-}

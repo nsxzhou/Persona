@@ -68,8 +68,8 @@ async def test_provider_connection_test_masks_sensitive_error_details(
     assert "[REDACTED]" in detail
 
     refreshed = (await initialized_client.get("/api/v1/provider-configs")).json()[0]
-    assert refreshed["last_test_status"] == "error"
-    assert refreshed["last_test_error"] == "upstream timeout: [REDACTED]"
+    assert refreshed["last_test_status"] is None
+    assert refreshed["last_test_error"] is None
 
 
 @pytest.mark.asyncio
