@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
+from app.api.assemblers import (
+    build_novel_workflow_detail_response,
+    build_novel_workflow_status_response,
+)
 from app.api.deps import CurrentUserDep, DbSessionDep, NovelWorkflowServiceDep
 from app.schemas.novel_workflows import (
     MarkdownArtifactResponse,
@@ -58,11 +62,12 @@ async def get_novel_workflow(
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
 ) -> NovelWorkflowResponse:
-    return await workflow_service.get_detail_or_404(
+    run = await workflow_service.get_detail_or_404(
         db_session,
         run_id,
         user_id=current_user.id,
     )
+    return build_novel_workflow_detail_response(run)
 
 
 @router.get("/{run_id}/status", response_model=NovelWorkflowStatusResponse)
@@ -72,11 +77,12 @@ async def get_novel_workflow_status(
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
 ) -> NovelWorkflowStatusResponse:
-    return await workflow_service.get_status_or_404(
+    run = await workflow_service.get_status_or_404(
         db_session,
         run_id,
         user_id=current_user.id,
     )
+    return build_novel_workflow_status_response(run)
 
 
 @router.post("/{run_id}/pause", response_model=NovelWorkflowStatusResponse)
@@ -86,11 +92,12 @@ async def pause_novel_workflow(
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
 ) -> NovelWorkflowStatusResponse:
-    return await workflow_service.pause(
+    run = await workflow_service.pause(
         db_session,
         run_id,
         user_id=current_user.id,
     )
+    return build_novel_workflow_status_response(run)
 
 
 @router.post("/{run_id}/resume", response_model=NovelWorkflowStatusResponse)
@@ -100,11 +107,12 @@ async def resume_novel_workflow(
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
 ) -> NovelWorkflowStatusResponse:
-    return await workflow_service.resume(
+    run = await workflow_service.resume(
         db_session,
         run_id,
         user_id=current_user.id,
     )
+    return build_novel_workflow_status_response(run)
 
 
 @router.post("/{run_id}/decision", response_model=NovelWorkflowStatusResponse)
@@ -115,12 +123,13 @@ async def submit_novel_workflow_decision(
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
 ) -> NovelWorkflowStatusResponse:
-    return await workflow_service.submit_decision(
+    run = await workflow_service.submit_decision(
         db_session,
         run_id,
         payload,
         user_id=current_user.id,
     )
+    return build_novel_workflow_status_response(run)
 
 
 @router.get("/{run_id}/logs", response_model=NovelWorkflowLogsResponse)

@@ -19,8 +19,6 @@ from app.schemas.novel_workflows import (
     NovelWorkflowCreateRequest,
     NovelWorkflowDecisionRequest,
     NovelWorkflowLogsResponse,
-    NovelWorkflowResponse,
-    NovelWorkflowStatusResponse,
 )
 from app.services.novel_workflow_storage import NovelWorkflowStorageService
 from app.services.project_chapters import ProjectChapterService
@@ -102,9 +100,8 @@ class NovelWorkflowService:
         run_id: str,
         *,
         user_id: str,
-    ) -> NovelWorkflowResponse:
-        run = await self.get_or_404(session, run_id, user_id=user_id)
-        return self._to_detail_response(run)
+    ) -> NovelWorkflowRun:
+        return await self.get_or_404(session, run_id, user_id=user_id)
 
     async def get_status_or_404(
         self,
@@ -112,13 +109,13 @@ class NovelWorkflowService:
         run_id: str,
         *,
         user_id: str,
-    ) -> NovelWorkflowStatusResponse:
+    ) -> NovelWorkflowRun:
         run = await self.get_or_404(session, run_id, user_id=user_id)
         if await self._reconcile_pause_request_if_unacknowledged(session, run):
             run = await self.get_or_404(session, run_id, user_id=user_id)
         if await self._reconcile_stale_run_if_needed(session, run):
             run = await self.get_or_404(session, run_id, user_id=user_id)
-        return self._to_status_response(run)
+        return run
 
     async def create(
         self,
@@ -163,14 +160,14 @@ class NovelWorkflowService:
         run_id: str,
         *,
         user_id: str,
-    ) -> NovelWorkflowStatusResponse:
+    ) -> NovelWorkflowRun:
         run = await self.get_or_404(session, run_id, user_id=user_id)
         if run.status == NOVEL_WORKFLOW_STATUS_SUCCEEDED:
             raise ConflictError("工作流已成功完成，无法暂停")
         if run.status == NOVEL_WORKFLOW_STATUS_FAILED:
             raise ConflictError("工作流已失败，无法暂停")
         if run.status == NOVEL_WORKFLOW_STATUS_PAUSED:
-            return self._to_status_response(run)
+            return run
         if run.status == NOVEL_WORKFLOW_STATUS_PENDING:
             _reset_run_to_pending(
                 run,
@@ -178,7 +175,7 @@ class NovelWorkflowService:
                 paused_at=datetime.now(UTC),
             )
             await session.flush()
-            return self._to_status_response(run)
+            return run
         await self.repository.request_pause(
             session,
             run_id,
@@ -189,7 +186,7 @@ class NovelWorkflowService:
         refreshed = await self.get_or_404(session, run_id, user_id=user_id)
         await self._reconcile_pause_request_if_unacknowledged(session, refreshed)
         await self._reconcile_stale_run_if_needed(session, refreshed)
-        return self._to_status_response(refreshed)
+        return await self.get_or_404(session, run_id, user_id=user_id)
 
     async def resume(
         self,
@@ -197,7 +194,7 @@ class NovelWorkflowService:
         run_id: str,
         *,
         user_id: str,
-    ) -> NovelWorkflowStatusResponse:
+    ) -> NovelWorkflowRun:
         run = await self.get_or_404(session, run_id, user_id=user_id)
         if run.status == NOVEL_WORKFLOW_STATUS_RUNNING and run.locked_by:
             raise ConflictError("工作流正在运行，无法恢复")
@@ -206,10 +203,10 @@ class NovelWorkflowService:
         if run.status == NOVEL_WORKFLOW_STATUS_PAUSED:
             _reset_run_to_pending(run)
             await session.flush()
-            return self._to_status_response(run)
+            return run
         _reset_run_to_pending(run, reset_attempts=True)
         await session.flush()
-        return self._to_status_response(run)
+        return run
 
     async def submit_decision(
         self,
@@ -218,14 +215,14 @@ class NovelWorkflowService:
         payload: NovelWorkflowDecisionRequest,
         *,
         user_id: str,
-    ) -> NovelWorkflowStatusResponse:
+    ) -> NovelWorkflowRun:
         run = await self.get_or_404(session, run_id, user_id=user_id)
         if run.status != NOVEL_WORKFLOW_STATUS_PAUSED:
             raise ConflictError("仅暂停中的工作流可以提交人工决策")
         run.decision_payload = payload.model_dump(mode="json")
         _reset_run_to_pending(run)
         await session.flush()
-        return self._to_status_response(run)
+        return run
 
     async def get_job_logs_or_404(
         self,
@@ -433,40 +430,4 @@ class NovelWorkflowService:
             failed_status=NOVEL_WORKFLOW_STATUS_FAILED,
             pending_status=NOVEL_WORKFLOW_STATUS_PENDING,
             now=datetime.now(UTC),
-        )
-
-    def _to_status_response(self, run: NovelWorkflowRun) -> NovelWorkflowStatusResponse:
-        return NovelWorkflowStatusResponse(
-            id=run.id,
-            status=run.status,
-            stage=run.stage,
-            checkpoint_kind=run.checkpoint_kind,
-            latest_artifacts=list(run.latest_artifacts_payload or []),
-            warnings=list(run.warnings_payload or []),
-            error_message=run.error_message,
-            updated_at=run.updated_at,
-            pause_requested_at=run.pause_requested_at,
-        )
-
-    def _to_detail_response(self, run: NovelWorkflowRun) -> NovelWorkflowResponse:
-        return NovelWorkflowResponse(
-            id=run.id,
-            intent_type=run.intent_type,
-            project_id=run.project_id,
-            chapter_id=run.chapter_id,
-            provider_id=run.provider_id,
-            model_name=run.model_name,
-            status=run.status,
-            stage=run.stage,
-            checkpoint_kind=run.checkpoint_kind,
-            latest_artifacts=list(run.latest_artifacts_payload or []),
-            warnings=list(run.warnings_payload or []),
-            error_message=run.error_message,
-            started_at=run.started_at,
-            completed_at=run.completed_at,
-            created_at=run.created_at,
-            updated_at=run.updated_at,
-            pause_requested_at=run.pause_requested_at,
-            request_payload=run.request_payload,
-            decision_payload=run.decision_payload,
         )

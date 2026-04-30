@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.db.models import PlotAnalysisJob, PlotProfile, StyleAnalysisJob, StyleProfile
+from app.db.models import (
+    NovelWorkflowRun,
+    PlotAnalysisJob,
+    PlotProfile,
+    StyleAnalysisJob,
+    StyleProfile,
+)
+from app.schemas.novel_workflows import (
+    NovelWorkflowResponse,
+    NovelWorkflowStatusResponse,
+)
 from app.schemas.plot_analysis_jobs import (
     PlotAnalysisJobResponse,
     PlotAnalysisMeta,
@@ -187,4 +197,44 @@ def build_plot_job_detail_response(job: PlotAnalysisJob) -> PlotAnalysisJobRespo
         ),
         story_engine_markdown=story_engine_markdown,
         plot_skeleton_markdown=job.plot_skeleton_payload,
+    )
+
+
+def build_novel_workflow_status_response(
+    run: NovelWorkflowRun,
+) -> NovelWorkflowStatusResponse:
+    return NovelWorkflowStatusResponse(
+        id=run.id,
+        status=run.status,
+        stage=run.stage,
+        checkpoint_kind=run.checkpoint_kind,
+        latest_artifacts=list(run.latest_artifacts_payload or []),
+        warnings=list(run.warnings_payload or []),
+        error_message=run.error_message,
+        updated_at=run.updated_at,
+        pause_requested_at=run.pause_requested_at,
+    )
+
+
+def build_novel_workflow_detail_response(run: NovelWorkflowRun) -> NovelWorkflowResponse:
+    return NovelWorkflowResponse(
+        id=run.id,
+        intent_type=run.intent_type,
+        project_id=run.project_id,
+        chapter_id=run.chapter_id,
+        provider_id=run.provider_id,
+        model_name=run.model_name,
+        status=run.status,
+        stage=run.stage,
+        checkpoint_kind=run.checkpoint_kind,
+        latest_artifacts=list(run.latest_artifacts_payload or []),
+        warnings=list(run.warnings_payload or []),
+        error_message=run.error_message,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        created_at=run.created_at,
+        updated_at=run.updated_at,
+        pause_requested_at=run.pause_requested_at,
+        request_payload=run.request_payload,
+        decision_payload=run.decision_payload,
     )
