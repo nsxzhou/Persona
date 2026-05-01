@@ -9,7 +9,10 @@ export interface ParsedChapter {
 export interface ParsedVolume {
   title: string;
   meta: string;
+  bodyMarkdown: string;
   chapters: ParsedChapter[];
+  startOffset?: number;
+  endOffset?: number;
 }
 
 export interface ParsedOutline {
@@ -31,6 +34,18 @@ function extractFirstField(text: string, fieldNames: string[]): string {
   return "";
 }
 
+const VOLUME_HEADING_RE = /^## (?!#)(.+)$/gm;
+const CHAPTER_HEADING_RE = /^###\s+第\s*(?:\d+|[一二三四五六七八九十百千万零〇两]+)\s*章.*$/m;
+const CHAPTER_SPLIT_RE = /(?=^###\s+第\s*(?:\d+|[一二三四五六七八九十百千万零〇两]+)\s*章.*$)/m;
+
+function hasChapterHeading(text: string): boolean {
+  return CHAPTER_HEADING_RE.test(text);
+}
+
+function isIgnorableSectionTitle(title: string): boolean {
+  return title.replace(/\s+/g, "").includes("闭环验证");
+}
+
 function parseChapter(block: string): ParsedChapter {
   const lines = block.split("\n");
   const titleLine = lines[0] ?? "";
@@ -45,7 +60,12 @@ function parseChapter(block: string): ParsedChapter {
   };
 }
 
-function parseVolumeBlock(block: string, title: string): ParsedVolume {
+function parseVolumeBlock(
+  block: string,
+  title: string,
+  startOffset?: number,
+  endOffset?: number,
+): ParsedVolume {
   const lines = block.split("\n");
 
   // Extract meta from blockquote line (> ...)
@@ -58,73 +78,125 @@ function parseVolumeBlock(block: string, title: string): ParsedVolume {
     }
   }
 
-  // Split into chapter blocks by ### headings
+  const firstChapterIndex = block.search(CHAPTER_HEADING_RE);
+  const bodyMarkdown =
+    firstChapterIndex === -1
+      ? block.trim()
+      : block.substring(0, firstChapterIndex).trim();
+  const chapterMarkdown =
+    firstChapterIndex === -1 ? "" : block.substring(firstChapterIndex);
+
+  // Split into chapter blocks by real chapter headings only.
   const chapterBlocks: string[] = [];
-  const chapterSplitParts = block.split(/(?=^### )/m);
+  const chapterSplitParts = chapterMarkdown.split(CHAPTER_SPLIT_RE);
 
   for (const part of chapterSplitParts) {
-    if (part.match(/^### /)) {
+    if (hasChapterHeading(part)) {
       chapterBlocks.push(part.trimEnd());
     }
   }
 
   const chapters = chapterBlocks.map(parseChapter);
 
-  return { title, meta, chapters };
+  return { title, meta, bodyMarkdown, chapters, startOffset, endOffset };
 }
 
 export function parseOutline(markdown: string): ParsedOutline {
-  const trimmed = markdown.trim();
-
-  if (trimmed === "") {
+  if (markdown.trim() === "") {
     return { volumes: [], parseErrors: [] };
   }
 
-  // Check if we have ## volume headings
-  const hasVolumeHeadings = /^## (?!#)/m.test(trimmed);
-  // Check if we have ### chapter headings
-  const hasChapterHeadings = /^### /m.test(trimmed);
+  VOLUME_HEADING_RE.lastIndex = 0;
+  const volumeMatches = [...markdown.matchAll(VOLUME_HEADING_RE)].map((match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+    title: match[1].trim(),
+  }));
+  const hasChapterHeadings = hasChapterHeading(markdown);
 
-  if (!hasVolumeHeadings && !hasChapterHeadings) {
+  if (volumeMatches.length === 0 && !hasChapterHeadings) {
     // Completely unparseable
     return {
       volumes: [],
-      parseErrors: [trimmed],
+      parseErrors: [markdown.trim()],
     };
   }
 
-  if (!hasVolumeHeadings && hasChapterHeadings) {
+  if (volumeMatches.length === 0 && hasChapterHeadings) {
     // Short-novel format: no volumes, just chapters -> wrap in implicit volume
-    const volume = parseVolumeBlock(trimmed, "");
+    const volume = parseVolumeBlock(markdown, "", 0, markdown.length);
     return {
       volumes: [volume],
       parseErrors: [],
     };
   }
 
-  // Split by ## headings into volume blocks
-  const volumeParts = trimmed.split(/(?=^## (?!#))/m);
   const volumes: ParsedVolume[] = [];
-  const parseErrors: string[] = [];
 
-  for (const part of volumeParts) {
-    const cleaned = part.trim();
-    if (!cleaned) continue;
+  for (let i = 0; i < volumeMatches.length; i += 1) {
+    const current = volumeMatches[i];
+    const next = volumeMatches[i + 1];
+    const blockEnd = next ? next.start : markdown.length;
+    const body = markdown.substring(current.end, blockEnd);
 
-    if (cleaned.match(/^## (?!#)/)) {
-      // Extract volume title from first line
-      const firstLineEnd = cleaned.indexOf("\n");
-      const titleLine =
-        firstLineEnd === -1 ? cleaned : cleaned.substring(0, firstLineEnd);
-      const title = titleLine.replace(/^##\s*/, "").trim();
-      const body = firstLineEnd === -1 ? "" : cleaned.substring(firstLineEnd);
-
-      volumes.push(parseVolumeBlock(body, title));
-    } else {
-      // Content before first ## heading that isn't parseable
-      parseErrors.push(cleaned);
+    if (isIgnorableSectionTitle(current.title) && !hasChapterHeading(body)) {
+      continue;
     }
+
+    volumes.push(parseVolumeBlock(body, current.title, current.start, blockEnd));
   }
 
-  return { volumes, parseErrors };
+  if (volumes.length === 0) {
+    return {
+      volumes: [],
+      parseErrors: [markdown.trim()],
+    };
+  }
+
+  return { volumes, parseErrors: [] };
+}
+
+function renderVolumeWithChapters(volume: ParsedVolume, generatedChapters: string) {
+  const parts = volume.title ? [`## ${volume.title}`] : [];
+  const bodyMarkdown = volume.bodyMarkdown.trim();
+  const normalizedChapters = generatedChapters.trim();
+
+  if (bodyMarkdown) parts.push(bodyMarkdown);
+  if (normalizedChapters) parts.push(normalizedChapters);
+
+  return parts.join("\n\n").trim();
+}
+
+export function replaceVolumeChapters(
+  value: string,
+  volumeIndex: number,
+  generatedChapters: string,
+) {
+  const parsed = parseOutline(value);
+  const target = parsed.volumes[volumeIndex];
+  if (!target) return value;
+
+  const replacement = renderVolumeWithChapters(target, generatedChapters);
+
+  if (target.startOffset !== undefined && target.endOffset !== undefined) {
+    const before = value.substring(0, target.startOffset);
+    const after = value.substring(target.endOffset);
+    const separator = after.trim() ? "\n\n" : "";
+    return `${before}${replacement}${separator}${after.replace(/^\n+/, "")}`.trim();
+  }
+
+  const lines: string[] = [];
+
+  parsed.volumes.forEach((volume, index) => {
+    if (index === volumeIndex) {
+      lines.push(renderVolumeWithChapters(volume, generatedChapters));
+      lines.push("");
+      return;
+    }
+
+    lines.push(renderVolumeWithChapters(volume, volume.chapters.map((chapter) => chapter.rawMarkdown).join("\n\n")));
+    lines.push("");
+  });
+
+  return lines.join("\n").trim();
 }

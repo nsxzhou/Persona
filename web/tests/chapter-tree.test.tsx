@@ -10,6 +10,7 @@ function buildOutline(): ParsedOutline {
       {
         title: "第一卷",
         meta: "",
+        bodyMarkdown: "",
         chapters: [
           {
             title: "第1章",

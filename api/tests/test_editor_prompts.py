@@ -341,6 +341,8 @@ def test_volume_generate_prompt_uses_neutral_project_wording_and_stable_structur
 
     assert "正在为自己的新书规划整体结构" in prompt
     assert "每个规划块用二级标题（## ）" in prompt
+    assert "不要输出顶层一级标题（# ）" in prompt
+    assert "卷级字段只能用项目符号、加粗字段或引用行表达，不要使用三级标题（### ）" in prompt
     assert "只输出规划结构，不要输出任何章节内容" in prompt
     assert "不要求固定写成三幕、几卷或多少个阶段" in prompt
     assert "长篇新书" not in prompt
@@ -373,7 +375,17 @@ def test_volume_chapters_prompt_uses_current_volume_chapter_budget() -> None:
     prompt = build_volume_chapters_system_prompt(length_preset="medium")
 
     assert "章节详纲默认只详拆首卷或当前卷：12-25 章" in prompt
+    assert "不要输出顶层一级标题（# ）" in prompt
+    assert "三级标题只用于真实章节，必须写成「### 第 N 章：章名」" in prompt
     assert "只为当前卷输出章节详纲" in prompt
+
+
+def test_outline_detail_prompt_keeps_volume_fields_out_of_h3_headings() -> None:
+    prompt = build_section_system_prompt("outline_detail", length_preset="long")
+
+    assert "不要输出顶层一级标题（# ）" in prompt
+    assert "卷级字段不要使用三级标题（### ）" in prompt
+    assert "只有真实章节可使用「### 第 N 章：章名」" in prompt
 
 
 def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:

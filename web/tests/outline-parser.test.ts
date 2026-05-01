@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   parseOutline,
+  replaceVolumeChapters,
   type ParsedChapter,
   type ParsedOutline,
   type ParsedVolume,
@@ -38,6 +39,7 @@ describe("parseOutline", () => {
     const vol1 = result.volumes[0];
     expect(vol1.title).toBe("第一卷：黎明之前");
     expect(vol1.meta).toBe("主题：觉醒与出发 | 字数范围：0-5万字");
+    expect(vol1.bodyMarkdown).toBe("> 主题：觉醒与出发 | 字数范围：0-5万字");
     expect(vol1.chapters).toHaveLength(2);
 
     expect(vol1.chapters[0].title).toBe("第 1 章：被遗忘的名字");
@@ -73,6 +75,7 @@ describe("parseOutline", () => {
     expect(result.volumes).toHaveLength(1);
     expect(result.volumes[0].title).toBe("");
     expect(result.volumes[0].meta).toBe("");
+    expect(result.volumes[0].bodyMarkdown).toBe("");
     expect(result.volumes[0].chapters).toHaveLength(2);
     expect(result.volumes[0].chapters[0].title).toBe("第 1 章：开端");
     expect(result.volumes[0].chapters[1].title).toBe("第 2 章：发展");
@@ -169,5 +172,68 @@ describe("parseOutline", () => {
 
     expect(result.volumes).toHaveLength(1);
     expect(result.volumes[0].chapters[0].chapterHook).toBe("旧字段兼容成功");
+  });
+
+  test("volume planning markdown ignores top-level title and volume-level ### sections", () => {
+    const md = `# 《最后三个月》全书分卷规划
+
+## 第一卷：撕掉标签（第1-8章）
+
+> 主题：当系统抛弃你之前，你先抛弃系统 | 当前压力：诊断书+母亲期待
+
+### 主驱动轴
+力量与权力的初次解放。
+
+### 本卷核心兑现物
+**规则的第一次被打破**：庄晏当着班主任的面说“我自愿堕落”。
+
+### 第 1 章：诊断书
+- **核心事件**：庄晏拿到诊断书
+- **情绪走向**：麻木 → 压抑
+- **章末钩子**：他决定退学
+
+## 全篇闭环验证
+
+| 要素 | 验证结果 |
+|------|---------|
+| 开局压制 | 诊断书 |`;
+
+    const result = parseOutline(md);
+
+    expect(result.parseErrors).toEqual([]);
+    expect(result.volumes).toHaveLength(1);
+    expect(result.volumes[0].title).toBe("第一卷：撕掉标签（第1-8章）");
+    expect(result.volumes[0].bodyMarkdown).toContain("### 主驱动轴");
+    expect(result.volumes[0].bodyMarkdown).toContain("### 本卷核心兑现物");
+    expect(result.volumes[0].chapters).toHaveLength(1);
+    expect(result.volumes[0].chapters[0].title).toBe("第 1 章：诊断书");
+  });
+
+  test("replaceVolumeChapters preserves volume body markdown", () => {
+    const md = `# 书名
+
+## 第一卷：撕掉标签
+> 主题：压力
+
+### 主驱动轴
+力量释放。
+
+### 第 1 章：旧章
+- **核心事件**：旧事件
+
+## 第二卷：偷来的自由
+> 主题：逃亡`;
+
+    const result = replaceVolumeChapters(
+      md,
+      0,
+      "### 第 1 章：新章\n- **核心事件**：新事件",
+    );
+
+    expect(result).toContain("# 书名");
+    expect(result).toContain("### 主驱动轴\n力量释放。");
+    expect(result).toContain("### 第 1 章：新章");
+    expect(result).not.toContain("### 第 1 章：旧章");
+    expect(result).toContain("## 第二卷：偷来的自由");
   });
 });

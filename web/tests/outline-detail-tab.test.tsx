@@ -26,6 +26,9 @@ describe("OutlineDetailTab", () => {
         value={`## 第一卷 反派开局
 > 主打反转与误导
 
+### 主驱动轴
+反派身份的误导与自救
+
 ### 第1章 反派开局，短命名单
 - **核心事件**：开局认命
 
@@ -57,6 +60,7 @@ describe("OutlineDetailTab", () => {
     expect(screen.getByRole("button", { name: "AI 生成" })).toBeInTheDocument();
     expect(screen.getByText("第一卷 反派开局")).toBeInTheDocument();
     expect(screen.getByText("已完成 1/2 章")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "主驱动轴" })).not.toBeInTheDocument();
     expect(screen.queryByText("第1章 反派开局，短命名单")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "查看章节" }));

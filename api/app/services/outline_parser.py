@@ -21,6 +21,7 @@ class ParsedChapter(TypedDict):
 class ParsedVolume(TypedDict):
     title: str
     meta: str
+    body_markdown: str
     chapters: list[ParsedChapter]
 
 
@@ -42,53 +43,105 @@ def _extract_first_field(text: str, field_names: tuple[str, ...]) -> str:
     return ""
 
 
+VOLUME_HEADING_RE = re.compile(r"^## (?!#)(.+)$", re.MULTILINE)
+CHAPTER_HEADING_RE = re.compile(
+    r"^###\s+第\s*(?:\d+|[一二三四五六七八九十百千万零〇两]+)\s*章.*$",
+    re.MULTILINE,
+)
+CHAPTER_SPLIT_RE = re.compile(
+    r"(?=^###\s+第\s*(?:\d+|[一二三四五六七八九十百千万零〇两]+)\s*章.*$)",
+    re.MULTILINE,
+)
+
+
+def _has_chapter_heading(text: str) -> bool:
+    return CHAPTER_HEADING_RE.search(text) is not None
+
+
+def _is_ignorable_section_title(title: str) -> bool:
+    return "闭环验证" in re.sub(r"\s+", "", title)
+
+
+def _parse_chapter(ch_block: str) -> ParsedChapter | None:
+    ch_title_match = CHAPTER_HEADING_RE.search(ch_block)
+    if not ch_title_match:
+        return None
+    ch_title = ch_title_match.group(0).replace("###", "", 1).strip()
+    return {
+        "title": ch_title,
+        "core_event": _extract_field(ch_block, "核心事件"),
+        "emotion_arc": _extract_field(ch_block, "情绪走向"),
+        "chapter_hook": _extract_first_field(
+            ch_block,
+            ("章末钩子", "章节末推动点"),
+        ),
+        "raw_markdown": ch_block.strip(),
+    }
+
+
+def _parse_volume_block(block: str, title: str) -> ParsedVolume:
+    meta_match = re.search(r"^>\s*(.+)$", block, re.MULTILINE)
+    meta = meta_match.group(1).strip() if meta_match else ""
+
+    first_chapter_match = CHAPTER_HEADING_RE.search(block)
+    if first_chapter_match:
+        body_markdown = block[: first_chapter_match.start()].strip()
+        chapter_markdown = block[first_chapter_match.start():]
+    else:
+        body_markdown = block.strip()
+        chapter_markdown = ""
+
+    chapters: list[ParsedChapter] = []
+    for ch_block in CHAPTER_SPLIT_RE.split(chapter_markdown):
+        chapter = _parse_chapter(ch_block)
+        if chapter is not None:
+            chapters.append(chapter)
+
+    return {
+        "title": title,
+        "meta": meta,
+        "body_markdown": body_markdown,
+        "chapters": chapters,
+    }
+
+
 def parse_outline(markdown: str) -> ParsedOutline:
     """解析 outline_detail Markdown 为结构化卷/章数据。"""
     if not markdown.strip():
         return {"volumes": [], "parse_errors": []}
 
-    volume_splits = re.split(r"^(?=## )", markdown, flags=re.MULTILINE)
-    volume_blocks = [b for b in volume_splits if b.strip()]
+    volume_matches = list(VOLUME_HEADING_RE.finditer(markdown))
+    has_chapter_headings = _has_chapter_heading(markdown)
+
+    if not volume_matches and not has_chapter_headings:
+        return {"volumes": [], "parse_errors": [markdown.strip()]}
+
+    if not volume_matches and has_chapter_headings:
+        return {
+            "volumes": [_parse_volume_block(markdown, "")],
+            "parse_errors": [],
+        }
 
     volumes: list[ParsedVolume] = []
-    parse_errors: list[str] = []
 
-    for block in volume_blocks:
-        title_match = re.match(r"^## (.+)$", block, re.MULTILINE)
-        if not title_match:
-            if block.strip():
-                parse_errors.append(f"无法识别的内容块: {block[:50]}...")
+    for index, match in enumerate(volume_matches):
+        block_end = (
+            volume_matches[index + 1].start()
+            if index + 1 < len(volume_matches)
+            else len(markdown)
+        )
+        title = match.group(1).strip()
+        body = markdown[match.end():block_end]
+
+        if _is_ignorable_section_title(title) and not _has_chapter_heading(body):
             continue
 
-        title = title_match.group(1).strip()
-        meta_match = re.search(r"^>\s*(.+)$", block, re.MULTILINE)
-        meta = meta_match.group(1).strip() if meta_match else ""
-
-        chapter_splits = re.split(r"^(?=### )", block, flags=re.MULTILINE)
-        chapters: list[ParsedChapter] = []
-
-        for ch_block in chapter_splits:
-            ch_title_match = re.match(r"^### (.+)$", ch_block, re.MULTILINE)
-            if not ch_title_match:
-                continue
-            ch_title = ch_title_match.group(1).strip()
-            chapters.append({
-                "title": ch_title,
-                "core_event": _extract_field(ch_block, "核心事件"),
-                "emotion_arc": _extract_field(ch_block, "情绪走向"),
-                "chapter_hook": _extract_first_field(
-                    ch_block,
-                    ("章末钩子", "章节末推动点"),
-                ),
-                "raw_markdown": ch_block.strip(),
-            })
-
-        volumes.append({"title": title, "meta": meta, "chapters": chapters})
+        volumes.append(_parse_volume_block(body, title))
 
     if not volumes:
-        parse_errors.append("无法识别分卷结构（需要 ## 标题）")
+        return {"volumes": [], "parse_errors": [markdown.strip()]}
 
-    return {"volumes": volumes, "parse_errors": parse_errors}
+    return {"volumes": volumes, "parse_errors": []}
 
 
 def insert_chapters_into_volume(
@@ -97,7 +150,7 @@ def insert_chapters_into_volume(
     chapters_markdown: str,
 ) -> str:
     """将生成的章节 Markdown 插入到 outline_detail 的指定卷位置。"""
-    volume_starts = [m.start() for m in re.finditer(r"^## ", outline_detail, re.MULTILINE)]
+    volume_starts = [m.start() for m in VOLUME_HEADING_RE.finditer(outline_detail)]
 
     if volume_index < 0 or volume_index >= len(volume_starts):
         return outline_detail + "\n\n" + chapters_markdown

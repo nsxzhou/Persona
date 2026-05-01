@@ -21,7 +21,7 @@ import { MarkdownPreview } from "@/components/markdown-preview";
 import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
-import { parseOutline, type ParsedOutline } from "@/lib/outline-parser";
+import { parseOutline, replaceVolumeChapters, type ParsedOutline } from "@/lib/outline-parser";
 import { consumeTextEventStream } from "@/lib/sse";
 import { BIBLE_TEMPLATES } from "@/lib/bible-templates";
 import type { ProjectChapter } from "@/lib/types";
@@ -443,6 +443,7 @@ function VolumeCard({
   const chapterCount = volume.chapters.length;
   const completedCount = volume.chapters.filter((chapter) => completedChapters.has(chapter.title)).length;
   const volumeTitle = getVolumeTitle(volume.title);
+  const bodyPreviewMarkdown = getVolumeBodyPreviewMarkdown(volume.bodyMarkdown, volume.meta);
 
   return (
     <div
@@ -472,6 +473,11 @@ function VolumeCard({
               </span>
             )}
           </div>
+          {bodyPreviewMarkdown ? (
+            <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
+              <MarkdownPreview content={bodyPreviewMarkdown} className="text-xs" />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -496,11 +502,13 @@ function VolumeCard({
       {isExpanded && chapterCount > 0 ? (
         <VolumeChapterList
           outline={outline}
-          value={value}
           chapters={volume.chapters}
           projectId={projectId}
           volumeIndex={volumeIndex}
         />
+      ) : null}
+      {isExpanded && chapterCount === 0 && value.trim() ? (
+        <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">本卷暂未生成章节细纲。</p>
       ) : null}
     </div>
   );
@@ -508,13 +516,11 @@ function VolumeCard({
 
 function VolumeChapterList({
   outline,
-  value,
   chapters,
   projectId,
   volumeIndex,
 }: {
   outline: ParsedOutline;
-  value: string;
   chapters: ParsedOutline["volumes"][number]["chapters"];
   projectId: string;
   volumeIndex: number;
@@ -547,15 +553,25 @@ function VolumeChapterList({
           当前结构包含无法解析的 Markdown 片段，建议通过原始 Markdown 检查。
         </p>
       )}
-      {!chapters.length && value.trim() && (
-        <p className="text-xs text-muted-foreground">本卷暂未生成章节细纲。</p>
-      )}
     </div>
   );
 }
 
 function getVolumeTitle(title: string) {
   return title.trim() || "未分卷章节";
+}
+
+function getVolumeBodyPreviewMarkdown(bodyMarkdown: string, meta: string) {
+  if (!bodyMarkdown.trim()) return "";
+  const lines = bodyMarkdown.split("\n");
+  const firstContentLine = lines.findIndex((line) => line.trim());
+  if (firstContentLine !== -1) {
+    const firstLine = lines[firstContentLine].trim();
+    if (firstLine === `> ${meta}` || firstLine.replace(/^>\s*/, "") === meta) {
+      lines.splice(firstContentLine, 1);
+    }
+  }
+  return lines.join("\n").trim();
 }
 
 function buildEditorHref(
@@ -565,36 +581,4 @@ function buildEditorHref(
   intent: "navigate" | "generate_beats",
 ) {
   return `/projects/${projectId}/editor?volumeIndex=${volumeIndex}&chapterIndex=${chapterIndex}&intent=${intent}`;
-}
-
-function replaceVolumeChapters(value: string, volumeIndex: number, generatedChapters: string) {
-  const parsed = parseOutline(value);
-  const target = parsed.volumes[volumeIndex];
-  if (!target) return value;
-
-  const lines: string[] = [];
-
-  parsed.volumes.forEach((volume, index) => {
-    lines.push(`## ${volume.title}`);
-    if (volume.meta) lines.push(`> ${volume.meta}`);
-    lines.push("");
-
-    if (index === volumeIndex) {
-      const normalized = generatedChapters.trim();
-      if (normalized) {
-        lines.push(normalized);
-        lines.push("");
-      }
-      return;
-    }
-
-    if (volume.chapters.length > 0) {
-      volume.chapters.forEach((chapter) => {
-        lines.push(chapter.rawMarkdown);
-        lines.push("");
-      });
-    }
-  });
-
-  return lines.join("\n").trim();
 }
