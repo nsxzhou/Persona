@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, FileText, Loader2, Sparkles, Square } from "lucide-react";
+import { ClipboardList, Eye, FileText, Loader2, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -246,9 +246,9 @@ export function OutlineDetailTab({
           </Button>
         )}
 
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setIsRawMode(true)}>
-          <FileText className="h-3.5 w-3.5" />
-          编辑原始 Markdown
+        <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setIsRawMode((r) => !r)}>
+          {isRawMode ? <Eye className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+          {isRawMode ? "返回结构化视图" : "编辑原始 Markdown"}
         </Button>
       </div>
     </div>
@@ -258,12 +258,6 @@ export function OutlineDetailTab({
     return (
       <div className="space-y-3">
         {toolbar}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">原始 Markdown 适合手动修正与兜底编辑。</p>
-          <Button variant="outline" size="sm" onClick={() => setIsRawMode(false)}>
-            返回结构化视图
-          </Button>
-        </div>
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
