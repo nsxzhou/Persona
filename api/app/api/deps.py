@@ -10,10 +10,10 @@ from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_db_session
 from app.services.auth import AuthService
+from app.services.checkpointer_factory import PlotAnalysisCheckpointerFactory
 from app.services.export import ProjectExportService
 from app.services.novel_workflows import NovelWorkflowService
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
-from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.plot_profiles import PlotProfileService
 from app.services.project_chapters import ProjectChapterService

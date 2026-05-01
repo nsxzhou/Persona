@@ -22,7 +22,7 @@ from app.schemas.plot_analysis_jobs import (
     PlotAnalysisJobStatusResponse,
     PlotAnalysisMeta,
 )
-from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
+from app.services.checkpointer_factory import PlotAnalysisCheckpointerFactory
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.provider_configs import ProviderConfigService
 

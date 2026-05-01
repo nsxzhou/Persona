@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.db.models import ProviderConfig
 from app.schemas.plot_analysis_jobs import PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT
-from app.services.plot_analysis_checkpointer import PlotAnalysisCheckpointerFactory
+from app.services.checkpointer_factory import PlotAnalysisCheckpointerFactory
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_pipeline import (
     PlotAnalysisPauseRequested,
