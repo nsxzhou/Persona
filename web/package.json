@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "codegen:openapi:schema": "uv run --project ../api python scripts/export_openapi_schema.py lib/api/generated/openapi.json",
@@ -31,7 +31,7 @@
     "diff": "^9.0.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",
-    "next": "^16.2.2",
+    "next": "^16.2.4",
     "next-themes": "^0.4.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
