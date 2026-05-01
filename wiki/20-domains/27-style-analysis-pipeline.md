@@ -61,8 +61,7 @@
 
 ### Checkpointer 与落盘产物
 
-- Checkpointer 工厂在 `api/app/services/style_analysis_checkpointer.py:23`
-- URL 归一化逻辑在 `api/app/services/style_analysis_checkpointer.py:11`
+- Checkpointer 工厂薄封装在 `api/app/services/style_analysis_checkpointer.py`，共享生命周期与 URL 归一化逻辑在 `api/app/services/checkpointer_factory.py`
 - 样本、chunk、chunk-analysis、阶段 Markdown、JSON 分类结果和日志都由 `api/app/services/style_analysis_storage.py:16` 管理
 - 任务日志的增量读取在 `api/app/services/style_analysis_storage.py:198`
 
@@ -90,15 +89,15 @@
 
 ### LLM 调用有“空响应重试”和非标准字段兜底
 
-`api/app/services/style_analysis_llm.py:87` 的 `MarkdownLLMClient` 专门为这条流水线服务：
+`api/app/services/llm_provider.py` 的 `LLMProviderService.invoke_markdown_completion()` 专门为 Markdown-First 流水线提供统一调用入口：
 
-- `build_model()` 固定 `temperature=0.0`，见 `api/app/services/style_analysis_llm.py:97`
-- `ainvoke_markdown()` 会对空响应做有限重试，见 `api/app/services/style_analysis_llm.py:110`
-- `_extract_markdown_text()` 允许从 `content`、`additional_kwargs.*`、`response_metadata.*` 等位置兜底提取正文，见 `api/app/services/style_analysis_llm.py:178`
+- `_build_model()` 通过 ProviderConfig 构造 OpenAI-compatible chat model
+- `invoke_markdown_completion()` 会对空响应、部分网关 malformed response 和可重试 permission error 做有限重试
+- `_extract_markdown_text()` 允许从 `content`、`additional_kwargs.*`、`response_metadata.*` 等位置兜底提取正文
 
 ### 输入判定不是 Prompt 前置，而是 worker 前置
 
-`api/app/services/style_analysis_text.py:119` 会在真正跑图前完成：
+`api/app/core/text_processing.py:113` 的 `read_chunks_and_classification()` 会在真正跑图前完成：
 
 - 编码探测
 - 文本清洗
@@ -131,9 +130,10 @@ flowchart TD
 
 - `api/app/services/style_analysis_pipeline.py`
 - `api/app/services/style_analysis_worker.py`
-- `api/app/services/style_analysis_text.py`
+- `api/app/core/text_processing.py`
 - `api/app/prompts/style_analysis.py`
-- `api/app/services/style_analysis_llm.py`
+- `api/app/services/llm_provider.py`
+- `api/app/services/checkpointer_factory.py`
 - `api/app/services/style_analysis_checkpointer.py`
 - `api/app/services/style_analysis_storage.py`
 - `api/app/services/style_analysis_jobs.py`

@@ -17,7 +17,7 @@ Persona 的所有 AI 能力都建立在 BYOK（Bring Your Own Key）之上。Pro
 
 - `_build_model()` 用 `init_chat_model()` 构造 LangChain chat model，见 `api/app/services/llm_provider.py:19`
 - `test_connection()` 用一条最小 `Reply with OK` 请求做连通性探针，见 `api/app/services/llm_provider.py:44`
-- `stream_messages()` / `invoke_completion()` 为上层业务统一提供流式与非流式入口，见 `api/app/services/llm_provider.py:72` 与 `api/app/services/llm_provider.py:82`
+- `invoke_completion()` / `invoke_markdown_completion()` 为上层业务统一提供非流式文本与 Markdown-First 调用入口
 
 这条设计的意义是：Persona 不关心“你接的是 OpenAI、OpenRouter、LiteLLM、Azure OpenAI 还是别的代理”，只关心它是否暴露出一条稳定的 OpenAI-compatible chat completions 接口。
 

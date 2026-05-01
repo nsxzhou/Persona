@@ -63,7 +63,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 对应代码样例：
 
-- `api/app/services/style_analysis_llm.py:87`
+- `api/app/services/llm_provider.py`
 - `api/app/services/style_analysis_pipeline.py:46`
 - `api/app/schemas/style_analysis_jobs.py:27`
 

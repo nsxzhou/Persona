@@ -104,7 +104,7 @@
 | LangGraph 分析管道（prepare → analyze → merge → report → summary → prompt pack → persist） | 🧪 | `api/app/services/style_analysis_pipeline.py` |
 | Chunk 并发分析（`Send` fan-out）| 🧪 | 可通过 `PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY` 配 |
 | Checkpointer 续跑（SQLite/Postgres）| 🧪 | `api/app/services/style_analysis_checkpointer.py` |
-| Markdown-First 输出契约 | 🧪 | `api/app/prompts/style_analysis.py`、`style_analysis_llm.py` |
+| Markdown-First 输出契约 | 🧪 | `api/app/prompts/style_analysis.py`、`api/app/services/llm_provider.py` |
 | 阶段反馈 + 实时增量日志拉取 | 🧪 | 前端 `/style-lab` 任务列表展示 |
 | 手动暂停 / 恢复任务 | 🧪 | |
 | 完整分析报告只读审阅 | 🧪 | `style-lab-wizard-report-step.tsx` |
