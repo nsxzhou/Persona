@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncGenerator
 from typing import Any
 
 from openai import PermissionDeniedError
@@ -167,50 +166,6 @@ class LLMProviderService:
                 "message": "Provider 连通性测试失败，请检查配置后重试",
                 "error_summary": summarize_exception(exc),
             }
-
-    async def stream_completion(
-        self,
-        provider_config: ProviderConfig,
-        system_prompt: str,
-        user_context: str,
-        injection_task: PromptInjectionTask | None = None,
-        injection_mode: PromptInjectionMode | None = None,
-    ) -> AsyncGenerator[str, None]:
-        model = self._build_model(
-            provider_config,
-            temperature=self._resolve_temperature(injection_task=injection_task),
-        )
-        resolved_mode = self._resolve_injection_mode(
-            injection_task=injection_task,
-            injection_mode=injection_mode,
-        )
-        messages = inject_first_human_message([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_context),
-        ], resolved_mode)
-        async for chunk in model.astream(messages):
-            if chunk.content:
-                yield chunk.content
-
-    async def stream_messages(
-        self,
-        provider_config: ProviderConfig,
-        messages: list[Any],
-        injection_task: PromptInjectionTask | None = None,
-        injection_mode: PromptInjectionMode | None = None,
-    ) -> AsyncGenerator[str, None]:
-        model = self._build_model(
-            provider_config,
-            temperature=self._resolve_temperature(injection_task=injection_task),
-        )
-        resolved_mode = self._resolve_injection_mode(
-            injection_task=injection_task,
-            injection_mode=injection_mode,
-        )
-        messages = inject_first_human_message(messages, resolved_mode)
-        async for chunk in model.astream(messages):
-            if chunk.content:
-                yield chunk.content
 
     async def invoke_completion(
         self,
