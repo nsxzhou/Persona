@@ -62,7 +62,7 @@ async def get_novel_workflow(
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
 ) -> NovelWorkflowResponse:
-    run = await workflow_service.get_detail_or_404(
+    run = await workflow_service.get_or_404(
         db_session,
         run_id,
         user_id=current_user.id,

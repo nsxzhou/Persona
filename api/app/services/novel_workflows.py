@@ -94,15 +94,6 @@ class NovelWorkflowService:
             raise NotFoundError("工作流任务不存在")
         return run
 
-    async def get_detail_or_404(
-        self,
-        session: AsyncSession,
-        run_id: str,
-        *,
-        user_id: str,
-    ) -> NovelWorkflowRun:
-        return await self.get_or_404(session, run_id, user_id=user_id)
-
     async def get_status_or_404(
         self,
         session: AsyncSession,
