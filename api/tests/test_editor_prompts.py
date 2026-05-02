@@ -34,6 +34,7 @@ from app.prompts.section_router import (
     build_section_user_message,
 )
 from app.schemas.novel_workflows import NovelWorkflowCreateRequest
+from app.schemas.prompt_profiles import GenerationProfile
 
 def test_world_building_prompt_ties_setting_to_reader_desire_supply() -> None:
     prompt = build_section_system_prompt("world_building", length_preset="long")
@@ -378,6 +379,16 @@ def test_volume_chapters_prompt_uses_current_volume_chapter_budget() -> None:
     assert "不要输出顶层一级标题（# ）" in prompt
     assert "三级标题只用于真实章节，必须写成「### 第 N 章：章名」" in prompt
     assert "只为当前卷输出章节详纲" in prompt
+    assert "禁止输出 Markdown 表格" in prompt
+    assert "禁止输出「第9-11章」这类范围章" in prompt
+    assert "每个章节块必须同时包含「核心事件」「情绪走向」「章末钩子」" in prompt
+
+
+def test_volume_generate_prompt_forbids_chapter_tables_and_ranges() -> None:
+    prompt = build_volume_generate_system_prompt(length_preset="medium")
+
+    assert "禁止输出章节细纲、章节表格、章节范围列表或「第N章」条目" in prompt
+    assert "不要输出章节表格、章节范围列表或「第N章」条目" in prompt
 
 
 def test_outline_detail_prompt_keeps_volume_fields_out_of_h3_headings() -> None:
@@ -523,17 +534,32 @@ def test_beat_prompts_use_tomato_author_persona() -> None:
 def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_emotion() -> None:
     prompt = build_beat_generate_system_prompt()
 
+    assert "不要编号、不要项目符号、不要标题、不要代码块、不要前言和总结" in prompt
+    assert "格式必须严格为：[情绪标签] 事件描述" in prompt
     assert "不要只写情绪变化，还要写清这一拍具体让读者追什么（如期待更深的堕落、更极致的打脸）" in prompt
     assert "压制、夺回、极致打脸、关系突破、打破禁忌、彻底征服或堕落" in prompt
     assert "最后一拍要明确勾住下一拍最想看的兑现" in prompt
 
 
 def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:
-    prompt = build_beat_expand_system_prompt()
+    prompt = build_beat_expand_system_prompt(
+        generation_profile=GenerationProfile(
+            target_market="mainstream",
+            genre_mother="urban",
+            desire_overlays=[],
+            intensity_level="plot_only",
+            pov_mode="limited_third",
+            morality_axis="gray_pragmatism",
+            pace_density="balanced",
+        )
+    )
 
     assert "每一段都要落下可感知的读者奖励（如极致的多巴胺爽感、金钱权力的兑现、或纯粹的生理与欲望满足）" in prompt
     assert "允许大段甚至整章的纯粹氛围、五感描写和欲望宣泄，充分满足读者的期待感与征服欲" in prompt
     assert "让读者体验主角正在享受绝对的权力掌控、彻底推倒高冷角色、或享受绝对忠诚的后宫陪伴" in prompt
+    assert "视角约束" in prompt
+    assert "不要写括号式内心独白" in prompt
+    assert "不要直接写“我心想”" in prompt
 
 
 def test_bible_update_prompt_uses_serial_author_maintenance_persona() -> None:
@@ -782,13 +808,16 @@ def test_volume_chapters_user_message_appends_regeneration_context() -> None:
         "卷一",
         "字数 0-10万",
         "",
+        "### 本卷核心驱动轴\n主角从被动到主动。",
         previous_output="旧章节列表",
         user_feedback="减少支线",
     )
 
+    assert "### 当前卷原始规划" in message
+    assert "主角从被动到主动。" in message
     assert "## 上一版结果\n\n旧章节列表" in message
     assert "## 用户意见（本次必须遵循）\n\n减少支线" in message
-    assert "请为当前卷设计章节细纲：" in message
+    assert "只输出标准章节块" in message
 
 
 def test_bible_update_user_message_appends_regeneration_context() -> None:

@@ -23,6 +23,7 @@ _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
     "需要拆到章节时，再在对应规划块下使用三级标题（### ）列出章节。\n"
     "不要输出顶层一级标题（# ）；卷级字段只能用项目符号、加粗字段或引用行表达，不要使用三级标题（### ）。\n"
     "只有真实章节可以使用三级标题，且必须写成「### 第 N 章：章名」。\n"
+    "章节细纲是机器解析契约：禁止用 Markdown 表格、范围章或列表摘要代替真实章节块；如果规划里出现「第9-11章」这种范围，必须拆成第9章、第10章、第11章三个独立三级标题。\n"
     "不要求固定写成三幕、几卷或多少章，应由故事实际推进需要决定结构层级。\n\n"
     "每章必须包含：\n"
     "- **章节标题**\n"
@@ -49,6 +50,11 @@ _VOLUME_CHAPTERS_SYSTEM_TEMPLATE = (
     "- **核心事件**：一句话概括\n"
     "- **情绪走向**：如「平静 → 震惊 → 愤怒」\n"
     "- **章末钩子**：驱动读者继续阅读的悬念或反转\n\n"
+    "输出契约（必须严格遵守，否则结果无法进入章节树）：\n"
+    "- 只能输出连续的真实章节块，不要输出卷标题、卷级分析、节奏设计、主要节奏、章末压力设计或总结段\n"
+    "- 禁止输出 Markdown 表格，禁止用项目符号列表批量概括多个章节\n"
+    "- 禁止输出「第9-11章」这类范围章；必须展开成「### 第 9 章：...」「### 第 10 章：...」「### 第 11 章：...」\n"
+    "- 每个章节块必须同时包含「核心事件」「情绪走向」「章末钩子」三个加粗字段\n\n"
     "落笔规则：\n"
     "- 不要输出顶层一级标题（# ）\n"
     "- 三级标题只用于真实章节，必须写成「### 第 N 章：章名」\n"
@@ -144,17 +150,23 @@ def build_volume_chapters_user_message(
     volume_title: str,
     volume_meta: str,
     preceding_chapters_summary: str,
+    volume_body_markdown: str = "",
     previous_output: str | None = None,
     user_feedback: str | None = None,
 ) -> str:
     parts: list[str] = []
     if outline_master.strip():
         parts.append(f"## 总纲\n\n{outline_master}")
-    parts.append(f"## 当前卷\n\n**{volume_title}**\n{volume_meta}")
+    current_volume_parts = [f"**{volume_title}**"]
+    if volume_meta.strip():
+        current_volume_parts.append(volume_meta.strip())
+    if volume_body_markdown.strip():
+        current_volume_parts.append(f"### 当前卷原始规划\n\n{volume_body_markdown.strip()}")
+    parts.append("## 当前卷\n\n" + "\n\n".join(current_volume_parts))
     if preceding_chapters_summary.strip():
         parts.append(
             f"## 前几卷已有章节（参考，保持连贯）\n\n{preceding_chapters_summary}"
         )
     append_regeneration_context(parts, previous_output, user_feedback)
-    parts.append("请为当前卷设计章节细纲：")
+    parts.append("请为当前卷设计章节细纲。只输出标准章节块，不要输出表格、范围章或卷级说明：")
     return "\n\n---\n\n".join(parts)

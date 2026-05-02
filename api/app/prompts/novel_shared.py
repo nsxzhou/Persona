@@ -108,6 +108,27 @@ def build_outline_closure_hint() -> str:
     )
 
 
+def build_pov_mode_hint(pov_mode: str | None) -> str:
+    if pov_mode == "limited_third":
+        return (
+            "\n\n视角约束：\n"
+            "- 使用限制性第三人称，只写当前视角角色能够观察、听见、感受到的内容。\n"
+            "- 不要写括号式内心独白，不要写“（心想：……）”“（内心OS：……）”这类显式思考标签。\n"
+            "- 不要直接写“我心想”“我觉得”“我暗自”等第一人称内心句式；若需要呈现心理变化，改写成动作、停顿、表情、语气和外部反应。\n"
+            "- 不要把全知旁白混进限制视角里。"
+        )
+    if pov_mode in {"first_person", "deep_first"}:
+        return (
+            "\n\n视角约束：\n"
+            "- 保持单一第一人称视角，不要在叙事中跳出到全知视角。\n"
+            "- 内心与动作要保持同一主体，不要混用第三人称旁白。"
+        )
+    return (
+        "\n\n视角约束：\n"
+        "- 严格保持单一叙事视角，不要在同一段里混用多重视角。"
+    )
+
+
 def build_volume_planning_budget_hint(length_preset: LengthPresetKey) -> str:
     budget = get_planning_budget(length_preset)
     volume_count = _format_range(budget["volume_count"])
@@ -151,6 +172,7 @@ def format_generation_profile(generation_profile: GenerationProfile | None) -> s
         f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
         f"intensity_level: {generation_profile.intensity_level}\n"
         f"pov_mode: {generation_profile.pov_mode}\n"
+        f"{build_pov_mode_hint(generation_profile.pov_mode)}\n"
         f"morality_axis: {generation_profile.morality_axis}\n"
         f"pace_density: {generation_profile.pace_density}\n\n"
         "这些字段是显式创作目标，必须直接作用于规划与正文生成。"
