@@ -209,6 +209,72 @@ describe("parseOutline", () => {
     expect(result.volumes[0].chapters[0].title).toBe("第 1 章：诊断书");
   });
 
+  test("fallback parses table-based volume rhythm into real chapter tree", () => {
+    const md = `## 第一卷：撕掉标签的第一天（第1-8章）
+
+> 主题：系统抛弃你之前，你先抛弃系统 | 当前压力：三个月倒计时启动
+
+### 本卷核心驱动轴
+从“被系统控制的优等生”到“主动打破规则的叛逆者”。
+
+### 节奏设计
+| 环节 | 章号 | 内容 | 追读驱动 |
+|------|------|------|---------|
+| 压制 | 第1章 | 诊断书+办公室对话 | 他怎么办？ |
+| 压制 | 第2章 | 围墙相遇，苏晚晴出现 | 这个女孩是什么人？ |
+| 反击 | 第3章 | 教务处谈话——翻窗出去 | 他真的敢退学吗？ |
+
+### 章末压力设计
+- 第1章：母亲站在办公室门口等他出来，他只能笑着说“没事”
+- 第2章：苏晚晴翻下围墙，回头说“听说你想学坏？”
+
+## 全篇爽点密度表
+
+| 阶段 | 章数 |
+|------|------|
+| 第一卷 | 8章 |`;
+
+    const result = parseOutline(md);
+
+    expect(result.parseErrors).toEqual([]);
+    expect(result.volumes).toHaveLength(1);
+    expect(result.volumes[0].title).toBe("第一卷：撕掉标签的第一天（第1-8章）");
+    expect(result.volumes[0].bodyMarkdown).toContain("### 本卷核心驱动轴");
+    expect(result.volumes[0].bodyMarkdown).not.toContain("### 节奏设计");
+    expect(result.volumes[0].chapters.map((chapter) => chapter.title)).toEqual([
+      "第1章：诊断书+办公室对话",
+      "第2章：围墙相遇，苏晚晴出现",
+      "第3章：教务处谈话——翻窗出去",
+    ]);
+    expect(result.volumes[0].chapters[0].coreEvent).toBe("诊断书+办公室对话");
+    expect(result.volumes[0].chapters[0].chapterHook).toBe("母亲站在办公室门口等他出来，他只能笑着说“没事”");
+    expect(result.volumes[0].chapters[2].chapterHook).toBe("他真的敢退学吗？");
+  });
+
+  test("fallback expands ranged list chapters into single chapter nodes", () => {
+    const md = `## 第二卷：偷来的自由（第9-20章）
+
+> 主题：在追捕中学会呼吸
+
+### 主要节奏
+- 第9-11章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动
+- 第12章：【核心爽点】周远派人来书店找茬
+
+### 章末压力起点
+- 第12章结尾：周远走前看他的眼神——不是恨，是怕`;
+
+    const result = parseOutline(md);
+
+    expect(result.volumes).toHaveLength(1);
+    expect(result.volumes[0].chapters.map((chapter) => chapter.title)).toEqual([
+      "第9章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动",
+      "第10章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动",
+      "第11章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动",
+      "第12章：【核心爽点】周远派人来书店找茬",
+    ]);
+    expect(result.volumes[0].chapters[3].chapterHook).toBe("周远走前看他的眼神——不是恨，是怕");
+  });
+
   test("replaceVolumeChapters preserves volume body markdown", () => {
     const md = `# 书名
 

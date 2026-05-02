@@ -81,6 +81,66 @@ class TestParseOutline:
         assert len(result["volumes"][0]["chapters"]) == 1
         assert result["volumes"][0]["chapters"][0]["title"] == "第 1 章：诊断书"
 
+    def test_fallback_parses_table_based_volume_rhythm_into_chapter_tree(self):
+        md = (
+            "## 第一卷：撕掉标签的第一天（第1-8章）\n\n"
+            "> 主题：系统抛弃你之前，你先抛弃系统 | 当前压力：三个月倒计时启动\n\n"
+            "### 本卷核心驱动轴\n"
+            "从“被系统控制的优等生”到“主动打破规则的叛逆者”。\n\n"
+            "### 节奏设计\n"
+            "| 环节 | 章号 | 内容 | 追读驱动 |\n"
+            "|------|------|------|---------|\n"
+            "| 压制 | 第1章 | 诊断书+办公室对话 | 他怎么办？ |\n"
+            "| 压制 | 第2章 | 围墙相遇，苏晚晴出现 | 这个女孩是什么人？ |\n"
+            "| 反击 | 第3章 | 教务处谈话——翻窗出去 | 他真的敢退学吗？ |\n\n"
+            "### 章末压力设计\n"
+            "- 第1章：母亲站在办公室门口等他出来，他只能笑着说“没事”\n"
+            "- 第2章：苏晚晴翻下围墙，回头说“听说你想学坏？”\n\n"
+            "## 全篇爽点密度表\n\n"
+            "| 阶段 | 章数 |\n"
+            "|------|------|\n"
+            "| 第一卷 | 8章 |\n"
+        )
+
+        result = parse_outline(md)
+
+        assert result["parse_errors"] == []
+        assert len(result["volumes"]) == 1
+        volume = result["volumes"][0]
+        assert volume["title"] == "第一卷：撕掉标签的第一天（第1-8章）"
+        assert "### 本卷核心驱动轴" in volume["body_markdown"]
+        assert "### 节奏设计" not in volume["body_markdown"]
+        assert [chapter["title"] for chapter in volume["chapters"]] == [
+            "第1章：诊断书+办公室对话",
+            "第2章：围墙相遇，苏晚晴出现",
+            "第3章：教务处谈话——翻窗出去",
+        ]
+        assert volume["chapters"][0]["core_event"] == "诊断书+办公室对话"
+        assert volume["chapters"][0]["chapter_hook"] == "母亲站在办公室门口等他出来，他只能笑着说“没事”"
+        assert volume["chapters"][2]["chapter_hook"] == "他真的敢退学吗？"
+
+    def test_fallback_expands_ranged_list_chapters_into_single_nodes(self):
+        md = (
+            "## 第二卷：偷来的自由（第9-20章）\n\n"
+            "> 主题：在追捕中学会呼吸\n\n"
+            "### 主要节奏\n"
+            "- 第9-11章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动\n"
+            "- 第12章：【核心爽点】周远派人来书店找茬\n\n"
+            "### 章末压力起点\n"
+            "- 第12章结尾：周远走前看他的眼神——不是恨，是怕\n"
+        )
+
+        result = parse_outline(md)
+
+        assert len(result["volumes"]) == 1
+        assert [chapter["title"] for chapter in result["volumes"][0]["chapters"]] == [
+            "第9章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动",
+            "第10章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动",
+            "第11章：校内追捕升级，庄晏利用陈勉的信息网络不断预判林景行的行动",
+            "第12章：【核心爽点】周远派人来书店找茬",
+        ]
+        assert result["volumes"][0]["chapters"][3]["chapter_hook"] == "周远走前看他的眼神——不是恨，是怕"
+
     def test_short_chapter_only_format_still_works(self):
         md = (
             "### 第 1 章：开端\n"
