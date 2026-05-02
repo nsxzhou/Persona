@@ -248,15 +248,6 @@ export function EditorContentArea({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleBeatExpandCompleted = useCallback(
-    async (beatsProse: string) => {
-      if (project.auto_sync_memory) {
-        await handleAutoChapterSync(beatsProse);
-      }
-    },
-    [handleAutoChapterSync, project.auto_sync_memory],
-  );
-
   const handleToggleAutoSyncMemory = useCallback(
     async (nextValue: boolean) => {
       await persistProjectUpdate(
@@ -287,6 +278,8 @@ export function EditorContentArea({
     disabled: !selectedChapterRecord,
   });
 
+  const beatExpandCompletedRef = useRef<(beatsProse: string) => Promise<void> | void>(() => {});
+
   const {
     beats: beatList,
     setBeats: setBeatList,
@@ -304,7 +297,7 @@ export function EditorContentArea({
     previousChapterContext,
     totalContentLength,
     disabled: !selectedChapterRecord,
-    onBeatExpandCompleted: handleBeatExpandCompleted,
+    onBeatExpandCompleted: (beatsProse) => beatExpandCompletedRef.current(beatsProse),
   });
 
   const { isSaving, saveNow, flushPendingSave, clearSaveError } = useEditorAutosave(
@@ -313,6 +306,20 @@ export function EditorContentArea({
     isRewritingSelection || isExpandingBeatProse,
     syncPersistedChapter,
   );
+
+  useEffect(() => {
+    beatExpandCompletedRef.current = async (beatsProse: string) => {
+      try {
+        store.getState().setContent(beatsProse);
+        const savedChapter = await saveNow(beatsProse);
+        if (project.auto_sync_memory) {
+          await handleAutoChapterSync(savedChapter.content);
+        }
+      } catch {
+        // saveNow already surfaced the error; do not continue to memory sync.
+      }
+    };
+  }, [handleAutoChapterSync, project.auto_sync_memory, saveNow, store]);
 
   const saveCurrentChapterForSync = useCallback(async () => {
     const content = store.getState().content;

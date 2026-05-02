@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { createApiClient } from "@/lib/api-client";
 import { createJsonRequester } from "@/lib/api/transport";
+import { parseBeatsMarkdown } from "@/lib/novel-workflow-client";
 import type {
   ConceptGeneratePayload,
   NovelBeatWorkflowResult,
@@ -62,7 +63,7 @@ describe("API contracts", () => {
         return "章节摘要" as T;
       }
       if (path.includes("/artifacts/beats_markdown")) {
-        return "beat 1\nbeat 2" as T;
+        return "生成如下：\n- 【平静→疑惑】 发现脚印\n- 【震惊→决然】 他推门而入" as T;
       }
       if (path.includes("/artifacts/prose_markdown")) {
         return "正文内容" as T;
@@ -152,6 +153,9 @@ describe("API contracts", () => {
       plotProfileUpdatePromise,
     ]);
     expect(request).toHaveBeenCalled();
+    expect(parseBeatsMarkdown("节拍如下：\n- 【平静→疑惑】 发现脚印\n- 旁白说明")).toEqual([
+      "[平静→疑惑] 发现脚印",
+    ]);
   });
 
   test("concept generation payload accepts selected profile ids", async () => {

@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Eye, FileText, Loader2, Sparkles, Square } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Eye,
+  FileText,
+  Loader2,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -16,14 +25,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownPreview } from "@/components/markdown-preview";
 import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
-import { parseOutline, replaceVolumeChapters, type ParsedOutline } from "@/lib/outline-parser";
+import { hasStandardChapterHeadings, parseOutline, replaceVolumeChapters, type ParsedOutline } from "@/lib/outline-parser";
 import { consumeTextEventStream } from "@/lib/sse";
 import { BIBLE_TEMPLATES } from "@/lib/bible-templates";
+import { cn } from "@/lib/utils";
 import type { ProjectChapter } from "@/lib/types";
 
 type OutlineDetailMode = "edit" | "preview" | "generate";
@@ -57,6 +66,10 @@ export function OutlineDetailTab({
   const parsed = useMemo(() => parseOutline(value), [value]);
   const hasVolumes = parsed.volumes.length > 0;
   const allVolumesHaveChapters = hasVolumes && parsed.volumes.every((v) => v.chapters.length > 0);
+  const totalChapters = useMemo(
+    () => parsed.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0),
+    [parsed.volumes],
+  );
   const completedChapters = useMemo(
     () => new Set(chapters.filter((chapter) => chapter.word_count > 0).map((chapter) => chapter.title)),
     [chapters],
@@ -121,6 +134,7 @@ export function OutlineDetailTab({
   const handleGenerateVolumeChapters = useCallback(
     async (volumeIndex: number, options?: RegenerateOptions) => {
       if (generatingVolumeIndex !== null) return;
+      const originalValue = value;
       setGeneratingVolumeIndex(volumeIndex);
       setExpandedVolumes(new Set([volumeIndex]));
       setMode("generate");
@@ -135,13 +149,27 @@ export function OutlineDetailTab({
         );
 
         if (generated) {
+          if (!hasStandardChapterHeadings(generated)) {
+            onChange(originalValue);
+            toast.error("生成结果未包含标准章节标题（### 第 N 章：章名），已阻止写入。请重试或调整意见。");
+            return;
+          }
           const finalValue = replaceVolumeChapters(value, volumeIndex, generated);
+          const targetVolume = parseOutline(finalValue).volumes[volumeIndex];
+          if (!targetVolume || targetVolume.chapters.length === 0) {
+            onChange(originalValue);
+            toast.error("生成结果无法解析为章节树，已阻止写入。请重试或调整意见。");
+            return;
+          }
           onChange(finalValue);
           await api.updateProjectBible(projectId, { outline_detail: finalValue });
         }
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "生成失败";
-        if (message !== "The operation was cancelled.") toast.error(message);
+        if (message !== "The operation was cancelled.") {
+          onChange(originalValue);
+          toast.error(message);
+        }
       } finally {
         setGeneratingVolumeIndex(null);
       }
@@ -202,22 +230,40 @@ export function OutlineDetailTab({
   );
 
   const toolbar = (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">分卷与章节细纲</span>
-        <span className="text-xs text-muted-foreground/50">· {parsed.volumes.length} 卷</span>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          分卷与章节细纲
+        </span>
+        <span className="text-xs text-muted-foreground/50">
+          · {parsed.volumes.length} 卷 · {totalChapters} 章
+        </span>
       </div>
-      <div className="flex items-center gap-2">
-        <Tabs value={mode} onValueChange={(val) => setMode(val as "edit" | "preview")}>
-          <TabsList className="h-7 text-xs p-0 px-1 border border-border">
-            <TabsTrigger value="edit" className="h-5 px-3 text-xs">
-              编辑
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="h-5 px-3 text-xs">
-              预览
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex overflow-hidden rounded-md border border-border">
+          <button
+            type="button"
+            onClick={() => setMode("edit")}
+            className={`px-3 py-1 text-xs transition-colors ${
+              mode !== "preview"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            编辑
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("preview")}
+            className={`px-3 py-1 text-xs transition-colors ${
+              mode === "preview"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            预览
+          </button>
+        </div>
 
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleInsertTemplate}>
           <ClipboardList className="h-3.5 w-3.5" />
@@ -256,7 +302,7 @@ export function OutlineDetailTab({
 
   if (isRawMode) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         {toolbar}
         <textarea
           value={value}
@@ -270,7 +316,7 @@ export function OutlineDetailTab({
 
   if (!hasVolumes) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         {toolbar}
         <EmptyVolumesState
           outlineMaster={outlineMaster}
@@ -282,7 +328,7 @@ export function OutlineDetailTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {toolbar}
 
       {generatingVolumeIndex !== null && (
@@ -297,11 +343,11 @@ export function OutlineDetailTab({
       )}
 
       {mode === "preview" ? (
-        <div className="rounded-lg border border-input bg-background px-4 py-3">
+        <div className="min-h-[400px] rounded-md border border-input bg-background px-4 py-3">
           <MarkdownPreview content={value} />
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {parsed.volumes.map((vol, vi) => (
             <VolumeCard
               key={`${vol.title}-${vi}`}
@@ -440,6 +486,7 @@ function VolumeCard({
   onGenerate: () => void;
   onRegenerate: () => void;
 }) {
+  const [isBodyExpanded, setIsBodyExpanded] = useState(false);
   const chapterCount = volume.chapters.length;
   const completedCount = volume.chapters.filter((chapter) => completedChapters.has(chapter.title)).length;
   const volumeTitle = getVolumeTitle(volume.title);
@@ -447,40 +494,50 @@ function VolumeCard({
 
   return (
     <div
-      className={`rounded-xl border bg-card p-4 shadow-sm transition-colors ${
-        highlighted ? "border-primary ring-2 ring-primary/15" : "border-border"
-      }`}
+      className={cn(
+        "rounded-md border bg-card transition-colors",
+        highlighted ? "border-primary ring-2 ring-primary/10" : "border-border",
+      )}
       data-volume-index={volumeIndex}
     >
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
+      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span>第 {volumeIndex + 1} 卷</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span>{chapterCount} 章</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-emerald-600">已完成 {completedCount}/{chapterCount} 章</span>
+            {!chapterCount ? (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-amber-600">尚未生成章节细纲</span>
+              </>
+            ) : null}
+          </div>
           <div className="space-y-1">
-            <h4 className="text-sm font-semibold">{volumeTitle}</h4>
+            <h4 className="text-sm font-semibold leading-6">{volumeTitle}</h4>
             {volume.meta ? (
-              <p className="text-xs text-muted-foreground leading-5">{volume.meta}</p>
+              <p className="max-w-3xl text-xs leading-5 text-muted-foreground">{volume.meta}</p>
             ) : (
               <p className="text-xs text-muted-foreground">暂无卷简介</p>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="rounded-full bg-muted px-2.5 py-1">{chapterCount} 章</span>
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-600">
-              已完成 {completedCount}/{chapterCount} 章
-            </span>
-            {!chapterCount && (
-              <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-600">
-                尚未生成章节细纲
-              </span>
-            )}
-          </div>
-          {bodyPreviewMarkdown ? (
-            <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
-              <MarkdownPreview content={bodyPreviewMarkdown} className="text-xs" />
-            </div>
-          ) : null}
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {bodyPreviewMarkdown ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs text-muted-foreground"
+              onClick={() => setIsBodyExpanded((prev) => !prev)}
+            >
+              {isBodyExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              {isBodyExpanded ? "收起卷级内容" : "展开卷级内容"}
+            </Button>
+          ) : null}
           {!chapterCount ? (
             <Button size="sm" className="gap-2" disabled={isGenerating} onClick={onGenerate}>
               {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -499,6 +556,15 @@ function VolumeCard({
         </div>
       </div>
 
+      {isBodyExpanded && bodyPreviewMarkdown ? (
+        <div className="border-t border-border px-4 py-3">
+          <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+            卷级细纲
+          </div>
+          <MarkdownPreview content={bodyPreviewMarkdown} className="text-xs" />
+        </div>
+      ) : null}
+
       {isExpanded && chapterCount > 0 ? (
         <VolumeChapterList
           outline={outline}
@@ -508,7 +574,7 @@ function VolumeCard({
         />
       ) : null}
       {isExpanded && chapterCount === 0 && value.trim() ? (
-        <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">本卷暂未生成章节细纲。</p>
+        <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">本卷暂未生成章节细纲。</p>
       ) : null}
     </div>
   );
@@ -526,30 +592,54 @@ function VolumeChapterList({
   volumeIndex: number;
 }) {
   return (
-    <div className="mt-4 space-y-2 border-t border-border pt-4">
+    <div className="border-t border-border">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          章节树
+        </p>
+        <p className="text-xs text-muted-foreground/60">{chapters.length} 章</p>
+      </div>
       {chapters.map((chapter, chapterIndex) => (
         <div
           key={`${chapter.title}-${chapterIndex}`}
-          className="flex items-center gap-3 rounded-lg border border-border/70 bg-background px-3 py-2"
+          className="group border-b border-border px-4 py-3 last:border-b-0 hover:bg-muted/40"
         >
-          <Link
-            href={buildEditorHref(projectId, volumeIndex, chapterIndex, "navigate")}
-            className="min-w-0 flex-1 text-sm text-foreground transition-colors hover:text-primary hover:underline"
-          >
-            {chapter.title}
-          </Link>
-          <Button variant="secondary" size="sm" asChild>
-            <Link
-              href={buildEditorHref(projectId, volumeIndex, chapterIndex, "generate_beats")}
-              aria-label={`AI 生成 ${chapter.title}`}
-            >
-              生成节拍
-            </Link>
-          </Button>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Link
+                href={buildEditorHref(projectId, volumeIndex, chapterIndex, "navigate")}
+                className="block min-w-0 text-sm font-medium text-foreground transition-colors hover:underline"
+              >
+                {chapter.title}
+              </Link>
+              <div className="space-y-1 text-xs leading-5 text-muted-foreground">
+                {chapter.coreEvent && (
+                  <p>
+                    <span className="font-medium text-foreground/70">核心事件：</span>
+                    {chapter.coreEvent}
+                  </p>
+                )}
+                {chapter.chapterHook && (
+                  <p>
+                    <span className="font-medium text-foreground/70">章末钩子：</span>
+                    {chapter.chapterHook}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button variant="secondary" size="sm" asChild>
+              <Link
+                href={buildEditorHref(projectId, volumeIndex, chapterIndex, "generate_beats")}
+                aria-label={`AI 生成 ${chapter.title}`}
+              >
+                生成节拍
+              </Link>
+            </Button>
+          </div>
         </div>
       ))}
       {outline.parseErrors.length > 0 && (
-        <p className="text-xs text-amber-600">
+        <p className="border-t border-border px-4 py-3 text-xs text-amber-600">
           当前结构包含无法解析的 Markdown 片段，建议通过原始 Markdown 检查。
         </p>
       )}

@@ -19,6 +19,46 @@ export type RegenerateOptions = {
   userFeedback?: string;
 };
 
+export function parseBeatsMarkdown(markdown: string): string[] {
+  const beats: string[] = [];
+  let sawExplicitBeat = false;
+
+  for (const rawLine of markdown.split(/\r?\n/)) {
+    const line = rawLine.trim().replace(/^\uFEFF/, "");
+    if (!line) continue;
+    if (/^```/.test(line) || /^>/.test(line) || /^#{1,6}\s+/.test(line)) continue;
+    if (/^(?:-{3,}|={3,}|\*{3,}|·{3,}|…{3,})$/.test(line)) continue;
+    if (/^(?:以下是|如下|下面是|接下来是|节拍如下|节拍列表|生成如下|请生成|请看|说明：|备注：|提示：)/.test(line)) {
+      continue;
+    }
+
+    const stripped = line.replace(
+      /^\s*(?:[-*+•]\s*|(?:\d+|[一二三四五六七八九十]+)[.)、]\s*)/,
+      "",
+    ).trim();
+    if (!stripped) continue;
+
+    const square = stripped.match(/^\[(?<label>[^\]\n]{1,80})\]\s*(?<body>.+?)\s*$/u);
+    const fullwidth = stripped.match(/^【(?<label>[^】\n]{1,80})】\s*(?<body>.+?)\s*$/u);
+    const normalized = square
+      ? `[${square.groups?.label?.trim() ?? ""}] ${square.groups?.body?.trim() ?? ""}`
+      : fullwidth
+        ? `[${fullwidth.groups?.label?.trim() ?? ""}] ${fullwidth.groups?.body?.trim() ?? ""}`
+        : stripped;
+    if (!normalized) continue;
+
+    if (normalized.startsWith("[")) {
+      sawExplicitBeat = true;
+    }
+    beats.push(normalized);
+  }
+
+  if (sawExplicitBeat) {
+    return beats.filter((beat) => beat.startsWith("["));
+  }
+  return beats;
+}
+
 export type SelectionRewriteWorkflowPayload = {
   projectId: string;
   selectedText: string;
@@ -184,10 +224,7 @@ export function createNovelWorkflowClient(request: Requester) {
         `/api/v1/novel-workflows/${run.id}/artifacts/beats_markdown`,
       );
       return {
-        beats: markdown
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean),
+        beats: parseBeatsMarkdown(markdown),
       } satisfies NovelBeatWorkflowResult;
     },
     runBeatExpandWorkflow: async (

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -37,6 +37,7 @@ const beatGenerationMock = vi.hoisted(() => ({
   isExpandingBeat: false,
   handleGenerateBeats: vi.fn(),
   handleStartBeatExpand: vi.fn(),
+  lastArgs: null as null | Record<string, unknown>,
 }));
 
 const autosaveMock = vi.hoisted(() => ({
@@ -78,7 +79,10 @@ vi.mock("@/hooks/use-editor-autosave", () => ({
 }));
 
 vi.mock("@/hooks/use-beat-generation", () => ({
-  useBeatGeneration: () => beatGenerationMock,
+  useBeatGeneration: (args: Record<string, unknown>) => {
+    beatGenerationMock.lastArgs = args;
+    return beatGenerationMock;
+  },
 }));
 
 vi.mock("@/components/beat-panel", () => ({
@@ -214,6 +218,7 @@ describe("ZenEditorView", () => {
     beatGenerationMock.isExpandingBeat = false;
     beatGenerationMock.handleGenerateBeats.mockReset();
     beatGenerationMock.handleStartBeatExpand.mockReset();
+    beatGenerationMock.lastArgs = null;
     autosaveMock.isSaving = false;
 
     autosaveMock.saveNow.mockReset();

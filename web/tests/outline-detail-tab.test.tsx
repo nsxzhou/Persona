@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
 
@@ -7,19 +7,36 @@ const apiMock = vi.hoisted(() => ({
   runVolumeWorkflow: vi.fn(),
   runVolumeChaptersWorkflow: vi.fn(),
   updateProject: vi.fn(),
+  updateProjectBible: vi.fn(),
+}));
+
+const toastMock = vi.hoisted(() => ({
+  error: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
-  toast: {
-    error: vi.fn(),
-  },
+  toast: toastMock,
 }));
 
 vi.mock("@/lib/api", () => ({
   api: apiMock,
 }));
 
+function createSseResponse(markdown: string) {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(markdown)}\n\n`));
+      controller.close();
+    },
+  });
+  return new Response(stream);
+}
+
 describe("OutlineDetailTab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   test("renders unified toolbar modes and compact volume overview", () => {
     render(
       <OutlineDetailTab
@@ -55,8 +72,8 @@ describe("OutlineDetailTab", () => {
       />,
     );
 
-    expect(screen.getByRole("tab", { name: "编辑" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "预览" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "预览" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "AI 生成" })).toBeInTheDocument();
     expect(screen.getByText("第一卷 反派开局")).toBeInTheDocument();
     expect(screen.getByText("已完成 1/2 章")).toBeInTheDocument();
@@ -104,5 +121,37 @@ describe("OutlineDetailTab", () => {
     expect(
       screen.getByText("当前卷下已生成的章节细纲将被覆盖。你可以填写意见指导生成方向（可选）。"),
     ).toBeInTheDocument();
+  });
+
+  test("blocks persisting generated chapter details without standard chapter headings", async () => {
+    const onChange = vi.fn();
+    const original = `## 第一卷：测试
+> 主题：测试`;
+    apiMock.runVolumeChaptersWorkflow.mockResolvedValue(
+      createSseResponse(`### 节奏设计
+| 章号 | 内容 |
+|------|------|
+| 第1章 | 错误表格 |`),
+    );
+
+    render(
+      <OutlineDetailTab
+        value={original}
+        onChange={onChange}
+        projectId="project-3"
+        outlineMaster="已存在总纲"
+        chapters={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "生成本卷章节细纲" }));
+
+    await waitFor(() => {
+      expect(toastMock.error).toHaveBeenCalledWith(
+        "生成结果未包含标准章节标题（### 第 N 章：章名），已阻止写入。请重试或调整意见。",
+      );
+    });
+    expect(apiMock.updateProjectBible).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith(original);
   });
 });
