@@ -182,6 +182,7 @@ class BeatAgent:
         total_beats: int,
         preceding_beats_prose: str,
         previous_output: str | None,
+        user_feedback: str | None = None,
         regenerating: bool = False,
     ) -> str:
         if self.llm_complete is None:
@@ -206,7 +207,7 @@ class BeatAgent:
                 previous_chapter_context=state.get("previous_chapter_context", ""),
                 active_character_focus=current_bible.get("active_character_focus", ""),
                 previous_output=previous_output,
-                user_feedback=None,
+                user_feedback=user_feedback,
             ),
             mode="immersion",
         )

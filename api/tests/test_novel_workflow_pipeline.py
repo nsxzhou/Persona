@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
+from app.services.beat_parser import parse_beats_markdown
 
 
 class StubLLM:
@@ -26,6 +27,63 @@ class StubLLM:
         if not self._outputs:
             raise AssertionError("stub llm exhausted")
         return self._outputs.pop(0)
+
+
+@pytest.mark.asyncio
+async def test_volume_chapters_generation_uses_target_volume_context(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(
+        [
+            "### 第 9 章：追捕升级\n"
+            "- **核心事件**：庄晏建立信息网络。\n"
+            "- **情绪走向**：紧张 → 冷静\n"
+            "- **章末钩子**：林景行扑空。"
+        ]
+    )
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-volume-chapters-context",
+        initial_state={
+            "intent_type": "volume_chapters_generate",
+            "volume_index": 1,
+            "current_bible": {
+                "outline_master": "全书总纲",
+                "outline_detail": (
+                    "## 第一卷：撕掉标签\n"
+                    "> 主题：先反制系统\n\n"
+                    "### 第 1 章：诊断书\n"
+                    "- **核心事件**：庄晏拿到诊断书\n\n"
+                    "## 第二卷：偷来的自由\n"
+                    "> 主题：在追捕中学会呼吸\n\n"
+                    "### 核心驱动轴\n"
+                    "建立灰色网络，从猎物变成猎人。\n"
+                ),
+            },
+        },
+    )
+
+    assert result.persist_payload["markdown"].startswith("### 第 9 章")
+    user_context = llm.calls[0]["user_context"]
+    assert "**第二卷：偷来的自由**" in user_context
+    assert "主题：在追捕中学会呼吸" in user_context
+    assert "### 当前卷原始规划" in user_context
+    assert "建立灰色网络，从猎物变成猎人。" in user_context
+    assert "## 前几卷已有章节（参考，保持连贯）" in user_context
+    assert "庄晏拿到诊断书" in user_context
 
 
 @pytest.mark.asyncio
@@ -151,8 +209,29 @@ async def test_chapter_write_beat_expansion_reuses_one_focused_context(
     ]
     expansion_calls = [call for call in llm.calls if call["mode"] == "immersion"]
     assert len(expansion_calls) == 2
+    assert all("视角约束" in call["system_prompt"] for call in expansion_calls)
+    assert all("不要写括号式内心独白" in call["system_prompt"] for call in expansion_calls)
     assert all("角色功能：破局者" in call["user_context"] for call in expansion_calls)
     assert all("IRRELEVANT_BLUEPRINT" not in call["user_context"] for call in expansion_calls)
+
+
+def test_parse_beats_markdown_prefers_explicit_bracketed_beats_and_skips_noise() -> None:
+    markdown = (
+        "节拍如下：\n"
+        "- [平静→疑惑] 主角注意到脚印\n"
+        "- 【紧绷→爆发】 班主任刚开口\n"
+        "3. [爆发→压制] 林景行看着他\n"
+        "### 说明\n"
+        "[震惊→决然] 他走了两步\n"
+        "注：别输出标题"
+    )
+
+    assert parse_beats_markdown(markdown) == [
+        "[平静→疑惑] 主角注意到脚印",
+        "[紧绷→爆发] 班主任刚开口",
+        "[爆发→压制] 林景行看着他",
+        "[震惊→决然] 他走了两步",
+    ]
 
 
 @pytest.mark.asyncio
@@ -229,3 +308,7 @@ async def test_chapter_write_pipeline_pauses_on_beats_then_expands_with_one_focu
         "immersion",
         "analysis",
     ]
+
+
+def test_parse_beats_markdown_normalizes_list_markers_for_chapter_expansion() -> None:
+    assert parse_beats_markdown("- 第一拍\n- 第二拍") == ["第一拍", "第二拍"]

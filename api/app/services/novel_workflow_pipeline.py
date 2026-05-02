@@ -24,7 +24,10 @@ from app.schemas.novel_workflows import (
     NOVEL_WORKFLOW_STAGE_WAITING_DECISION,
 )
 from app.schemas.prompt_profiles import build_chapter_objective_card, build_intensity_profile
+from app.services.outline_parser import parse_outline
 from app.services.context_assembly import WritingContextSections, assemble_writing_context
+from app.services.beat_parser import parse_beats_markdown
+from app.services.prose_validation import validate_limited_third_prose
 from app.services.novel_workflow_agents import (
     ActiveCharactersAgent,
     BeatAgent,
@@ -44,8 +47,6 @@ from app.services.writing_context_selection import (
 LLMComplete = Callable[..., Awaitable[str]]
 DecisionLoader = Callable[[str], dict[str, Any] | None]
 StageCallback = Callable[[str | None], Awaitable[None]]
-
-_BEAT_LINE_RE = re.compile(r"^\s*[-*+]?\s*")
 
 
 class NovelWorkflowAwaitingHuman(Exception):
@@ -249,6 +250,18 @@ class NovelWorkflowPipeline:
     async def _finalize_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
         await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
         prose_markdown, warnings = await self._write_chapter_from_beats(state)
+        if validate_limited_third_prose(prose_markdown):
+            warnings.append("limited_third_pov_retry")
+            prose_markdown, retry_warnings = await self._write_chapter_from_beats(
+                {
+                    **state,
+                    "previous_output": prose_markdown,
+                    "feedback": "请严格保持限制性第三人称视角，不要使用括号式内心独白或第一人称内心句式。",
+                }
+            )
+            warnings.extend(retry_warnings)
+            if validate_limited_third_prose(prose_markdown):
+                raise ValueError("限制性第三人称视角校验失败")
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
             name="prose_markdown",
@@ -365,6 +378,22 @@ class NovelWorkflowPipeline:
 
     async def _handle_volume_chapters_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         artifact_name = "volume_chapters_markdown"
+        volume_index = state.get("volume_index") or 0
+        parsed_outline = parse_outline(current_bible.get("outline_detail", ""))
+        target_volume = (
+            parsed_outline["volumes"][volume_index]
+            if 0 <= volume_index < len(parsed_outline["volumes"])
+            else None
+        )
+        preceding_chapters_summary = ""
+        if target_volume is not None:
+            preceding_chapters = [
+                chapter["raw_markdown"]
+                for volume in parsed_outline["volumes"][:volume_index]
+                for chapter in volume["chapters"]
+            ]
+            preceding_chapters_summary = "\n\n".join(preceding_chapters[-12:])
+
         markdown = await self._call_prompt(
             system_prompt=build_volume_chapters_system_prompt(
                 length_preset=state.get("length_preset", "long"),
@@ -375,9 +404,10 @@ class NovelWorkflowPipeline:
             ),
             user_context=build_volume_chapters_user_message(
                 current_bible.get("outline_master", ""),
-                f"第{(state.get('volume_index') or 0) + 1}卷",
-                "",
-                "",
+                target_volume["title"] if target_volume is not None else f"第{volume_index + 1}卷",
+                target_volume["meta"] if target_volume is not None else "",
+                preceding_chapters_summary,
+                target_volume["body_markdown"] if target_volume is not None else "",
                 previous_output=state.get("previous_output"),
                 user_feedback=state.get("feedback"),
             ),
@@ -575,11 +605,7 @@ class NovelWorkflowPipeline:
         current_bible = state.get("current_bible", {})
         selected_context = await self._select_writing_context(state, current_bible)
         focused_bible = selected_context.as_bible()
-        beats = [
-            _BEAT_LINE_RE.sub("", line.strip())
-            for line in state.get("beats_markdown", "").splitlines()
-            if line.strip()
-        ]
+        beats = parse_beats_markdown(state.get("beats_markdown", ""))
         warnings = list(state.get("warnings", []))
         prose_parts: list[str] = []
 
@@ -595,6 +621,7 @@ class NovelWorkflowPipeline:
                     total_beats=len(beats),
                     preceding_beats_prose="".join(prose_parts),
                     previous_output=accepted or None,
+                    user_feedback=state.get("feedback"),
                     regenerating=attempt > 0,
                 )
                 continuity = await self.continuity_agent.review(
