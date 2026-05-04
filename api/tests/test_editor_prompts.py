@@ -560,6 +560,9 @@ def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> 
     assert "视角约束" in prompt
     assert "不要写括号式内心独白" in prompt
     assert "不要直接写“我心想”" in prompt
+    assert "正文叙事主体必须使用第三人称角色名/他/她承载" in prompt
+    assert "不要用“我”作为旁白叙事视角" in prompt
+    assert "“我”只允许出现在角色对白中" in prompt
 
 
 def test_bible_update_prompt_uses_serial_author_maintenance_persona() -> None:

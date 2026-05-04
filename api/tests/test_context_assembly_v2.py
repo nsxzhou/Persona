@@ -71,6 +71,8 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
     assert "直接输出正文" in prompt
     assert "禁止前言、自述、总结、初始化说明、显式 thinking" in prompt
     assert "genre_mother: xianxia" in prompt
+    assert "pov_mode: limited_third" in prompt
+    assert "正文叙事主体必须使用第三人称角色名/他/她承载" in prompt
     assert "用压力迫使主角行动" in prompt
     assert "intensity_level: explicit" in prompt
     assert "chapter_goal: seduce" in prompt

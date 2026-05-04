@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.length_presets import LengthPresetKey, get_progress
+from app.prompts.novel_shared import build_pov_mode_hint
 from app.schemas.prompt_profiles import (
     ChapterObjectiveCard,
     GenerationProfile,
@@ -176,13 +177,15 @@ def assemble_writing_context(
         + _format_mapping(
             {
                 "genre_mother": resolved_generation_profile.genre_mother,
+                "pov_mode": resolved_generation_profile.pov_mode,
                 "intensity_level": resolved_intensity_profile.intensity_level,
                 "desire_overlays": ", ".join(resolved_intensity_profile.desire_overlays) or "none",
                 "expression_focus": "; ".join(resolved_intensity_profile.expression_focus),
                 "boundary_rules": "; ".join(resolved_intensity_profile.boundary_rules),
                 "soft_conflicts": "; ".join(resolved_intensity_profile.soft_conflicts) or "none",
             }
-        ),
+        )
+        + build_pov_mode_hint(resolved_generation_profile.pov_mode),
     ]
 
     project_context_parts: list[str] = []
