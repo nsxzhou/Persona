@@ -52,13 +52,9 @@ Persona 是一个面向长篇小说创作的本地优先工作台。它不追求
 
 在进入编辑器前，先在工作台里维护简介、世界观设定、角色卡、总纲、分卷与章节细纲等蓝图信息。
 
-![项目工作台](./img/FireShot%20Capture%20235%20-%20Persona%20-%20%5Blocalhost%5D.png)
-
 ### Zen Editor
 
 真正的写作界面：左侧是章节导航，顶部提供导出、同步记忆和局部改写入口，用于把约束资产落到正文创作里。
-
-![Zen Editor](./img/FireShot%20Capture%20236%20-%20Persona%20-%20%5Blocalhost%5D.png)
 
 ## 技术栈
 
