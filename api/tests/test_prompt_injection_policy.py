@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.prompt_injection import PromptInjectionMode
+from app.services.prompt_injection import PromptInjectionMode, marker_for_mode
 from app.services.prompt_injection_policy import (
     PromptInjectionTask,
     resolve_injection_mode,
@@ -11,6 +11,17 @@ from app.services.llm_provider import LLMProviderService
 def test_prompt_injection_policy_routes_editor_prose_tasks_to_immersion() -> None:
     assert resolve_injection_mode(PromptInjectionTask.EDITOR_CONTINUATION) == "immersion"
     assert resolve_injection_mode(PromptInjectionTask.EDITOR_BEAT_EXPANSION) == "immersion"
+
+
+def test_immersion_marker_does_not_force_first_person_inner_monologue() -> None:
+    marker = marker_for_mode(resolve_injection_mode(PromptInjectionTask.EDITOR_BEAT_EXPANSION))
+
+    assert "正文沉浸要求" in marker
+    assert "场景连续性" in marker
+    assert "第一人称" not in marker
+    assert "我心想" not in marker
+    assert "我觉得" not in marker
+    assert "我暗自" not in marker
 
 
 def test_prompt_injection_policy_routes_analysis_tasks_to_analysis() -> None:
