@@ -15,6 +15,18 @@ def test_validate_limited_third_prose_flags_first_person_inner_thoughts() -> Non
     assert issues == ["检测到限制性第三人称违规表达"]
 
 
+def test_validate_limited_third_prose_flags_first_person_narration() -> None:
+    issues = validate_limited_third_prose("我推开门，冷风灌进来。")
+
+    assert issues == ["检测到限制性第三人称违规表达"]
+
+
+def test_validate_limited_third_prose_allows_first_person_dialogue() -> None:
+    issues = validate_limited_third_prose("他说：“我不信。”")
+
+    assert issues == []
+
+
 def test_validate_limited_third_prose_allows_observable_third_person() -> None:
     issues = validate_limited_third_prose("庄晏抬眼看向门口，指节慢慢收紧。")
 

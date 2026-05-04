@@ -235,6 +235,62 @@ def test_parse_beats_markdown_prefers_explicit_bracketed_beats_and_skips_noise()
 
 
 @pytest.mark.asyncio
+async def test_chapter_write_retries_when_limited_third_output_uses_first_person_narration(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(
+        [
+            "- 第一拍",
+            '["沈砚"]',
+            "我推开门，冷风灌进来。",
+            "## Verdict\npass\n## Conflicts\n无\n## Character Drift\n无\n## World Rule Issues\n无\n## Required Rewrites\n无",
+            '["沈砚"]',
+            "沈砚推开门，冷风灌进来。",
+            "## Verdict\npass\n## Conflicts\n无\n## Character Drift\n无\n## World Rule Issues\n无\n## Required Rewrites\n无",
+        ]
+    )
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+        decision_loader=lambda _run_id: {
+            "action": "approve",
+            "artifact_name": "beats_markdown",
+        },
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-write-limited-third-retry",
+        initial_state={
+            "intent_type": "chapter_write",
+            "chapter_id": "chapter-1",
+            "current_chapter_context": "沈砚进入账房。",
+            "text_before_cursor": "",
+            "current_bible": {
+                "characters_blueprint": "## 沈砚\n- 角色功能：破局者",
+                "characters_status": "## 沈砚\n- 当前状态：掌握账册",
+                "outline_detail": "本章进入账房。",
+                "runtime_state": "沈砚准备逼问账房。",
+                "runtime_threads": "账册伏笔。",
+            },
+        },
+    )
+
+    assert result.persist_payload["chapter"]["content"] == "沈砚推开门，冷风灌进来。"
+    assert "我推开门" not in result.persist_payload["chapter"]["content"]
+    assert "limited_third_pov_retry" in result.warnings
+
+
+@pytest.mark.asyncio
 async def test_chapter_write_pipeline_pauses_on_beats_then_expands_with_one_focused_context(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
