@@ -234,7 +234,7 @@ async def test_provider_update_accepts_empty_api_key_as_keep_original(initialize
 
 
 @pytest.mark.asyncio
-async def test_provider_delete_uses_repository_style_lab_reference_check() -> None:
+async def test_provider_delete_uses_reference_service_analysis_check() -> None:
     from app.core.domain_errors import ConflictError
     from app.services.provider_configs import ProviderConfigService
 
@@ -245,15 +245,19 @@ async def test_provider_delete_uses_repository_style_lab_reference_check() -> No
             del session, provider_id, user_id
             return provider
 
-        async def has_style_lab_references(self, session, provider_id: str, *, user_id: str | None = None) -> bool:
-            del session, provider_id, user_id
-            return True
-
         async def delete(self, session, provider):  # pragma: no cover - should not be reached
             del session, provider
             raise AssertionError("delete should not be called when references exist")
 
-    service = ProviderConfigService(repository=RepositoryStub())  # type: ignore[arg-type]
+    class ReferenceServiceStub:
+        async def has_analysis_references(self, session, provider_id: str, *, user_id: str | None = None) -> bool:
+            del session, provider_id, user_id
+            return True
+
+    service = ProviderConfigService(
+        repository=RepositoryStub(),  # type: ignore[arg-type]
+        reference_service=ReferenceServiceStub(),  # type: ignore[arg-type]
+    )
     with pytest.raises(ConflictError) as exc_info:
         await service.delete(session=SimpleNamespace(), provider_id="provider-1")
 

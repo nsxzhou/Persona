@@ -16,6 +16,7 @@ from app.db.models import ProviderConfig
 from app.db.repositories.provider_configs import ProviderConfigRepository
 from app.schemas.provider_configs import ProviderConfigCreate, ProviderConfigUpdate
 from app.services.llm_provider import LLMProviderService
+from app.services.provider_references import ProviderReferenceService
 
 
 PROVIDER_CONNECTION_TEST_ERROR_MESSAGE = "Provider 连通性测试失败，请检查配置后重试"
@@ -26,9 +27,11 @@ class ProviderConfigService:
         self,
         repository: ProviderConfigRepository | None = None,
         llm_provider_service: LLMProviderService | None = None,
+        reference_service: ProviderReferenceService | None = None,
     ) -> None:
         self.repository = repository or ProviderConfigRepository()
         self.llm_provider_service = llm_provider_service or LLMProviderService()
+        self.reference_service = reference_service or ProviderReferenceService()
 
     async def _resolve_user_id(
         self,
@@ -162,7 +165,11 @@ class ProviderConfigService:
         if has_active_project:
             raise ConflictError("该 Provider 正被项目引用，无法删除")
 
-        has_refs = await self.repository.has_style_lab_references(session, provider_id, user_id=user_id)
+        has_refs = await self.reference_service.has_analysis_references(
+            session,
+            provider_id,
+            user_id=user_id,
+        )
         if has_refs:
             raise ConflictError("该 Provider 正被 Style Lab 引用，无法删除")
 

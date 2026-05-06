@@ -10,6 +10,7 @@ import { ProviderConfigFormDialog } from "@/components/provider-config-form-dial
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { providerQueryKeys } from "@/lib/provider-query-keys";
 import type { ProviderConfig, ProviderPayload } from "@/lib/types";
 
 export function ProviderConfigsPageClient() {
@@ -19,7 +20,7 @@ export function ProviderConfigsPageClient() {
   const [testingId, setTestingId] = useState<string | null>(null);
 
   const providersQuery = useQuery({
-    queryKey: ["provider-configs"],
+    queryKey: providerQueryKeys.lists(),
     queryFn: api.getProviderConfigs,
   });
 
@@ -35,7 +36,7 @@ export function ProviderConfigsPageClient() {
       toast.success("Provider 已保存");
       setDialogOpen(false);
       setEditingProvider(null);
-      await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
+      await queryClient.invalidateQueries({ queryKey: providerQueryKeys.lists() });
     },
   });
 
@@ -48,12 +49,12 @@ export function ProviderConfigsPageClient() {
     onError: (error) => toast.error(error.message),
     onSuccess: async (_, deletedId) => {
       toast.success("Provider 已删除");
-      queryClient.setQueryData<ProviderConfig[]>(["provider-configs"], (current) => {
+      queryClient.setQueryData<ProviderConfig[]>(providerQueryKeys.lists(), (current) => {
         if (!current) return current;
         return current.filter((provider) => provider.id !== deletedId);
       });
       await queryClient.invalidateQueries({
-        queryKey: ["provider-configs"],
+        queryKey: providerQueryKeys.lists(),
         refetchType: "none",
       });
     },
@@ -76,7 +77,7 @@ export function ProviderConfigsPageClient() {
       );
     } finally {
       setTestingId(null);
-      await queryClient.invalidateQueries({ queryKey: ["provider-configs"] });
+      await queryClient.invalidateQueries({ queryKey: providerQueryKeys.lists() });
     }
   };
 
