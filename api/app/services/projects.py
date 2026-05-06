@@ -80,9 +80,9 @@ class ProjectService:
                 payload.plot_profile_id,
                 user_id=resolved_user_id,
             )
-        default_model = payload.default_model.strip() if payload.default_model else ""
-        payload.default_provider_id = provider.id
-        payload.default_model = default_model or provider.default_model
+        requested_default_model = payload.default_model.strip() if payload.default_model else ""
+        default_provider_id = provider.id
+        default_model = requested_default_model or provider.default_model
 
         project = await self.repository.create(
             session,
@@ -90,8 +90,8 @@ class ProjectService:
             name=payload.name,
             description=payload.description,
             status=payload.status,
-            default_provider_id=payload.default_provider_id,
-            default_model=payload.default_model,
+            default_provider_id=default_provider_id,
+            default_model=default_model,
             style_profile_id=payload.style_profile_id,
             plot_profile_id=payload.plot_profile_id,
             generation_profile_payload=(

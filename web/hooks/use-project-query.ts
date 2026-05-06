@@ -69,8 +69,8 @@ export function useUpdateProjectBible() {
       if (previousBible) {
         queryClient.setQueryData<ProjectBible>(projectKeys.bible(id), {
           ...previousBible,
-          ...(payload as any),
-        });
+          ...payload,
+        } as ProjectBible);
       }
 
       return { previousBible };

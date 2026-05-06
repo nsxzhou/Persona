@@ -58,7 +58,21 @@ const EditorTextarea = React.memo(React.forwardRef<HTMLTextAreaElement, EditorTe
 }));
 EditorTextarea.displayName = "EditorTextarea";
 
-const DEFAULT_BIBLE = { runtime_state: "", runtime_threads: "", outline_detail: "" };
+const DEFAULT_BIBLE = {
+  id: "",
+  project_id: "",
+  inspiration: "",
+  world_building: "",
+  characters_blueprint: "",
+  outline_master: "",
+  outline_detail: "",
+  characters_status: "",
+  runtime_state: "",
+  runtime_threads: "",
+  story_summary: "",
+  created_at: "",
+  updated_at: "",
+} satisfies ProjectBible;
 
 export function EditorContentArea({ 
   activeProfileName, 
@@ -239,7 +253,7 @@ export function EditorContentArea({
     dismissRuntimeUpdate,
   } = useChapterMemorySync({
     projectId: project.id,
-    projectBible: (projectBible ?? { characters_status: "", runtime_state: "", runtime_threads: "" }) as any,
+    projectBible: projectBible ?? DEFAULT_BIBLE,
     selectedChapter: selectedChapterRecord,
     getCurrentContent: () => store.getState().content,
     persistProjectBibleUpdate,
@@ -290,7 +304,7 @@ export function EditorContentArea({
     handleStartBeatExpand: handleExpandBeats,
   } = useBeatGeneration({
     project: project,
-    projectBible: (projectBible ?? DEFAULT_BIBLE) as any,
+    projectBible: projectBible ?? DEFAULT_BIBLE,
     textareaRef,
     isGenerating: isRewritingSelection,
     currentChapterContext,
@@ -622,7 +636,7 @@ export function EditorContentArea({
         leftPanel={
           <EditorSidePanel
             project={project}
-            projectBible={projectBible ?? { characters_status: "", runtime_state: "", runtime_threads: "", outline_detail: "" } as any}
+            projectBible={projectBible ?? DEFAULT_BIBLE}
             contentLength={totalContentLength}
             parsedOutline={parsedOutline}
             currentChapter={currentChapter}
