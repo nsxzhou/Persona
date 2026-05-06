@@ -565,6 +565,35 @@ def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> 
     assert "“我”只允许出现在角色对白中" in prompt
 
 
+def test_beat_expand_prompt_prioritizes_voice_profile_language_contract() -> None:
+    prompt = build_beat_expand_system_prompt(
+        style_prompt=(
+            "# Voice Profile\n"
+            "## 3.1 口头禅与常用表达\n- 执行规则：冷白短句，反问收束。\n"
+        ),
+        plot_prompt="# Plot Prompt\n核心驱动轴：压制 -> 反制 -> 兑现。\n",
+        generation_profile=GenerationProfile(
+            target_market="mainstream",
+            genre_mother="urban",
+            desire_overlays=[],
+            intensity_level="plot_only",
+            pov_mode="limited_third",
+            morality_axis="gray_pragmatism",
+            pace_density="balanced",
+        ),
+    )
+
+    assert "Voice Profile Runtime Contract（语言层最高优先级）" in prompt
+    assert "已挂载 Voice Profile 时，它是逐拍扩写的语言层最高优先级" in prompt
+    assert "句式、词汇、对白、标点、节奏、意象、叙述视角和写作忌口" in prompt
+    assert "商业爽点、节拍推进和 Generation Profile 仍要完成" in prompt
+    assert "Voice Profile 只约束语言表达，不覆盖当前项目事实、角色关系、世界观、剧情走向、题材强度和边界规则" in prompt
+    assert "不得复制样本角色、设定、事件或桥段" in prompt
+    assert "男频商业驱动内核" in prompt
+    assert "直接输出正文" in prompt
+    assert "视角约束" in prompt
+
+
 def test_bible_update_prompt_uses_serial_author_maintenance_persona() -> None:
     prompt = build_bible_update_system_prompt()
 
@@ -870,6 +899,25 @@ def test_beat_expand_user_message_appends_regeneration_context() -> None:
 
     assert "## 上一版结果\n\n旧正文段" in message
     assert "## 用户意见（本次必须遵循）\n\n少对话多动作" in message
+
+
+def test_beat_expand_user_message_reminds_current_beat_to_apply_voice_fingerprint() -> None:
+    message = build_beat_expand_user_message(
+        text_before_cursor="前文",
+        beat="[压迫→反制] 主角按住账册，逼对方交出筹码",
+        beat_index=1,
+        total_beats=4,
+        preceding_beats_prose="",
+        outline_detail="",
+        runtime_state="",
+        runtime_threads="",
+    )
+
+    assert "## 当前节拍（第 2/4 拍）" in message
+    assert "[压迫→反制] 主角按住账册，逼对方交出筹码" in message
+    assert "语言层执行提醒" in message
+    assert "本拍正文必须沿用已挂载 Voice Profile 的语言指纹" in message
+    assert "句式、词汇、对白、标点、节奏、意象和写作忌口" in message
 
 
 def test_user_messages_omit_regeneration_sections_when_fields_are_none() -> None:

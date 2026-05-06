@@ -10,6 +10,17 @@ from app.prompts.novel_shared import (
 from app.schemas.prompt_profiles import GenerationProfile
 
 
+VOICE_PROFILE_LANGUAGE_PRIORITY_CONTRACT = """
+# Voice Profile Runtime Contract（语言层最高优先级）
+
+- 已挂载 Voice Profile 时，它是逐拍扩写的语言层最高优先级。
+- 逐拍正文必须优先执行 Voice Profile 中的句式、词汇、对白、标点、节奏、意象、叙述视角和写作忌口。
+- 商业爽点、节拍推进和 Generation Profile 仍要完成，但落笔方式要先服从 Voice Profile 的语言指纹。
+- 冲突边界：Voice Profile 只约束语言表达，不覆盖当前项目事实、角色关系、世界观、剧情走向、题材强度和边界规则。
+- 不得复制样本角色、设定、事件或桥段；样本专名和专属设定只能抽象成语气、节奏或叙述手法。
+""".strip()
+
+
 def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str = "") -> str:
     return (
         "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
@@ -45,6 +56,9 @@ def build_beat_expand_system_prompt(
         plot_usage="写作时只用于防止情节跑偏和洗白，不得复制样本角色、设定、事件或桥段。",
         generation_profile=generation_profile,
     )
+    if style_prompt:
+        parts.append(VOICE_PROFILE_LANGUAGE_PRIORITY_CONTRACT)
+        parts.append("\n\n---\n")
     hook_framework = get_hook_framework(generation_profile)
     parts.append(_build_beat_expand_system(beat_expand_chars, hook_framework))
     if regenerating:
@@ -89,6 +103,11 @@ def build_beat_expand_user_message(
         parts.append(f"## 前文\n\n{recent}")
     if preceding_beats_prose.strip():
         parts.append(f"## 本轮已生成的内容\n\n{preceding_beats_prose}")
-    parts.append(f"## 当前节拍（第 {beat_index + 1}/{total_beats} 拍）\n\n{beat}")
+    parts.append(
+        f"## 当前节拍（第 {beat_index + 1}/{total_beats} 拍）\n\n"
+        f"{beat}\n\n"
+        "语言层执行提醒：本拍正文必须沿用已挂载 Voice Profile 的语言指纹，"
+        "优先落实句式、词汇、对白、标点、节奏、意象和写作忌口。"
+    )
     append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)
