@@ -6,6 +6,7 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
+import { profileQueryKeys } from "@/lib/profile-query-keys";
 import { plotLabQueryKeys } from "@/lib/plot-lab-query-keys";
 import { formSchema, makeEmptyFormValues, type FormValues } from "@/lib/validations/plot-lab";
 import {
@@ -111,7 +112,7 @@ export function usePlotLabJobLogsQuery(jobId: string, isProcessing: boolean) {
 
 function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) {
   const existingProfileQuery = useQuery({
-    queryKey: ["plot-profiles", job?.plot_profile_id],
+    queryKey: profileQueryKeys.plot.detail(job?.plot_profile_id),
     queryFn: () => api.getPlotProfile(String(job?.plot_profile_id)),
     enabled: Boolean(job?.plot_profile_id),
   });
@@ -214,10 +215,6 @@ function usePlotLabJobDetail(jobId: string) {
   };
 }
 
-function usePlotLabJobQueries(jobId: string) {
-  return usePlotLabJobDetail(jobId);
-}
-
 function usePlotLabWizardState({
   jobId,
   job,
@@ -312,7 +309,7 @@ function useSavePlotProfileMutation({
       toast.success("情节档案已保存");
       if (onSuccessCallback) {
         onSuccessCallback();
-        void queryClient.invalidateQueries({ queryKey: ["plot-profiles", job?.plot_profile_id] });
+        void queryClient.invalidateQueries({ queryKey: profileQueryKeys.plot.detail(job?.plot_profile_id) });
         if (job?.id) {
           void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.detail(job.id) });
         }
@@ -393,7 +390,7 @@ function usePlotLabWizardMutations(
 
 export function usePlotLabWizardLogic(jobId: string) {
   const [isEditing, setIsEditing] = React.useState(false);
-  const detail = usePlotLabJobQueries(jobId);
+  const detail = usePlotLabJobDetail(jobId);
   const wizardState = usePlotLabWizardState({
     jobId,
     job: detail.job,

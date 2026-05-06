@@ -6,6 +6,7 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
+import { profileQueryKeys } from "@/lib/profile-query-keys";
 import { styleLabQueryKeys } from "@/lib/style-lab-query-keys";
 import { formSchema, makeEmptyFormValues, type FormValues } from "@/lib/validations/style-lab";
 import {
@@ -87,7 +88,7 @@ export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
 
 function useStyleLabResourcesQueries(jobId: string, job: StyleAnalysisJob | null) {
   const existingProfileQuery = useQuery({
-    queryKey: ["style-profiles", job?.style_profile_id],
+    queryKey: profileQueryKeys.style.detail(job?.style_profile_id),
     queryFn: () => api.getStyleProfile(String(job?.style_profile_id)),
     enabled: Boolean(job?.style_profile_id),
   });
@@ -260,7 +261,7 @@ function useSaveStyleProfileMutation({
       toast.success("风格档案已保存");
       if (onSuccessCallback) {
         onSuccessCallback();
-        void queryClient.invalidateQueries({ queryKey: ["style-profiles", job?.style_profile_id] });
+        void queryClient.invalidateQueries({ queryKey: profileQueryKeys.style.detail(job?.style_profile_id) });
         if (job?.id) {
           void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(job.id) });
         }
