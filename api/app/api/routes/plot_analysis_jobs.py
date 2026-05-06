@@ -4,8 +4,6 @@ from fastapi import APIRouter, File, Form, Query, UploadFile, status
 
 from app.api.assemblers import build_plot_job_detail_response
 from app.api.deps import CurrentUserDep, DbSessionDep, PlotAnalysisJobServiceDep
-from app.core.config import get_settings
-from app.core.domain_errors import UnprocessableEntityError
 from app.schemas.plot_analysis_jobs import (
     PlotAnalysisJobListItemResponse,
     PlotAnalysisJobLogsResponse,
@@ -16,7 +14,6 @@ from app.schemas.plot_analysis_jobs import (
     PlotSkeletonMarkdown,
     StoryEngineMarkdown,
 )
-from app.core.text_processing import clean_and_decode_upload
 
 router = APIRouter(
     prefix="/plot-analysis-jobs",
@@ -113,19 +110,13 @@ async def create_plot_analysis_job(
     model: str | None = Form(default=None),
     file: UploadFile = File(...),
 ) -> PlotAnalysisJobListItemResponse:
-    if not (file.filename or "").lower().endswith(".txt"):
-        raise UnprocessableEntityError("仅支持上传 .txt 样本文件")
-    settings = get_settings()
-    max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
     job = await job_service.create(
         db_session,
         user_id=current_user.id,
         plot_name=plot_name,
         provider_id=provider_id,
         model=model,
-        original_filename=file.filename or "",
-        content_type=file.content_type,
-        content_stream=clean_and_decode_upload(file, max_bytes=max_bytes),
+        upload_file=file,
     )
     return PlotAnalysisJobListItemResponse.model_validate(job)
 

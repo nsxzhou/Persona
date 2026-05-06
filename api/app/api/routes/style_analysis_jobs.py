@@ -3,9 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, File, Form, Query, UploadFile, status
 
 from app.api.deps import CurrentUserDep, DbSessionDep, StyleAnalysisJobServiceDep
-from app.core.domain_errors import UnprocessableEntityError
 from app.api.assemblers import build_job_detail_response
-from app.core.config import get_settings
 from app.schemas.style_analysis_jobs import (
     AnalysisReportMarkdown,
     AnalysisMeta,
@@ -15,7 +13,6 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobStatusResponse,
     VoiceProfileMarkdown,
 )
-from app.core.text_processing import clean_and_decode_upload
 
 router = APIRouter(
     prefix="/style-analysis-jobs",
@@ -108,19 +105,13 @@ async def create_style_analysis_job(
     model: str | None = Form(default=None),
     file: UploadFile = File(...),
 ) -> StyleAnalysisJobListItemResponse:
-    if not (file.filename or "").lower().endswith(".txt"):
-        raise UnprocessableEntityError("仅支持上传 .txt 样本文件")
-    settings = get_settings()
-    max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
     job = await job_service.create(
         db_session,
         user_id=current_user.id,
         style_name=style_name,
         provider_id=provider_id,
         model=model,
-        original_filename=file.filename or "",
-        content_type=file.content_type,
-        content_stream=clean_and_decode_upload(file, max_bytes=max_bytes),
+        upload_file=file,
     )
     return StyleAnalysisJobListItemResponse.model_validate(job)
 

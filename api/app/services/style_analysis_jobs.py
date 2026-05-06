@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.redaction import redact_sensitive_text
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.db.models import StyleAnalysisJob
 from app.db.repositories.style_analysis_jobs import StyleAnalysisJobRepository
@@ -22,6 +20,12 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobLogsResponse,
     StyleAnalysisJobStatusResponse,
 )
+from app.services.analysis_jobs import (
+    normalize_utc_datetime,
+    reset_analysis_job_to_pending,
+    sanitize_analysis_error_message,
+)
+from app.services.analysis_uploads import clean_txt_upload_stream, ensure_txt_upload_filename
 from app.services.provider_configs import ProviderConfigService
 from app.services.style_analysis_storage import StyleAnalysisStorageService
 from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
@@ -31,14 +35,10 @@ logger = logging.getLogger(__name__)
 
 
 def sanitize_style_analysis_error_message(error_message: str | None) -> str:
-    if error_message is None:
-        return STYLE_ANALYSIS_USER_ERROR_MESSAGE
-    normalized_message = redact_sensitive_text(error_message).strip()
-    if not normalized_message:
-        return STYLE_ANALYSIS_USER_ERROR_MESSAGE
-    if len(normalized_message) > 200:
-        return normalized_message[:199] + "…"
-    return normalized_message
+    return sanitize_analysis_error_message(
+        error_message,
+        fallback=STYLE_ANALYSIS_USER_ERROR_MESSAGE,
+    )
 
 
 def _reset_job_to_pending(
@@ -48,27 +48,16 @@ def _reset_job_to_pending(
     reset_attempts: bool = False,
     paused_at: datetime | None = None,
 ) -> None:
-    """Reset a job's transient fields to prepare it for re-processing."""
-    job.status = target_status
-    job.stage = None
-    job.error_message = None
-    job.started_at = None
-    job.completed_at = None
-    job.locked_by = None
-    job.locked_at = None
-    job.last_heartbeat_at = None
-    job.pause_requested_at = None
-    job.paused_at = paused_at
-    if reset_attempts:
-        job.attempt_count = 0
+    reset_analysis_job_to_pending(
+        job,
+        target_status=target_status,
+        reset_attempts=reset_attempts,
+        paused_at=paused_at,
+    )
 
 
 def _normalize_utc_datetime(value: datetime | None) -> datetime | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+    return normalize_utc_datetime(value)
 
 
 class StyleAnalysisJobService:
@@ -530,9 +519,7 @@ class StyleAnalysisJobService:
         style_name: str,
         provider_id: str,
         model: str | None,
-        original_filename: str,
-        content_type: str | None,
-        content_stream: AsyncIterator[bytes],
+        upload_file,
     ) -> StyleAnalysisJob:
         provider = await self.provider_service.ensure_enabled(
             session,
@@ -540,17 +527,19 @@ class StyleAnalysisJobService:
             user_id=user_id,
         )
         resolved_user_id = user_id or provider.user_id
-        file_name = original_filename.strip()
+        file_name = ensure_txt_upload_filename(upload_file.filename)
+        settings = get_settings()
+        max_bytes = getattr(settings, "style_analysis_max_upload_bytes", 0) or 0
 
         sample_file = await self.repository.create_sample_file(
             session,
             user_id=resolved_user_id,
             original_filename=file_name,
-            content_type=content_type,
+            content_type=upload_file.content_type,
         )
         storage_path, total_bytes, checksum = await self.storage_service.save_file(
             sample_file.id,
-            content_stream,
+            clean_txt_upload_stream(upload_file, max_bytes=max_bytes),
         )
 
         sample_file.storage_path = storage_path
