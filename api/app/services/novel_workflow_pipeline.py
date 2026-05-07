@@ -48,6 +48,34 @@ LLMComplete = Callable[..., Awaitable[str]]
 DecisionLoader = Callable[[str], dict[str, Any] | None]
 StageCallback = Callable[[str | None], Awaitable[None]]
 
+_TOP_LEVEL_HEADING_RE = re.compile(r"^#(?!#)\s+.+$")
+
+
+def _format_project_book_title(project_name: str | None) -> str:
+    stripped = (project_name or "").strip()
+    if not stripped:
+        return ""
+    if stripped.startswith("《") and stripped.endswith("》"):
+        return stripped
+    return f"《{stripped.strip('《》')}》"
+
+
+def _normalize_outline_master_title(markdown: str, project_name: str | None) -> str:
+    book_title = _format_project_book_title(project_name)
+    if not book_title:
+        return markdown
+
+    expected_heading = f"# {book_title} 全书总纲"
+    stripped = markdown.strip()
+    if not stripped:
+        return expected_heading
+
+    lines = stripped.splitlines()
+    if lines and _TOP_LEVEL_HEADING_RE.match(lines[0]):
+        lines[0] = expected_heading
+        return "\n".join(lines).strip()
+    return f"{expected_heading}\n\n{stripped}"
+
 
 class NovelWorkflowAwaitingHuman(Exception):
     def __init__(self, checkpoint_kind: str) -> None:
@@ -325,6 +353,7 @@ class NovelWorkflowPipeline:
             user_context=build_section_user_message(
                 section,
                 {
+                    "project_name": state.get("project_name", ""),
                     "description": state.get("project_description", ""),
                     "world_building": current_bible.get("world_building", ""),
                     "characters_blueprint": current_bible.get("characters_blueprint", ""),
@@ -339,6 +368,11 @@ class NovelWorkflowPipeline:
             ),
             mode="analysis",
         )
+        if section == "outline_master":
+            markdown = _normalize_outline_master_title(
+                markdown,
+                state.get("project_name", ""),
+            )
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
             name=artifact_name,

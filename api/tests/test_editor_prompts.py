@@ -247,6 +247,13 @@ def test_outline_master_prompt_requires_driver_axis_payoff_and_hook_types() -> N
     assert "钩子类型" in prompt
 
 
+def test_outline_master_prompt_requires_project_novel_name_for_title() -> None:
+    prompt = build_section_system_prompt("outline_master", length_preset="long")
+
+    assert "项目小说名（硬约束）" in prompt
+    assert "不得自行拟定新书名" in prompt
+
+
 def test_outline_master_prompt_requires_complete_story_closure() -> None:
     prompt = build_section_system_prompt("outline_master", length_preset="long")
 
@@ -734,6 +741,28 @@ def test_user_messages_avoid_polite_assistant_request_wording() -> None:
     assert "请根据以下灵感描述生成" not in concept_message
     assert "没有其他设定，直接按当前创意开局" in section_message
     assert "请基于你的创意自由发挥" not in section_message
+
+
+def test_section_user_message_includes_project_novel_name_as_hard_constraint() -> None:
+    message = build_section_user_message(
+        "outline_master",
+        {
+            "project_name": "请客官上座",
+            "description": "掌柜在江湖酒楼接待各路客人。",
+            "world_building": "",
+            "characters_blueprint": "",
+            "outline_master": "",
+            "outline_detail": "",
+            "characters_status": "",
+            "runtime_state": "",
+            "runtime_threads": "",
+        },
+    )
+
+    assert "## 项目小说名（硬约束）\n\n请客官上座" in message
+    assert "必须逐字使用上面的项目小说名" in message
+    assert "不得改字、换名或沿用样本/旧稿书名" in message
+    assert message.index("项目小说名（硬约束）") < message.index("## 简介")
 
 
 def test_section_generate_request_only_uses_project_context_fields() -> None:

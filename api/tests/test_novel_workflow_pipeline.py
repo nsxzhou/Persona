@@ -30,6 +30,83 @@ class StubLLM:
 
 
 @pytest.mark.asyncio
+async def test_section_generation_passes_project_name_to_prompt_context(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(["# 《我在江湖开酒楼》 全书总纲\n\n## 第一阶段：开张"])
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-section-project-name-context",
+        initial_state={
+            "intent_type": "section_generate",
+            "section": "outline_master",
+            "project_name": "请客官上座",
+            "project_description": "掌柜在江湖酒楼接待各路客人。",
+            "current_bible": {
+                "world_building": "",
+                "characters_blueprint": "",
+                "outline_master": "",
+                "outline_detail": "",
+                "characters_status": "",
+                "runtime_state": "",
+                "runtime_threads": "",
+            },
+        },
+    )
+
+    assert result.persist_payload["markdown"] == "# 《请客官上座》 全书总纲\n\n## 第一阶段：开张"
+    user_context = llm.calls[0]["user_context"]
+    assert "## 项目小说名（硬约束）\n\n请客官上座" in user_context
+    assert "必须逐字使用上面的项目小说名" in user_context
+    assert "## 简介\n\n掌柜在江湖酒楼接待各路客人。" in user_context
+
+
+@pytest.mark.asyncio
+async def test_outline_master_generation_adds_project_title_when_missing(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(["## 第一阶段：开张"])
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-section-project-name-title-missing",
+        initial_state={
+            "intent_type": "section_generate",
+            "section": "outline_master",
+            "project_name": "请客官上座",
+            "current_bible": {},
+        },
+    )
+
+    assert result.persist_payload["markdown"] == "# 《请客官上座》 全书总纲\n\n## 第一阶段：开张"
+
+
+@pytest.mark.asyncio
 async def test_volume_chapters_generation_uses_target_volume_context(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,

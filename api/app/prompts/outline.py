@@ -91,6 +91,7 @@ def build_outline_master_system_prompt(
         f"{instruction}\n\n"
         "落笔规则：\n"
         "- 使用 Markdown 格式，标题层级清晰\n"
+        "- 若输出一级标题/书名，必须使用上下文里的「项目小说名（硬约束）」，不得自行拟定新书名\n"
         "- 具体且有用，避免空泛概括\n"
         "- 直接输出内容，不要添加任何解释性前言或总结"
     )
