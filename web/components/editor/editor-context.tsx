@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useRef, ReactNode } from "react";
+import { createContext, useContext, useRef, ReactNode } from "react";
 import { useStore } from "zustand";
 import type { Project } from "@/lib/types";
 import { createEditorStore, type EditorState } from "./editor-store";
@@ -61,4 +61,3 @@ export function useEditorStore<T>(selector: (state: EditorState) => T): T {
   const { store } = useEditorContext();
   return useStore(store, selector);
 }
-

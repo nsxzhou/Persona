@@ -4,7 +4,6 @@ import Link from "next/link";
 import { PropsWithChildren } from "react";
 import { usePathname } from "next/navigation";
 import { BookOpenText, FolderKanban, KeyRound, LibraryBig, Sparkles, UserCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
   { href: "/projects", label: "项目", icon: FolderKanban },

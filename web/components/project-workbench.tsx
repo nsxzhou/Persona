@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ChevronRight as Breadcrumb,
   PenLine,
@@ -52,7 +51,6 @@ function ProjectWorkbenchInner({
   initialTab?: string;
   highlightedVolumeIndex?: number | null;
 }) {
-  const router = useRouter();
   const [displayName, setDisplayName] = useState(initialProject.name);
   const [status, setStatus] = useState(initialProject.status);
   const [activeTab, setActiveTab] = useState(initialTab);

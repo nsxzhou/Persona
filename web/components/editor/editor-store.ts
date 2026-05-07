@@ -1,5 +1,4 @@
 import { createStore } from "zustand";
-import type { ProjectChapter } from "@/lib/types";
 
 type ChapterSelection = { volumeIndex: number; chapterIndex: number };
 

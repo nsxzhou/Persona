@@ -3,9 +3,6 @@ import { describe, expect, test } from "vitest";
 import {
   parseOutline,
   replaceVolumeChapters,
-  type ParsedChapter,
-  type ParsedOutline,
-  type ParsedVolume,
 } from "@/lib/outline-parser";
 
 describe("parseOutline", () => {

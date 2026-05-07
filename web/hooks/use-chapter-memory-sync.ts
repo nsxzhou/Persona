@@ -6,12 +6,10 @@ import type { RegenerateOptions } from "@/lib/api-client";
 import type {
   MemorySyncScope,
   MemorySyncSource,
-  Project,
   ProjectBible,
   ProjectBibleUpdate,
   ProjectChapter,
   ProjectChapterUpdate,
-  ProjectPayload,
 } from "@/lib/types";
 
 const MIN_LENGTH_FOR_AUTO_SYNC = 200;

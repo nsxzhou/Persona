@@ -8,7 +8,7 @@ import { z } from "zod";
 import { ProviderFormFields } from "@/components/provider-form-fields";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { ProviderConfig, ProviderPayload } from "@/lib/types";
+import type { ProviderConfig } from "@/lib/types";
 import { createProviderFormDefaults, createProviderFormSchema } from "@/lib/validations/provider";
 
 const schema = createProviderFormSchema();

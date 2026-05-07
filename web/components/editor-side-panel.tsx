@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

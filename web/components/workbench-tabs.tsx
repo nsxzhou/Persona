@@ -24,7 +24,6 @@ import type {
   PlotProfileListItem,
   Project,
   ProjectBible,
-  ProjectChapter,
   ProviderConfig,
   StyleProfileListItem,
 } from "@/lib/types";

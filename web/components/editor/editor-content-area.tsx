@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import React from "react";
 import { useEditorContext, useEditorStore } from "./editor-context";
 import type { EditorState } from "./editor-store";
