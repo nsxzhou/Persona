@@ -76,11 +76,22 @@ class NovelWorkflowService:
         session: AsyncSession,
         *,
         user_id: str,
+        project_id: str | None = None,
+        intent_type: str | None = None,
+        status: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> list[NovelWorkflowRun]:
         limit = min(max(limit, 1), 100)
-        return await self.repository.list(session, user_id=user_id, offset=offset, limit=limit)
+        return await self.repository.list(
+            session,
+            user_id=user_id,
+            project_id=project_id,
+            intent_type=intent_type,
+            status=status,
+            offset=offset,
+            limit=limit,
+        )
 
     async def get_or_404(
         self,

@@ -111,6 +111,9 @@ class NovelWorkflowBaseResponse(BaseModel):
     project_id: str | None
     chapter_id: str | None
     provider_id: str | None
+    project_name: str | None = None
+    chapter_title: str | None = None
+    provider_label: str | None = None
     model_name: str | None
     status: NovelWorkflowStatus
     stage: NovelWorkflowStage | None

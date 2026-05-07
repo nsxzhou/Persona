@@ -15,6 +15,9 @@ class NovelWorkflowRepository:
         session: AsyncSession,
         *,
         user_id: str | None = None,
+        project_id: str | None = None,
+        intent_type: str | None = None,
+        status: str | None = None,
         offset: int,
         limit: int,
     ) -> list[NovelWorkflowRun]:
@@ -31,6 +34,12 @@ class NovelWorkflowRepository:
         )
         if user_id is not None:
             stmt = stmt.where(NovelWorkflowRun.user_id == user_id)
+        if project_id is not None:
+            stmt = stmt.where(NovelWorkflowRun.project_id == project_id)
+        if intent_type is not None:
+            stmt = stmt.where(NovelWorkflowRun.intent_type == intent_type)
+        if status is not None:
+            stmt = stmt.where(NovelWorkflowRun.status == status)
         result = await session.stream_scalars(stmt)
         return [run async for run in result]
 

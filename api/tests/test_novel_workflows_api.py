@@ -86,3 +86,85 @@ async def test_novel_workflow_api_create_process_and_fetch_artifact(
     )
     assert logs_response.status_code == 200
     assert "section_generate" in logs_response.json()["content"]
+
+
+@pytest.mark.asyncio
+async def test_novel_workflow_api_filters_and_exposes_trace_artifact(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+    app_with_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipelineResult
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+    from app.services.novel_workflow_worker import NovelWorkflowWorkerService
+
+    project_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Trace 测试项目",
+            "description": "用于测试运行历史。",
+            "status": "draft",
+            "default_provider_id": initialized_provider["id"],
+            "default_model": "gpt-4.1-mini",
+        },
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+    storage = NovelWorkflowStorageService()
+
+    class FakePipeline:
+        async def run(self, *, run_id: str, initial_state: dict[str, object]):
+            await storage.write_stage_markdown_artifact(
+                run_id,
+                name="prompt_trace_markdown",
+                markdown="# Prompt Trace\n\ntrace body",
+            )
+            return NovelWorkflowPipelineResult(
+                persist_payload={"markdown": "ok"},
+                latest_artifacts=[],
+            )
+
+    async def fake_build_pipeline(self, **_):
+        return FakePipeline()
+
+    monkeypatch.setattr(
+        NovelWorkflowWorkerService,
+        "_build_pipeline",
+        fake_build_pipeline,
+    )
+
+    create_response = await initialized_client.post(
+        "/api/v1/novel-workflows",
+        json={
+            "intent_type": "section_generate",
+            "project_id": project["id"],
+            "section": "world_building",
+        },
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+
+    worker = NovelWorkflowWorkerService()
+    assert await worker.process_next_pending(app_with_db.state.session_factory) is True
+
+    list_response = await initialized_client.get(
+        f"/api/v1/novel-workflows?project_id={project['id']}&intent_type=section_generate&status=succeeded"
+    )
+    assert list_response.status_code == 200
+    runs = list_response.json()
+    assert [run["id"] for run in runs] == [created["id"]]
+    assert runs[0]["project_name"] == "Trace 测试项目"
+    assert runs[0]["provider_label"] == "Test Provider"
+    assert "prompt_trace_markdown" not in runs[0]["latest_artifacts"]
+
+    trace_response = await initialized_client.get(
+        f"/api/v1/novel-workflows/{created['id']}/artifacts/prompt_trace_markdown"
+    )
+    assert trace_response.status_code == 200
+    assert trace_response.json().startswith("# Prompt Trace")
+
+    missing_response = await initialized_client.get(
+        f"/api/v1/novel-workflows/{created['id']}/artifacts/missing_trace"
+    )
+    assert missing_response.status_code == 404

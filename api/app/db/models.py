@@ -341,6 +341,21 @@ class NovelWorkflowRun(TimestampMixin, Base):
     def warnings(self) -> list[str]:
         return list(self.warnings_payload or [])
 
+    @property
+    def project_name(self) -> str | None:
+        project = self.__dict__.get("project")
+        return project.name if project is not None else None
+
+    @property
+    def chapter_title(self) -> str | None:
+        chapter = self.__dict__.get("chapter")
+        return chapter.title if chapter is not None else None
+
+    @property
+    def provider_label(self) -> str | None:
+        provider = self.__dict__.get("provider")
+        return provider.label if provider is not None else None
+
 
 class StyleSampleFile(TimestampMixin, Base):
     __tablename__ = "style_sample_files"

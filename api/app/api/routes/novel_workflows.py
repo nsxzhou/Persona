@@ -11,10 +11,12 @@ from app.schemas.novel_workflows import (
     MarkdownArtifactResponse,
     NovelWorkflowCreateRequest,
     NovelWorkflowDecisionRequest,
+    NovelWorkflowIntentType,
     NovelWorkflowListItemResponse,
     NovelWorkflowLogsResponse,
     NovelWorkflowResponse,
     NovelWorkflowStatusResponse,
+    NovelWorkflowStatus,
 )
 
 router = APIRouter(
@@ -28,12 +30,18 @@ async def list_novel_workflows(
     current_user: CurrentUserDep,
     db_session: DbSessionDep,
     workflow_service: NovelWorkflowServiceDep,
+    project_id: str | None = Query(default=None),
+    intent_type: NovelWorkflowIntentType | None = Query(default=None),
+    status: NovelWorkflowStatus | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1),
 ) -> list[NovelWorkflowListItemResponse]:
     runs = await workflow_service.list(
         db_session,
         user_id=current_user.id,
+        project_id=project_id,
+        intent_type=intent_type,
+        status=status,
         offset=offset,
         limit=limit,
     )
