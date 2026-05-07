@@ -21,7 +21,11 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobStatusResponse,
 )
 from app.services.analysis_jobs import (
-    normalize_utc_datetime,
+    cleanup_analysis_job_external_resources,
+    mark_analysis_job_failed,
+    reconcile_stale_running_job,
+    reconcile_unacknowledged_pause_request,
+    resolve_analysis_payload_result_or_409,
     reset_analysis_job_to_pending,
     sanitize_analysis_error_message,
 )
@@ -54,10 +58,6 @@ def _reset_job_to_pending(
         reset_attempts=reset_attempts,
         paused_at=paused_at,
     )
-
-
-def _normalize_utc_datetime(value: datetime | None) -> datetime | None:
-    return normalize_utc_datetime(value)
 
 
 class StyleAnalysisJobService:
@@ -268,58 +268,33 @@ class StyleAnalysisJobService:
         session: AsyncSession,
         job: StyleAnalysisJob,
     ) -> bool:
-        if job.status != STYLE_ANALYSIS_JOB_STATUS_RUNNING:
-            return False
-        pause_requested_at = _normalize_utc_datetime(job.pause_requested_at)
-        if pause_requested_at is None:
-            return False
         settings = get_settings()
-        now = datetime.now(UTC)
-        if now - pause_requested_at < timedelta(
-            seconds=settings.analysis_pause_confirm_timeout_seconds
-        ):
-            return False
-        last_heartbeat_at = _normalize_utc_datetime(job.last_heartbeat_at)
-        if last_heartbeat_at is not None and last_heartbeat_at > pause_requested_at:
-            return False
-        await self.repository.mark_paused(
+        return await reconcile_unacknowledged_pause_request(
             session,
-            job.id,
+            job,
+            repository=self.repository,
+            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
             paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
-            now=now,
-            stage=job.stage,
+            pause_confirm_timeout_seconds=settings.analysis_pause_confirm_timeout_seconds,
         )
-        await session.flush()
-        return True
 
     async def _reconcile_stale_job_if_needed(
         self,
         session: AsyncSession,
         job: StyleAnalysisJob,
     ) -> bool:
-        if job.status != STYLE_ANALYSIS_JOB_STATUS_RUNNING:
-            return False
-        last_activity_at = _normalize_utc_datetime(job.last_heartbeat_at or job.started_at)
-        if last_activity_at is None:
-            return False
         settings = get_settings()
-        cutoff = datetime.now(UTC) - timedelta(seconds=settings.style_analysis_stale_timeout_seconds)
-        if last_activity_at >= cutoff:
-            return False
-        reconciled = await self.repository.reconcile_stale_job(
+        return await reconcile_stale_running_job(
             session,
-            job.id,
-            cutoff=cutoff,
+            job,
+            repository=self.repository,
+            stale_timeout_seconds=settings.style_analysis_stale_timeout_seconds,
             max_attempts=settings.style_analysis_max_attempts,
             running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
             paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
             failed_status=STYLE_ANALYSIS_JOB_STATUS_FAILED,
             pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
-            now=datetime.now(UTC),
         )
-        if reconciled:
-            await session.flush()
-        return reconciled
 
     async def _get_payload_or_409(
         self,
@@ -344,12 +319,12 @@ class StyleAnalysisJobService:
                 user_id=user_id,
                 payload_column=payload_column,
             )
-        if result is None:
-            raise NotFoundError("分析任务不存在")
-        job_status, payload = result
-        if job_status != STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED or payload is None:
-            raise ConflictError(not_ready_detail)
-        return parser(payload)
+        return resolve_analysis_payload_result_or_409(
+            result,
+            succeeded_status=STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
+            parser=parser,
+            not_ready_detail=not_ready_detail,
+        )
 
     async def get_analysis_meta_or_409(
         self,
@@ -476,22 +451,14 @@ class StyleAnalysisJobService:
         max_attempts: int,
     ) -> bool:
         job = await self.get_or_404(session, job_id)
-        retryable = job.attempt_count < max_attempts
-        job.status = (
-            STYLE_ANALYSIS_JOB_STATUS_PENDING
-            if retryable
-            else STYLE_ANALYSIS_JOB_STATUS_FAILED
+        return mark_analysis_job_failed(
+            job,
+            pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
+            failed_status=STYLE_ANALYSIS_JOB_STATUS_FAILED,
+            error_message=error_message,
+            max_attempts=max_attempts,
+            sanitize_error_message=sanitize_style_analysis_error_message,
         )
-        job.stage = None
-        job.error_message = (
-            None if retryable else sanitize_style_analysis_error_message(error_message)
-        )
-        job.started_at = None if retryable else job.started_at
-        job.completed_at = None if retryable else datetime.now(UTC)
-        job.locked_by = None
-        job.locked_at = None
-        job.last_heartbeat_at = None
-        return not retryable
 
     async def recover_stale_jobs(
         self,
@@ -571,21 +538,16 @@ class StyleAnalysisJobService:
         job_id: str,
         sample_storage_path: str | None,
     ) -> None:
-        try:
-            if sample_storage_path:
-                await self.storage_service.delete_sample_file(sample_storage_path)
-        except OSError:
-            logger.exception("Failed to delete sample file", extra={"job_id": job_id})
-
-        try:
-            await self.storage_service.cleanup_job_artifacts(job_id)
-        except OSError:
-            logger.exception("Failed to cleanup style analysis artifacts", extra={"job_id": job_id})
-
-        try:
-            await self.checkpointer_factory.delete_thread(job_id)
-        except Exception:
-            logger.exception("Failed to cleanup style analysis checkpoint", extra={"job_id": job_id})
+        await cleanup_analysis_job_external_resources(
+            job_id=job_id,
+            sample_storage_path=sample_storage_path,
+            storage_service=self.storage_service,
+            checkpointer_factory=self.checkpointer_factory,
+            logger=logger,
+            sample_delete_error_message="Failed to delete sample file",
+            artifact_cleanup_error_message="Failed to cleanup style analysis artifacts",
+            checkpoint_cleanup_error_message="Failed to cleanup style analysis checkpoint",
+        )
 
     async def delete(
         self,

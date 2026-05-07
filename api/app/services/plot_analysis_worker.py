@@ -5,7 +5,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import cast
 
@@ -20,6 +20,10 @@ from app.services.plot_analysis_pipeline import (
     PlotAnalysisPauseRequested,
     PlotAnalysisPipeline,
     PlotAnalysisPipelineResult,
+)
+from app.services.analysis_jobs import (
+    get_analysis_heartbeat_interval_seconds,
+    run_analysis_stage_heartbeat_loop,
 )
 from app.core.text_processing import InputClassification
 from app.services.llm_provider import LLMProviderService
@@ -152,8 +156,9 @@ class PlotAnalysisJobExecutor:
                 await self._delete_checkpointer_thread(job_id)
 
     def _heartbeat_interval_seconds(self) -> float:
-        stale_timeout_seconds = max(1, get_settings().style_analysis_stale_timeout_seconds)
-        return max(0.2, min(30.0, stale_timeout_seconds / 3))
+        return get_analysis_heartbeat_interval_seconds(
+            get_settings().style_analysis_stale_timeout_seconds,
+        )
 
     async def _run_stage_heartbeat_loop(
         self,
@@ -164,25 +169,19 @@ class PlotAnalysisJobExecutor:
         stop_event: asyncio.Event,
         interval_seconds: float,
     ) -> None:
-        while not stop_event.is_set():
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
-                break
-            except TimeoutError:
-                stage = get_stage()
-                if stage is None:
-                    continue
-                try:
-                    await self._touch_job_stage(
-                        session_factory,
-                        job_id,
-                        stage=stage,
-                    )
-                except Exception:
-                    logger.exception(
-                        "Failed to send periodic plot analysis heartbeat",
-                        extra={"job_id": job_id, "stage": stage},
-                    )
+        await run_analysis_stage_heartbeat_loop(
+            job_id=job_id,
+            get_stage=get_stage,
+            stop_event=stop_event,
+            interval_seconds=interval_seconds,
+            touch_stage=lambda stage: self._touch_job_stage(
+                session_factory,
+                job_id,
+                stage=stage,
+            ),
+            logger=logger,
+            failure_log_message="Failed to send periodic plot analysis heartbeat",
+        )
 
     async def _load_run_context(
         self,

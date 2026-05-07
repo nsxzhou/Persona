@@ -5,9 +5,9 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import cast
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import cast
 
 # SQLAlchemy 异步会话：用于数据库读写（claim/heartbeat/写回结果等）
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,6 +27,10 @@ from app.services.style_analysis_pipeline import (
     StyleAnalysisPipeline,
     StyleAnalysisPauseRequested,
     StyleAnalysisPipelineResult,
+)
+from app.services.analysis_jobs import (
+    get_analysis_heartbeat_interval_seconds,
+    run_analysis_stage_heartbeat_loop,
 )
 # StorageService：样本文本流式读取、chunk/分析产物落盘、任务结束后清理
 from app.services.style_analysis_storage import StyleAnalysisStorageService
@@ -193,8 +197,9 @@ class StyleAnalysisJobExecutor:
     # - 取 stale_timeout_seconds 的 1/3，确保在 stale 判定前至少写回几次
     # - 同时限制在 [0.2s, 30s] 范围内，避免过于频繁或过于稀疏
     def _heartbeat_interval_seconds(self) -> float:
-        stale_timeout_seconds = max(1, get_settings().style_analysis_stale_timeout_seconds)
-        return max(0.2, min(30.0, stale_timeout_seconds / 3))
+        return get_analysis_heartbeat_interval_seconds(
+            get_settings().style_analysis_stale_timeout_seconds,
+        )
 
     # 心跳循环：在 stop_event 未被设置前，周期性写回当前 stage
     # 设计要点：
@@ -209,26 +214,19 @@ class StyleAnalysisJobExecutor:
         stop_event: asyncio.Event,
         interval_seconds: float,
     ) -> None:
-        while not stop_event.is_set():
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
-                break
-            except TimeoutError:
-                stage = get_stage()
-                if stage is None:
-                    continue
-                try:
-                    await self._touch_job_stage(
-                        session_factory,
-                        job_id,
-                        stage=stage,
-                    )
-                except Exception:
-                    # 心跳失败不应中断主任务，记录日志后继续下一轮
-                    logger.exception(
-                        "Failed to send periodic style analysis heartbeat",
-                        extra={"job_id": job_id, "stage": stage},
-                    )
+        await run_analysis_stage_heartbeat_loop(
+            job_id=job_id,
+            get_stage=get_stage,
+            stop_event=stop_event,
+            interval_seconds=interval_seconds,
+            touch_stage=lambda stage: self._touch_job_stage(
+                session_factory,
+                job_id,
+                stage=stage,
+            ),
+            logger=logger,
+            failure_log_message="Failed to send periodic style analysis heartbeat",
+        )
 
     # 加载运行上下文：
     # - 读取 job 信息（包含 sample_file、provider 等关联数据）
