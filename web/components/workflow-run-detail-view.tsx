@@ -7,7 +7,6 @@ import { ArrowLeft, Clipboard, FileText, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { MarkdownPreview } from "@/components/markdown-preview";
 import { PageError, PageLoading } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
+import {
+  parsePromptTraceMarkdown,
+  type PromptTraceCall,
+  type PromptTraceParseResult,
+  type PromptTraceSegment,
+  type PromptTraceTable,
+} from "@/lib/prompt-trace-parser";
 import { RequestError } from "@/lib/request-error";
 import {
   formatWorkflowDate,
@@ -25,7 +31,7 @@ import {
 const PROMPT_TRACE_ARTIFACT = "prompt_trace_markdown";
 
 export function WorkflowRunDetailView({ runId }: { runId: string }) {
-  const [traceMode, setTraceMode] = useState<"preview" | "raw">("raw");
+  const [traceMode, setTraceMode] = useState<"preview" | "raw">("preview");
   const [logOffset, setLogOffset] = useState(0);
   const [logs, setLogs] = useState("");
   const logViewportRef = useRef<HTMLDivElement>(null);
@@ -94,6 +100,7 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
 
   const run = runQuery.data;
   const trace = traceQuery.data ?? "";
+  const parsedTrace = trace.trim() ? parsePromptTraceMarkdown(trace) : null;
 
   const copyTrace = async () => {
     if (!trace.trim()) {
@@ -140,7 +147,7 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
         </TabsList>
 
         <TabsContent value="trace">
-          <Card>
+          <Card className="mx-auto max-w-6xl overflow-hidden">
             <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <CardTitle className="text-lg">Prompt Trace</CardTitle>
@@ -175,17 +182,9 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
                 </div>
               ) : trace.trim() ? (
                 traceMode === "raw" ? (
-                  <ScrollArea className="h-[70vh] rounded-lg border bg-zinc-950 text-zinc-100">
-                    <pre className="min-w-0 whitespace-pre-wrap break-words p-4 text-xs leading-relaxed">
-                      {trace}
-                    </pre>
-                  </ScrollArea>
+                  <RawPromptTrace content={trace} />
                 ) : (
-                  <ScrollArea className="h-[70vh] rounded-lg border bg-background">
-                    <div className="p-4">
-                      <MarkdownPreview content={trace} />
-                    </div>
-                  </ScrollArea>
+                  <PromptTraceRenderedView parsedTrace={parsedTrace} rawTrace={trace} />
                 )
               ) : (
                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -249,6 +248,222 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
       </Tabs>
     </section>
   );
+}
+
+function RawPromptTrace({ content }: { content: string }) {
+  return (
+    <ScrollArea className="h-[70vh] rounded-lg border bg-zinc-950 text-zinc-100">
+      <pre className="min-w-0 whitespace-pre-wrap break-words p-4 text-xs leading-relaxed">
+        {content}
+      </pre>
+    </ScrollArea>
+  );
+}
+
+function PromptTraceRenderedView({
+  parsedTrace,
+  rawTrace,
+}: {
+  parsedTrace: PromptTraceParseResult | null;
+  rawTrace: string;
+}) {
+  if (!parsedTrace) {
+    return <RawPromptTrace content={rawTrace} />;
+  }
+
+  return (
+    <ScrollArea className="h-[70vh] rounded-lg border bg-muted/20">
+      <div className="min-w-0 space-y-4 p-4">
+        <TraceSummary parsedTrace={parsedTrace} />
+        <div className="space-y-3">
+          {parsedTrace.calls.map((call) => (
+            <PromptTraceCallCard key={call.index} call={call} />
+          ))}
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
+function TraceSummary({ parsedTrace }: { parsedTrace: PromptTraceParseResult }) {
+  const compactMetrics = [
+    ["Calls", parsedTrace.summary.Calls],
+    ["Failed calls", parsedTrace.summary["Failed calls"]],
+    ["Total input chars", parsedTrace.summary["Total input chars"]],
+    ["Contains truncation marker", parsedTrace.summary["Contains truncation marker"]],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+
+  return (
+    <div className="rounded-lg border bg-background px-4 py-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold">Trace Summary</h2>
+          <p className="text-xs text-muted-foreground">紧凑总览；重点内容在各 Call 内按 System/User/Output 查看。</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {compactMetrics.map(([label, value]) => (
+            <SummaryMetric key={label} label={label} value={value} />
+          ))}
+        </div>
+      </div>
+
+      <details className="group mt-3 rounded-md border bg-muted/20 px-3 py-2">
+        <summary className="cursor-pointer list-none text-xs text-muted-foreground">
+          <span className="group-open:hidden">展开完整 summary 数据</span>
+          <span className="hidden group-open:inline">收起完整 summary 数据</span>
+        </summary>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {Object.entries(parsedTrace.summary).map(([label, value]) => (
+            <MetadataItem key={label} label={label} value={value} />
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-[120px] rounded-md border bg-muted/30 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate font-mono text-sm" title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function PromptTraceCallCard({ call }: { call: PromptTraceCall }) {
+  const segments = orderPromptTraceSegments(call.segments);
+  const outputSegment = segments.find((segment) => segment.kind === "output");
+  const error = call.metadata.Error;
+  const outputFallback = outputSegment?.fallbackText;
+  const hasTruncation = call.metadata["Contains truncation marker"];
+
+  return (
+    <details className="group rounded-lg border bg-background p-4" open>
+      <summary className="cursor-pointer list-none">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold">Call {call.index}</h3>
+              <Badge variant="outline">{call.stage}</Badge>
+              <Badge variant="secondary">{call.mode}</Badge>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="min-w-0 truncate">model {call.metadata.Model || "-"}</span>
+              <span>input {call.metadata["Total input chars"] || "-"} chars</span>
+              <span>output {call.metadata["Output chars"] || "-"} chars</span>
+              <span>truncated {hasTruncation || "-"}</span>
+            </div>
+            {error && error !== "-" ? <p className="line-clamp-2 text-xs text-destructive">error {error}</p> : null}
+            {!error && outputFallback ? (
+              <p className="line-clamp-2 text-xs text-muted-foreground">{outputFallback}</p>
+            ) : null}
+          </div>
+          <span className="shrink-0 text-xs text-muted-foreground group-open:hidden">展开 Call</span>
+          <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">收起 Call</span>
+        </div>
+      </summary>
+
+      <div className="mt-4 space-y-4">
+        <div className="space-y-3">
+          {segments.map((segment) => (
+            <PromptTraceSegmentPanel key={segment.id} segment={segment} callIndex={call.index} />
+          ))}
+        </div>
+        <details className="group rounded-md border bg-muted/20 px-3 py-2">
+          <summary className="cursor-pointer list-none text-xs text-muted-foreground">
+            <span className="group-open:hidden">展开精确数据</span>
+            <span className="hidden group-open:inline">收起精确数据</span>
+          </summary>
+          <MetadataGrid metadata={call.metadata} className="mt-3" />
+        </details>
+      </div>
+    </details>
+  );
+}
+
+function MetadataGrid({ metadata, className = "" }: { metadata: PromptTraceTable; className?: string }) {
+  return (
+    <div className={`grid gap-2 md:grid-cols-2 xl:grid-cols-3 ${className}`}>
+      {Object.entries(metadata).map(([label, value]) => (
+        <MetadataItem key={label} label={label} value={value} />
+      ))}
+    </div>
+  );
+}
+
+function MetadataItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-muted/40 px-3 py-2">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="truncate font-mono text-xs" title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function PromptTraceSegmentPanel({
+  segment,
+  callIndex,
+}: {
+  segment: PromptTraceSegment;
+  callIndex: number;
+}) {
+  const copySegment = async () => {
+    await navigator.clipboard.writeText(segment.content);
+    toast.success(`${segment.title} 已复制`);
+  };
+
+  return (
+    <details className="group rounded-md border bg-muted/20">
+      <summary className="cursor-pointer list-none px-3 py-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-medium">{segment.title}</p>
+            <p className="text-xs text-muted-foreground">
+              Call {callIndex} · {segment.content.length} chars
+              {segment.metadata.Chars ? ` · recorded ${segment.metadata.Chars} chars` : ""}
+              {segment.metadata["Contains truncation marker"]
+                ? ` · truncated ${segment.metadata["Contains truncation marker"]}`
+                : ""}
+            </p>
+          </div>
+          <span className="shrink-0 text-xs text-muted-foreground group-open:hidden">展开正文</span>
+          <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">收起正文</span>
+        </div>
+      </summary>
+      <div className="space-y-3 border-t p-3">
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copySegment}
+            className="gap-2"
+            aria-label={`复制 ${segment.title}`}
+          >
+            <Clipboard className="h-3.5 w-3.5" />
+            复制本段
+          </Button>
+        </div>
+        <pre className="max-h-[420px] min-w-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-zinc-950 p-3 text-xs leading-relaxed text-zinc-100">
+          {segment.content}
+        </pre>
+      </div>
+    </details>
+  );
+}
+
+function orderPromptTraceSegments(segments: PromptTraceSegment[]) {
+  const preferredTitles = ["System message", "User message", "Output excerpt"];
+  return [
+    ...preferredTitles
+      .map((title) => segments.find((segment) => segment.title === title))
+      .filter((segment): segment is PromptTraceSegment => Boolean(segment)),
+    ...segments.filter((segment) => !preferredTitles.includes(segment.title)),
+  ];
 }
 
 function SummaryCard({
