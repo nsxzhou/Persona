@@ -26,3 +26,8 @@ storage/
 .claude/
 .pnpm-store/
 temp/
+.agents/skills
+.codex
+.cursor
+.opencode
+.trellis
