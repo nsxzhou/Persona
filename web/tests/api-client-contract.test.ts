@@ -99,6 +99,13 @@ describe("API contracts", () => {
       },
     });
     const statusPromise: Promise<StyleAnalysisJobStatusSnapshot> = client.getStyleAnalysisJobStatus("job-1");
+    const workflowRunsPromise = client.listNovelWorkflows({
+      projectId: "project-1",
+      intentType: "selection_rewrite",
+      status: "succeeded",
+      offset: 20,
+      limit: 20,
+    });
     const beatsPromise: Promise<NovelBeatWorkflowResult> = client.runBeatsWorkflow(
       "project-1",
       "",
@@ -145,6 +152,7 @@ describe("API contracts", () => {
       setupStatusPromise,
       setupPromise,
       statusPromise,
+      workflowRunsPromise,
       beatsPromise,
       biblePromise,
       styleProfileCreatePromise,
@@ -156,6 +164,9 @@ describe("API contracts", () => {
     expect(parseBeatsMarkdown("节拍如下：\n- 【平静→疑惑】 发现脚印\n- 旁白说明")).toEqual([
       "[平静→疑惑] 发现脚印",
     ]);
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/novel-workflows?project_id=project-1&intent_type=selection_rewrite&status=succeeded&offset=20&limit=20",
+    );
   });
 
   test("concept generation payload accepts selected profile ids", async () => {

@@ -1037,6 +1037,12 @@ export interface components {
             chapter_id: string | null;
             /** Provider Id */
             provider_id: string | null;
+            /** Project Name */
+            project_name?: string | null;
+            /** Chapter Title */
+            chapter_title?: string | null;
+            /** Provider Label */
+            provider_label?: string | null;
             /** Model Name */
             model_name: string | null;
             /**
@@ -1221,6 +1227,12 @@ export interface components {
             chapter_id: string | null;
             /** Provider Id */
             provider_id: string | null;
+            /** Project Name */
+            project_name?: string | null;
+            /** Chapter Title */
+            chapter_title?: string | null;
+            /** Provider Label */
+            provider_label?: string | null;
             /** Model Name */
             model_name: string | null;
             /**
@@ -3056,6 +3068,9 @@ export interface operations {
     list_novel_workflows_api_v1_novel_workflows_get: {
         parameters: {
             query?: {
+                project_id?: string | null;
+                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand") | null;
+                status?: ("pending" | "running" | "paused" | "succeeded" | "failed") | null;
                 offset?: number;
                 limit?: number;
             };

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { PropsWithChildren } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpenText, FolderKanban, KeyRound, LibraryBig, Sparkles, UserCircle2 } from "lucide-react";
+import { BookOpenText, FolderKanban, History, KeyRound, LibraryBig, Sparkles, UserCircle2 } from "lucide-react";
 
 export const NAV_ITEMS = [
   { href: "/projects", label: "项目", icon: FolderKanban },
   { href: "/settings/models", label: "模型配置", icon: KeyRound },
   { href: "/style-lab", label: "风格实验室", icon: Sparkles },
   { href: "/plot-lab", label: "情节实验室", icon: LibraryBig },
+  { href: "/workflow-runs", label: "运行历史", icon: History },
   { href: "/settings/account", label: "账户", icon: UserCircle2 },
 ] as const;
 

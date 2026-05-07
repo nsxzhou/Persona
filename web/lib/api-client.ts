@@ -158,6 +158,21 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/projects/${id}`, {
         method: "DELETE",
       }),
+    listNovelWorkflows: (params?: {
+      projectId?: string | null;
+      intentType?: NovelWorkflowCreatePayload["intent_type"] | null;
+      status?: NovelWorkflowListItem["status"] | null;
+      offset?: number;
+      limit?: number;
+    }) => {
+      const query = new URLSearchParams();
+      if (params?.projectId) query.set("project_id", params.projectId);
+      if (params?.intentType) query.set("intent_type", params.intentType);
+      if (params?.status) query.set("status", params.status);
+      query.set("offset", String(params?.offset ?? 0));
+      query.set("limit", String(params?.limit ?? 50));
+      return request<NovelWorkflowListItem[]>(`/api/v1/novel-workflows?${query.toString()}`);
+    },
     createNovelWorkflow: (payload: NovelWorkflowCreatePayload) =>
       request<NovelWorkflowListItem>("/api/v1/novel-workflows", {
         method: "POST",
