@@ -16,10 +16,10 @@ import {
   type PlotProfile,
   type PlotAnalysisJobStatusSnapshot,
 } from "@/lib/types";
+import { useAnalysisJobLogsQuery } from "@/hooks/use-analysis-job-logs";
+import { makeDetailResource } from "@/lib/wizard-utils";
 
 type WizardStep = 1 | 2 | 3;
-
-import { makeDetailResource } from "@/lib/wizard-utils";
 
 export const PLOT_STAGE_LABELS: Record<PlotAnalysisJobStage, string> = {
   preparing_input: "正在准备输入",
@@ -38,7 +38,6 @@ export function formatPlotStageLabel(
   return PLOT_STAGE_LABELS[stage as PlotAnalysisJobStage] ?? stage;
 }
 
-const LOG_WINDOW_SIZE = 64 * 1024;
 const IMMUTABLE_ARTIFACT_QUERY = {
   staleTime: Infinity,
   gcTime: 30 * 60 * 1000,
@@ -78,36 +77,14 @@ function usePlotLabJobDetailQuery(jobId: string) {
 }
 
 export function usePlotLabJobLogsQuery(jobId: string, isProcessing: boolean) {
-  const offsetRef = React.useRef(0);
-  const [logs, setLogs] = React.useState("");
-
-  React.useEffect(() => {
-    offsetRef.current = 0;
-    setLogs("");
-  }, [jobId]);
-
-  const query = useQuery<PlotAnalysisJobLogs>({
+  return useAnalysisJobLogsQuery<PlotAnalysisJobLogs>({
+    jobId,
+    isProcessing,
     queryKey: plotLabQueryKeys.jobs.logs(jobId),
-    queryFn: () => api.getPlotAnalysisJobLogs(jobId, offsetRef.current),
-    refetchInterval: isProcessing ? 1000 : false,
+    queryFn: (offset) => api.getPlotAnalysisJobLogs(jobId, offset),
     refetchOnWindowFocus: false,
     staleTime: 1000,
   });
-
-  React.useEffect(() => {
-    const payload = query.data as PlotAnalysisJobLogs | undefined;
-    if (!payload) return;
-    setLogs((prev) => {
-      const next = payload.truncated ? payload.content : prev + payload.content;
-      return next.slice(-LOG_WINDOW_SIZE);
-    });
-    offsetRef.current = payload.next_offset;
-  }, [query.data]);
-
-  return {
-    ...query,
-    logs,
-  };
 }
 
 function usePlotLabResourcesQueries(jobId: string, job: PlotAnalysisJob | null) {

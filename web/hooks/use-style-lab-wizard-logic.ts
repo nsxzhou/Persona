@@ -16,11 +16,10 @@ import {
   type StyleAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 
+import { useAnalysisJobLogsQuery } from "@/hooks/use-analysis-job-logs";
 import { makeDetailResource } from "@/lib/wizard-utils";
 
 type WizardStep = 1 | 2;
-
-const LOG_WINDOW_SIZE = 64 * 1024;
 
 export function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
   return status === "pending" || status === "running";
@@ -56,34 +55,12 @@ function useStyleLabJobDetailQuery(jobId: string) {
 }
 
 export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
-  const [offset, setOffset] = React.useState(0);
-  const [logs, setLogs] = React.useState("");
-
-  React.useEffect(() => {
-    setOffset(0);
-    setLogs("");
-  }, [jobId]);
-
-  const query = useQuery<StyleAnalysisJobLogs>({
+  return useAnalysisJobLogsQuery<StyleAnalysisJobLogs>({
+    jobId,
+    isProcessing,
     queryKey: styleLabQueryKeys.jobs.logs(jobId),
-    queryFn: () => api.getStyleAnalysisJobLogs(jobId, offset),
-    refetchInterval: isProcessing ? 1000 : false,
+    queryFn: (offset) => api.getStyleAnalysisJobLogs(jobId, offset),
   });
-
-  React.useEffect(() => {
-    const payload = query.data as StyleAnalysisJobLogs | undefined;
-    if (!payload) return;
-    setLogs((prev) => {
-      const next = payload.truncated ? payload.content : prev + payload.content;
-      return next.slice(-LOG_WINDOW_SIZE);
-    });
-    setOffset((prev) => (prev === payload.next_offset ? prev : payload.next_offset));
-  }, [query.data]);
-
-  return {
-    ...query,
-    logs,
-  };
 }
 
 function useStyleLabResourcesQueries(jobId: string, job: StyleAnalysisJob | null) {
