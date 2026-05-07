@@ -25,6 +25,7 @@ from app.services.novel_workflow_pipeline import (
 from app.services.novel_workflow_storage import NovelWorkflowStorageService
 from app.services.novel_workflows import NovelWorkflowService
 from app.services.plot_profiles import PlotProfileService
+from app.services.prompt_trace import PromptTraceMessage, PromptTraceRecorder
 from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
 from app.services.style_profiles import StyleProfileService
@@ -118,8 +119,11 @@ class NovelWorkflowJobExecutor:
                 f"[Workflow] starting {context.initial_state['intent_type']}",
             )
             pipeline = await self._build_pipeline(
+                run_id=run_id,
+                intent_type=str(context.initial_state["intent_type"]),
                 provider=context.provider,
                 model_name=context.model_name,
+                stage_getter=lambda: current_stage,
                 stage_callback=stage_callback,
                 should_pause=pause_event.is_set,
                 decision_loader=lambda _target_run_id: context.initial_state.get("decision_payload"),
@@ -202,12 +206,51 @@ class NovelWorkflowJobExecutor:
     async def _build_pipeline(
         self,
         *,
+        run_id: str,
+        intent_type: str,
         provider: ProviderConfig | None,
         model_name: str | None,
+        stage_getter,
         stage_callback,
         should_pause=None,
         decision_loader=None,
     ) -> NovelWorkflowPipeline:
+        trace_recorder = PromptTraceRecorder(
+            run_id=run_id,
+            intent_type=intent_type,
+            provider_id=provider.id if provider is not None else None,
+            provider_label=provider.label if provider is not None else None,
+            model_name=model_name or (provider.default_model if provider is not None else None),
+            storage_service=self.storage_service,
+            stage_getter=stage_getter,
+        )
+
+        async def record_prompt_trace(
+            *,
+            mode: str,
+            messages: list[PromptTraceMessage],
+            started_at,
+            completed_at,
+            output: str | None,
+            error_summary: str | None,
+        ) -> None:
+            if error_summary is not None:
+                await trace_recorder.record_error(
+                    mode=mode,
+                    messages=messages,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                    error_summary=error_summary,
+                )
+                return
+            await trace_recorder.record_success(
+                mode=mode,
+                messages=messages,
+                started_at=started_at,
+                completed_at=completed_at,
+                output=output or "",
+            )
+
         async def llm_complete(*, system_prompt: str, user_context: str, mode: str) -> str:
             if provider is None:
                 raise NotFoundError("工作流缺少可用 Provider")
@@ -217,6 +260,7 @@ class NovelWorkflowJobExecutor:
                 user_context=user_context,
                 model_name=model_name,
                 injection_mode=mode,  # "analysis" / "immersion"
+                prompt_trace_callback=record_prompt_trace,
             )
 
         if decision_loader is None:

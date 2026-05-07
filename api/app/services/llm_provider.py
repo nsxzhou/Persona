@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from openai import PermissionDeniedError
@@ -19,6 +21,7 @@ from app.services.prompt_injection_policy import (
     PromptInjectionTask,
     resolve_injection_mode,
 )
+from app.services.prompt_trace import PromptTraceMessage
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ _TASK_TEMPERATURES: dict[PromptInjectionTask, float] = {
 _TEXT_RESPONSE_KEYS = ("content", "output_text", "text")
 _EMPTY_RESPONSE_BACKOFF_SECONDS = (0.5, 1.0)
 _TRANSIENT_PERMISSION_BACKOFF_SECONDS = (1.0, 2.0)
+PromptTraceCallback = Callable[..., Awaitable[None]]
 
 
 def _extract_from_mapping(mapping: dict) -> str:
@@ -90,6 +94,31 @@ def _safe_mapping_keys(mapping: Any) -> list[str]:
     if not isinstance(mapping, dict):
         return []
     return sorted(str(key) for key in mapping.keys())
+
+
+def _message_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    return str(content)
+
+
+def _trace_messages(messages: list[Any]) -> list[PromptTraceMessage]:
+    traced: list[PromptTraceMessage] = []
+    for message in messages:
+        role = "message"
+        if isinstance(message, SystemMessage):
+            role = "system"
+        elif isinstance(message, HumanMessage):
+            role = "user"
+        else:
+            role = getattr(message, "type", None) or getattr(message, "role", None) or role
+        traced.append(
+            PromptTraceMessage(
+                role=str(role),
+                content=_message_text(getattr(message, "content", message)),
+            )
+        )
+    return traced
 
 
 class EmptyMarkdownResponseError(ValueError):
@@ -175,6 +204,7 @@ class LLMProviderService:
         model_name: str | None = None,
         injection_task: PromptInjectionTask | None = None,
         injection_mode: PromptInjectionMode | None = None,
+        prompt_trace_callback: PromptTraceCallback | None = None,
     ) -> str:
         """Non-streaming single LLM call; returns the full text."""
         model = self._build_model(
@@ -190,8 +220,81 @@ class LLMProviderService:
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_context),
         ], resolved_mode)
-        response = await model.ainvoke(messages)
-        return str(response.content)
+        traced_messages = _trace_messages(messages)
+        started_at = datetime.now(UTC)
+        try:
+            response = await model.ainvoke(messages)
+        except Exception as exc:
+            completed_at = datetime.now(UTC)
+            await self._record_prompt_trace_error(
+                prompt_trace_callback,
+                mode=resolved_mode,
+                messages=traced_messages,
+                started_at=started_at,
+                completed_at=completed_at,
+                error_summary=summarize_exception(exc),
+            )
+            raise
+
+        completed_at = datetime.now(UTC)
+        content = str(response.content)
+        await self._record_prompt_trace_success(
+            prompt_trace_callback,
+            mode=resolved_mode,
+            messages=traced_messages,
+            started_at=started_at,
+            completed_at=completed_at,
+            output=content,
+        )
+        return content
+
+    async def _record_prompt_trace_success(
+        self,
+        callback: PromptTraceCallback | None,
+        *,
+        mode: str,
+        messages: list[PromptTraceMessage],
+        started_at: datetime,
+        completed_at: datetime,
+        output: str,
+    ) -> None:
+        if callback is None:
+            return
+        try:
+            await callback(
+                mode=mode,
+                messages=messages,
+                started_at=started_at,
+                completed_at=completed_at,
+                output=output,
+                error_summary=None,
+            )
+        except Exception:
+            logger.exception("failed to write prompt trace")
+
+    async def _record_prompt_trace_error(
+        self,
+        callback: PromptTraceCallback | None,
+        *,
+        mode: str,
+        messages: list[PromptTraceMessage],
+        started_at: datetime,
+        completed_at: datetime,
+        error_summary: str,
+    ) -> None:
+        if callback is None:
+            return
+        try:
+            await callback(
+                mode=mode,
+                messages=messages,
+                started_at=started_at,
+                completed_at=completed_at,
+                output=None,
+                error_summary=error_summary,
+            )
+        except Exception:
+            logger.exception("failed to write prompt trace")
 
     async def invoke_markdown_completion(
         self,
