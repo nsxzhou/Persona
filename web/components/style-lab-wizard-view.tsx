@@ -2,7 +2,6 @@
 
 import { ArrowLeft, CheckCircle2, Info } from "lucide-react";
 import Link from "next/link";
-import * as React from "react";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
