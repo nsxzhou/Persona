@@ -1932,6 +1932,16 @@ export interface components {
              * @default true
              */
             is_enabled: boolean;
+            /**
+             * Immersion Prompt Override Enabled
+             * @default false
+             */
+            immersion_prompt_override_enabled: boolean;
+            /**
+             * Immersion System Prompt Suffix
+             * @default
+             */
+            immersion_system_prompt_suffix: string;
         };
         /** ProviderConfigResponse */
         ProviderConfigResponse: {
@@ -1947,6 +1957,10 @@ export interface components {
             api_key_hint: string;
             /** Is Enabled */
             is_enabled: boolean;
+            /** Immersion Prompt Override Enabled */
+            immersion_prompt_override_enabled: boolean;
+            /** Immersion System Prompt Suffix */
+            immersion_system_prompt_suffix: string;
             /** Last Test Status */
             last_test_status: string | null;
             /** Last Test Error */
@@ -1976,6 +1990,10 @@ export interface components {
             default_model?: string | null;
             /** Is Enabled */
             is_enabled?: boolean | null;
+            /** Immersion Prompt Override Enabled */
+            immersion_prompt_override_enabled?: boolean | null;
+            /** Immersion System Prompt Suffix */
+            immersion_system_prompt_suffix?: string | null;
         };
         /** ProviderSummary */
         ProviderSummary: {

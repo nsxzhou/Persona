@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import { SetupPageView } from "@/components/setup-page-view";
 import { ProviderConfigFormDialog } from "@/components/provider-config-form-dialog";
 import { ProviderConfigsPageView } from "@/components/provider-configs-page-view";
+import { ProviderPromptOverrideDialog } from "@/components/provider-prompt-override-dialog";
 
 if (typeof globalThis.ResizeObserver === "undefined") {
   class ResizeObserverMock {
@@ -29,6 +30,8 @@ test("provider configs page opens create dialog and triggers connection test", (
           default_model: "gpt-4.1-mini",
           api_key_hint: "****1234",
           is_enabled: true,
+          immersion_prompt_override_enabled: true,
+          immersion_system_prompt_suffix: "追加提示词",
           last_test_status: "success",
           last_test_error: null,
           last_tested_at: "2026-04-07T12:00:00Z",
@@ -47,6 +50,51 @@ test("provider configs page opens create dialog and triggers connection test", (
   expect(onOpenCreate).toHaveBeenCalled();
   expect(onTest).toHaveBeenCalledWith("provider-1");
   expect(screen.getByText("****1234")).toBeInTheDocument();
+  expect(screen.getByText("提示词追加")).toBeInTheDocument();
+  expect(screen.getAllByText("已启用")).toHaveLength(2);
+});
+
+test("provider prompt dialog edits override fields without connection fields", async () => {
+  const onSubmit = vi.fn(async () => {});
+
+  render(
+    <ProviderPromptOverrideDialog
+      open
+      provider={{
+        id: "provider-1",
+        label: "Primary Gateway",
+        base_url: "https://api.openai.com/v1",
+        default_model: "gpt-4.1-mini",
+        api_key_hint: "****1234",
+        is_enabled: true,
+        immersion_prompt_override_enabled: false,
+        immersion_system_prompt_suffix: "",
+        last_test_status: null,
+        last_test_error: null,
+        last_tested_at: null,
+        created_at: "2026-04-09T00:00:00Z",
+        updated_at: "2026-04-09T00:00:00Z",
+      }}
+      submitting={false}
+      onOpenChange={() => undefined}
+      onSubmit={onSubmit}
+    />,
+  );
+
+  fireEvent.click(screen.getByLabelText("启用沉浸提示词追加"));
+  fireEvent.change(screen.getByLabelText("沉浸模式 System Prompt 追加内容"), {
+    target: { value: "Provider suffix" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "保存提示词" }));
+
+  await waitFor(() => {
+    expect(onSubmit).toHaveBeenCalledWith({
+      immersion_prompt_override_enabled: true,
+      immersion_system_prompt_suffix: "Provider suffix",
+    });
+  });
+  expect(screen.queryByLabelText("Base URL")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
 });
 
 test("setup page uses the shared provider default model", async () => {

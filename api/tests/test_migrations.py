@@ -263,6 +263,61 @@ def test_novel_workflow_migration_adds_story_summary_beats_and_runs_table(
     assert "novel_workflow_runs" in run_tables
 
 
+def test_provider_prompt_override_migration_defaults_existing_providers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "provider-prompt-override.db"
+    monkeypatch.delenv("PERSONA_ENCRYPTION_KEY", raising=False)
+    get_settings.cache_clear()
+    alembic_config = Config("alembic.ini")
+    alembic_config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+
+    try:
+        command.upgrade(alembic_config, "0017_profile_payload_names")
+        import sqlite3
+
+        with sqlite3.connect(database_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO users (id, username, password_hash)
+                VALUES ('user-1', 'owner', 'hash')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO provider_configs (
+                    id, user_id, label, base_url, api_key_encrypted,
+                    api_key_hint_last4, default_model, is_enabled
+                )
+                VALUES (
+                    'provider-1', 'user-1', 'Provider', 'https://example.com',
+                    'encrypted', '0000', 'model', 1
+                )
+                """
+            )
+
+        command.upgrade(alembic_config, "head")
+
+        with sqlite3.connect(database_path) as connection:
+            provider_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(provider_configs)").fetchall()
+            }
+            prompt_override = connection.execute(
+                """
+                SELECT immersion_prompt_override_enabled, immersion_system_prompt_suffix
+                FROM provider_configs
+                WHERE id = 'provider-1'
+                """
+            ).fetchone()
+    finally:
+        get_settings.cache_clear()
+
+    assert "immersion_prompt_override_enabled" in provider_columns
+    assert "immersion_system_prompt_suffix" in provider_columns
+    assert prompt_override == (0, "")
+
+
 def test_alembic_revision_ids_fit_version_column_limit() -> None:
     versions_dir = Path(__file__).resolve().parent.parent / "alembic" / "versions"
     for migration_file in versions_dir.glob("*.py"):

@@ -11,6 +11,8 @@ class ProviderConfigCreate(BaseModel):
     api_key: str = Field(min_length=4, max_length=512)
     default_model: str = Field(min_length=1, max_length=100)
     is_enabled: bool = True
+    immersion_prompt_override_enabled: bool = False
+    immersion_system_prompt_suffix: str = ""
 
 
 class ProviderConfigUpdate(BaseModel):
@@ -19,6 +21,8 @@ class ProviderConfigUpdate(BaseModel):
     api_key: str | None = Field(default=None, min_length=4, max_length=512)
     default_model: str | None = Field(default=None, min_length=1, max_length=100)
     is_enabled: bool | None = None
+    immersion_prompt_override_enabled: bool | None = None
+    immersion_system_prompt_suffix: str | None = None
 
     @field_validator("api_key", mode="before")
     @classmethod
@@ -37,6 +41,8 @@ class ProviderConfigResponse(BaseModel):
     default_model: str
     api_key_hint: str
     is_enabled: bool
+    immersion_prompt_override_enabled: bool
+    immersion_system_prompt_suffix: str
     last_test_status: str | None
     last_test_error: str | None
     last_tested_at: datetime | None

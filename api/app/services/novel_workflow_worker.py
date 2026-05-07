@@ -228,6 +228,7 @@ class NovelWorkflowJobExecutor:
         async def record_prompt_trace(
             *,
             mode: str,
+            provider_prompt_override_applied: bool,
             messages: list[PromptTraceMessage],
             started_at,
             completed_at,
@@ -237,6 +238,7 @@ class NovelWorkflowJobExecutor:
             if error_summary is not None:
                 await trace_recorder.record_error(
                     mode=mode,
+                    provider_prompt_override_applied=provider_prompt_override_applied,
                     messages=messages,
                     started_at=started_at,
                     completed_at=completed_at,
@@ -245,6 +247,7 @@ class NovelWorkflowJobExecutor:
                 return
             await trace_recorder.record_success(
                 mode=mode,
+                provider_prompt_override_applied=provider_prompt_override_applied,
                 messages=messages,
                 started_at=started_at,
                 completed_at=completed_at,

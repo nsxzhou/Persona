@@ -30,6 +30,7 @@ class PromptTraceCall:
     completed_at: datetime | None
     duration_ms: int | None
     messages: list[PromptTraceMessage]
+    provider_prompt_override_applied: bool = False
     output_char_count: int | None = None
     output_excerpt: str | None = None
     error_summary: str | None = None
@@ -139,6 +140,7 @@ class PromptTraceRecorder:
         self,
         *,
         mode: str,
+        provider_prompt_override_applied: bool,
         messages: list[PromptTraceMessage],
         started_at: datetime,
         completed_at: datetime,
@@ -157,6 +159,7 @@ class PromptTraceRecorder:
                 completed_at=completed_at,
                 duration_ms=_duration_ms(started_at, completed_at),
                 messages=messages,
+                provider_prompt_override_applied=provider_prompt_override_applied,
                 output_char_count=len(output),
                 output_excerpt=build_output_excerpt(output),
             )
@@ -167,6 +170,7 @@ class PromptTraceRecorder:
         self,
         *,
         mode: str,
+        provider_prompt_override_applied: bool,
         messages: list[PromptTraceMessage],
         started_at: datetime,
         completed_at: datetime,
@@ -185,6 +189,7 @@ class PromptTraceRecorder:
                 completed_at=completed_at,
                 duration_ms=_duration_ms(started_at, completed_at),
                 messages=messages,
+                provider_prompt_override_applied=provider_prompt_override_applied,
                 error_summary=error_summary,
             )
         )
@@ -215,6 +220,7 @@ def _render_call(call: PromptTraceCall) -> list[str]:
         f"| Mode | `{_escape_table(call.mode)}` |",
         f"| Provider | `{_escape_table(call.provider_label or '-')}` |",
         f"| Provider ID | `{_escape_table(call.provider_id or '-')}` |",
+        f"| Provider prompt override | {_format_bool(call.provider_prompt_override_applied)} |",
         f"| Model | `{_escape_table(call.model_name or '-')}` |",
         f"| Started at | `{call.started_at.isoformat(timespec='milliseconds')}` |",
         f"| Completed at | `{call.completed_at.isoformat(timespec='milliseconds') if call.completed_at else '-'}` |",

@@ -121,6 +121,14 @@ def _trace_messages(messages: list[Any]) -> list[PromptTraceMessage]:
     return traced
 
 
+def _append_system_prompt_suffix(system_prompt: str, suffix: str) -> str:
+    if not suffix:
+        return system_prompt
+    if not system_prompt:
+        return suffix
+    return f"{system_prompt}\n\n{suffix}"
+
+
 class EmptyMarkdownResponseError(ValueError):
     pass
 
@@ -216,8 +224,21 @@ class LLMProviderService:
             injection_task=injection_task,
             injection_mode=injection_mode,
         )
+        provider_prompt_override_applied = (
+            resolved_mode == "immersion"
+            and bool(getattr(provider_config, "immersion_prompt_override_enabled", False))
+            and bool(str(getattr(provider_config, "immersion_system_prompt_suffix", "")).strip())
+        )
+        final_system_prompt = (
+            _append_system_prompt_suffix(
+                system_prompt,
+                str(getattr(provider_config, "immersion_system_prompt_suffix", "")),
+            )
+            if provider_prompt_override_applied
+            else system_prompt
+        )
         messages = inject_first_human_message([
-            SystemMessage(content=system_prompt),
+            SystemMessage(content=final_system_prompt),
             HumanMessage(content=user_context),
         ], resolved_mode)
         traced_messages = _trace_messages(messages)
@@ -229,6 +250,7 @@ class LLMProviderService:
             await self._record_prompt_trace_error(
                 prompt_trace_callback,
                 mode=resolved_mode,
+                provider_prompt_override_applied=provider_prompt_override_applied,
                 messages=traced_messages,
                 started_at=started_at,
                 completed_at=completed_at,
@@ -241,6 +263,7 @@ class LLMProviderService:
         await self._record_prompt_trace_success(
             prompt_trace_callback,
             mode=resolved_mode,
+            provider_prompt_override_applied=provider_prompt_override_applied,
             messages=traced_messages,
             started_at=started_at,
             completed_at=completed_at,
@@ -253,6 +276,7 @@ class LLMProviderService:
         callback: PromptTraceCallback | None,
         *,
         mode: str,
+        provider_prompt_override_applied: bool,
         messages: list[PromptTraceMessage],
         started_at: datetime,
         completed_at: datetime,
@@ -263,6 +287,7 @@ class LLMProviderService:
         try:
             await callback(
                 mode=mode,
+                provider_prompt_override_applied=provider_prompt_override_applied,
                 messages=messages,
                 started_at=started_at,
                 completed_at=completed_at,
@@ -277,6 +302,7 @@ class LLMProviderService:
         callback: PromptTraceCallback | None,
         *,
         mode: str,
+        provider_prompt_override_applied: bool,
         messages: list[PromptTraceMessage],
         started_at: datetime,
         completed_at: datetime,
@@ -287,6 +313,7 @@ class LLMProviderService:
         try:
             await callback(
                 mode=mode,
+                provider_prompt_override_applied=provider_prompt_override_applied,
                 messages=messages,
                 started_at=started_at,
                 completed_at=completed_at,

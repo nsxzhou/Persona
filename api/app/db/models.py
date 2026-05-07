@@ -116,6 +116,18 @@ class ProviderConfig(TimestampMixin, Base):
     api_key_hint_last4: Mapped[str] = mapped_column(String(4), nullable=False)
     default_model: Mapped[str] = mapped_column(String(100), nullable=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    immersion_prompt_override_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+    immersion_system_prompt_suffix: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="",
+        server_default="",
+    )
     last_test_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     last_test_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_tested_at: Mapped[datetime | None] = mapped_column(

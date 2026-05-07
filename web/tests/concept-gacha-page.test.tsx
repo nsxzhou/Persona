@@ -57,6 +57,8 @@ describe("ConceptGachaPage", () => {
             default_model: "gpt-4.1-mini",
             api_key_hint: "****1234",
             is_enabled: true,
+            immersion_prompt_override_enabled: false,
+            immersion_system_prompt_suffix: "",
             last_test_status: null,
             last_test_error: null,
             last_tested_at: null,

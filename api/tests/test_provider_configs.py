@@ -33,17 +33,26 @@ async def test_provider_configs_mask_keys_and_support_crud(
     created = create_response.json()
     assert created["label"] == "Backup Gateway"
     assert created["api_key_hint"] == "****5678"
+    assert created["immersion_prompt_override_enabled"] is False
+    assert created["immersion_system_prompt_suffix"] == ""
 
     update_response = await initialized_client.patch(
         f"/api/v1/provider-configs/{created['id']}",
         json={
             "label": "Backup Gateway Updated",
             "default_model": "gpt-4.1-mini",
+            "immersion_prompt_override_enabled": True,
+            "immersion_system_prompt_suffix": "Provider-specific immersion ending.",
         },
     )
     assert update_response.status_code == 200
     assert update_response.json()["label"] == "Backup Gateway Updated"
     assert update_response.json()["default_model"] == "gpt-4.1-mini"
+    assert update_response.json()["immersion_prompt_override_enabled"] is True
+    assert (
+        update_response.json()["immersion_system_prompt_suffix"]
+        == "Provider-specific immersion ending."
+    )
 
 @pytest.mark.asyncio
 async def test_provider_connection_test_masks_sensitive_error_details(
@@ -157,6 +166,8 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
             api_key_hint_last4: str,
             default_model: str,
             is_enabled: bool,
+            immersion_prompt_override_enabled: bool,
+            immersion_system_prompt_suffix: str,
             user_id: str,
         ):
             del session
@@ -168,6 +179,8 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
                 api_key_hint_last4=api_key_hint_last4,
                 default_model=default_model,
                 is_enabled=is_enabled,
+                immersion_prompt_override_enabled=immersion_prompt_override_enabled,
+                immersion_system_prompt_suffix=immersion_system_prompt_suffix,
                 user_id=user_id,
             )
 
@@ -180,11 +193,15 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
             api_key="sk-backup-5678",
             default_model="gpt-4.1-nano",
             is_enabled=True,
+            immersion_prompt_override_enabled=True,
+            immersion_system_prompt_suffix="Override suffix",
         ),
     )
 
     assert calls == ["get_first_user_id", "create"]
     assert created_provider.user_id == "user-1"
+    assert created_provider.immersion_prompt_override_enabled is True
+    assert created_provider.immersion_system_prompt_suffix == "Override suffix"
 
 
 @pytest.mark.asyncio

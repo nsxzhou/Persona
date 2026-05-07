@@ -66,6 +66,8 @@ class ProviderConfigService:
             api_key_hint_last4=payload.api_key[-4:],
             default_model=payload.default_model,
             is_enabled=payload.is_enabled,
+            immersion_prompt_override_enabled=payload.immersion_prompt_override_enabled,
+            immersion_system_prompt_suffix=payload.immersion_system_prompt_suffix,
             user_id=resolved_user_id,
         )
 
@@ -99,6 +101,14 @@ class ProviderConfigService:
             provider.default_model = data["default_model"]
         if "is_enabled" in data:
             provider.is_enabled = data["is_enabled"]
+        if "immersion_prompt_override_enabled" in data:
+            provider.immersion_prompt_override_enabled = data[
+                "immersion_prompt_override_enabled"
+            ]
+        if "immersion_system_prompt_suffix" in data:
+            provider.immersion_system_prompt_suffix = (
+                data["immersion_system_prompt_suffix"] or ""
+            )
         if data.get("api_key"):
             provider.api_key_encrypted = encrypt_secret(data["api_key"])
             provider.api_key_hint_last4 = data["api_key"][-4:]

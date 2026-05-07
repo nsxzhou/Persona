@@ -6142,6 +6142,16 @@
             "type": "boolean",
             "title": "Is Enabled",
             "default": true
+          },
+          "immersion_prompt_override_enabled": {
+            "type": "boolean",
+            "title": "Immersion Prompt Override Enabled",
+            "default": false
+          },
+          "immersion_system_prompt_suffix": {
+            "type": "string",
+            "title": "Immersion System Prompt Suffix",
+            "default": ""
           }
         },
         "type": "object",
@@ -6178,6 +6188,14 @@
           "is_enabled": {
             "type": "boolean",
             "title": "Is Enabled"
+          },
+          "immersion_prompt_override_enabled": {
+            "type": "boolean",
+            "title": "Immersion Prompt Override Enabled"
+          },
+          "immersion_system_prompt_suffix": {
+            "type": "string",
+            "title": "Immersion System Prompt Suffix"
           },
           "last_test_status": {
             "anyOf": [
@@ -6232,6 +6250,8 @@
           "default_model",
           "api_key_hint",
           "is_enabled",
+          "immersion_prompt_override_enabled",
+          "immersion_system_prompt_suffix",
           "last_test_status",
           "last_test_error",
           "last_tested_at",
@@ -6304,6 +6324,28 @@
               }
             ],
             "title": "Is Enabled"
+          },
+          "immersion_prompt_override_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Immersion Prompt Override Enabled"
+          },
+          "immersion_system_prompt_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Immersion System Prompt Suffix"
           }
         },
         "type": "object",

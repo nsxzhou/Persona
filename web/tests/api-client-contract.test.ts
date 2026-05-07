@@ -96,6 +96,8 @@ describe("API contracts", () => {
         api_key: "sk-test",
         default_model: "gpt-4.1-mini",
         is_enabled: true,
+        immersion_prompt_override_enabled: false,
+        immersion_system_prompt_suffix: "",
       },
     });
     const statusPromise: Promise<StyleAnalysisJobStatusSnapshot> = client.getStyleAnalysisJobStatus("job-1");

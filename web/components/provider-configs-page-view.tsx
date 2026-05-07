@@ -2,21 +2,32 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { LoaderCircle, PencilLine, PlugZap, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, MessageSquareText, PencilLine, PlugZap, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
 import { ProviderConfigFormDialog } from "@/components/provider-config-form-dialog";
+import { ProviderPromptOverrideDialog } from "@/components/provider-prompt-override-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { providerQueryKeys } from "@/lib/provider-query-keys";
-import type { ProviderConfig, ProviderPayload } from "@/lib/types";
+import type {
+  ProviderConfig,
+  ProviderConfigCreatePayload,
+  ProviderConfigUpdatePayload,
+} from "@/lib/types";
+
+type ProviderSaveRequest =
+  | { type: "create"; payload: ProviderConfigCreatePayload }
+  | { type: "update"; providerId: string; payload: ProviderConfigUpdatePayload };
 
 export function ProviderConfigsPageClient() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ProviderConfig | null>(null);
+  const [promptProvider, setPromptProvider] = useState<ProviderConfig | null>(null);
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
   const providersQuery = useQuery({
@@ -25,17 +36,36 @@ export function ProviderConfigsPageClient() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: ProviderPayload) => {
-      if (editingProvider) {
-        return api.updateProviderConfig(editingProvider.id, payload);
+    mutationFn: async (request: ProviderSaveRequest) => {
+      if (request.type === "update") {
+        return api.updateProviderConfig(request.providerId, request.payload);
       }
-      return api.createProviderConfig(payload);
+      return api.createProviderConfig(request.payload);
     },
     onError: (error) => toast.error(error.message),
     onSuccess: async () => {
       toast.success("Provider 已保存");
       setDialogOpen(false);
       setEditingProvider(null);
+      await queryClient.invalidateQueries({ queryKey: providerQueryKeys.lists() });
+    },
+  });
+
+  const promptSaveMutation = useMutation({
+    mutationFn: async (payload: Pick<
+      ProviderConfigUpdatePayload,
+      "immersion_prompt_override_enabled" | "immersion_system_prompt_suffix"
+    >) => {
+      if (!promptProvider) {
+        throw new Error("Provider 不存在");
+      }
+      return api.updateProviderConfig(promptProvider.id, payload);
+    },
+    onError: (error) => toast.error(error.message),
+    onSuccess: async () => {
+      toast.success("Provider 提示词已保存");
+      setPromptDialogOpen(false);
+      setPromptProvider(null);
       await queryClient.invalidateQueries({ queryKey: providerQueryKeys.lists() });
     },
   });
@@ -104,6 +134,10 @@ export function ProviderConfigsPageClient() {
           setEditingProvider(provider);
           setDialogOpen(true);
         }}
+        onEditPrompt={(provider) => {
+          setPromptProvider(provider);
+          setPromptDialogOpen(true);
+        }}
         onOpenCreate={() => {
           setEditingProvider(null);
           setDialogOpen(true);
@@ -116,10 +150,38 @@ export function ProviderConfigsPageClient() {
         submitting={saveMutation.isPending}
         onOpenChange={setDialogOpen}
         onSubmit={async (values) => {
-          await saveMutation.mutateAsync({
+          const payload = {
             ...values,
             api_key: values.api_key ?? "",
-          });
+          };
+          await saveMutation.mutateAsync(
+            editingProvider
+              ? {
+                  type: "update",
+                  providerId: editingProvider.id,
+                  payload,
+                }
+              : {
+                  type: "create",
+                  payload: {
+                    ...payload,
+                    immersion_prompt_override_enabled: false,
+                    immersion_system_prompt_suffix: "",
+                  },
+                },
+          );
+        }}
+      />
+      <ProviderPromptOverrideDialog
+        open={promptDialogOpen}
+        provider={promptProvider}
+        submitting={promptSaveMutation.isPending}
+        onOpenChange={(open) => {
+          setPromptDialogOpen(open);
+          if (!open) setPromptProvider(null);
+        }}
+        onSubmit={async (values) => {
+          await promptSaveMutation.mutateAsync(values);
         }}
       />
     </div>
@@ -131,6 +193,7 @@ export function ProviderConfigsPageView({
   testingId,
   onOpenCreate,
   onEdit,
+  onEditPrompt,
   onTest,
   onDelete,
 }: {
@@ -138,6 +201,7 @@ export function ProviderConfigsPageView({
   testingId?: string | null;
   onOpenCreate: () => void;
   onEdit?: (provider: ProviderConfig) => void;
+  onEditPrompt?: (provider: ProviderConfig) => void;
   onTest: (id: string) => void;
   onDelete?: (id: string) => void;
 }) {
@@ -183,8 +247,14 @@ export function ProviderConfigsPageView({
                   <span>最近测试</span>
                   <span className="font-medium text-foreground">{provider.last_test_status ?? "未测试"}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>提示词追加</span>
+                  <span className="font-medium text-foreground">
+                    {provider.immersion_prompt_override_enabled ? "已启用" : "未启用"}
+                  </span>
+                </div>
               </div>
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-2">
                 <Button variant="outline" onClick={() => onTest(provider.id)} disabled={testingId === provider.id}>
                   {testingId === provider.id ? (
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
@@ -193,10 +263,13 @@ export function ProviderConfigsPageView({
                   )}
                   {testingId === provider.id ? "测试中…" : "测试连接"}
                 </Button>
+                <Button variant="outline" onClick={() => onEditPrompt?.(provider)}>
+                  <MessageSquareText className="mr-2 h-4 w-4" />提示词
+                </Button>
                 <Button variant="secondary" onClick={() => onEdit?.(provider)}>
                   <PencilLine className="mr-2 h-4 w-4" />编辑
                 </Button>
-                <Button variant="ghost" className="ml-auto text-red-600 hover:bg-red-100 hover:text-red-900" onClick={() => onDelete?.(provider.id)}>
+                <Button variant="ghost" className="sm:ml-auto text-red-600 hover:bg-red-100 hover:text-red-900" onClick={() => onDelete?.(provider.id)}>
                   <Trash2 className="mr-2 h-4 w-4" />删除
                 </Button>
               </div>

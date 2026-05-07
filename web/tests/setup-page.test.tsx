@@ -80,6 +80,8 @@ test("setup client submits admin and first provider values then jumps to project
       default_model: "gpt-4.1-mini",
       api_key_hint: "****9876",
       is_enabled: true,
+      immersion_prompt_override_enabled: false,
+      immersion_system_prompt_suffix: "",
       last_test_status: null,
       last_test_error: null,
       last_tested_at: null,
@@ -127,6 +129,8 @@ test("setup client submits admin and first provider values then jumps to project
         api_key: "sk-live-9876",
         default_model: "gpt-4.1-mini",
         is_enabled: true,
+        immersion_prompt_override_enabled: false,
+        immersion_system_prompt_suffix: "",
       },
     });
   });

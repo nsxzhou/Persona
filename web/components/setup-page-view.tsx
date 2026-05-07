@@ -53,6 +53,8 @@ export function SetupPageView({
         ...values.provider,
         api_key: values.provider.api_key ?? "",
         is_enabled: true,
+        immersion_prompt_override_enabled: false,
+        immersion_system_prompt_suffix: "",
       },
     };
     void onSubmit(finalValues);

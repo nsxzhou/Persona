@@ -33,6 +33,7 @@ import type {
   PlotSkeletonMarkdown,
   StoryEngineMarkdown,
   ProviderConfig,
+  ProviderConfigUpdatePayload,
   ProviderPayload,
   SetupPayload,
   StyleAnalysisJob,
@@ -85,7 +86,7 @@ export function createApiClient(request: Requester) {
         method: "POST",
         body: JSON.stringify(payload),
       }),
-    updateProviderConfig: (id: string, payload: Partial<ProviderPayload>) =>
+    updateProviderConfig: (id: string, payload: ProviderConfigUpdatePayload) =>
       request<ProviderConfig>(`/api/v1/provider-configs/${id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),

@@ -34,6 +34,8 @@ class ProviderConfigRepository:
         api_key_hint_last4: str,
         default_model: str,
         is_enabled: bool,
+        immersion_prompt_override_enabled: bool,
+        immersion_system_prompt_suffix: str,
         user_id: str,
     ) -> ProviderConfig:
         provider = ProviderConfig(
@@ -43,6 +45,8 @@ class ProviderConfigRepository:
             api_key_hint_last4=api_key_hint_last4,
             default_model=default_model,
             is_enabled=is_enabled,
+            immersion_prompt_override_enabled=immersion_prompt_override_enabled,
+            immersion_system_prompt_suffix=immersion_system_prompt_suffix,
             user_id=user_id,
         )
         session.add(provider)
