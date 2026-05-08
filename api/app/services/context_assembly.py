@@ -115,7 +115,7 @@ def assemble_writing_context(
         ("世界观设定", "world_building"),
         ("总纲", "outline_master"),
         ("分卷与章节细纲", "outline_detail"),
-        ("角色基础设定", "characters_blueprint"),
+        ("角色索引与关系网", "characters_blueprint"),
         ("角色动态状态", "characters_status"),
         ("运行时状态", "runtime_state"),
         ("伏笔与线索追踪", "runtime_threads"),

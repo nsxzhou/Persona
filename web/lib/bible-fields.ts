@@ -36,7 +36,7 @@ export interface BibleSectionMeta {
 export const BIBLE_SECTION_META: BibleSectionMeta[] = [
   { key: "description", title: "概览", icon: BookOpen, group: "blueprint" },
   { key: "world_building", title: "世界观设定", icon: Globe, group: "blueprint" },
-  { key: "characters_blueprint", title: "角色基础设定", icon: Users, group: "blueprint" },
+  { key: "characters_blueprint", title: "角色索引与关系网", icon: Users, group: "blueprint" },
   { key: "outline_master", title: "总纲", icon: ScrollText, group: "blueprint" },
   { key: "outline_detail", title: "分卷与章节细纲", icon: ListTree, group: "blueprint" },
   { key: "characters_status", title: "角色动态状态", icon: Users, group: "runtime" },
@@ -71,8 +71,8 @@ export const RECOMMENDED_PREREQUISITES: Partial<Record<BibleFieldKey, BibleField
   world_building: ["description"],
   characters_blueprint: ["description", "world_building"],
   outline_master: ["description", "world_building", "characters_blueprint"],
-  outline_detail: ["outline_master"],
-  characters_status: ["outline_master", "characters_blueprint"],
-  runtime_state: ["outline_master"],
-  runtime_threads: ["outline_master"],
+  outline_detail: ["characters_blueprint", "outline_master"],
+  characters_status: ["characters_blueprint", "outline_master"],
+  runtime_state: ["characters_blueprint", "outline_master"],
+  runtime_threads: ["characters_blueprint", "outline_master"],
 };

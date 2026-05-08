@@ -186,10 +186,14 @@ def test_concept_generate_prompt_injects_style_and_plot_profiles_before_role_pro
 def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None:
     prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
 
+    assert "角色索引与关系网" in prompt
+    assert "先输出角色索引/关系图" in prompt
+    assert "现在要完成「角色索引与关系网」" in prompt
     assert "角色信息优先回答以下问题" in prompt
     assert "他是谁，为什么此刻会入局" in prompt
     assert "他如何卡住主角，或为什么能帮主角破局" in prompt
     assert "主角能利用、交换、规避或反制他的点是什么" in prompt
+    assert "占位：待补" in prompt
     assert "角色弧光" not in prompt
     assert "反差设计" not in prompt
     assert "阶段性反派（至少 1 个）" not in prompt
@@ -201,6 +205,8 @@ def test_character_prompt_assigns_reader_hook_functions() -> None:
     assert "奖励源、资源入口、阻力源、压迫源、反转源、情绪牵引源" in prompt
     assert "角色能让读者期待主角得到什么、压过什么、改变什么关系" in prompt
     assert "避免只写人设标签或空泛魅力描述" in prompt
+    assert "冻结规则" in prompt
+    assert "摘要规则" in prompt
 
 
 def test_character_prompt_uses_length_budget_and_importance_tiers() -> None:
@@ -232,9 +238,13 @@ def test_character_budget_hint_ties_each_tier_to_reader_function_and_prompt_weig
 def test_outline_master_prompt_organizes_progress_around_main_pleasure_axis() -> None:
     prompt = build_section_system_prompt("outline_master", length_preset="long")
 
+    assert "角色索引/关系网" in prompt
     assert "先判断这本书当前真正靠什么让人继续看下去" in prompt
     assert "围绕同一条主爽点主线组织推进" in prompt
     assert "不要为了拉大规模而额外铺地图、体系、势力层级" in prompt
+    assert "硬输入检查" in prompt
+    assert "角色功能覆盖" in prompt
+    assert "如果上下文未提供角色索引/关系网" in prompt
     assert "以「阶段」为单位规划" in prompt
     assert "地图换挡" not in prompt
     assert "阶段 Boss/核心对手" not in prompt
@@ -247,6 +257,7 @@ def test_outline_master_prompt_requires_driver_axis_payoff_and_hook_types() -> N
     assert "当前阶段的核心兑现物" in prompt
     assert "读者下一阶段最想看主角拿到什么、压过谁、改变什么关系或突破什么规则" in prompt
     assert "钩子类型" in prompt
+    assert "角色关系如果发生变化，只能是总纲级局部推进" in prompt
 
 
 def test_outline_master_prompt_requires_project_novel_name_for_title() -> None:
@@ -292,9 +303,12 @@ def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
 def test_outline_detail_prompt_prefers_driving_endings_over_forced_hooks() -> None:
     prompt = build_section_system_prompt("outline_detail", length_preset="long")
 
+    assert "角色索引/关系网" in prompt
     assert "章末钩子" in prompt
     assert "可以是悬念、反转、新压力、关系变化或阶段性兑现" in prompt
     assert "不必每章硬凹爆点" in prompt
+    assert "角色约束" in prompt
+    assert "如果上下文未提供角色资产" in prompt
     assert "章节末推动点" not in prompt
     assert "每章结尾必须有一个让读者想翻下一章的悬念或爆点" not in prompt
 
@@ -346,6 +360,21 @@ def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
 
 
+def test_volume_generate_user_message_threads_character_blueprint_before_outline() -> None:
+    message = build_volume_generate_user_message(
+        "## 总纲\n\n总纲内容",
+        "## 角色索引\n\n角色内容",
+        previous_output="旧分卷",
+        user_feedback="保留角色关系",
+    )
+
+    assert "## 角色索引与关系网" in message
+    assert "角色内容" in message
+    assert message.index("## 角色索引与关系网") < message.index("## 总纲")
+    assert "## 上一版结果\n\n旧分卷" in message
+    assert "## 用户意见（本次必须遵循）\n\n保留角色关系" in message
+
+
 def test_volume_generate_prompt_uses_neutral_project_wording_and_stable_structure() -> None:
     prompt = build_volume_generate_system_prompt(length_preset="medium")
 
@@ -355,6 +384,8 @@ def test_volume_generate_prompt_uses_neutral_project_wording_and_stable_structur
     assert "卷级字段只能用项目符号、加粗字段或引用行表达，不要使用三级标题（### ）" in prompt
     assert "只输出规划结构，不要输出任何章节内容" in prompt
     assert "不要求固定写成三幕、几卷或多少个阶段" in prompt
+    assert "硬输入检查" in prompt
+    assert "如果上下文未提供角色索引/关系网" in prompt
     assert "长篇新书" not in prompt
 
 
@@ -391,6 +422,8 @@ def test_volume_chapters_prompt_uses_current_volume_chapter_budget() -> None:
     assert "禁止输出 Markdown 表格" in prompt
     assert "禁止输出「第9-11章」这类范围章" in prompt
     assert "每个章节块必须同时包含「核心事件」「情绪走向」「章末钩子」" in prompt
+    assert "当前卷只能在总纲和角色索引/关系网的约束下下沉展开" in prompt
+    assert "如果缺少角色索引/关系网或总纲" in prompt
 
 
 def test_volume_generate_prompt_forbids_chapter_tables_and_ranges() -> None:
@@ -398,6 +431,8 @@ def test_volume_generate_prompt_forbids_chapter_tables_and_ranges() -> None:
 
     assert "禁止输出章节细纲、章节表格、章节范围列表或「第N章」条目" in prompt
     assert "不要输出章节表格、章节范围列表或「第N章」条目" in prompt
+    assert "角色索引/关系网" in prompt
+    assert "局部推进" in prompt
 
 
 def test_outline_detail_prompt_keeps_volume_fields_out_of_h3_headings() -> None:
@@ -406,6 +441,7 @@ def test_outline_detail_prompt_keeps_volume_fields_out_of_h3_headings() -> None:
     assert "不要输出顶层一级标题（# ）" in prompt
     assert "卷级字段不要使用三级标题（### ）" in prompt
     assert "只有真实章节可使用「### 第 N 章：章名」" in prompt
+    assert "角色约束" in prompt
 
 
 def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
@@ -420,6 +456,39 @@ def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
     assert "# Plot Prompt\n情节约束" in prompt
     assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
+
+
+def test_volume_chapters_user_message_threads_character_blueprint_before_outline() -> None:
+    message = build_volume_chapters_user_message(
+        "## 总纲\n\n总纲内容",
+        "## 角色索引\n\n角色内容",
+        "卷一",
+        "字数 0-10万",
+        "### 当前卷原始规划\n\n规划内容",
+        previous_output="旧章节",
+        user_feedback="保留角色冻结",
+    )
+
+    assert "## 角色索引与关系网" in message
+    assert "角色内容" in message
+    assert message.index("## 角色索引与关系网") < message.index("## 总纲")
+    assert "### 当前卷原始规划" in message
+    assert "## 上一版结果\n\n旧章节" in message
+    assert "## 用户意见（本次必须遵循）\n\n保留角色冻结" in message
+
+
+def test_volume_user_messages_mark_missing_upstream_assets_as_placeholders() -> None:
+    volume_message = build_volume_generate_user_message("", "")
+    chapters_message = build_volume_chapters_user_message("", "", "卷一", "", "")
+
+    assert "角色索引与关系网尚未填写" in volume_message
+    assert "建议先生成 characters_blueprint" in volume_message
+    assert "总纲尚未填写" in volume_message
+    assert "建议先生成 outline_master" in volume_message
+    assert "角色索引与关系网尚未填写" in chapters_message
+    assert "总纲尚未填写" in chapters_message
+    assert "不要自行补全或重写全书角色关系" in chapters_message
+
 
 def test_bible_update_prompt_uses_scope_aware_check_content_label() -> None:
     user_message = build_bible_update_user_message(
@@ -856,10 +925,12 @@ def test_concept_user_message_appends_regeneration_context() -> None:
 def test_volume_user_message_appends_regeneration_context() -> None:
     message = build_volume_generate_user_message(
         "## 总纲内容",
+        "## 角色内容",
         previous_output="旧分卷",
         user_feedback="再多一卷",
     )
 
+    assert "## 角色内容" in message
     assert "## 总纲内容" in message
     assert "## 上一版结果\n\n旧分卷" in message
     assert "## 用户意见（本次必须遵循）\n\n再多一卷" in message
@@ -868,6 +939,7 @@ def test_volume_user_message_appends_regeneration_context() -> None:
 def test_volume_chapters_user_message_appends_regeneration_context() -> None:
     message = build_volume_chapters_user_message(
         "总纲",
+        "角色内容",
         "卷一",
         "字数 0-10万",
         "",
@@ -876,6 +948,7 @@ def test_volume_chapters_user_message_appends_regeneration_context() -> None:
         user_feedback="减少支线",
     )
 
+    assert "## 角色索引与关系网" in message
     assert "### 当前卷原始规划" in message
     assert "主角从被动到主动。" in message
     assert "## 上一版结果\n\n旧章节列表" in message
@@ -965,9 +1038,10 @@ def test_user_messages_omit_regeneration_sections_when_fields_are_none() -> None
             "runtime_threads": "",
         },
     )
-    volume_msg = build_volume_generate_user_message("总纲")
+    volume_msg = build_volume_generate_user_message("总纲", "")
+    chapters_msg = build_volume_chapters_user_message("总纲", "", "卷一", "", "")
 
-    for msg in (concept_msg, section_msg, volume_msg):
+    for msg in (concept_msg, section_msg, volume_msg, chapters_msg):
         assert "## 上一版结果" not in msg
         assert "## 用户意见" not in msg
 

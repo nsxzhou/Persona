@@ -409,6 +409,7 @@ class NovelWorkflowPipeline:
             ),
             user_context=build_volume_generate_user_message(
                 current_bible.get("outline_master", ""),
+                current_bible.get("characters_blueprint", ""),
                 previous_output=state.get("previous_output"),
                 user_feedback=state.get("feedback"),
             ),
@@ -452,6 +453,7 @@ class NovelWorkflowPipeline:
             ),
             user_context=build_volume_chapters_user_message(
                 current_bible.get("outline_master", ""),
+                current_bible.get("characters_blueprint", ""),
                 target_volume["title"] if target_volume is not None else f"第{volume_index + 1}卷",
                 target_volume["meta"] if target_volume is not None else "",
                 preceding_chapters_summary,

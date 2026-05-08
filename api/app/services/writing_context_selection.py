@@ -197,7 +197,7 @@ def _limit_text(text: str, max_chars: int) -> str:
 def _build_active_character_focus(blueprint: str, status: str) -> str:
     parts: list[str] = []
     if blueprint.strip():
-        parts.append("## 活跃角色基础设定\n\n" + blueprint.strip())
+        parts.append("## 活跃角色索引与关系网\n\n" + blueprint.strip())
     if status.strip():
         parts.append("## 活跃角色动态状态\n\n" + status.strip())
     return "\n\n---\n\n".join(parts)

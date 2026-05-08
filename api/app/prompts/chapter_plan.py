@@ -16,7 +16,7 @@ from app.prompts.section_context import build_section_user_message
 from app.schemas.prompt_profiles import GenerationProfile
 
 _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
-    "从总纲和已有上下文里展开规划结构与章节细纲。\n\n"
+    "从总纲、角色索引/关系网和已有上下文里展开规划结构与章节细纲。\n\n"
     "用章节悬念节奏法压住推进，但不要输出推理过程：\n"
     "- 3-5章构成一个悬念单元，每个单元包含一次小高潮或强兑现\n"
     "- 使用认知过山车模式：连续2章紧张后安排1章缓冲或关系/奖励兑现\n"
@@ -33,6 +33,11 @@ _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
     "- **核心事件**（2-3 句话概括）\n"
     "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」，或「压抑 → 反制 → 爽感兑现」）\n"
     "- **章末钩子**（可以是悬念、反转、新压力、关系变化或阶段性兑现）\n\n"
+    "角色约束：\n"
+    "- 章节细纲只能消费既有角色关系和总纲结论，不得在这里重写角色网络\n"
+    "- 如果上下文未提供角色资产，先提示补齐 characters_blueprint；若继续生成，章节里只能按待补功能位推进，不得自己补写完整新角色体系\n"
+    "- 如果角色资产还在占位，章节里只能按占位功能推进，不得自己补写完整新角色体系\n"
+    "- 章节级补强只允许局部增加动机、场面和兑现，不允许改写全书角色功能位\n\n"
     "节奏规则：\n"
     "- 同一规划块内的章节情绪应有起伏，但高潮环节可以连续强化打脸、资源兑现、身份反转或关系推进\n"
     "- 每章都要服务追读期待；成人向欲望兑现只能在 Generation Profile 明确允许时成为核心章节功能\n"
@@ -48,6 +53,10 @@ _VOLUME_CHAPTERS_SYSTEM_TEMPLATE = (
     "你是一位起点白金作家，正在为自己的当前卷拆章节细纲，控制章节推进、情绪起伏和章末钩子。\n\n"
     f"{MALE_COMMERCIAL_ENGINE}"
     "{planning_budget_hint}\n\n"
+    "硬输入检查：\n"
+    "- 当前卷只能在总纲和角色索引/关系网的约束下下沉展开\n"
+    "- 不要重写全书角色关系；只允许围绕当前卷做局部推进、局部补强和局部兑现\n\n"
+    "- 如果缺少角色索引/关系网或总纲，建议先补前序资产；若继续执行，只能把缺口写成占位，不得自建完整体系\n\n"
     "为指定的卷设计章节。每章用三级标题（### ），格式如下：\n\n"
     "### 第 N 章：章名\n"
     "- **核心事件**：一句话概括\n"
@@ -66,6 +75,7 @@ _VOLUME_CHAPTERS_SYSTEM_TEMPLATE = (
     "- 每章末必须有钩子\n"
     "- 每章末推动点要能让人立刻知道下一章最想看的兑现是什么\n"
     "- 参考已有的前几卷章节，保持情节连贯\n"
+    "- 如果看到角色冻结摘要或占位说明，沿用其限制，不要在当前卷把它们补写成全局设定\n"
     "- 直接输出章节列表，不要输出卷标题，不要添加解释"
     "{hook_framework}"
 )
@@ -146,6 +156,7 @@ def build_volume_chapters_system_prompt(
 
 def build_volume_chapters_user_message(
     outline_master: str,
+    characters_blueprint: str,
     volume_title: str,
     volume_meta: str,
     preceding_chapters_summary: str,
@@ -154,8 +165,14 @@ def build_volume_chapters_user_message(
     user_feedback: str | None = None,
 ) -> str:
     parts: list[str] = []
+    if characters_blueprint.strip():
+        parts.append(f"## 角色索引与关系网\n\n{characters_blueprint}")
+    else:
+        parts.append("（角色索引与关系网尚未填写，建议先生成 characters_blueprint；若继续拆章节，只能沿用待补角色功能位，不要自行补全或重写全书角色关系）")
     if outline_master.strip():
         parts.append(f"## 总纲\n\n{outline_master}")
+    else:
+        parts.append("（总纲尚未填写，建议先生成 outline_master；若继续拆章节，只能按当前卷占位信息局部推进，不要替全书补写完整结构）")
     current_volume_parts = [f"**{volume_title}**"]
     if volume_meta.strip():
         current_volume_parts.append(volume_meta.strip())

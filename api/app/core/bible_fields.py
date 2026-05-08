@@ -9,7 +9,7 @@ from __future__ import annotations
 BLUEPRINT_SECTION_ORDER: list[tuple[str, str]] = [
     ("简介", "description"),
     ("世界观设定", "world_building"),
-    ("角色基础设定", "characters_blueprint"),
+    ("角色索引与关系网", "characters_blueprint"),
     ("总纲", "outline_master"),
     ("分卷与章节细纲", "outline_detail"),
 ]
