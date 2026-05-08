@@ -168,3 +168,120 @@ async def test_novel_workflow_api_filters_and_exposes_trace_artifact(
         f"/api/v1/novel-workflows/{created['id']}/artifacts/missing_trace"
     )
     assert missing_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_novel_workflow_api_clear_history_removes_runs_and_artifacts(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+    app_with_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipelineResult
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+    from app.services.novel_workflow_worker import NovelWorkflowWorkerService
+
+    project_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "清空历史测试项目",
+            "description": "用于测试清空运行历史。",
+            "status": "draft",
+            "default_provider_id": initialized_provider["id"],
+            "default_model": "gpt-4.1-mini",
+        },
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+    storage = NovelWorkflowStorageService()
+
+    class FakePipeline:
+        async def run(self, *, run_id: str, initial_state: dict[str, object]):
+            await storage.write_stage_markdown_artifact(
+                run_id,
+                name="prompt_trace_markdown",
+                markdown="# Prompt Trace\n\ntrace body",
+            )
+            return NovelWorkflowPipelineResult(
+                persist_payload={"markdown": "ok"},
+                latest_artifacts=["prompt_trace_markdown"],
+            )
+
+    async def fake_build_pipeline(self, **_):
+        return FakePipeline()
+
+    monkeypatch.setattr(
+        NovelWorkflowWorkerService,
+        "_build_pipeline",
+        fake_build_pipeline,
+    )
+
+    create_response = await initialized_client.post(
+        "/api/v1/novel-workflows",
+        json={
+            "intent_type": "section_generate",
+            "project_id": project["id"],
+            "section": "world_building",
+        },
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+
+    worker = NovelWorkflowWorkerService()
+    assert await worker.process_next_pending(app_with_db.state.session_factory) is True
+
+    artifact_response = await initialized_client.get(
+        f"/api/v1/novel-workflows/{created['id']}/artifacts/prompt_trace_markdown"
+    )
+    assert artifact_response.status_code == 200
+
+    clear_response = await initialized_client.delete("/api/v1/novel-workflows")
+    assert clear_response.status_code == 204
+
+    list_response = await initialized_client.get("/api/v1/novel-workflows")
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+
+    detail_response = await initialized_client.get(f"/api/v1/novel-workflows/{created['id']}")
+    assert detail_response.status_code == 404
+
+    artifact_after_clear_response = await initialized_client.get(
+        f"/api/v1/novel-workflows/{created['id']}/artifacts/prompt_trace_markdown"
+    )
+    assert artifact_after_clear_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_novel_workflow_api_clear_history_rejects_active_runs(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    project_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "未完成历史测试项目",
+            "description": "用于测试清空保护。",
+            "status": "draft",
+            "default_provider_id": initialized_provider["id"],
+            "default_model": "gpt-4.1-mini",
+        },
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+
+    create_response = await initialized_client.post(
+        "/api/v1/novel-workflows",
+        json={
+            "intent_type": "section_generate",
+            "project_id": project["id"],
+            "section": "world_building",
+        },
+    )
+    assert create_response.status_code == 201
+
+    clear_response = await initialized_client.delete("/api/v1/novel-workflows")
+    assert clear_response.status_code == 409
+
+    list_response = await initialized_client.get("/api/v1/novel-workflows")
+    assert list_response.status_code == 200
+    assert [run["id"] for run in list_response.json()] == [create_response.json()["id"]]

@@ -93,6 +93,30 @@ class NovelWorkflowService:
             limit=limit,
         )
 
+    async def clear_history(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str,
+    ) -> None:
+        active_statuses = {
+            NOVEL_WORKFLOW_STATUS_PENDING,
+            NOVEL_WORKFLOW_STATUS_RUNNING,
+            NOVEL_WORKFLOW_STATUS_PAUSED,
+        }
+        if await self.repository.has_statuses(
+            session,
+            user_id=user_id,
+            statuses=active_statuses,
+        ):
+            raise ConflictError("存在未完成的工作流，无法清空运行历史")
+
+        run_ids = await self.repository.list_ids(session, user_id=user_id)
+        await self.repository.delete_all_for_user(session, user_id=user_id)
+        await session.flush()
+        for run_id in run_ids:
+            await self.storage_service.cleanup_run_artifacts(run_id)
+
     async def get_or_404(
         self,
         session: AsyncSession,

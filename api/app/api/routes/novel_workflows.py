@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 
 from app.api.assemblers import (
     build_novel_workflow_detail_response,
@@ -61,6 +61,15 @@ async def create_novel_workflow(
         user_id=current_user.id,
     )
     return NovelWorkflowListItemResponse.model_validate(run)
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_novel_workflow_history(
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    workflow_service: NovelWorkflowServiceDep,
+) -> None:
+    await workflow_service.clear_history(db_session, user_id=current_user.id)
 
 
 @router.get("/{run_id}", response_model=NovelWorkflowResponse)

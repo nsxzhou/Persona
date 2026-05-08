@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import case, func, select, update
+from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -42,6 +42,42 @@ class NovelWorkflowRepository:
             stmt = stmt.where(NovelWorkflowRun.status == status)
         result = await session.stream_scalars(stmt)
         return [run async for run in result]
+
+    async def list_ids(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str,
+    ) -> list[str]:
+        result = await session.stream_scalars(
+            select(NovelWorkflowRun.id).where(NovelWorkflowRun.user_id == user_id)
+        )
+        return [run_id async for run_id in result]
+
+    async def has_statuses(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str,
+        statuses: set[str],
+    ) -> bool:
+        stmt = (
+            select(NovelWorkflowRun.id)
+            .where(
+                NovelWorkflowRun.user_id == user_id,
+                NovelWorkflowRun.status.in_(statuses),
+            )
+            .limit(1)
+        )
+        return await session.scalar(stmt) is not None
+
+    async def delete_all_for_user(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: str,
+    ) -> None:
+        await session.execute(delete(NovelWorkflowRun).where(NovelWorkflowRun.user_id == user_id))
 
     async def get_by_id(
         self,
