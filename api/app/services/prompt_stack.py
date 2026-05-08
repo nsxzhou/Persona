@@ -8,12 +8,15 @@ from app.core.domain_errors import UnprocessableEntityError
 from app.db.models import ProjectPromptAsset
 from app.db.repositories.project_prompt_assets import ProjectPromptAssetRepository
 from app.schemas.projects import (
+    ProjectPromptAssetApplySuggestionsRequest,
+    ProjectPromptAssetApplySuggestionsResponse,
     PromptStackAssetManifestItem,
     PromptStackLayerManifestItem,
     PromptStackManifest,
     PromptStackPreviewRequest,
     PromptStackPreviewResponse,
     ProjectPromptAssetCreate,
+    ProjectPromptAssetResponse,
     ProjectPromptAssetUpdate,
 )
 from app.services.project_chapters import ProjectChapterService
@@ -52,6 +55,7 @@ class PromptStackLayer:
     budget: int | None = None
     assets: list[SelectedPromptAsset] = field(default_factory=list)
     original_char_count: int | None = None
+    rendered_asset_char_counts: dict[str, int] = field(default_factory=dict)
 
     @property
     def char_count(self) -> int:
@@ -200,6 +204,58 @@ class PromptStackService:
         )
         await self.repository.delete(session, asset)
 
+    async def apply_suggestions(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        payload: ProjectPromptAssetApplySuggestionsRequest,
+        *,
+        user_id: str,
+    ) -> ProjectPromptAssetApplySuggestionsResponse:
+        changed: list[ProjectPromptAsset] = []
+        for change in payload.changes:
+            if change.action == "new":
+                if change.payload is None:
+                    raise UnprocessableEntityError("新增 Prompt 资产建议缺少 payload")
+                asset = await self.create_asset(
+                    session,
+                    project_id,
+                    ProjectPromptAssetCreate.model_validate(
+                        change.payload.model_dump(mode="json")
+                    ),
+                    user_id=user_id,
+                )
+                changed.append(asset)
+                continue
+            if change.asset_id is None:
+                raise UnprocessableEntityError("更新或禁用 Prompt 资产建议缺少 asset_id")
+            if change.action == "disable":
+                asset = await self.update_asset(
+                    session,
+                    project_id,
+                    change.asset_id,
+                    ProjectPromptAssetUpdate(enabled=False),
+                    user_id=user_id,
+                )
+                changed.append(asset)
+                continue
+            if change.payload is None:
+                raise UnprocessableEntityError("更新 Prompt 资产建议缺少 payload")
+            update_payload = ProjectPromptAssetUpdate.model_validate(
+                change.payload.model_dump(mode="json")
+            )
+            asset = await self.update_asset(
+                session,
+                project_id,
+                change.asset_id,
+                update_payload,
+                user_id=user_id,
+            )
+            changed.append(asset)
+        return ProjectPromptAssetApplySuggestionsResponse(
+            assets=[ProjectPromptAssetResponse.model_validate(asset) for asset in changed]
+        )
+
     async def preview(
         self,
         session: AsyncSession,
@@ -294,7 +350,11 @@ def build_prompt_stack_selection(
     layers = list(base_layers or [])
     for kind, (key, title, budget) in _KIND_LAYER.items():
         kind_assets = [asset for asset in selected if asset.kind == kind]
-        content, original_len = _render_asset_layer(title, kind_assets, budget)
+        content, original_len, rendered_asset_char_counts = _render_asset_layer(
+            title,
+            kind_assets,
+            budget,
+        )
         if content:
             layers.append(
                 PromptStackLayer(
@@ -304,6 +364,7 @@ def build_prompt_stack_selection(
                     budget=budget,
                     assets=kind_assets,
                     original_char_count=original_len,
+                    rendered_asset_char_counts=rendered_asset_char_counts,
                 )
             )
     final_prompt = "\n\n".join(layer.content for layer in layers if layer.content.strip())
@@ -359,16 +420,34 @@ def _render_asset_layer(
     title: str,
     assets: list[SelectedPromptAsset],
     budget: int,
-) -> tuple[str, int]:
+) -> tuple[str, int, dict[str, int]]:
     if not assets:
-        return "", 0
-    body = "\n\n".join(
-        f"## {asset.title}\n\n{asset.content.strip()}" for asset in assets if asset.content.strip()
-    ).strip()
+        return "", 0, {}
+    asset_blocks = [
+        (asset.id, f"## {asset.title}\n\n{asset.content.strip()}")
+        for asset in assets
+        if asset.content.strip()
+    ]
+    body = "\n\n".join(block for _, block in asset_blocks).strip()
     if not body:
-        return "", 0
+        return "", 0, {}
     content = f"# {title}\n\n{body}"
-    return _limit_text(content, budget), len(content)
+    limited = _limit_text(content, budget)
+    asset_rendered_char_counts: dict[str, int] = {}
+    if limited == content:
+        prefix_len = len(content)
+    else:
+        prefix_len = max(budget - len(_TRUNCATED_MARKER), 0)
+    cursor = len(f"# {title}\n\n")
+    for asset_id, block in asset_blocks:
+        rendered = max(min(prefix_len - cursor, len(block)), 0)
+        asset_rendered_char_counts[asset_id] = rendered
+        cursor += len(block) + 2
+    return (
+        limited,
+        len(content),
+        asset_rendered_char_counts,
+    )
 
 
 def _build_manifest(
@@ -381,6 +460,14 @@ def _build_manifest(
         _asset_manifest_item(
             asset,
             truncated=any(layer.truncated for layer in layers if asset in layer.assets),
+            rendered_char_count=next(
+                (
+                    layer.rendered_asset_char_counts.get(asset.id)
+                    for layer in layers
+                    if asset in layer.assets and asset.id in layer.rendered_asset_char_counts
+                ),
+                None,
+            ),
         )
         for asset in selected_assets
     ]
@@ -407,7 +494,9 @@ def _asset_manifest_item(
     asset: SelectedPromptAsset,
     *,
     truncated: bool,
+    rendered_char_count: int | None = None,
 ) -> PromptStackAssetManifestItem:
+    original_char_count = len(asset.content)
     return PromptStackAssetManifestItem(
         id=asset.id,
         kind=asset.kind,
@@ -415,8 +504,12 @@ def _asset_manifest_item(
         chapter_id=asset.chapter_id,
         title=asset.title,
         priority=asset.priority,
-        char_count=len(asset.content),
-        original_char_count=len(asset.content),
+        char_count=(
+            min(rendered_char_count, original_char_count)
+            if rendered_char_count is not None
+            else original_char_count
+        ),
+        original_char_count=original_char_count,
         truncated=truncated,
         match_reasons=asset.match_reasons,
         matched_keywords=asset.matched_keywords,

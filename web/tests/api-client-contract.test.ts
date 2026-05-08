@@ -8,7 +8,9 @@ import type {
   NovelBeatWorkflowResult,
   NovelMemoryWorkflowResult,
   PlotProfile,
+  ProjectPromptAssetApplySuggestionsResponse,
   ProjectPromptAsset,
+  PromptAssetInitSuggestionsResponse,
   PromptStackPreviewResponse,
   SetupResponse,
   SetupStatusResponse,
@@ -70,6 +72,9 @@ describe("API contracts", () => {
       if (path.includes("/artifacts/prose_markdown")) {
         return "正文内容" as T;
       }
+      if (path.includes("/artifacts/prompt_asset_suggestions")) {
+        return '{"changes":[]}' as T;
+      }
       if (path.includes("/artifacts/section_markdown")) {
         return "区块内容" as T;
       }
@@ -125,6 +130,11 @@ describe("API contracts", () => {
             total_selected_assets: 0,
             final_prompt_char_count: 0,
           },
+        } as T;
+      }
+      if (path === "/api/v1/projects/project-1/prompt-assets/apply-suggestions") {
+        return {
+          assets: [],
         } as T;
       }
       return undefined as T;
@@ -214,6 +224,34 @@ describe("API contracts", () => {
       text_before_cursor: "river",
       user_context: "",
     });
+    const promptAssetInitPromise = client.createNovelWorkflow({
+      intent_type: "prompt_asset_init",
+      project_id: "project-1",
+    } as Parameters<typeof client.createNovelWorkflow>[0]).then(async (run) => {
+      await client.waitForNovelWorkflow(run.id);
+      const artifact = await client.getNovelWorkflowArtifact(run.id, "prompt_asset_suggestions");
+      return JSON.parse(artifact) as PromptAssetInitSuggestionsResponse;
+    });
+    const applySuggestionsPromise: Promise<ProjectPromptAssetApplySuggestionsResponse> =
+      client.applyProjectPromptAssetSuggestions("project-1", {
+        changes: [
+          {
+            action: "new",
+            rationale: "补齐资产",
+            payload: {
+              kind: "lorebook_entry",
+              scope: "project",
+              chapter_id: null,
+              title: "Asset",
+              content: "Content",
+              keywords: ["river"],
+              enabled: true,
+              always_on: false,
+              priority: 1,
+            },
+          },
+        ],
+      });
     const promptAssetDeletePromise: Promise<void> = client.deleteProjectPromptAsset("project-1", "asset-1");
 
     const payload: StyleAnalysisJobCreatePayload = {
@@ -239,6 +277,8 @@ describe("API contracts", () => {
       promptAssetCreatePromise,
       promptAssetUpdatePromise,
       promptStackPreviewPromise,
+      promptAssetInitPromise,
+      applySuggestionsPromise,
       promptAssetDeletePromise,
     ]);
     expect(request).toHaveBeenCalled();
@@ -247,6 +287,10 @@ describe("API contracts", () => {
     ]);
     expect(request).toHaveBeenCalledWith(
       "/api/v1/novel-workflows?project_id=project-1&intent_type=selection_rewrite&status=succeeded&offset=20&limit=20",
+    );
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/projects/project-1/prompt-assets/apply-suggestions",
+      expect.objectContaining({ method: "POST" }),
     );
   });
 

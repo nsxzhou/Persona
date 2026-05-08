@@ -16,6 +16,8 @@ import type {
   ProjectChapterUpdate,
   ProjectPayload,
   ProjectPromptAsset,
+  ProjectPromptAssetApplySuggestionsRequest,
+  ProjectPromptAssetApplySuggestionsResponse,
   ProjectPromptAssetCreate,
   ProjectPromptAssetUpdate,
   PromptStackPreviewRequest,
@@ -139,6 +141,17 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/projects/${projectId}/prompt-assets/${assetId}`, {
         method: "DELETE",
       }),
+    applyProjectPromptAssetSuggestions: (
+      projectId: string,
+      payload: ProjectPromptAssetApplySuggestionsRequest,
+    ) =>
+      request<ProjectPromptAssetApplySuggestionsResponse>(
+        `/api/v1/projects/${projectId}/prompt-assets/apply-suggestions`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      ),
     previewProjectPromptStack: (projectId: string, payload: PromptStackPreviewRequest) =>
       request<PromptStackPreviewResponse>(`/api/v1/projects/${projectId}/prompt-stack/preview`, {
         method: "POST",

@@ -9,6 +9,7 @@ export const WORKFLOW_INTENT_LABELS: Record<NovelWorkflowListItem["intent_type"]
   selection_rewrite: "局部改写",
   beats_generate: "节拍生成",
   beat_expand: "节拍扩写",
+  prompt_asset_init: "Prompt 资产初始化",
 };
 
 export const WORKFLOW_STATUS_LABELS: Record<NovelWorkflowListItem["status"], string> = {
@@ -28,4 +29,3 @@ export function formatWorkflowDate(value: string | null | undefined) {
     minute: "2-digit",
   }).format(new Date(value));
 }
-

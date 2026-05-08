@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Eye, Plus, Save, Trash2 } from "lucide-react";
+import { Check, Eye, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,16 +19,21 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  useApplyProjectPromptAssetSuggestions,
   useCreateProjectPromptAsset,
   useDeleteProjectPromptAsset,
   usePreviewProjectPromptStack,
   useProjectPromptAssetsQuery,
   useUpdateProjectPromptAsset,
 } from "@/hooks/use-project-query";
+import { api } from "@/lib/api";
 import type {
+  PromptAssetInitSuggestionsResponse,
   ProjectChapter,
   ProjectPromptAsset,
+  ProjectPromptAssetApplySuggestionsRequest,
   ProjectPromptAssetCreate,
+  ProjectPromptAssetSuggestionChange,
   PromptStackPreviewResponse,
 } from "@/lib/types";
 
@@ -58,6 +63,7 @@ const EMPTY_FORM: ProjectPromptAssetCreate = {
   priority: 0,
 };
 const ALL_CHAPTERS_PREVIEW_VALUE = "__all_chapters__";
+const PROMPT_ASSET_SUGGESTIONS_ARTIFACT = "prompt_asset_suggestions";
 
 interface PromptStackTabProps {
   projectId: string;
@@ -70,6 +76,7 @@ export function PromptStackTab({ projectId, chapters }: PromptStackTabProps) {
   const updateAsset = useUpdateProjectPromptAsset();
   const deleteAsset = useDeleteProjectPromptAsset();
   const previewStack = usePreviewProjectPromptStack();
+  const applySuggestions = useApplyProjectPromptAssetSuggestions();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectPromptAssetCreate>(EMPTY_FORM);
   const [keywordText, setKeywordText] = useState("");
@@ -80,6 +87,8 @@ export function PromptStackTab({ projectId, chapters }: PromptStackTabProps) {
     user_context: "",
   });
   const [preview, setPreview] = useState<PromptStackPreviewResponse | null>(null);
+  const [suggestions, setSuggestions] = useState<PromptAssetInitSuggestionsResponse | null>(null);
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
   const selectedAsset = assets.find((asset) => asset.id === selectedId) ?? null;
 
@@ -148,6 +157,38 @@ export function PromptStackTab({ projectId, chapters }: PromptStackTabProps) {
       },
     });
     setPreview(result);
+  };
+
+  const handleGenerateSuggestions = async () => {
+    setIsGeneratingSuggestions(true);
+    try {
+      const run = await api.createNovelWorkflow({
+        intent_type: "prompt_asset_init",
+        project_id: projectId,
+      } as Parameters<typeof api.createNovelWorkflow>[0]);
+      const status = await api.waitForNovelWorkflow(run.id);
+      if (status.status === "failed") {
+        throw new Error(status.error_message || "Prompt 资产初始化失败");
+      }
+      const artifact = await api.getNovelWorkflowArtifact(run.id, PROMPT_ASSET_SUGGESTIONS_ARTIFACT);
+      const parsed = parseSuggestionArtifact(artifact);
+      setSuggestions(parsed);
+      toast.success("Prompt 资产建议已生成");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Prompt 资产建议生成失败");
+    } finally {
+      setIsGeneratingSuggestions(false);
+    }
+  };
+
+  const handleApplySuggestions = async () => {
+    if (!suggestions || suggestions.changes.length === 0) return;
+    const payload: ProjectPromptAssetApplySuggestionsRequest = {
+      changes: suggestions.changes,
+    };
+    await applySuggestions.mutateAsync({ projectId, payload });
+    setSuggestions(null);
+    toast.success("Prompt 资产建议已写回");
   };
 
   return (
@@ -261,6 +302,41 @@ export function PromptStackTab({ projectId, chapters }: PromptStackTabProps) {
         </div>
 
         <div className="grid gap-4 rounded-md border-2 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">资产初始化建议</h2>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleGenerateSuggestions()}
+                disabled={isGeneratingSuggestions}
+              >
+                <Sparkles className="mr-1.5 h-4 w-4" />
+                生成建议
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleApplySuggestions()}
+                disabled={!suggestions?.changes.length || applySuggestions.isPending}
+              >
+                <Check className="mr-1.5 h-4 w-4" />
+                确认写回
+              </Button>
+            </div>
+          </div>
+          {suggestions ? (
+            <PromptAssetSuggestions
+              changes={suggestions.changes}
+              assets={assets}
+            />
+          ) : (
+            <p className="rounded-md border-2 border-dashed p-3 text-sm text-muted-foreground">
+              尚未生成初始化建议。
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-4 rounded-md border-2 p-4">
           <h2 className="text-base font-semibold">Stack 预览</h2>
           <Field label="预览章节">
             <Select
@@ -350,6 +426,73 @@ function PromptStackPreview({ preview }: { preview: PromptStackPreviewResponse }
   );
 }
 
+function PromptAssetSuggestions({
+  changes,
+  assets,
+}: {
+  changes: ProjectPromptAssetSuggestionChange[];
+  assets: ProjectPromptAsset[];
+}) {
+  const grouped = {
+    new: changes.filter((change) => change.action === "new"),
+    update: changes.filter((change) => change.action === "update"),
+    disable: changes.filter((change) => change.action === "disable"),
+  };
+  return (
+    <div className="grid gap-3">
+      {(["new", "update", "disable"] as const).map((action) => {
+        const actionChanges = grouped[action];
+        if (actionChanges.length === 0) return null;
+        return (
+          <div key={action} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{actionLabel(action)}</Badge>
+              <span className="text-xs text-muted-foreground">{actionChanges.length} 项</span>
+            </div>
+            <div className="grid gap-2">
+              {actionChanges.map((change, index) => {
+                const existing = assets.find((asset) => asset.id === change.asset_id);
+                const payload = change.payload;
+                return (
+                  <div key={`${action}-${change.asset_id ?? index}`} className="rounded-md border-2 p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{payload?.title || existing?.title || change.asset_id}</span>
+                      {payload?.kind ? <Badge variant="outline">{kindLabel(payload.kind)}</Badge> : null}
+                      {change.asset_id ? <span className="text-xs text-muted-foreground">{change.asset_id}</span> : null}
+                    </div>
+                    {change.rationale ? (
+                      <p className="mt-2 text-xs text-muted-foreground">{change.rationale}</p>
+                    ) : null}
+                    {payload ? (
+                      <div className="mt-2 grid gap-2">
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span>Priority {payload.priority}</span>
+                          {payload.always_on ? <span>Always-on</span> : null}
+                          {(payload.keywords ?? []).map((keyword) => (
+                            <span key={keyword}>#{keyword}</span>
+                          ))}
+                        </div>
+                        <pre className="max-h-40 overflow-auto rounded-md bg-muted/30 p-2 text-xs whitespace-pre-wrap">
+                          {payload.content}
+                        </pre>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {changes.length === 0 ? (
+        <p className="rounded-md border-2 border-dashed p-3 text-sm text-muted-foreground">
+          没有需要写回的建议。
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function normalizeForm(form: ProjectPromptAssetCreate, keywordText: string): ProjectPromptAssetCreate {
   return {
     ...form,
@@ -357,6 +500,22 @@ function normalizeForm(form: ProjectPromptAssetCreate, keywordText: string): Pro
     keywords: keywordText.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean),
     priority: Number(form.priority) || 0,
   };
+}
+
+function parseSuggestionArtifact(markdown: string): PromptAssetInitSuggestionsResponse {
+  const trimmed = markdown.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  const rawJson = fenced ? fenced[1] : trimmed;
+  const parsed = JSON.parse(rawJson) as PromptAssetInitSuggestionsResponse;
+  return {
+    changes: Array.isArray(parsed.changes) ? parsed.changes : [],
+  };
+}
+
+function actionLabel(action: ProjectPromptAssetSuggestionChange["action"]) {
+  if (action === "new") return "新增";
+  if (action === "update") return "更新";
+  return "禁用";
 }
 
 function kindLabel(kind: AssetKind) {

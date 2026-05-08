@@ -261,6 +261,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/prompt-assets/apply-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Project Prompt Asset Suggestions */
+        post: operations["apply_project_prompt_asset_suggestions_api_v1_projects__project_id__prompt_assets_apply_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/prompt-assets/{asset_id}": {
         parameters: {
             query?: never;
@@ -1083,7 +1100,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1136,7 +1153,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init";
             /** Project Id */
             project_id?: string | null;
             /** Chapter Id */
@@ -1273,7 +1290,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1867,6 +1884,16 @@ export interface components {
              */
             auto_sync_memory: boolean;
         };
+        /** ProjectPromptAssetApplySuggestionsRequest */
+        ProjectPromptAssetApplySuggestionsRequest: {
+            /** Changes */
+            changes?: components["schemas"]["ProjectPromptAssetSuggestionChange"][];
+        };
+        /** ProjectPromptAssetApplySuggestionsResponse */
+        ProjectPromptAssetApplySuggestionsResponse: {
+            /** Assets */
+            assets: components["schemas"]["ProjectPromptAssetResponse"][];
+        };
         /** ProjectPromptAssetCreate */
         ProjectPromptAssetCreate: {
             /**
@@ -1947,6 +1974,62 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ProjectPromptAssetSuggestionChange */
+        ProjectPromptAssetSuggestionChange: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "new" | "update" | "disable";
+            /** Asset Id */
+            asset_id?: string | null;
+            /**
+             * Rationale
+             * @default
+             */
+            rationale: string;
+            payload?: components["schemas"]["ProjectPromptAssetSuggestionPayload"] | null;
+        };
+        /** ProjectPromptAssetSuggestionPayload */
+        ProjectPromptAssetSuggestionPayload: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "character_card" | "lorebook_entry" | "author_note";
+            /**
+             * Scope
+             * @default project
+             * @enum {string}
+             */
+            scope: "project" | "chapter";
+            /** Chapter Id */
+            chapter_id?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /** Keywords */
+            keywords?: string[];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Always On
+             * @default false
+             */
+            always_on: boolean;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
         };
         /** ProjectPromptAssetUpdate */
         ProjectPromptAssetUpdate: {
@@ -3197,6 +3280,41 @@ export interface operations {
             };
         };
     };
+    apply_project_prompt_asset_suggestions_api_v1_projects__project_id__prompt_assets_apply_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPromptAssetApplySuggestionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPromptAssetApplySuggestionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__delete: {
         parameters: {
             query?: never;
@@ -3495,7 +3613,7 @@ export interface operations {
         parameters: {
             query?: {
                 project_id?: string | null;
-                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand") | null;
+                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init") | null;
                 status?: ("pending" | "running" | "paused" | "succeeded" | "failed") | null;
                 offset?: number;
                 limit?: number;

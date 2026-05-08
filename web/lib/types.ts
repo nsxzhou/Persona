@@ -13,6 +13,12 @@ export type ProjectBibleUpdate = OpenApiSchema<"ProjectBibleUpdate">;
 export type ProjectPromptAsset = OpenApiSchema<"ProjectPromptAssetResponse">;
 export type ProjectPromptAssetCreate = components["schemas"]["ProjectPromptAssetCreate"];
 export type ProjectPromptAssetUpdate = components["schemas"]["ProjectPromptAssetUpdate"];
+export type ProjectPromptAssetSuggestionChange = components["schemas"]["ProjectPromptAssetSuggestionChange"];
+export type ProjectPromptAssetApplySuggestionsRequest = components["schemas"]["ProjectPromptAssetApplySuggestionsRequest"];
+export type ProjectPromptAssetApplySuggestionsResponse = components["schemas"]["ProjectPromptAssetApplySuggestionsResponse"];
+export type PromptAssetInitSuggestionsResponse = {
+  changes: ProjectPromptAssetSuggestionChange[];
+};
 export type PromptStackPreviewRequest = components["schemas"]["PromptStackPreviewRequest"];
 export type PromptStackPreviewResponse = OpenApiSchema<"PromptStackPreviewResponse">;
 export type MemorySyncStatus = NonNullable<ProjectChapter["memory_sync_status"]>;

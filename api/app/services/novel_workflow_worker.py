@@ -14,7 +14,7 @@ from app.core.domain_errors import NotFoundError
 from app.db.models import ProviderConfig
 from app.schemas.novel_workflows import NOVEL_WORKFLOW_STAGE_PREPARING
 from app.schemas.project_chapters import ProjectChapterUpdate
-from app.schemas.projects import ProjectBibleUpdate
+from app.schemas.projects import ProjectBibleUpdate, ProjectPromptAssetResponse
 from app.services.llm_provider import LLMProviderService
 from app.services.novel_workflow_checkpointer import NovelWorkflowCheckpointerFactory
 from app.services.novel_workflow_pipeline import (
@@ -346,7 +346,20 @@ class NovelWorkflowJobExecutor:
                 plot_prompt = plot_profile.story_engine_payload
 
             prompt_stack = None
+            prompt_assets: list[ProjectPromptAssetResponse] = []
             if project is not None:
+                raw_prompt_assets = await PromptStackService(
+                    project_service=self.project_service,
+                    chapter_service=self.project_chapter_service,
+                ).list_assets(
+                    session,
+                    project.id,
+                    user_id=run.user_id,
+                )
+                prompt_assets = [
+                    ProjectPromptAssetResponse.model_validate(asset)
+                    for asset in raw_prompt_assets
+                ]
                 activation_user_context = "\n".join(
                     str(request_payload.get(key) or "")
                     for key in (
@@ -412,6 +425,7 @@ class NovelWorkflowJobExecutor:
                 },
                 "enable_editor_pass": enable_editor_pass,
                 "prompt_stack": prompt_stack,
+                "prompt_assets": prompt_assets,
             }
             provider = run.provider or (project.provider if project is not None else None)
             model_name = run.model_name or (project.default_model if project is not None else None)

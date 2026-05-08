@@ -140,6 +140,29 @@ class ProjectPromptAssetUpdate(BaseModel):
     priority: int | None = None
 
 
+class ProjectPromptAssetSuggestionPayload(ProjectPromptAssetBase):
+    pass
+
+
+class ProjectPromptAssetSuggestionChange(BaseModel):
+    action: Literal["new", "update", "disable"]
+    asset_id: str | None = None
+    rationale: str = ""
+    payload: ProjectPromptAssetSuggestionPayload | None = None
+
+
+class PromptAssetInitSuggestionsResponse(BaseModel):
+    changes: list[ProjectPromptAssetSuggestionChange] = Field(default_factory=list)
+
+
+class ProjectPromptAssetApplySuggestionsRequest(BaseModel):
+    changes: list[ProjectPromptAssetSuggestionChange] = Field(default_factory=list, max_length=64)
+
+
+class ProjectPromptAssetApplySuggestionsResponse(BaseModel):
+    assets: list["ProjectPromptAssetResponse"]
+
+
 class ProjectPromptAssetResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

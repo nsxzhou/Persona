@@ -796,6 +796,58 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/prompt-assets/apply-suggestions": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Apply Project Prompt Asset Suggestions",
+        "operationId": "apply_project_prompt_asset_suggestions_api_v1_projects__project_id__prompt_assets_apply_suggestions_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPromptAssetApplySuggestionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPromptAssetApplySuggestionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/prompt-assets/{asset_id}": {
       "patch": {
         "tags": [
@@ -1280,7 +1332,8 @@
                     "volume_chapters_generate",
                     "selection_rewrite",
                     "beats_generate",
-                    "beat_expand"
+                    "beat_expand",
+                    "prompt_asset_init"
                   ],
                   "type": "string"
                 },
@@ -3480,7 +3533,8 @@
               "volume_chapters_generate",
               "selection_rewrite",
               "beats_generate",
-              "beat_expand"
+              "beat_expand",
+              "prompt_asset_init"
             ],
             "title": "Intent Type"
           },
@@ -3707,7 +3761,8 @@
               "volume_chapters_generate",
               "selection_rewrite",
               "beats_generate",
-              "beat_expand"
+              "beat_expand",
+              "prompt_asset_init"
             ],
             "title": "Intent Type"
           },
@@ -4084,7 +4139,8 @@
               "volume_chapters_generate",
               "selection_rewrite",
               "beats_generate",
-              "beat_expand"
+              "beat_expand",
+              "prompt_asset_init"
             ],
             "title": "Intent Type"
           },
@@ -6007,6 +6063,36 @@
         ],
         "title": "ProjectCreate"
       },
+      "ProjectPromptAssetApplySuggestionsRequest": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectPromptAssetSuggestionChange"
+            },
+            "type": "array",
+            "maxItems": 64,
+            "title": "Changes"
+          }
+        },
+        "type": "object",
+        "title": "ProjectPromptAssetApplySuggestionsRequest"
+      },
+      "ProjectPromptAssetApplySuggestionsResponse": {
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectPromptAssetResponse"
+            },
+            "type": "array",
+            "title": "Assets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assets"
+        ],
+        "title": "ProjectPromptAssetApplySuggestionsResponse"
+      },
       "ProjectPromptAssetCreate": {
         "properties": {
           "kind": {
@@ -6174,6 +6260,124 @@
           "updated_at"
         ],
         "title": "ProjectPromptAssetResponse"
+      },
+      "ProjectPromptAssetSuggestionChange": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "new",
+              "update",
+              "disable"
+            ],
+            "title": "Action"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "rationale": {
+            "type": "string",
+            "title": "Rationale",
+            "default": ""
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectPromptAssetSuggestionPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "ProjectPromptAssetSuggestionChange"
+      },
+      "ProjectPromptAssetSuggestionPayload": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "character_card",
+              "lorebook_entry",
+              "author_note"
+            ],
+            "title": "Kind"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "project",
+              "chapter"
+            ],
+            "title": "Scope",
+            "default": "project"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Content",
+            "default": ""
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Keywords"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "always_on": {
+            "type": "boolean",
+            "title": "Always On",
+            "default": false
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "title"
+        ],
+        "title": "ProjectPromptAssetSuggestionPayload"
       },
       "ProjectPromptAssetUpdate": {
         "properties": {

@@ -312,6 +312,89 @@ def test_parse_beats_markdown_prefers_explicit_bracketed_beats_and_skips_noise()
     ]
 
 
+def test_parse_prompt_asset_init_response_accepts_fenced_json() -> None:
+    from app.prompts.prompt_asset_init import parse_prompt_asset_init_response
+
+    parsed = parse_prompt_asset_init_response(
+        r"""```json
+{
+  "changes": [
+    {
+      "action": "new",
+      "rationale": "主角资产缺失",
+      "payload": {
+        "kind": "character_card",
+        "scope": "project",
+        "chapter_id": null,
+        "title": "沈砚",
+        "content": "## 沈砚\n- 破局者",
+        "keywords": ["沈砚"],
+        "enabled": true,
+        "always_on": false,
+        "priority": 20
+      }
+    }
+  ]
+}
+```"""
+    )
+
+    assert parsed.changes[0].action == "new"
+    assert parsed.changes[0].payload is not None
+    assert parsed.changes[0].payload.kind == "character_card"
+    assert parsed.changes[0].payload.keywords == ["沈砚"]
+
+
+@pytest.mark.asyncio
+async def test_prompt_asset_init_generates_suggestion_artifact_without_writeback(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(
+        [
+            '{"changes":[{"action":"new","rationale":"补齐世界书","payload":{"kind":"lorebook_entry","scope":"project","chapter_id":null,"title":"雨城","content":"雨城常年阴雨。","keywords":["雨城"],"enabled":true,"always_on":false,"priority":10}}]}'
+        ]
+    )
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-prompt-asset-init",
+        initial_state={
+            "intent_type": "prompt_asset_init",
+            "project_name": "雨城旧账",
+            "project_description": "在雨城追查旧案。",
+            "current_bible": {
+                "world_building": "雨城常年阴雨。",
+                "characters_blueprint": "## 沈砚\n- 查案者",
+            },
+            "prompt_assets": [],
+        },
+    )
+
+    assert result.latest_artifacts == ["prompt_asset_suggestions"]
+    assert "project_bible" not in result.persist_payload
+    artifact = await storage.read_stage_markdown_artifact(
+        "run-prompt-asset-init",
+        name="prompt_asset_suggestions",
+    )
+    assert '"action": "new"' in artifact
+    assert '"title": "雨城"' in artifact
+    assert "雨城常年阴雨" in llm.calls[0]["user_context"]
+    assert "existing_prompt_assets" in llm.calls[0]["user_context"]
+
+
 @pytest.mark.asyncio
 async def test_chapter_write_retries_when_limited_third_output_uses_first_person_narration(
     tmp_path,

@@ -5,6 +5,7 @@ import type {
   ProjectBible,
   ProjectBibleUpdate,
   ProjectPromptAsset,
+  ProjectPromptAssetApplySuggestionsRequest,
   ProjectPromptAssetCreate,
   ProjectPromptAssetUpdate,
   PromptStackPreviewRequest,
@@ -170,6 +171,26 @@ export function useDeleteProjectPromptAsset() {
     },
     onError: () => {
       toast.error("Failed to delete prompt asset");
+    },
+  });
+}
+
+export function useApplyProjectPromptAssetSuggestions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      payload,
+    }: {
+      projectId: string;
+      payload: ProjectPromptAssetApplySuggestionsRequest;
+    }) => api.applyProjectPromptAssetSuggestions(projectId, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.promptAssets(variables.projectId) });
+    },
+    onError: () => {
+      toast.error("Failed to apply prompt asset suggestions");
     },
   });
 }

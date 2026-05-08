@@ -17,6 +17,12 @@ from app.prompts.outline import (
     build_volume_generate_user_message,
 )
 from app.prompts.section_router import build_section_system_prompt, build_section_user_message
+from app.prompts.prompt_asset_init import (
+    build_prompt_asset_init_system_prompt,
+    build_prompt_asset_init_user_message,
+    parse_prompt_asset_init_response,
+    render_prompt_asset_suggestions_markdown,
+)
 from app.schemas.novel_workflows import (
     NOVEL_WORKFLOW_STAGE_GENERATING,
     NOVEL_WORKFLOW_STAGE_PERSISTING,
@@ -131,6 +137,7 @@ class NovelWorkflowState(TypedDict):
     runtime_state: NotRequired[str]
     runtime_threads: NotRequired[str]
     story_summary: NotRequired[str]
+    prompt_assets: NotRequired[list[Any]]
     beats_markdown: NotRequired[str]
     prose_markdown: NotRequired[str]
     continuity_report_markdown: NotRequired[str]
@@ -182,6 +189,7 @@ class NovelWorkflowPipeline:
             "beats_generate": self._handle_beats_generate,
             "beat_expand": self._handle_beat_expand,
             "memory_refresh": self._handle_memory_refresh,
+            "prompt_asset_init": self._handle_prompt_asset_init,
         }
         self.graph = self._build_graph()
 
@@ -554,6 +562,30 @@ class NovelWorkflowPipeline:
                 "markdown": markdown,
                 "chapter_summary": memory_result.chapter_summary,
             },
+        }
+
+    async def _handle_prompt_asset_init(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "prompt_asset_suggestions"
+        raw = await self._call_prompt(
+            system_prompt=build_prompt_asset_init_system_prompt(),
+            user_context=build_prompt_asset_init_user_message(
+                project_name=state.get("project_name", ""),
+                project_description=state.get("project_description", ""),
+                current_bible=current_bible,
+                existing_assets=state.get("prompt_assets", []),
+            ),
+            mode="analysis",
+        )
+        suggestions = parse_prompt_asset_init_response(raw)
+        markdown = render_prompt_asset_suggestions_markdown(suggestions)
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
         }
 
     async def _handle_concept_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:

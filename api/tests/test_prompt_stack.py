@@ -139,6 +139,134 @@ async def test_chapter_scoped_prompt_asset_requires_matching_chapter(
 
 
 @pytest.mark.asyncio
+async def test_apply_prompt_asset_suggestions_creates_updates_and_disables(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    project = await _create_project(initialized_client, str(initialized_provider["id"]))
+    project_id = project["id"]
+
+    existing = await initialized_client.post(
+        f"/api/v1/projects/{project_id}/prompt-assets",
+        json={
+            "kind": "lorebook_entry",
+            "scope": "project",
+            "title": "Old lore",
+            "content": "Old content",
+            "keywords": ["old"],
+            "enabled": True,
+            "priority": 1,
+        },
+    )
+    assert existing.status_code == 201
+    old_id = existing.json()["id"]
+
+    stale = await initialized_client.post(
+        f"/api/v1/projects/{project_id}/prompt-assets",
+        json={
+            "kind": "author_note",
+            "scope": "project",
+            "title": "Stale note",
+            "content": "Outdated instruction",
+            "enabled": True,
+            "always_on": True,
+        },
+    )
+    assert stale.status_code == 201
+    stale_id = stale.json()["id"]
+
+    apply_response = await initialized_client.post(
+        f"/api/v1/projects/{project_id}/prompt-assets/apply-suggestions",
+        json={
+            "changes": [
+                {
+                    "action": "new",
+                    "rationale": "补齐角色卡",
+                    "payload": {
+                        "kind": "character_card",
+                        "scope": "project",
+                        "chapter_id": None,
+                        "title": "沈砚",
+                        "content": "## 沈砚\n- 查案者",
+                        "keywords": ["沈砚"],
+                        "enabled": True,
+                        "always_on": False,
+                        "priority": 20,
+                    },
+                },
+                {
+                    "action": "update",
+                    "asset_id": old_id,
+                    "rationale": "旧世界书需要补充",
+                    "payload": {
+                        "kind": "lorebook_entry",
+                        "scope": "project",
+                        "chapter_id": None,
+                        "title": "Rain city",
+                        "content": "Updated content",
+                        "keywords": ["rain"],
+                        "enabled": True,
+                        "always_on": False,
+                        "priority": 8,
+                    },
+                },
+                {
+                    "action": "disable",
+                    "asset_id": stale_id,
+                    "rationale": "重复",
+                },
+            ]
+        },
+    )
+    assert apply_response.status_code == 200
+    changed = apply_response.json()["assets"]
+    assert len(changed) == 3
+
+    listed = await initialized_client.get(f"/api/v1/projects/{project_id}/prompt-assets")
+    assert listed.status_code == 200
+    assets = {asset["id"]: asset for asset in listed.json()}
+    assert any(asset["title"] == "沈砚" for asset in assets.values())
+    assert assets[old_id]["title"] == "Rain city"
+    assert assets[old_id]["keywords"] == ["rain"]
+    assert assets[stale_id]["enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_apply_prompt_asset_suggestions_rejects_cross_project_asset_ids(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    project_a = await _create_project(initialized_client, str(initialized_provider["id"]))
+    project_b = await _create_project(initialized_client, str(initialized_provider["id"]))
+
+    other_asset = await initialized_client.post(
+        f"/api/v1/projects/{project_b['id']}/prompt-assets",
+        json={
+            "kind": "lorebook_entry",
+            "scope": "project",
+            "title": "Other project asset",
+            "content": "Other content",
+        },
+    )
+    assert other_asset.status_code == 201
+
+    response = await initialized_client.post(
+        f"/api/v1/projects/{project_a['id']}/prompt-assets/apply-suggestions",
+        json={
+            "changes": [
+                {
+                    "action": "disable",
+                    "asset_id": other_asset.json()["id"],
+                    "rationale": "should not cross projects",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_runtime_prompt_stack_selection_service(
     app_with_db: FastAPI,
 ) -> None:
@@ -217,6 +345,74 @@ async def test_runtime_prompt_stack_selection_service(
         "active_lorebook_entries",
         "active_character_cards",
     ]
+
+
+@pytest.mark.asyncio
+async def test_prompt_stack_manifest_tracks_rendered_lengths_when_truncated(
+    app_with_db: FastAPI,
+) -> None:
+    from app.core.security import hash_password
+    from app.db.repositories.auth import AuthRepository
+    from app.schemas.projects import ProjectCreate, ProjectPromptAssetCreate
+    from app.schemas.provider_configs import ProviderConfigCreate
+    from app.services.prompt_stack import PromptStackService
+    from app.services.projects import ProjectService
+    from app.services.provider_configs import ProviderConfigService
+
+    async with app_with_db.state.session_factory() as session:
+        user = await AuthRepository().create_user(
+            session,
+            username="prompt-stack-truncation-owner",
+            password_hash=hash_password("password123"),
+        )
+        provider = await ProviderConfigService().create(
+            session,
+            ProviderConfigCreate(
+                label="Primary",
+                base_url="https://api.example.test/v1",
+                api_key="sk-test-1234",
+                default_model="gpt-4.1-mini",
+            ),
+            user_id=user.id,
+        )
+        project = await ProjectService().create(
+            session,
+            ProjectCreate(
+                name="Truncation Stack",
+                default_provider_id=provider.id,
+                default_model="",
+            ),
+            user_id=user.id,
+        )
+        service = PromptStackService()
+        await service.create_asset(
+            session,
+            project.id,
+            ProjectPromptAssetCreate(
+                kind="lorebook_entry",
+                title="Large entry",
+                content="X" * 12000,
+                keywords=["x"],
+                priority=10,
+            ),
+            user_id=user.id,
+        )
+
+        selection = await service.select_for_runtime(
+            session,
+            project.id,
+            user_id=user.id,
+            chapter_id=None,
+            current_chapter_context="x",
+            text_before_cursor="",
+        )
+
+    assert selection.manifest.layers[0].truncated is True
+    assert selection.manifest.selected_assets[0].truncated is True
+    assert (
+        selection.manifest.selected_assets[0].char_count
+        < selection.manifest.selected_assets[0].original_char_count
+    )
 
 
 async def _create_project(client: AsyncClient, provider_id: str) -> dict:

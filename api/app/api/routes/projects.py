@@ -20,6 +20,8 @@ from app.schemas.projects import (
     ProjectUpdate,
     ProjectBibleResponse,
     ProjectBibleUpdate,
+    ProjectPromptAssetApplySuggestionsRequest,
+    ProjectPromptAssetApplySuggestionsResponse,
     PromptStackPreviewRequest,
     PromptStackPreviewResponse,
     ProjectPromptAssetCreate,
@@ -170,6 +172,25 @@ async def create_project_prompt_asset(
         user_id=current_user.id,
     )
     return ProjectPromptAssetResponse.model_validate(asset)
+
+
+@router.post(
+    "/{project_id}/prompt-assets/apply-suggestions",
+    response_model=ProjectPromptAssetApplySuggestionsResponse,
+)
+async def apply_project_prompt_asset_suggestions(
+    project_id: str,
+    payload: ProjectPromptAssetApplySuggestionsRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    prompt_stack_service: PromptStackServiceDep,
+) -> ProjectPromptAssetApplySuggestionsResponse:
+    return await prompt_stack_service.apply_suggestions(
+        db_session,
+        project_id,
+        payload,
+        user_id=current_user.id,
+    )
 
 
 @router.patch(

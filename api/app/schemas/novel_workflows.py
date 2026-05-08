@@ -41,6 +41,7 @@ NovelWorkflowIntentType: TypeAlias = Literal[
     "selection_rewrite",
     "beats_generate",
     "beat_expand",
+    "prompt_asset_init",
 ]
 
 
