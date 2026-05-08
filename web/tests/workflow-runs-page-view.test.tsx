@@ -8,10 +8,20 @@ import type { NovelWorkflowListItem, ProjectSummary } from "@/lib/types";
 const apiMock = vi.hoisted(() => ({
   listNovelWorkflows: vi.fn(),
   getProjects: vi.fn(),
+  clearNovelWorkflowHistory: vi.fn(),
+}));
+
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
   api: apiMock,
+}));
+
+vi.mock("sonner", () => ({
+  toast: toastMock,
 }));
 
 function renderWithClient(ui: React.ReactElement) {
@@ -78,6 +88,7 @@ describe("WorkflowRunsPageView", () => {
     vi.clearAllMocks();
     apiMock.listNovelWorkflows.mockResolvedValue([run]);
     apiMock.getProjects.mockResolvedValue([project]);
+    apiMock.clearNovelWorkflowHistory.mockResolvedValue(undefined);
   });
 
   test("renders workflow runs and applies filters", async () => {
@@ -108,5 +119,22 @@ describe("WorkflowRunsPageView", () => {
 
     expect(await screen.findByText("暂无运行记录。")).toBeInTheDocument();
     expect(within(screen.getByText("Workflow Runs").closest("div") ?? document.body).queryByText("局部改写")).not.toBeInTheDocument();
+  });
+
+  test("clears workflow run history after confirmation", async () => {
+    renderWithClient(<WorkflowRunsPageView />);
+
+    expect(await screen.findByText("局部改写")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "清空" }));
+    fireEvent.click(screen.getByRole("button", { name: "清空" }));
+
+    await waitFor(() => {
+      expect(apiMock.clearNovelWorkflowHistory).toHaveBeenCalledTimes(1);
+    });
+    expect(toastMock.success).toHaveBeenCalledWith("运行历史已清空");
+    await waitFor(() => {
+      expect(apiMock.listNovelWorkflows).toHaveBeenCalledTimes(2);
+    });
   });
 });

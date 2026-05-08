@@ -168,6 +168,7 @@ describe("API contracts", () => {
       offset: 20,
       limit: 20,
     });
+    const workflowHistoryClearPromise: Promise<void> = client.clearNovelWorkflowHistory();
     const beatsPromise: Promise<NovelBeatWorkflowResult> = client.runBeatsWorkflow(
       "project-1",
       "chapter-1",
@@ -267,6 +268,7 @@ describe("API contracts", () => {
       setupPromise,
       statusPromise,
       workflowRunsPromise,
+      workflowHistoryClearPromise,
       beatsPromise,
       biblePromise,
       styleProfileCreatePromise,
@@ -287,6 +289,10 @@ describe("API contracts", () => {
     ]);
     expect(request).toHaveBeenCalledWith(
       "/api/v1/novel-workflows?project_id=project-1&intent_type=selection_rewrite&status=succeeded&offset=20&limit=20",
+    );
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/novel-workflows",
+      expect.objectContaining({ method: "DELETE" }),
     );
     expect(request).toHaveBeenCalledWith(
       "/api/v1/projects/project-1/prompt-assets/apply-suggestions",

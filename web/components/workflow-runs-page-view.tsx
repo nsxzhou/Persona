@@ -2,10 +2,22 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { Eye, RotateCcw } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Eye, RotateCcw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +51,7 @@ type IntentType = NovelWorkflowCreatePayload["intent_type"];
 type StatusType = NovelWorkflowListItem["status"];
 
 export function WorkflowRunsPageView() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [projectId, setProjectId] = useState(ALL);
   const [intentType, setIntentType] = useState<IntentType | typeof ALL>(ALL);
@@ -59,6 +72,21 @@ export function WorkflowRunsPageView() {
   const projectsQuery = useQuery({
     queryKey: ["projects", "workflow-filter"],
     queryFn: () => api.getProjects({ includeArchived: true, offset: 0, limit: 100 }),
+  });
+
+  const clearHistoryMutation = useMutation({
+    mutationFn: api.clearNovelWorkflowHistory,
+    onSuccess: () => {
+      setPage(1);
+      queryClient.removeQueries({ queryKey: ["novel-workflows"] });
+      toast.success("运行历史已清空");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "清空失败");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["novel-workflows"] });
+    },
   });
 
   const hasNextPage = (runsQuery.data?.length ?? 0) === PAGE_SIZE;
@@ -100,7 +128,7 @@ export function WorkflowRunsPageView() {
             查看 Novel Workflow 的执行记录、日志、请求载荷与 Prompt Trace。
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[220px_180px_160px_auto]">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[220px_180px_160px_auto_auto]">
           <Select
             value={projectId}
             onValueChange={(value) => {
@@ -165,6 +193,36 @@ export function WorkflowRunsPageView() {
             <RotateCcw className="h-4 w-4" />
             重置
           </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                disabled={clearHistoryMutation.isPending || runsQuery.data.length === 0}
+              >
+                <Trash2 className="h-4 w-4" />
+                清空
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确定要清空运行历史吗？</AlertDialogTitle>
+                <AlertDialogDescription>
+                  此操作不可恢复，将永久删除所有已完成或失败的运行记录、日志与 Prompt Trace。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>取消</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => clearHistoryMutation.mutate()}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  清空
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -276,4 +334,3 @@ function StatusBadge({ status }: { status: StatusType }) {
   const variant = status === "failed" ? "destructive" : status === "succeeded" ? "secondary" : "outline";
   return <Badge variant={variant}>{WORKFLOW_STATUS_LABELS[status]}</Badge>;
 }
-

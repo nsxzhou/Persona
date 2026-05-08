@@ -222,6 +222,10 @@ export function createApiClient(request: Requester) {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    clearNovelWorkflowHistory: () =>
+      request<void>("/api/v1/novel-workflows", {
+        method: "DELETE",
+      }),
     getNovelWorkflowStatus: (id: string) =>
       request<NovelWorkflowStatusSnapshot>(`/api/v1/novel-workflows/${id}/status`),
     getNovelWorkflow: (id: string) =>
