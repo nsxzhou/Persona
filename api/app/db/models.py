@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     false,
     func,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -206,6 +207,9 @@ class Project(TimestampMixin, Base):
     novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    prompt_assets: Mapped[list["ProjectPromptAsset"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
     @property
     def generation_profile(self) -> dict | None:
@@ -273,6 +277,53 @@ class ProjectChapter(TimestampMixin, Base):
     novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
         back_populates="chapter"
     )
+    prompt_assets: Mapped[list["ProjectPromptAsset"]] = relationship(
+        back_populates="chapter"
+    )
+
+
+class ProjectPromptAsset(TimestampMixin, Base):
+    __tablename__ = "project_prompt_assets"
+    __table_args__ = (
+        Index(
+            "ix_project_prompt_assets_project_kind_priority",
+            "project_id",
+            "kind",
+            "priority",
+        ),
+        Index(
+            "ix_project_prompt_assets_project_enabled",
+            "project_id",
+            "enabled",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    chapter_id: Mapped[str | None] = mapped_column(
+        ForeignKey("project_chapters.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope: Mapped[str] = mapped_column(String(16), nullable=False, default="project")
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    keywords_payload: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    always_on: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
+    project: Mapped["Project"] = relationship(back_populates="prompt_assets")
+    chapter: Mapped["ProjectChapter | None"] = relationship(back_populates="prompt_assets")
+
+    @property
+    def keywords(self) -> list[str]:
+        return list(self.keywords_payload or [])
 
 
 class NovelWorkflowRun(TimestampMixin, Base):

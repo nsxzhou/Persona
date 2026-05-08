@@ -25,6 +25,7 @@ from app.services.novel_workflow_pipeline import (
 from app.services.novel_workflow_storage import NovelWorkflowStorageService
 from app.services.novel_workflows import NovelWorkflowService
 from app.services.plot_profiles import PlotProfileService
+from app.services.prompt_stack import PromptStackService
 from app.services.prompt_trace import PromptTraceMessage, PromptTraceRecorder
 from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
@@ -234,6 +235,7 @@ class NovelWorkflowJobExecutor:
             completed_at,
             output: str | None,
             error_summary: str | None,
+            prompt_stack_manifest: dict | None = None,
         ) -> None:
             if error_summary is not None:
                 await trace_recorder.record_error(
@@ -243,6 +245,7 @@ class NovelWorkflowJobExecutor:
                     started_at=started_at,
                     completed_at=completed_at,
                     error_summary=error_summary,
+                    prompt_stack_manifest=prompt_stack_manifest,
                 )
                 return
             await trace_recorder.record_success(
@@ -252,9 +255,16 @@ class NovelWorkflowJobExecutor:
                 started_at=started_at,
                 completed_at=completed_at,
                 output=output or "",
+                prompt_stack_manifest=prompt_stack_manifest,
             )
 
-        async def llm_complete(*, system_prompt: str, user_context: str, mode: str) -> str:
+        async def llm_complete(
+            *,
+            system_prompt: str,
+            user_context: str,
+            mode: str,
+            prompt_stack_manifest: dict | None = None,
+        ) -> str:
             if provider is None:
                 raise NotFoundError("工作流缺少可用 Provider")
             return await self.llm_service.invoke_completion(
@@ -264,6 +274,7 @@ class NovelWorkflowJobExecutor:
                 model_name=model_name,
                 injection_mode=mode,  # "analysis" / "immersion"
                 prompt_trace_callback=record_prompt_trace,
+                prompt_stack_manifest=prompt_stack_manifest,
             )
 
         if decision_loader is None:
@@ -334,6 +345,37 @@ class NovelWorkflowJobExecutor:
                 )
                 plot_prompt = plot_profile.story_engine_payload
 
+            prompt_stack = None
+            if project is not None:
+                activation_user_context = "\n".join(
+                    str(request_payload.get(key) or "")
+                    for key in (
+                        "user_context",
+                        "selected_text",
+                        "text_after_selection",
+                        "rewrite_instruction",
+                        "beat",
+                        "preceding_beats_prose",
+                        "content_to_check",
+                    )
+                )
+                prompt_stack = await PromptStackService(
+                    project_service=self.project_service,
+                    chapter_service=self.project_chapter_service,
+                ).select_for_runtime(
+                    session,
+                    project.id,
+                    user_id=run.user_id,
+                    chapter_id=run.chapter_id,
+                    current_chapter_context=str(request_payload.get("current_chapter_context") or ""),
+                    text_before_cursor=str(
+                        request_payload.get("text_before_cursor")
+                        or request_payload.get("text_before_selection")
+                        or ""
+                    ),
+                    user_context=activation_user_context,
+                )
+
             enable_editor_pass = False
             model_overrides = request_payload.get("model_overrides")
             if isinstance(model_overrides, dict):
@@ -369,6 +411,7 @@ class NovelWorkflowJobExecutor:
                     "beats_markdown": chapter.beats_markdown if chapter is not None else "",
                 },
                 "enable_editor_pass": enable_editor_pass,
+                "prompt_stack": prompt_stack,
             }
             provider = run.provider or (project.provider if project is not None else None)
             model_name = run.model_name or (project.default_model if project is not None else None)

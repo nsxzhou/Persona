@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import importlib
 
-from app.services.context_assembly import WritingContextSections, assemble_writing_context
+from app.services.context_assembly import (
+    WritingContextSections,
+    WritingPromptAssetLayer,
+    assemble_writing_context,
+)
 
 
 def test_writing_context_uses_fixed_six_section_order() -> None:
@@ -98,3 +102,34 @@ def test_writing_context_applies_static_section_budgets() -> None:
     assert "态" * 5500 not in prompt
     assert "线" * 4500 not in prompt
     assert "摘" * 4500 not in prompt
+
+
+def test_writing_context_injects_prompt_asset_layers_in_fixed_order() -> None:
+    prompt = assemble_writing_context(
+        sections=WritingContextSections(
+            world_building="Bible world",
+            outline_detail="Current task",
+        ),
+        prompt_asset_layers=[
+            WritingPromptAssetLayer(
+                key="author_notes",
+                title="Author Notes",
+                content="# Author Notes\n\nNear output",
+            ),
+            WritingPromptAssetLayer(
+                key="active_character_cards",
+                title="Active Character Cards",
+                content="# Active Character Cards\n\nCharacter layer",
+            ),
+            WritingPromptAssetLayer(
+                key="active_lorebook_entries",
+                title="Active Lorebook Entries",
+                content="# Active Lorebook Entries\n\nLore layer",
+            ),
+        ],
+    )
+
+    assert prompt.index("# Project Context") < prompt.index("# Author Notes")
+    assert prompt.index("Bible world") < prompt.index("# Active Lorebook Entries")
+    assert prompt.index("# Active Lorebook Entries") < prompt.index("# Active Character Cards")
+    assert prompt.index("# Active Character Cards") < prompt.index("# Author Notes")

@@ -15,6 +15,11 @@ import type {
   ProjectChapter,
   ProjectChapterUpdate,
   ProjectPayload,
+  ProjectPromptAsset,
+  ProjectPromptAssetCreate,
+  ProjectPromptAssetUpdate,
+  PromptStackPreviewRequest,
+  PromptStackPreviewResponse,
   ProjectUpdatePayload,
   ProjectSummary,
   ProjectBible,
@@ -112,6 +117,31 @@ export function createApiClient(request: Requester) {
     updateProjectBible: (id: string, payload: Partial<ProjectBibleUpdate>) =>
       request<ProjectBible>(`/api/v1/projects/${id}/bible`, {
         method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    getProjectPromptAssets: (projectId: string) =>
+      request<ProjectPromptAsset[]>(`/api/v1/projects/${projectId}/prompt-assets`),
+    createProjectPromptAsset: (projectId: string, payload: ProjectPromptAssetCreate) =>
+      request<ProjectPromptAsset>(`/api/v1/projects/${projectId}/prompt-assets`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    updateProjectPromptAsset: (
+      projectId: string,
+      assetId: string,
+      payload: ProjectPromptAssetUpdate,
+    ) =>
+      request<ProjectPromptAsset>(`/api/v1/projects/${projectId}/prompt-assets/${assetId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    deleteProjectPromptAsset: (projectId: string, assetId: string) =>
+      request<void>(`/api/v1/projects/${projectId}/prompt-assets/${assetId}`, {
+        method: "DELETE",
+      }),
+    previewProjectPromptStack: (projectId: string, payload: PromptStackPreviewRequest) =>
+      request<PromptStackPreviewResponse>(`/api/v1/projects/${projectId}/prompt-stack/preview`, {
+        method: "POST",
         body: JSON.stringify(payload),
       }),
     exportProject: async (id: string, format: "txt" | "epub") => {

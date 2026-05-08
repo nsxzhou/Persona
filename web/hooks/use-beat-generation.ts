@@ -14,6 +14,7 @@ export function useBeatGeneration({
   currentChapterContext,
   previousChapterContext = "",
   totalContentLength = 0,
+  chapterId = null,
   disabled = false,
   onBeatExpandCompleted,
 }: {
@@ -24,6 +25,7 @@ export function useBeatGeneration({
   currentChapterContext?: string;
   previousChapterContext?: string;
   totalContentLength?: number;
+  chapterId?: string | null;
   disabled?: boolean;
   onBeatExpandCompleted?: (generated: string) => Promise<void> | void;
 }) {
@@ -46,6 +48,7 @@ export function useBeatGeneration({
 
       const data = await api.runBeatsWorkflow(
         project.id,
+        chapterId,
         textBeforeCursor,
         projectBible.runtime_state ?? "",
         projectBible.runtime_threads ?? "",
@@ -63,7 +66,7 @@ export function useBeatGeneration({
     } finally {
       setIsGeneratingBeats(false);
     }
-  }, [currentChapterContext, disabled, isGeneratingBeats, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads, textareaRef, totalContentLength]);
+  }, [chapterId, currentChapterContext, disabled, isGeneratingBeats, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads, store, textareaRef, totalContentLength]);
 
   const handleStartBeatExpand = useCallback(async (options?: RegenerateOptions) => {
     const content = store.getState().content;
@@ -83,6 +86,7 @@ export function useBeatGeneration({
       try {
         const response = await api.runBeatExpandWorkflow(
           project.id,
+          chapterId,
           textBeforeCursor,
           projectBible.runtime_state ?? "",
           projectBible.runtime_threads ?? "",
@@ -116,7 +120,7 @@ export function useBeatGeneration({
     setIsExpandingBeat(false);
     setCurrentBeatIndex(-1);
     if (beatsProse.trim()) await onBeatExpandCompleted?.(beatsProse);
-  }, [beats, consumeResponse, currentChapterContext, disabled, isExpandingBeat, isGenerating, onBeatExpandCompleted, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads]);
+  }, [beats, chapterId, consumeResponse, currentChapterContext, disabled, isExpandingBeat, isGenerating, onBeatExpandCompleted, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads, store]);
 
   return {
     beats,

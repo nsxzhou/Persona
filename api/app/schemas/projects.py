@@ -11,6 +11,8 @@ from app.schemas.prompt_profiles import GenerationProfile
 
 ProjectStatus = Literal["draft", "active", "paused"]
 LengthPreset = Literal["short", "medium", "long"]
+PromptAssetKind = Literal["character_card", "lorebook_entry", "author_note"]
+PromptAssetScope = Literal["project", "chapter"]
 
 
 class ProjectCreate(BaseModel):
@@ -108,3 +110,91 @@ class ProjectSummaryResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     provider: ProviderSummary
+
+
+class ProjectPromptAssetBase(BaseModel):
+    kind: PromptAssetKind
+    scope: PromptAssetScope = "project"
+    chapter_id: str | None = None
+    title: str = Field(min_length=1, max_length=160)
+    content: str = Field(default="", max_length=20000)
+    keywords: list[str] = Field(default_factory=list, max_length=32)
+    enabled: bool = True
+    always_on: bool = False
+    priority: int = 0
+
+
+class ProjectPromptAssetCreate(ProjectPromptAssetBase):
+    pass
+
+
+class ProjectPromptAssetUpdate(BaseModel):
+    kind: PromptAssetKind | None = None
+    scope: PromptAssetScope | None = None
+    chapter_id: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    content: str | None = Field(default=None, max_length=20000)
+    keywords: list[str] | None = Field(default=None, max_length=32)
+    enabled: bool | None = None
+    always_on: bool | None = None
+    priority: int | None = None
+
+
+class ProjectPromptAssetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    kind: PromptAssetKind
+    scope: PromptAssetScope
+    chapter_id: str | None
+    title: str
+    content: str
+    keywords: list[str]
+    enabled: bool
+    always_on: bool
+    priority: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class PromptStackPreviewRequest(BaseModel):
+    chapter_id: str | None = None
+    current_chapter_context: str = Field(default="", max_length=20000)
+    text_before_cursor: str = Field(default="", max_length=40000)
+    user_context: str = Field(default="", max_length=20000)
+
+
+class PromptStackAssetManifestItem(BaseModel):
+    id: str
+    kind: PromptAssetKind
+    scope: PromptAssetScope
+    chapter_id: str | None
+    title: str
+    priority: int
+    char_count: int
+    original_char_count: int
+    truncated: bool
+    match_reasons: list[str]
+    matched_keywords: list[str]
+
+
+class PromptStackLayerManifestItem(BaseModel):
+    key: str
+    title: str
+    char_count: int
+    budget: int | None = None
+    truncated: bool = False
+    assets: list[PromptStackAssetManifestItem] = Field(default_factory=list)
+
+
+class PromptStackManifest(BaseModel):
+    layers: list[PromptStackLayerManifestItem]
+    selected_assets: list[PromptStackAssetManifestItem]
+    total_selected_assets: int
+    final_prompt_char_count: int
+
+
+class PromptStackPreviewResponse(BaseModel):
+    prompt: str
+    manifest: PromptStackManifest

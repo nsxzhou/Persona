@@ -25,7 +25,12 @@ from app.schemas.novel_workflows import (
 )
 from app.schemas.prompt_profiles import build_chapter_objective_card, build_intensity_profile
 from app.services.outline_parser import parse_outline
-from app.services.context_assembly import WritingContextSections, assemble_writing_context
+from app.services.context_assembly import (
+    WritingContextSections,
+    WritingPromptAssetLayer,
+    assemble_writing_context,
+)
+from app.services.prompt_stack import PromptStackSelection
 from app.services.beat_parser import parse_beats_markdown
 from app.services.prose_validation import validate_limited_third_prose
 from app.services.novel_workflow_agents import (
@@ -133,6 +138,7 @@ class NovelWorkflowState(TypedDict):
     warnings: NotRequired[list[str]]
     checkpoint_kind: NotRequired[str | None]
     persist_payload: NotRequired[dict[str, Any]]
+    prompt_stack: NotRequired[PromptStackSelection | None]
 
 
 @dataclass(frozen=True)
@@ -503,6 +509,8 @@ class NovelWorkflowPipeline:
             preceding_beats_prose=state.get("preceding_beats_prose", ""),
             previous_output=state.get("previous_output"),
             regenerating=bool(state.get("previous_output") or state.get("feedback")),
+            prompt_stack_manifest=_state_prompt_stack_manifest(state),
+            prompt_asset_layers=_state_prompt_asset_layers(state),
         )
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
@@ -603,6 +611,7 @@ class NovelWorkflowPipeline:
                 story_summary=selected_context.story_summary,
                 active_character_focus=selected_context.active_character_focus,
             ),
+            prompt_asset_layers=_state_prompt_asset_layers(state),
             length_preset=state.get("length_preset", "long"),
             content_length=state.get("total_content_length", 0),
         )
@@ -630,6 +639,7 @@ class NovelWorkflowPipeline:
             system_prompt=system_prompt,
             user_context="\n\n---\n\n".join(parts),
             mode="immersion",
+            prompt_stack_manifest=_state_prompt_stack_manifest(state),
         )
 
     async def _write_chapter_from_beats(
@@ -657,6 +667,8 @@ class NovelWorkflowPipeline:
                     previous_output=accepted or None,
                     user_feedback=state.get("feedback"),
                     regenerating=attempt > 0,
+                    prompt_stack_manifest=_state_prompt_stack_manifest(state),
+                    prompt_asset_layers=_state_prompt_asset_layers(state),
                 )
                 continuity = await self.continuity_agent.review(
                     prose_markdown=prose_candidate,
@@ -699,14 +711,18 @@ class NovelWorkflowPipeline:
         system_prompt: str,
         user_context: str,
         mode: str,
+        prompt_stack_manifest: dict | None = None,
     ) -> str:
         if self.should_pause is not None and self.should_pause():
             raise NovelWorkflowAwaitingHuman("manual_pause")
-        content = await self.llm_complete(
-            system_prompt=system_prompt,
-            user_context=user_context,
-            mode=mode,
-        )
+        kwargs = {
+            "system_prompt": system_prompt,
+            "user_context": user_context,
+            "mode": mode,
+        }
+        if prompt_stack_manifest is not None:
+            kwargs["prompt_stack_manifest"] = prompt_stack_manifest
+        content = await self.llm_complete(**kwargs)
         return re.sub(r"<think>.*?(?:</think>\n*|\Z)", "", content, flags=re.DOTALL).strip()
 
     async def _set_stage(self, stage: str | None) -> None:
@@ -720,3 +736,35 @@ class NovelWorkflowPipeline:
         if payload:
             return GenerationProfile.model_validate(payload)
         return default_generation_profile()
+
+
+def _state_prompt_stack_manifest(state: dict[str, Any]) -> dict | None:
+    prompt_stack = state.get("prompt_stack")
+    manifest = getattr(prompt_stack, "manifest", None)
+    if manifest is None:
+        return None
+    if hasattr(manifest, "model_dump"):
+        return manifest.model_dump(mode="json")
+    if isinstance(manifest, dict):
+        return manifest
+    return None
+
+
+def _state_prompt_asset_layers(state: dict[str, Any]) -> list[WritingPromptAssetLayer]:
+    prompt_stack = state.get("prompt_stack")
+    layers = getattr(prompt_stack, "layers", None)
+    if not isinstance(layers, list):
+        return []
+    return [
+        WritingPromptAssetLayer(
+            key=layer.key,
+            title=layer.title,
+            content=layer.content,
+        )
+        for layer in layers
+        if getattr(layer, "key", "") in {
+            "active_lorebook_entries",
+            "active_character_cards",
+            "author_notes",
+        }
+    ]

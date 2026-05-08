@@ -213,6 +213,7 @@ class LLMProviderService:
         injection_task: PromptInjectionTask | None = None,
         injection_mode: PromptInjectionMode | None = None,
         prompt_trace_callback: PromptTraceCallback | None = None,
+        prompt_stack_manifest: dict | None = None,
     ) -> str:
         """Non-streaming single LLM call; returns the full text."""
         model = self._build_model(
@@ -255,6 +256,7 @@ class LLMProviderService:
                 started_at=started_at,
                 completed_at=completed_at,
                 error_summary=summarize_exception(exc),
+                prompt_stack_manifest=prompt_stack_manifest,
             )
             raise
 
@@ -268,6 +270,7 @@ class LLMProviderService:
             started_at=started_at,
             completed_at=completed_at,
             output=content,
+            prompt_stack_manifest=prompt_stack_manifest,
         )
         return content
 
@@ -281,6 +284,7 @@ class LLMProviderService:
         started_at: datetime,
         completed_at: datetime,
         output: str,
+        prompt_stack_manifest: dict | None,
     ) -> None:
         if callback is None:
             return
@@ -293,6 +297,7 @@ class LLMProviderService:
                 completed_at=completed_at,
                 output=output,
                 error_summary=None,
+                prompt_stack_manifest=prompt_stack_manifest,
             )
         except Exception:
             logger.exception("failed to write prompt trace")
@@ -307,6 +312,7 @@ class LLMProviderService:
         started_at: datetime,
         completed_at: datetime,
         error_summary: str,
+        prompt_stack_manifest: dict | None,
     ) -> None:
         if callback is None:
             return
@@ -319,6 +325,7 @@ class LLMProviderService:
                 completed_at=completed_at,
                 output=None,
                 error_summary=error_summary,
+                prompt_stack_manifest=prompt_stack_manifest,
             )
         except Exception:
             logger.exception("failed to write prompt trace")

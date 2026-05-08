@@ -31,6 +31,7 @@ class PromptTraceCall:
     duration_ms: int | None
     messages: list[PromptTraceMessage]
     provider_prompt_override_applied: bool = False
+    prompt_stack_manifest: dict | None = None
     output_char_count: int | None = None
     output_excerpt: str | None = None
     error_summary: str | None = None
@@ -145,6 +146,7 @@ class PromptTraceRecorder:
         started_at: datetime,
         completed_at: datetime,
         output: str,
+        prompt_stack_manifest: dict | None = None,
     ) -> None:
         self._calls.append(
             PromptTraceCall(
@@ -160,6 +162,7 @@ class PromptTraceRecorder:
                 duration_ms=_duration_ms(started_at, completed_at),
                 messages=messages,
                 provider_prompt_override_applied=provider_prompt_override_applied,
+                prompt_stack_manifest=prompt_stack_manifest,
                 output_char_count=len(output),
                 output_excerpt=build_output_excerpt(output),
             )
@@ -175,6 +178,7 @@ class PromptTraceRecorder:
         started_at: datetime,
         completed_at: datetime,
         error_summary: str,
+        prompt_stack_manifest: dict | None = None,
     ) -> None:
         self._calls.append(
             PromptTraceCall(
@@ -190,6 +194,7 @@ class PromptTraceRecorder:
                 duration_ms=_duration_ms(started_at, completed_at),
                 messages=messages,
                 provider_prompt_override_applied=provider_prompt_override_applied,
+                prompt_stack_manifest=prompt_stack_manifest,
                 error_summary=error_summary,
             )
         )
@@ -235,6 +240,9 @@ def _render_call(call: PromptTraceCall) -> list[str]:
         lines.append(f"| Error | `{_escape_table(call.error_summary)}` |")
     lines.append("")
 
+    if call.prompt_stack_manifest:
+        lines.extend(_render_prompt_stack_manifest(call.prompt_stack_manifest))
+
     for message in call.messages:
         label = message.role.capitalize()
         lines.extend(
@@ -256,6 +264,72 @@ def _render_call(call: PromptTraceCall) -> list[str]:
         lines.extend([f"Call failed before producing output: `{call.error_summary}`", ""])
     else:
         lines.extend(["No output captured.", ""])
+    return lines
+
+
+def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
+    lines: list[str] = ["### Prompt Stack Manifest", ""]
+    layers = manifest.get("layers") if isinstance(manifest, dict) else None
+    selected_assets = manifest.get("selected_assets") if isinstance(manifest, dict) else None
+    if not isinstance(layers, list):
+        lines.extend(["No layer manifest available.", ""])
+        return lines
+    lines.extend(
+        [
+            "| Layer | Chars | Budget | Truncated | Assets |",
+            "| --- | ---: | ---: | --- | --- |",
+        ]
+    )
+    for layer in layers:
+        if not isinstance(layer, dict):
+            continue
+        assets = layer.get("assets")
+        asset_titles = []
+        if isinstance(assets, list):
+            for asset in assets:
+                if isinstance(asset, dict) and asset.get("title"):
+                    asset_titles.append(str(asset["title"]))
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _escape_table(str(layer.get("title") or layer.get("key") or "-")),
+                    str(layer.get("char_count") if layer.get("char_count") is not None else "-"),
+                    str(layer.get("budget") if layer.get("budget") is not None else "-"),
+                    _format_bool(bool(layer.get("truncated"))),
+                    _escape_table(", ".join(asset_titles) or "-"),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    if isinstance(selected_assets, list) and selected_assets:
+        lines.extend(
+            [
+                "| Asset | Kind | Priority | Reasons | Keywords | Truncated |",
+                "| --- | --- | ---: | --- | --- | --- |",
+            ]
+        )
+        for asset in selected_assets:
+            if not isinstance(asset, dict):
+                continue
+            reasons = asset.get("match_reasons")
+            keywords = asset.get("matched_keywords")
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        _escape_table(str(asset.get("title") or "-")),
+                        _escape_table(str(asset.get("kind") or "-")),
+                        str(asset.get("priority") if asset.get("priority") is not None else "-"),
+                        _escape_table(", ".join(reasons) if isinstance(reasons, list) else "-"),
+                        _escape_table(", ".join(keywords) if isinstance(keywords, list) else "-"),
+                        _format_bool(bool(asset.get("truncated"))),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
     return lines
 
 

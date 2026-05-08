@@ -17,6 +17,7 @@ from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.plot_profiles import PlotProfileService
 from app.services.project_chapters import ProjectChapterService
+from app.services.prompt_stack import PromptStackService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.setup import SetupService
@@ -91,6 +92,22 @@ def get_project_chapter_service(
 ProjectChapterServiceDep = Annotated[
     ProjectChapterService,
     Depends(get_project_chapter_service),
+]
+
+
+def get_prompt_stack_service(
+    project_service: ProjectServiceDep,
+    project_chapter_service: ProjectChapterServiceDep,
+) -> PromptStackService:
+    return PromptStackService(
+        project_service=project_service,
+        chapter_service=project_chapter_service,
+    )
+
+
+PromptStackServiceDep = Annotated[
+    PromptStackService,
+    Depends(get_prompt_stack_service),
 ]
 
 

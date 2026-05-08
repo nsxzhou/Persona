@@ -5,15 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ZenEditorView } from "@/components/zen-editor-view";
 import type { Project, ProjectBible } from "@/lib/types";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-    },
-  },
-});
-
 const renderWithClient = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
   return render(
     <QueryClientProvider client={queryClient}>
       {ui}
@@ -206,7 +206,6 @@ const chapters = [
 describe("ZenEditorView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    queryClient.clear();
 
     apiMock.getProject.mockResolvedValue(project);
     apiMock.getProjectBible.mockResolvedValue(projectBible);
@@ -373,6 +372,7 @@ describe("ZenEditorView", () => {
     await waitFor(() => {
       expect(apiMock.runSelectionRewriteWorkflow).toHaveBeenCalledWith(
         expect.objectContaining({
+          chapterId: "chapter-1",
           selectedText: "第一章",
           textBeforeSelection: "",
           textAfterSelection: "正文",
@@ -398,6 +398,14 @@ describe("ZenEditorView", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toBeDisabled();
+    });
+  });
+
+  test("passes the selected chapter id into beat generation", async () => {
+    renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
+
+    await waitFor(() => {
+      expect(beatGenerationMock.lastArgs).toEqual(expect.objectContaining({ chapterId: "chapter-2" }));
     });
   });
 

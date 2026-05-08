@@ -90,12 +90,11 @@ class ProjectChapterService:
             key=lambda chapter: (chapter.volume_index, chapter.chapter_index),
         )
 
-    async def update(
+    async def get_or_404(
         self,
         session: AsyncSession,
         project_id: str,
         chapter_id: str,
-        payload,
         *,
         user_id: str,
     ) -> ProjectChapter:
@@ -105,6 +104,23 @@ class ProjectChapterService:
         )
         if chapter is None:
             raise NotFoundError("章节不存在")
+        return chapter
+
+    async def update(
+        self,
+        session: AsyncSession,
+        project_id: str,
+        chapter_id: str,
+        payload,
+        *,
+        user_id: str,
+    ) -> ProjectChapter:
+        chapter = await self.get_or_404(
+            session,
+            project_id,
+            chapter_id,
+            user_id=user_id,
+        )
         update_data = payload.model_dump(exclude_unset=True)
 
         if "content" in update_data:

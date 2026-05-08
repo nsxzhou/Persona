@@ -20,6 +20,7 @@ export function useSelectionRewrite({
   currentChapterContext = "",
   previousChapterContext = "",
   totalContentLength = 0,
+  chapterId = null,
   disabled = false,
 }: {
   project: Project;
@@ -27,6 +28,7 @@ export function useSelectionRewrite({
   currentChapterContext?: string;
   previousChapterContext?: string;
   totalContentLength?: number;
+  chapterId?: string | null;
   disabled?: boolean;
 }) {
   const { store } = useEditorContext();
@@ -91,6 +93,7 @@ export function useSelectionRewrite({
     try {
       const rewritten = await api.runSelectionRewriteWorkflow({
         projectId: project.id,
+        chapterId,
         selectedText: selection.selectedText,
         textBeforeSelection: selection.textBeforeSelection,
         textAfterSelection: selection.textAfterSelection,
@@ -108,6 +111,7 @@ export function useSelectionRewrite({
     }
   }, [
     currentChapterContext,
+    chapterId,
     instruction,
     isGenerating,
     previousChapterContext,

@@ -61,6 +61,7 @@ export function parseBeatsMarkdown(markdown: string): string[] {
 
 export type SelectionRewriteWorkflowPayload = {
   projectId: string;
+  chapterId?: string | null;
   selectedText: string;
   textBeforeSelection: string;
   textAfterSelection: string;
@@ -137,6 +138,7 @@ export function createNovelWorkflowClient(request: Requester) {
     },
     runSelectionRewriteWorkflow: async ({
       projectId,
+      chapterId = null,
       selectedText,
       textBeforeSelection,
       textAfterSelection,
@@ -149,6 +151,7 @@ export function createNovelWorkflowClient(request: Requester) {
       const { run } = await createNovelWorkflowAndWait({
         intent_type: "selection_rewrite",
         project_id: projectId,
+        chapter_id: chapterId,
         selected_text: selectedText,
         text_before_selection: textBeforeSelection,
         text_after_selection: textAfterSelection,
@@ -202,6 +205,7 @@ export function createNovelWorkflowClient(request: Requester) {
     },
     runBeatsWorkflow: async (
       projectId: string,
+      chapterId: string | null,
       textBeforeCursor: string,
       runtimeState: string,
       runtimeThreads: string,
@@ -214,6 +218,7 @@ export function createNovelWorkflowClient(request: Requester) {
       const { run } = await createNovelWorkflowAndWait({
         intent_type: "beats_generate",
         project_id: projectId,
+        chapter_id: chapterId,
         text_before_cursor: textBeforeCursor,
         current_chapter_context: currentChapterContext ?? "",
         previous_chapter_context: previousChapterContext ?? "",
@@ -229,6 +234,7 @@ export function createNovelWorkflowClient(request: Requester) {
     },
     runBeatExpandWorkflow: async (
       projectId: string,
+      chapterId: string | null,
       textBeforeCursor: string,
       runtimeState: string,
       runtimeThreads: string,
@@ -244,6 +250,7 @@ export function createNovelWorkflowClient(request: Requester) {
       const { run } = await createNovelWorkflowAndWait({
         intent_type: "beat_expand",
         project_id: projectId,
+        chapter_id: chapterId,
         text_before_cursor: textBeforeCursor,
         beat,
         beat_index: beatIndex,

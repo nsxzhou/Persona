@@ -102,6 +102,28 @@ def _strip_json_fence(markdown: str) -> str:
     return stripped
 
 
+def _compose_beat_expand_user_context(
+    base_user_context: str,
+    prompt_asset_layers: list[Any],
+) -> str:
+    layers_by_key = {
+        getattr(layer, "key", ""): str(getattr(layer, "content", "")).strip()
+        for layer in prompt_asset_layers
+        if str(getattr(layer, "content", "")).strip()
+    }
+    before_task = [
+        layers_by_key[key]
+        for key in ("active_lorebook_entries", "active_character_cards")
+        if layers_by_key.get(key)
+    ]
+    after_task = [
+        layers_by_key[key]
+        for key in ("author_notes",)
+        if layers_by_key.get(key)
+    ]
+    return "\n\n---\n\n".join([*before_task, base_user_context, *after_task])
+
+
 @dataclass
 class ConceptAgent:
     llm_complete: LLMComplete | None = None
@@ -184,33 +206,42 @@ class BeatAgent:
         previous_output: str | None,
         user_feedback: str | None = None,
         regenerating: bool = False,
+        prompt_stack_manifest: dict | None = None,
+        prompt_asset_layers: list[Any] | None = None,
     ) -> str:
         if self.llm_complete is None:
             raise RuntimeError("llm_complete is required")
-        return await self.llm_complete(
-            system_prompt=build_beat_expand_system_prompt(
+        user_context = build_beat_expand_user_message(
+            text_before_cursor=state.get("text_before_cursor", ""),
+            beat=beat,
+            beat_index=beat_index,
+            total_beats=total_beats,
+            preceding_beats_prose=preceding_beats_prose,
+            outline_detail=current_bible.get("outline_detail", ""),
+            runtime_state=current_bible.get("runtime_state", ""),
+            runtime_threads=current_bible.get("runtime_threads", ""),
+            current_chapter_context=state.get("current_chapter_context", ""),
+            previous_chapter_context=state.get("previous_chapter_context", ""),
+            active_character_focus=current_bible.get("active_character_focus", ""),
+            previous_output=previous_output,
+            user_feedback=user_feedback,
+        )
+        kwargs = {
+            "system_prompt": build_beat_expand_system_prompt(
                 style_prompt=state.get("style_prompt"),
                 plot_prompt=state.get("plot_prompt"),
                 generation_profile=generation_profile,
                 regenerating=regenerating,
             ),
-            user_context=build_beat_expand_user_message(
-                text_before_cursor=state.get("text_before_cursor", ""),
-                beat=beat,
-                beat_index=beat_index,
-                total_beats=total_beats,
-                preceding_beats_prose=preceding_beats_prose,
-                outline_detail=current_bible.get("outline_detail", ""),
-                runtime_state=current_bible.get("runtime_state", ""),
-                runtime_threads=current_bible.get("runtime_threads", ""),
-                current_chapter_context=state.get("current_chapter_context", ""),
-                previous_chapter_context=state.get("previous_chapter_context", ""),
-                active_character_focus=current_bible.get("active_character_focus", ""),
-                previous_output=previous_output,
-                user_feedback=user_feedback,
+            "user_context": _compose_beat_expand_user_context(
+                user_context,
+                prompt_asset_layers or [],
             ),
-            mode="immersion",
-        )
+            "mode": "immersion",
+        }
+        if prompt_stack_manifest is not None:
+            kwargs["prompt_stack_manifest"] = prompt_stack_manifest
+        return await self.llm_complete(**kwargs)
 
 
 @dataclass

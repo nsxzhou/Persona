@@ -10,6 +10,7 @@ from app.api.deps import (
     CurrentUserDep,
     DbSessionDep,
     ProjectExportServiceDep,
+    PromptStackServiceDep,
     ProjectServiceDep,
 )
 from app.schemas.projects import (
@@ -19,6 +20,11 @@ from app.schemas.projects import (
     ProjectUpdate,
     ProjectBibleResponse,
     ProjectBibleUpdate,
+    PromptStackPreviewRequest,
+    PromptStackPreviewResponse,
+    ProjectPromptAssetCreate,
+    ProjectPromptAssetResponse,
+    ProjectPromptAssetUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,6 +131,105 @@ async def update_project_bible(
         user_id=current_user.id,
     )
     return ProjectBibleResponse.model_validate(bible)
+
+
+@router.get(
+    "/{project_id}/prompt-assets",
+    response_model=list[ProjectPromptAssetResponse],
+)
+async def list_project_prompt_assets(
+    project_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    prompt_stack_service: PromptStackServiceDep,
+) -> list[ProjectPromptAssetResponse]:
+    assets = await prompt_stack_service.list_assets(
+        db_session,
+        project_id,
+        user_id=current_user.id,
+    )
+    return [ProjectPromptAssetResponse.model_validate(asset) for asset in assets]
+
+
+@router.post(
+    "/{project_id}/prompt-assets",
+    response_model=ProjectPromptAssetResponse,
+    status_code=201,
+)
+async def create_project_prompt_asset(
+    project_id: str,
+    payload: ProjectPromptAssetCreate,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    prompt_stack_service: PromptStackServiceDep,
+) -> ProjectPromptAssetResponse:
+    asset = await prompt_stack_service.create_asset(
+        db_session,
+        project_id,
+        payload,
+        user_id=current_user.id,
+    )
+    return ProjectPromptAssetResponse.model_validate(asset)
+
+
+@router.patch(
+    "/{project_id}/prompt-assets/{asset_id}",
+    response_model=ProjectPromptAssetResponse,
+)
+async def update_project_prompt_asset(
+    project_id: str,
+    asset_id: str,
+    payload: ProjectPromptAssetUpdate,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    prompt_stack_service: PromptStackServiceDep,
+) -> ProjectPromptAssetResponse:
+    asset = await prompt_stack_service.update_asset(
+        db_session,
+        project_id,
+        asset_id,
+        payload,
+        user_id=current_user.id,
+    )
+    return ProjectPromptAssetResponse.model_validate(asset)
+
+
+@router.delete(
+    "/{project_id}/prompt-assets/{asset_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_project_prompt_asset(
+    project_id: str,
+    asset_id: str,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    prompt_stack_service: PromptStackServiceDep,
+) -> None:
+    await prompt_stack_service.delete_asset(
+        db_session,
+        project_id,
+        asset_id,
+        user_id=current_user.id,
+    )
+
+
+@router.post(
+    "/{project_id}/prompt-stack/preview",
+    response_model=PromptStackPreviewResponse,
+)
+async def preview_project_prompt_stack(
+    project_id: str,
+    payload: PromptStackPreviewRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    prompt_stack_service: PromptStackServiceDep,
+) -> PromptStackPreviewResponse:
+    return await prompt_stack_service.preview(
+        db_session,
+        project_id,
+        payload,
+        user_id=current_user.id,
+    )
 
 
 @router.post("/{project_id}/archive", response_model=ProjectResponse)

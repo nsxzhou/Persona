@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Settings } from "lucide-react";
+import { Layers3, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BibleTabContent } from "@/components/bible-tab-content";
 import { OutlineDetailTab } from "@/components/outline-detail-tab";
+import { PromptStackTab } from "@/components/prompt-stack-tab";
 import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { SettingsTab } from "@/components/settings-tab";
 import { api } from "@/lib/api";
@@ -232,6 +233,13 @@ export function WorkbenchTabs({
           </TabsTrigger>
         ))}
         <TabsTrigger
+          value="prompt_stack"
+          className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          <Layers3 className="mr-1.5 h-3.5 w-3.5" />
+          Prompt 栈
+        </TabsTrigger>
+        <TabsTrigger
           value="settings"
           className="ml-auto rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
@@ -274,6 +282,11 @@ export function WorkbenchTabs({
           </div>
         </TabsContent>
       ))}
+
+      {/* Settings tab */}
+        <TabsContent value="prompt_stack" className="mt-0 pt-6">
+          <PromptStackTab projectId={project.id} chapters={chapters} />
+        </TabsContent>
 
       {/* Settings tab */}
         <TabsContent value="settings" className="mt-0 pt-6">

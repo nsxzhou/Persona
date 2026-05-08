@@ -72,6 +72,13 @@ class WritingContextSections:
     active_character_focus: str = ""
 
 
+@dataclass(frozen=True)
+class WritingPromptAssetLayer:
+    key: str
+    title: str
+    content: str
+
+
 def assemble_writing_context(
     style_prompt: str | None = None,
     *,
@@ -82,6 +89,7 @@ def assemble_writing_context(
     generation_profile: GenerationProfile | None = None,
     chapter_objective_card: ChapterObjectiveCard | None = None,
     sections: WritingContextSections | None = None,
+    prompt_asset_layers: list[WritingPromptAssetLayer] | None = None,
     length_preset: LengthPresetKey = "long",
     content_length: int = 0,
 ) -> str:
@@ -216,7 +224,21 @@ def assemble_writing_context(
                 f"- 直接推进到最终结局"
             )
 
+    asset_layers_by_key = {
+        layer.key: layer
+        for layer in (prompt_asset_layers or [])
+        if layer.content.strip()
+    }
+    lore_layer = asset_layers_by_key.get("active_lorebook_entries")
+    character_layer = asset_layers_by_key.get("active_character_cards")
+    author_note_layer = asset_layers_by_key.get("author_notes")
+    if lore_layer is not None:
+        project_context_parts.append(lore_layer.content.strip())
+    if character_layer is not None:
+        project_context_parts.append(character_layer.content.strip())
     parts.append("# Project Context\n" + "\n\n".join(project_context_parts))
+    if author_note_layer is not None:
+        parts.append(author_note_layer.content.strip())
 
     return "\n".join(parts)
 

@@ -16,6 +16,7 @@ class StubLLM:
         system_prompt: str,
         user_context: str,
         mode: str,
+        **_kwargs,
     ) -> str:
         self.calls.append(
             {
@@ -445,3 +446,81 @@ async def test_chapter_write_pipeline_pauses_on_beats_then_expands_with_one_focu
 
 def test_parse_beats_markdown_normalizes_list_markers_for_chapter_expansion() -> None:
     assert parse_beats_markdown("- 第一拍\n- 第二拍") == ["第一拍", "第二拍"]
+
+
+@pytest.mark.asyncio
+async def test_beat_expand_injects_prompt_asset_layers_in_runtime_order(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.context_assembly import WritingPromptAssetLayer
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+    from app.schemas.projects import PromptStackManifest
+    from app.services.prompt_stack import PromptStackSelection
+
+    get_settings.cache_clear()
+    llm = StubLLM(
+        [
+            "Expanded prose",
+            "Expanded prose",
+            "Expanded prose",
+            "Expanded prose",
+            "Expanded prose",
+        ]
+    )
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+    prompt_stack = PromptStackSelection(
+        layers=[
+            WritingPromptAssetLayer(
+                key="author_notes",
+                title="Author Notes",
+                content="# Author Notes\n\nNear output note",
+            ),
+            WritingPromptAssetLayer(
+                key="active_character_cards",
+                title="Active Character Cards",
+                content="# Active Character Cards\n\nCharacter runtime card",
+            ),
+            WritingPromptAssetLayer(
+                key="active_lorebook_entries",
+                title="Active Lorebook Entries",
+                content="# Active Lorebook Entries\n\nLore runtime entry",
+            ),
+        ],
+        selected_assets=[],
+        manifest=PromptStackManifest(
+            layers=[],
+            selected_assets=[],
+            total_selected_assets=0,
+            final_prompt_char_count=0,
+        ),
+    )
+
+    result = await pipeline._handle_beat_expand(
+        {
+            "run_id": "run-beat-expand-prompt-stack",
+            "intent_type": "beat_expand",
+            "beat": "Open the river gate",
+            "beat_index": 0,
+            "total_beats": 1,
+            "current_chapter_context": "river gate scene",
+            "current_bible": {},
+            "prompt_stack": prompt_stack,
+        },
+        {},
+        pipeline._generation_profile_obj({}),
+    )
+
+    assert result["persist_payload"]["markdown"] == "Expanded prose"
+    user_context = next(call["user_context"] for call in llm.calls if call["mode"] == "immersion")
+    assert user_context.index("# Active Lorebook Entries") < user_context.index("# Active Character Cards")
+    assert user_context.index("# Active Character Cards") < user_context.index("## 当前节拍")
+    assert user_context.index("## 当前节拍") < user_context.index("# Author Notes")

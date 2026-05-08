@@ -700,6 +700,257 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/prompt-assets": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Project Prompt Assets",
+        "operationId": "list_project_prompt_assets_api_v1_projects__project_id__prompt_assets_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectPromptAssetResponse"
+                  },
+                  "title": "Response List Project Prompt Assets Api V1 Projects  Project Id  Prompt Assets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project Prompt Asset",
+        "operationId": "create_project_prompt_asset_api_v1_projects__project_id__prompt_assets_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPromptAssetCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPromptAssetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/prompt-assets/{asset_id}": {
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update Project Prompt Asset",
+        "operationId": "update_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__patch",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPromptAssetUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPromptAssetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete Project Prompt Asset",
+        "operationId": "delete_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__delete",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/prompt-stack/preview": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Preview Project Prompt Stack",
+        "operationId": "preview_project_prompt_stack_api_v1_projects__project_id__prompt_stack_preview_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptStackPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptStackPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/archive": {
       "post": {
         "tags": [
@@ -5756,6 +6007,295 @@
         ],
         "title": "ProjectCreate"
       },
+      "ProjectPromptAssetCreate": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "character_card",
+              "lorebook_entry",
+              "author_note"
+            ],
+            "title": "Kind"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "project",
+              "chapter"
+            ],
+            "title": "Scope",
+            "default": "project"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Content",
+            "default": ""
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Keywords"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "always_on": {
+            "type": "boolean",
+            "title": "Always On",
+            "default": false
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "title"
+        ],
+        "title": "ProjectPromptAssetCreate"
+      },
+      "ProjectPromptAssetResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "character_card",
+              "lorebook_entry",
+              "author_note"
+            ],
+            "title": "Kind"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "project",
+              "chapter"
+            ],
+            "title": "Scope"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "always_on": {
+            "type": "boolean",
+            "title": "Always On"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "kind",
+          "scope",
+          "chapter_id",
+          "title",
+          "content",
+          "keywords",
+          "enabled",
+          "always_on",
+          "priority",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectPromptAssetResponse"
+      },
+      "ProjectPromptAssetUpdate": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "character_card",
+                  "lorebook_entry",
+                  "author_note"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "project",
+                  "chapter"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "keywords": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keywords"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "always_on": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Always On"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          }
+        },
+        "type": "object",
+        "title": "ProjectPromptAssetUpdate"
+      },
       "ProjectResponse": {
         "properties": {
           "id": {
@@ -6111,6 +6651,223 @@
         },
         "type": "object",
         "title": "ProjectUpdate"
+      },
+      "PromptStackAssetManifestItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "character_card",
+              "lorebook_entry",
+              "author_note"
+            ],
+            "title": "Kind"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "project",
+              "chapter"
+            ],
+            "title": "Scope"
+          },
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "char_count": {
+            "type": "integer",
+            "title": "Char Count"
+          },
+          "original_char_count": {
+            "type": "integer",
+            "title": "Original Char Count"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "match_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Match Reasons"
+          },
+          "matched_keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Keywords"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "scope",
+          "chapter_id",
+          "title",
+          "priority",
+          "char_count",
+          "original_char_count",
+          "truncated",
+          "match_reasons",
+          "matched_keywords"
+        ],
+        "title": "PromptStackAssetManifestItem"
+      },
+      "PromptStackLayerManifestItem": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "char_count": {
+            "type": "integer",
+            "title": "Char Count"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "default": false
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/PromptStackAssetManifestItem"
+            },
+            "type": "array",
+            "title": "Assets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "char_count"
+        ],
+        "title": "PromptStackLayerManifestItem"
+      },
+      "PromptStackManifest": {
+        "properties": {
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/PromptStackLayerManifestItem"
+            },
+            "type": "array",
+            "title": "Layers"
+          },
+          "selected_assets": {
+            "items": {
+              "$ref": "#/components/schemas/PromptStackAssetManifestItem"
+            },
+            "type": "array",
+            "title": "Selected Assets"
+          },
+          "total_selected_assets": {
+            "type": "integer",
+            "title": "Total Selected Assets"
+          },
+          "final_prompt_char_count": {
+            "type": "integer",
+            "title": "Final Prompt Char Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layers",
+          "selected_assets",
+          "total_selected_assets",
+          "final_prompt_char_count"
+        ],
+        "title": "PromptStackManifest"
+      },
+      "PromptStackPreviewRequest": {
+        "properties": {
+          "chapter_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Id"
+          },
+          "current_chapter_context": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "Current Chapter Context",
+            "default": ""
+          },
+          "text_before_cursor": {
+            "type": "string",
+            "maxLength": 40000,
+            "title": "Text Before Cursor",
+            "default": ""
+          },
+          "user_context": {
+            "type": "string",
+            "maxLength": 20000,
+            "title": "User Context",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "PromptStackPreviewRequest"
+      },
+      "PromptStackPreviewResponse": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/PromptStackManifest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt",
+          "manifest"
+        ],
+        "title": "PromptStackPreviewResponse"
       },
       "ProviderConfigCreate": {
         "properties": {

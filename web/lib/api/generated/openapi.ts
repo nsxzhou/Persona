@@ -243,6 +243,59 @@ export interface paths {
         patch: operations["update_project_bible_api_v1_projects__project_id__bible_patch"];
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/prompt-assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Prompt Assets */
+        get: operations["list_project_prompt_assets_api_v1_projects__project_id__prompt_assets_get"];
+        put?: never;
+        /** Create Project Prompt Asset */
+        post: operations["create_project_prompt_asset_api_v1_projects__project_id__prompt_assets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prompt-assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Project Prompt Asset */
+        delete: operations["delete_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Project Prompt Asset */
+        patch: operations["update_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/prompt-stack/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Project Prompt Stack */
+        post: operations["preview_project_prompt_stack_api_v1_projects__project_id__prompt_stack_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/archive": {
         parameters: {
             query?: never;
@@ -1814,6 +1867,108 @@ export interface components {
              */
             auto_sync_memory: boolean;
         };
+        /** ProjectPromptAssetCreate */
+        ProjectPromptAssetCreate: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "character_card" | "lorebook_entry" | "author_note";
+            /**
+             * Scope
+             * @default project
+             * @enum {string}
+             */
+            scope: "project" | "chapter";
+            /** Chapter Id */
+            chapter_id?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /** Keywords */
+            keywords?: string[];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Always On
+             * @default false
+             */
+            always_on: boolean;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+        };
+        /** ProjectPromptAssetResponse */
+        ProjectPromptAssetResponse: {
+            /** Id */
+            id: string;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "character_card" | "lorebook_entry" | "author_note";
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "project" | "chapter";
+            /** Chapter Id */
+            chapter_id: string | null;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /** Keywords */
+            keywords: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Always On */
+            always_on: boolean;
+            /** Priority */
+            priority: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProjectPromptAssetUpdate */
+        ProjectPromptAssetUpdate: {
+            /** Kind */
+            kind?: ("character_card" | "lorebook_entry" | "author_note") | null;
+            /** Scope */
+            scope?: ("project" | "chapter") | null;
+            /** Chapter Id */
+            chapter_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Keywords */
+            keywords?: string[] | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Always On */
+            always_on?: boolean | null;
+            /** Priority */
+            priority?: number | null;
+        };
         /** ProjectResponse */
         ProjectResponse: {
             /** Id */
@@ -1916,6 +2071,92 @@ export interface components {
             length_preset?: ("short" | "medium" | "long") | null;
             /** Auto Sync Memory */
             auto_sync_memory?: boolean | null;
+        };
+        /** PromptStackAssetManifestItem */
+        PromptStackAssetManifestItem: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "character_card" | "lorebook_entry" | "author_note";
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "project" | "chapter";
+            /** Chapter Id */
+            chapter_id: string | null;
+            /** Title */
+            title: string;
+            /** Priority */
+            priority: number;
+            /** Char Count */
+            char_count: number;
+            /** Original Char Count */
+            original_char_count: number;
+            /** Truncated */
+            truncated: boolean;
+            /** Match Reasons */
+            match_reasons: string[];
+            /** Matched Keywords */
+            matched_keywords: string[];
+        };
+        /** PromptStackLayerManifestItem */
+        PromptStackLayerManifestItem: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Char Count */
+            char_count: number;
+            /** Budget */
+            budget?: number | null;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /** Assets */
+            assets?: components["schemas"]["PromptStackAssetManifestItem"][];
+        };
+        /** PromptStackManifest */
+        PromptStackManifest: {
+            /** Layers */
+            layers: components["schemas"]["PromptStackLayerManifestItem"][];
+            /** Selected Assets */
+            selected_assets: components["schemas"]["PromptStackAssetManifestItem"][];
+            /** Total Selected Assets */
+            total_selected_assets: number;
+            /** Final Prompt Char Count */
+            final_prompt_char_count: number;
+        };
+        /** PromptStackPreviewRequest */
+        PromptStackPreviewRequest: {
+            /** Chapter Id */
+            chapter_id?: string | null;
+            /**
+             * Current Chapter Context
+             * @default
+             */
+            current_chapter_context: string;
+            /**
+             * Text Before Cursor
+             * @default
+             */
+            text_before_cursor: string;
+            /**
+             * User Context
+             * @default
+             */
+            user_context: string;
+        };
+        /** PromptStackPreviewResponse */
+        PromptStackPreviewResponse: {
+            /** Prompt */
+            prompt: string;
+            manifest: components["schemas"]["PromptStackManifest"];
         };
         /** ProviderConfigCreate */
         ProviderConfigCreate: {
@@ -2877,6 +3118,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectBibleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_prompt_assets_api_v1_projects__project_id__prompt_assets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPromptAssetResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_prompt_asset_api_v1_projects__project_id__prompt_assets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPromptAssetCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPromptAssetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_project_prompt_asset_api_v1_projects__project_id__prompt_assets__asset_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPromptAssetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPromptAssetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_project_prompt_stack_api_v1_projects__project_id__prompt_stack_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptStackPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptStackPreviewResponse"];
                 };
             };
             /** @description Validation Error */

@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.domain_errors import ConflictError, NotFoundError
+from app.core.domain_errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.db.models import NovelWorkflowRun
 from app.db.repositories.novel_workflows import NovelWorkflowRepository
 from app.schemas.novel_workflows import (
@@ -136,8 +136,17 @@ class NovelWorkflowService:
                 payload.project_id,
                 user_id=user_id,
             )
+            if chapter_id is not None:
+                await self.project_chapter_service.get_or_404(
+                    session,
+                    payload.project_id,
+                    chapter_id,
+                    user_id=user_id,
+                )
             provider_id = provider_id or project.default_provider_id
             model_name = model_name or project.default_model
+        elif chapter_id is not None:
+            raise UnprocessableEntityError("章节工作流必须绑定项目")
         if provider_id is not None:
             await self.provider_service.ensure_enabled(session, provider_id, user_id=user_id)
 

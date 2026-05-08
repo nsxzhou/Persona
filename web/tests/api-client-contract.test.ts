@@ -8,6 +8,8 @@ import type {
   NovelBeatWorkflowResult,
   NovelMemoryWorkflowResult,
   PlotProfile,
+  ProjectPromptAsset,
+  PromptStackPreviewResponse,
   SetupResponse,
   SetupStatusResponse,
   StyleProfile,
@@ -77,6 +79,54 @@ describe("API contracts", () => {
       if (path.includes("/artifacts/volume_chapters_markdown")) {
         return "章节结构" as T;
       }
+      if (path === "/api/v1/projects/project-1/prompt-assets" && init?.method === "POST") {
+        return {
+          id: "asset-1",
+          project_id: "project-1",
+          kind: "lorebook_entry",
+          scope: "project",
+          chapter_id: null,
+          title: "Asset",
+          content: "Content",
+          keywords: ["river"],
+          enabled: true,
+          always_on: false,
+          priority: 1,
+          created_at: "2026-05-08T00:00:00Z",
+          updated_at: "2026-05-08T00:00:00Z",
+        } as T;
+      }
+      if (path === "/api/v1/projects/project-1/prompt-assets" && !init) {
+        return [] as T;
+      }
+      if (path === "/api/v1/projects/project-1/prompt-assets/asset-1" && init?.method === "PATCH") {
+        return {
+          id: "asset-1",
+          project_id: "project-1",
+          kind: "lorebook_entry",
+          scope: "project",
+          chapter_id: null,
+          title: "Asset updated",
+          content: "Content",
+          keywords: [],
+          enabled: true,
+          always_on: true,
+          priority: 2,
+          created_at: "2026-05-08T00:00:00Z",
+          updated_at: "2026-05-08T00:00:00Z",
+        } as T;
+      }
+      if (path === "/api/v1/projects/project-1/prompt-stack/preview") {
+        return {
+          prompt: "# Active Lorebook Entries\n\nContent",
+          manifest: {
+            layers: [],
+            selected_assets: [],
+            total_selected_assets: 0,
+            final_prompt_char_count: 0,
+          },
+        } as T;
+      }
       return undefined as T;
     }) as unknown as {
       <T>(path: string, init?: RequestInit): Promise<T>;
@@ -110,6 +160,7 @@ describe("API contracts", () => {
     });
     const beatsPromise: Promise<NovelBeatWorkflowResult> = client.runBeatsWorkflow(
       "project-1",
+      "chapter-1",
       "",
       "",
       "",
@@ -141,6 +192,29 @@ describe("API contracts", () => {
       plot_name: "反派修罗场终版",
       story_engine_markdown: "# Plot Writing Guide\n## Core Plot Formula\n- 制造主动选择。\n",
     });
+    const promptAssetsPromise: Promise<ProjectPromptAsset[]> = client.getProjectPromptAssets("project-1");
+    const promptAssetCreatePromise: Promise<ProjectPromptAsset> = client.createProjectPromptAsset("project-1", {
+      kind: "lorebook_entry",
+      scope: "project",
+      chapter_id: null,
+      title: "Asset",
+      content: "Content",
+      keywords: ["river"],
+      enabled: true,
+      always_on: false,
+      priority: 1,
+    });
+    const promptAssetUpdatePromise: Promise<ProjectPromptAsset> = client.updateProjectPromptAsset("project-1", "asset-1", {
+      always_on: true,
+      priority: 2,
+    });
+    const promptStackPreviewPromise: Promise<PromptStackPreviewResponse> = client.previewProjectPromptStack("project-1", {
+      chapter_id: null,
+      current_chapter_context: "",
+      text_before_cursor: "river",
+      user_context: "",
+    });
+    const promptAssetDeletePromise: Promise<void> = client.deleteProjectPromptAsset("project-1", "asset-1");
 
     const payload: StyleAnalysisJobCreatePayload = {
       style_name: "冷白风",
@@ -161,6 +235,11 @@ describe("API contracts", () => {
       styleProfileUpdatePromise,
       plotProfileCreatePromise,
       plotProfileUpdatePromise,
+      promptAssetsPromise,
+      promptAssetCreatePromise,
+      promptAssetUpdatePromise,
+      promptStackPreviewPromise,
+      promptAssetDeletePromise,
     ]);
     expect(request).toHaveBeenCalled();
     expect(parseBeatsMarkdown("节拍如下：\n- 【平静→疑惑】 发现脚印\n- 旁白说明")).toEqual([

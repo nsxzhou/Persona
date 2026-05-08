@@ -65,6 +65,58 @@ def test_prompt_trace_renderer_handles_multiple_calls_fences_and_errors() -> Non
     assert "| Contains truncation marker | yes |" in markdown
 
 
+def test_prompt_trace_renderer_includes_prompt_stack_manifest() -> None:
+    started = datetime(2026, 5, 8, 10, 0, tzinfo=UTC)
+    markdown = render_prompt_trace_markdown(
+        run_id="run-stack",
+        calls=[
+            PromptTraceCall(
+                index=1,
+                intent_type="beat_expand",
+                stage="generating",
+                mode="immersion",
+                provider_id="provider-1",
+                provider_label="Primary",
+                model_name="gpt-test",
+                started_at=started,
+                completed_at=started,
+                duration_ms=0,
+                messages=[PromptTraceMessage("system", "SYSTEM")],
+                prompt_stack_manifest={
+                    "layers": [
+                        {
+                            "key": "active_lorebook_entries",
+                            "title": "Active Lorebook Entries",
+                            "char_count": 120,
+                            "budget": 8000,
+                            "truncated": False,
+                            "assets": [{"id": "asset-1", "title": "River city"}],
+                        }
+                    ],
+                    "selected_assets": [
+                        {
+                            "id": "asset-1",
+                            "title": "River city",
+                            "kind": "lorebook_entry",
+                            "priority": 5,
+                            "match_reasons": ["keyword"],
+                            "matched_keywords": ["river"],
+                            "truncated": False,
+                        }
+                    ],
+                },
+                output_char_count=2,
+                output_excerpt="OK",
+            )
+        ],
+    )
+
+    assert "### Prompt Stack Manifest" in markdown
+    assert "Active Lorebook Entries" in markdown
+    assert "River city" in markdown
+    assert "keyword" in markdown
+
+
 def test_prompt_trace_output_excerpt_keeps_head_and_tail() -> None:
     output = "A" * 1300 + "MIDDLE" + "Z" * 1300
 

@@ -289,6 +289,7 @@ export function EditorContentArea({
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
+    chapterId: selectedChapterRecord?.id ?? null,
     disabled: !selectedChapterRecord,
   });
 
@@ -310,6 +311,7 @@ export function EditorContentArea({
     currentChapterContext,
     previousChapterContext,
     totalContentLength,
+    chapterId: selectedChapterRecord?.id ?? null,
     disabled: !selectedChapterRecord,
     onBeatExpandCompleted: (beatsProse) => beatExpandCompletedRef.current(beatsProse),
   });

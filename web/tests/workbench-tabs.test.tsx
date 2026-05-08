@@ -23,6 +23,7 @@ const renderWithQueryClient = (ui: React.ReactElement) => {
 
 const apiMock = vi.hoisted(() => ({
   getProjectChapters: vi.fn(),
+  getProjectPromptAssets: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -43,6 +44,10 @@ vi.mock("@/components/outline-detail-tab", () => ({
 
 vi.mock("@/components/settings-tab", () => ({
   SettingsTab: () => <div>settings-tab</div>,
+}));
+
+vi.mock("@/components/prompt-stack-tab", () => ({
+  PromptStackTab: () => <div>prompt-stack-tab</div>,
 }));
 
 vi.mock("@/components/regenerate-dialog", () => ({
@@ -99,6 +104,7 @@ const projectBible = {
 describe("WorkbenchTabs", () => {
   beforeEach(() => {
     apiMock.getProjectChapters.mockReset();
+    apiMock.getProjectPromptAssets.mockReset();
   });
 
   test("shows a retry affordance when chapter loading fails", async () => {
@@ -143,5 +149,23 @@ describe("WorkbenchTabs", () => {
     await waitFor(() => {
       expect(apiMock.getProjectChapters).toHaveBeenCalledTimes(2);
     });
+  });
+
+  test("exposes the Prompt 栈 tab", async () => {
+    apiMock.getProjectChapters.mockResolvedValueOnce([]);
+
+    renderWithQueryClient(
+      <WorkbenchTabs
+        project={project as never}
+        projectBible={projectBible as never}
+        providers={[]}
+        styleProfiles={[]}
+        plotProfiles={[]}
+        activeTab="prompt_stack"
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: /Prompt 栈/ })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("prompt-stack-tab")).toBeInTheDocument();
   });
 });
