@@ -7,6 +7,7 @@ from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_desire_semantics_hint,
     build_character_planning_budget_hint,
     build_direct_output_rules,
     get_hook_framework,
@@ -24,11 +25,11 @@ _CHARACTER_BLUEPRINT_INSTRUCTION_TEMPLATE = (
     "- 他是谁，为什么此刻会入局\n"
     "- 他如何卡住主角，或为什么能帮主角破局\n"
     "- 主角能利用、交换、规避或反制他的点是什么\n"
-    "- 角色能让读者期待主角得到什么、压过什么、推倒谁、彻底征服谁，或是提供绝对忠诚的避风港\n\n"
+    "- 角色能让读者期待主角得到什么、压过什么、改变什么关系，或获得什么新的资源、筹码与情绪支点\n\n"
     "功能分配规则：\n"
-    "- 角色群里要有明确的奖励源（如绝色红颜、可掠夺资源）、阻力源、压迫源、反转源、情绪牵引源\n"
+    "- 角色群里要有明确的奖励源、资源入口、阻力源、压迫源、反转源、情绪牵引源\n"
     "- 写清短期目标、长期目标、缺陷与可被撬动/攻略的弱点\n"
-    "- 允许角色功能完全定位于“满足特定的征服欲”、“XP/欲望投射”或“提供绝对的陪伴与爽感”\n"
+    "- 角色功能必须服务主线推进、读者奖励、局势压力或关系张力；成人向功能只能在 Generation Profile 明确允许时出现\n"
     "- 避免只写人设标签或空泛魅力描述\n\n"
     "每个角色用二级标题分隔，内部用结构化列表。"
     "{hook_framework}"
@@ -42,7 +43,7 @@ def build_character_blueprint_system_prompt(
     length_preset: LengthPresetKey = "long",
     regenerating: bool = False,
 ) -> str:
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     instruction = append_soft_length_hint(
         _CHARACTER_BLUEPRINT_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,

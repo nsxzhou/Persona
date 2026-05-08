@@ -7,6 +7,7 @@ from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_desire_semantics_hint,
     build_direct_output_rules,
     build_outline_closure_hint,
     build_plot_propulsion_contract,
@@ -24,14 +25,14 @@ _OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
     "- 第三幕呈现代价显现、嵌套转折与余波设定\n"
     "- 总纲里必须能看见日常异常、催化事件、虚假胜利、灵魂黑夜、代价显现这些功能点如何落位\n\n"
     "落笔前先做隐式判断，不要把判断过程写出来：\n"
-    "- 先判断这本书当前真正靠什么让人继续看下去，是力量与权力的扩张还是欲望的满足\n"
+    "- 先判断这本书当前真正靠什么让人继续看下去，是力量、权力、关系、资源还是身份变化的兑现\n"
     "- 围绕同一条主爽点主线组织推进，不要为了显得更大而额外加设定\n"
     "- 不要为了拉大规模而额外铺地图、体系、势力层级\n\n"
     "以「阶段」为单位规划，每个阶段用二级标题，包含：\n"
     "- **阶段名称与核心命题**\n"
     "- **核心局面/场景**（这一阶段读者主要在追什么局）\n"
-    "- **主驱动轴**（本阶段继续服务哪一种核心欲望）\n"
-    "- **当前阶段的核心兑现物**（资源、地位、关系、真相、掌控力、彻底推倒、打破禁忌中的哪一项最该兑现）\n"
+    "- **主驱动轴**（本阶段继续服务哪一种核心追读期待）\n"
+    "- **当前阶段的核心兑现物**（资源、地位、关系、真相、掌控力、身份反转或规则突破中的哪一项最该兑现）\n"
     "- **阶段核心对手或阻力**（冲突类型和压迫方式）\n"
     "- **主角地位/掌控力变化**（本阶段如何从被动到主动，或从边缘到核心，或者实现绝对掌控）\n"
     "- **核心爽点事件**（1-2 个，必须服务主爽点）\n"
@@ -41,8 +42,8 @@ _OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
     "- 遵循「小高潮-缓冲-大高潮」循环\n"
     "- 开篇尽快建立核心冲突与角色魅力\n"
     "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
-    "- 读者下一阶段最想看主角拿到什么、压过谁、推倒谁、彻底征服谁，必须写清楚\n"
-    "- 允许将核心爽点完全聚焦于极致打脸、后宫扩张或打破禁忌的欲望满足上"
+    "- 读者下一阶段最想看主角拿到什么、压过谁、改变什么关系或突破什么规则，必须写清楚\n"
+    "- 核心爽点必须聚焦于极致打脸、资源兑现、权力扩张、身份反转或关系推进；成人向兑现只能在 Generation Profile 明确允许时出现"
     "{hook_framework}"
 )
 
@@ -72,7 +73,7 @@ def build_outline_master_system_prompt(
     length_preset: LengthPresetKey = "long",
     regenerating: bool = False,
 ) -> str:
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     instruction = append_soft_length_hint(
         _OUTLINE_MASTER_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
@@ -119,7 +120,7 @@ def build_volume_generate_system_prompt(
     generation_profile: GenerationProfile | None = None,
     regenerating: bool = False,
 ) -> str:
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     instruction = append_soft_length_hint(
         _VOLUME_GENERATE_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,

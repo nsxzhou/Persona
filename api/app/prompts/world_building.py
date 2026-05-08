@@ -4,6 +4,7 @@ from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE
 from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
+    build_desire_semantics_hint,
     build_direct_output_rules,
     append_profile_blocks,
     append_soft_length_hint,
@@ -19,7 +20,7 @@ _WORLD_BUILDING_INSTRUCTION_TEMPLATE = (
     "2. 再判断哪些设定模块对当前故事真正必要；"
     "3. 若简介未明确写出超自然，则默认不存在超自然；"
     "4. 只保留当前故事真正需要的模块，只生成当前故事真正需要的模块，不追求完美。\n\n"
-    "世界观不是资料库，而是主角欲望和读者期待的供给系统；设定可以是极端的阶层落差与禁忌秩序，或者是为了让主角装逼打脸、开后宫而量身定制的无敌金手指与系统。\n\n"
+    "世界观不是资料库，而是主角行动和读者期待的供给系统；设定可以是阶层落差、秩序断层、资源机制、身份压迫或能制造打脸反转的规则漏洞。\n\n"
     "用三维世界构建法压住设定，但不要输出推理过程：\n"
     "- 物理维度、社会维度、隐喻维度都要服务角色冲突\n"
     "- 每个维度至少给出一条会影响角色选择的断层线\n"
@@ -50,7 +51,7 @@ def build_world_building_system_prompt(
     length_preset: LengthPresetKey = "long",
     regenerating: bool = False,
 ) -> str:
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     instruction = append_soft_length_hint(
         _WORLD_BUILDING_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,

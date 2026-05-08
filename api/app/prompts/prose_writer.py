@@ -4,6 +4,7 @@ from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_contex
 from app.prompts.novel_shared import (
     BEAT_EXPAND_CONTEXT_CHARS,
     MALE_COMMERCIAL_ENGINE,
+    build_desire_semantics_hint,
     build_plot_propulsion_contract,
     append_profile_blocks,
     get_hook_framework,
@@ -35,9 +36,9 @@ def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str 
         "- 对话部分要有潜台词，不直接说出意图\n"
         "- 段落控制在 150 字以内，适配移动端阅读\n"
         "- 动作/战斗场景用短句加快节奏\n"
-        "- 每一段都要落下可感知的读者奖励（如极致的多巴胺爽感、金钱权力的兑现、或纯粹的生理与欲望满足）\n"
-        "- 允许大段甚至整章的纯粹氛围、五感描写和欲望宣泄，充分满足读者的期待感与征服欲\n"
-        "- 让读者体验主角正在享受绝对的权力掌控、彻底推倒高冷角色、或享受绝对忠诚的后宫陪伴\n"
+        "- 每一段都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转\n"
+        "- 可以强化氛围、五感描写和情绪张力；成人向欲望表达只能在 Generation Profile 明确允许时出现\n"
+        "- 让读者看见主角正在获得更清晰的筹码、地位、主动权或关系变化，不要在主流配置下注入露骨成人语义\n"
         "- 直接输出正文，绝不输出章节标题（如“# 第x章”），不要输出节拍本身、不要解释\n"
         f"{hook_framework}"
     )
@@ -61,7 +62,7 @@ def build_beat_expand_system_prompt(
     if style_prompt:
         parts.append(VOICE_PROFILE_LANGUAGE_PRIORITY_CONTRACT)
         parts.append("\n\n---\n")
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     parts.append(_build_beat_expand_system(beat_expand_chars, hook_framework))
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)

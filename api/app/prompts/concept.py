@@ -8,6 +8,7 @@ from app.core.domain_errors import UnprocessableEntityError
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
+    build_desire_semantics_hint,
     build_direct_output_rules,
     append_profile_blocks,
     get_hook_framework,
@@ -126,7 +127,7 @@ def build_concept_generate_system_prompt(
         ),
         generation_profile=generation_profile,
     )
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     parts.append(_CONCEPT_GENERATE_SYSTEM_TEMPLATE.format(hook_framework=hook_framework))
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)

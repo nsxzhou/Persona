@@ -6,6 +6,7 @@ from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_desire_semantics_hint,
     build_direct_output_rules,
     build_plot_propulsion_contract,
     build_volume_planning_budget_hint,
@@ -30,16 +31,16 @@ _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
     "每章必须包含：\n"
     "- **章节标题**\n"
     "- **核心事件**（2-3 句话概括）\n"
-    "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」，或「极致爽感」、「沉沦堕落」）\n"
+    "- **情绪走向**（如「平静 → 疑惑 → 震惊 → 愤怒」，或「压抑 → 反制 → 爽感兑现」）\n"
     "- **章末钩子**（可以是悬念、反转、新压力、关系变化或阶段性兑现）\n\n"
     "节奏规则：\n"
-    "- 同一规划块内的章节情绪应有起伏，但在高潮或欲望满足环节允许连续的情绪宣泄\n"
-    "- 允许出现纯粹服务于欲望满足、打脸装逼、后宫日常的章节，无需强求传统局面推进\n"
+    "- 同一规划块内的章节情绪应有起伏，但高潮环节可以连续强化打脸、资源兑现、身份反转或关系推进\n"
+    "- 每章都要服务追读期待；成人向欲望兑现只能在 Generation Profile 明确允许时成为核心章节功能\n"
     "- 不必每章硬凹爆点，关键是明确下一章的兑现期待\n"
     "- 该收束时安排伏笔回收和主线收口，但不要机械地按篇幅预设倒推结构\n"
     "- 每章都要回答：下一章读者到底在等什么兑现\n"
-    "- 兑现可以是拿到资源、完成打脸、扳回压制、彻底推倒、精神与肉体双重控制或阶层跃升\n"
-    "- 悬念必须明确勾着特定的多巴胺反馈、征服欲或生理/情感期待"
+    "- 兑现可以是拿到资源、完成打脸、扳回压制、关系突破、掌控新筹码或阶层跃升\n"
+    "- 悬念必须明确勾着特定的多巴胺反馈、局势反转、关系期待或情感期待"
     "{hook_framework}"
 )
 
@@ -77,7 +78,7 @@ def build_outline_detail_system_prompt(
     length_preset: LengthPresetKey = "long",
     regenerating: bool = False,
 ) -> str:
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     instruction = append_soft_length_hint(
         _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
@@ -131,7 +132,7 @@ def build_volume_chapters_system_prompt(
         plot_usage="用它拆章节闭环、章末推动点和关系/资源状态变化，不得照搬样本桥段。",
         generation_profile=generation_profile,
     )
-    hook_framework = get_hook_framework(generation_profile)
+    hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     parts.append(
         _VOLUME_CHAPTERS_SYSTEM_TEMPLATE.format(
             planning_budget_hint=build_volume_planning_budget_hint(length_preset).strip(),
