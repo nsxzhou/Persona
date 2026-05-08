@@ -88,8 +88,6 @@ def test_prompt_trace_renderer_includes_prompt_stack_manifest() -> None:
                             "key": "active_lorebook_entries",
                             "title": "Active Lorebook Entries",
                             "char_count": 120,
-                            "budget": 8000,
-                            "truncated": False,
                             "assets": [{"id": "asset-1", "title": "River city"}],
                         }
                     ],
@@ -99,9 +97,9 @@ def test_prompt_trace_renderer_includes_prompt_stack_manifest() -> None:
                             "title": "River city",
                             "kind": "lorebook_entry",
                             "priority": 5,
+                            "char_count": 80,
                             "match_reasons": ["keyword"],
                             "matched_keywords": ["river"],
-                            "truncated": False,
                         }
                     ],
                 },
@@ -115,6 +113,7 @@ def test_prompt_trace_renderer_includes_prompt_stack_manifest() -> None:
     assert "Active Lorebook Entries" in markdown
     assert "River city" in markdown
     assert "keyword" in markdown
+    assert "Budget" not in markdown
 
 
 def test_prompt_trace_output_excerpt_keeps_head_and_tail() -> None:
@@ -163,7 +162,8 @@ async def test_invoke_completion_trace_callback_receives_injected_messages(monke
     assert messages[0].content == "SYSTEM"
     assert messages[1].role == "user"
     assert messages[1].content.startswith("USER")
-    assert "思维模式要求" in messages[1].content
+    assert "规划方式要求" in messages[1].content
+    assert "<think>" not in messages[1].content
     assert traces[0]["provider_prompt_override_applied"] is False
 
 
@@ -220,7 +220,8 @@ async def test_invoke_completion_appends_provider_override_only_for_immersion(
     assert traces[0]["provider_prompt_override_applied"] is True
 
     assert fake_model.calls[1][0].content == "SYSTEM"
-    assert "思维模式要求" in fake_model.calls[1][1].content
+    assert "规划方式要求" in fake_model.calls[1][1].content
+    assert "<think>" not in fake_model.calls[1][1].content
     assert traces[1]["provider_prompt_override_applied"] is False
 
     assert fake_model.calls[2][0].content == "SYSTEM"

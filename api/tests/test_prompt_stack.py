@@ -348,7 +348,7 @@ async def test_runtime_prompt_stack_selection_service(
 
 
 @pytest.mark.asyncio
-async def test_prompt_stack_manifest_tracks_rendered_lengths_when_truncated(
+async def test_prompt_stack_manifest_keeps_full_lengths_without_truncation_budget(
     app_with_db: FastAPI,
 ) -> None:
     from app.core.security import hash_password
@@ -362,7 +362,7 @@ async def test_prompt_stack_manifest_tracks_rendered_lengths_when_truncated(
     async with app_with_db.state.session_factory() as session:
         user = await AuthRepository().create_user(
             session,
-            username="prompt-stack-truncation-owner",
+            username="prompt-stack-full-length-owner",
             password_hash=hash_password("password123"),
         )
         provider = await ProviderConfigService().create(
@@ -378,7 +378,7 @@ async def test_prompt_stack_manifest_tracks_rendered_lengths_when_truncated(
         project = await ProjectService().create(
             session,
             ProjectCreate(
-                name="Truncation Stack",
+                name="Full Length Stack",
                 default_provider_id=provider.id,
                 default_model="",
             ),
@@ -407,12 +407,13 @@ async def test_prompt_stack_manifest_tracks_rendered_lengths_when_truncated(
             text_before_cursor="",
         )
 
-    assert selection.manifest.layers[0].truncated is True
-    assert selection.manifest.selected_assets[0].truncated is True
-    assert (
-        selection.manifest.selected_assets[0].char_count
-        < selection.manifest.selected_assets[0].original_char_count
-    )
+    assert "X" * 12000 in selection.prompt_text
+    assert selection.manifest.layers[0].char_count >= 12000
+    assert selection.manifest.selected_assets[0].char_count == 12000
+    dumped = selection.manifest.model_dump(mode="json")
+    assert "budget" not in dumped["layers"][0]
+    assert "truncated" not in dumped["layers"][0]
+    assert "original_char_count" not in dumped["selected_assets"][0]
 
 
 async def _create_project(client: AsyncClient, provider_id: str) -> dict:

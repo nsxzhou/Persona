@@ -84,7 +84,7 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
     assert "## 故事摘要" in prompt
 
 
-def test_writing_context_applies_static_section_budgets() -> None:
+def test_writing_context_does_not_truncate_prompt_injection_sections() -> None:
     prompt = assemble_writing_context(
         sections=WritingContextSections(
             world_building="世" * 6000,
@@ -96,12 +96,13 @@ def test_writing_context_applies_static_section_budgets() -> None:
         ),
     )
 
-    assert "世" * 4500 not in prompt
-    assert "纲" * 3500 not in prompt
-    assert "章" * 7500 not in prompt
-    assert "态" * 5500 not in prompt
-    assert "线" * 4500 not in prompt
-    assert "摘" * 4500 not in prompt
+    assert "世" * 6000 in prompt
+    assert "纲" * 5000 in prompt
+    assert "章" * 9000 in prompt
+    assert "态" * 7000 in prompt
+    assert "线" * 7000 in prompt
+    assert "摘" * 6000 in prompt
+    assert "已按上下文预算截断" not in prompt
 
 
 def test_writing_context_injects_prompt_asset_layers_in_fixed_order() -> None:
@@ -129,7 +130,9 @@ def test_writing_context_injects_prompt_asset_layers_in_fixed_order() -> None:
         ],
     )
 
-    assert prompt.index("# Project Context") < prompt.index("# Author Notes")
+    assert "# Author Notes" in prompt
     assert prompt.index("Bible world") < prompt.index("# Active Lorebook Entries")
     assert prompt.index("# Active Lorebook Entries") < prompt.index("# Active Character Cards")
     assert prompt.index("# Active Character Cards") < prompt.index("# Author Notes")
+    assert "Layer contract: low-priority writing preference" in prompt
+    assert prompt.index("# Author Notes") < prompt.index("Near output")
