@@ -196,8 +196,6 @@ class PromptStackAssetManifestItem(BaseModel):
     title: str
     priority: int
     char_count: int
-    original_char_count: int
-    truncated: bool
     match_reasons: list[str]
     matched_keywords: list[str]
 
@@ -206,8 +204,6 @@ class PromptStackLayerManifestItem(BaseModel):
     key: str
     title: str
     char_count: int
-    budget: int | None = None
-    truncated: bool = False
     assets: list[PromptStackAssetManifestItem] = Field(default_factory=list)
 
 

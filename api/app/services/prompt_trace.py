@@ -276,8 +276,8 @@ def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
         return lines
     lines.extend(
         [
-            "| Layer | Chars | Budget | Truncated | Assets |",
-            "| --- | ---: | ---: | --- | --- |",
+            "| Layer | Chars | Assets |",
+            "| --- | ---: | --- |",
         ]
     )
     for layer in layers:
@@ -295,8 +295,6 @@ def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
                 [
                     _escape_table(str(layer.get("title") or layer.get("key") or "-")),
                     str(layer.get("char_count") if layer.get("char_count") is not None else "-"),
-                    str(layer.get("budget") if layer.get("budget") is not None else "-"),
-                    _format_bool(bool(layer.get("truncated"))),
                     _escape_table(", ".join(asset_titles) or "-"),
                 ]
             )
@@ -306,8 +304,8 @@ def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
     if isinstance(selected_assets, list) and selected_assets:
         lines.extend(
             [
-                "| Asset | Kind | Priority | Reasons | Keywords | Truncated |",
-                "| --- | --- | ---: | --- | --- | --- |",
+                "| Asset | Kind | Chars | Priority | Reasons | Keywords |",
+                "| --- | --- | ---: | ---: | --- | --- |",
             ]
         )
         for asset in selected_assets:
@@ -321,10 +319,10 @@ def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
                     [
                         _escape_table(str(asset.get("title") or "-")),
                         _escape_table(str(asset.get("kind") or "-")),
+                        str(asset.get("char_count") if asset.get("char_count") is not None else "-"),
                         str(asset.get("priority") if asset.get("priority") is not None else "-"),
                         _escape_table(", ".join(reasons) if isinstance(reasons, list) else "-"),
                         _escape_table(", ".join(keywords) if isinstance(keywords, list) else "-"),
-                        _format_bool(bool(asset.get("truncated"))),
                     ]
                 )
                 + " |"
