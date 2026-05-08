@@ -8,6 +8,7 @@ from app.prompts.novel_shared import (
     append_profile_blocks,
     append_soft_length_hint,
     build_character_planning_budget_hint,
+    build_direct_output_rules,
     get_hook_framework,
 )
 from app.prompts.section_context import build_section_user_message
@@ -60,10 +61,7 @@ def build_character_blueprint_system_prompt(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「角色基础设定」。\n"
         f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "落笔规则：\n"
-        "- 使用 Markdown 格式，标题层级清晰\n"
-        "- 具体且有用，避免空泛概括\n"
-        "- 直接输出内容，不要添加任何解释性前言或总结"
+        f"{build_direct_output_rules()}"
     )
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)

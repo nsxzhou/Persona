@@ -4,7 +4,11 @@ import json
 from typing import Any
 
 from app.schemas.style_analysis_jobs import STYLE_ANALYSIS_REPORT_SECTIONS
-from app.prompts.common import EVIDENCE_BOUNDARY_RULE, MARKDOWN_ONLY_RULE
+from app.prompts.common import (
+    EVIDENCE_BOUNDARY_RULE,
+    MARKDOWN_ONLY_RULE,
+    build_preface_free_start_rules,
+)
 
 SHARED_ANALYSIS_RULES = f"""
 你必须遵守以下规则：
@@ -157,11 +161,7 @@ def build_voice_profile_prompt(
         "你正在从完整分析报告生成一个可复用的 Voice Profile。输出必须是 Markdown 文档。\n"
         "Voice Profile 只回答“这个文本怎么写”，目标是提炼语句风格、节奏、词汇、对白、标点、意象和逻辑习惯。\n\n"
         f"风格名称：{style_name}\n"
-        "输出起始规则：\n"
-        "- 输出必须直接从 `# Voice Profile` 开始。\n"
-        "- 不要输出任何前言、任务说明、来源说明或总结。\n"
-        "- 不要写“作为”开头的身份化句式。\n"
-        "- 不要写“好的”“下面是”“基于你提供的报告”这类解释性开场。\n\n"
+        f"{build_preface_free_start_rules('# Voice Profile', source_label='报告')}\n\n"
         "结构要求：\n"
         "- 只允许输出 12 个二级标题，标题必须逐字使用 3.1-3.12 的中文标题，不要新增、删除或重排章节。\n"
         "- 每节使用“执行规则”的结构；写可执行的写法规律。\n"

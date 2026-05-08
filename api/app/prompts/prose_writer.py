@@ -4,6 +4,7 @@ from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_contex
 from app.prompts.novel_shared import (
     BEAT_EXPAND_CONTEXT_CHARS,
     MALE_COMMERCIAL_ENGINE,
+    build_plot_propulsion_contract,
     append_profile_blocks,
     get_hook_framework,
 )
@@ -25,6 +26,7 @@ def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str 
     return (
         "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
         f"{MALE_COMMERCIAL_ENGINE}"
+        f"{build_plot_propulsion_contract()}\n"
         "落笔规则：\n"
         f"- 按照节拍描述展开约 {beat_expand_chars} 字的叙事段落\n"
         "- 保持与前文的语感和风格一致\n"

@@ -12,6 +12,7 @@ from app.prompts.plot_analysis import (
     build_sketch_prompt,
     build_story_engine_prompt,
 )
+from app.schemas.plot_analysis_jobs import PlotChunkSketch
 
 
 CLASSIFICATION: dict[str, Any] = {
@@ -38,21 +39,9 @@ def test_build_sketch_prompt_contains_required_json_fields_and_enums() -> None:
         classification=CLASSIFICATION,
     )
 
-    for field in (
-        "chunk_index",
-        "chunk_count",
-        "characters_present",
-        "scene_units",
-        "main_events",
-        "side_threads",
-        "payoff_points",
-        "tension_points",
-        "hooks",
-        "setup_payoff_links",
-        "pacing_shift",
-        "sample_coverage",
-    ):
+    for field in PlotChunkSketch.model_fields:
         assert field in prompt
+    assert "JSON 对象只能包含上述 13 个字段" in prompt
     for value in ("linear", "flashback", "unclear"):
         assert value in prompt
     assert "只记录当前 chunk 的直接证据" in prompt

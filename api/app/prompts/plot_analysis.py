@@ -4,7 +4,12 @@ import json
 from typing import Any
 
 from app.schemas.plot_analysis_jobs import PLOT_ANALYSIS_REPORT_SECTIONS
-from app.prompts.common import EVIDENCE_BOUNDARY_RULE, JSON_ONLY_RULE, MARKDOWN_ONLY_RULE
+from app.prompts.common import (
+    EVIDENCE_BOUNDARY_RULE,
+    JSON_ONLY_RULE,
+    MARKDOWN_ONLY_RULE,
+    build_preface_free_start_rules,
+)
 
 SHARED_ANALYSIS_RULES = f"""
 你必须遵守以下规则：
@@ -16,6 +21,15 @@ SHARED_ANALYSIS_RULES = f"""
 6. 报告层允许直接使用“胁迫、利用、控制、占有”等词；Prompt Pack 层需转成可执行约束，但不得洗白。
 7. 分析必须追踪“核心DNA、角色欲望、世界断层线、章节悬念单元、伏笔三步法、认知颠覆”的证据，但不得把样本外剧情补成完整小说。
 """.strip()
+
+PLOT_PROPULSION_RULES = (
+    "\n\n情节推进硬账：\n"
+    "- 核心DNA要清楚：主角身份、核心事件、关键行动、灾难后果、隐藏危机必须能互相咬合。\n"
+    "- 欲望驱动要落地：表层目标推动行动，深层渴望决定选择，灵魂需求制造代价。\n"
+    "- 每个悬念单元都要包含压力、半兑现、反噬和下一轮诱惑；不要只扩大地图或堆设定名词。\n"
+    "- 设伏必须可回收：埋设 -> 强化 -> 回收，每次兑现后留下新压力或新债务。\n"
+    "- 读者奖励必须具体到资源、地位、关系、真相、掌控力、打脸结果或禁忌后果。"
+)
 
 
 # Sketch pass must emit a structured JSON object (for downstream aggregation),
@@ -183,6 +197,7 @@ def build_sketch_prompt(
         "只分析上传样本，不得推断完整小说；样本未覆盖开篇、高潮或结尾时，只能在 `sample_coverage` 中标注片段状态。\n"
         "只记录当前 chunk 的直接证据：当前 chunk 没有发生、没有出场、没有明确点名的内容，不得写入任何事件、场景或人物字段。\n"
         "请在已有字段中压缩记录可见的核心DNA、角色欲望、世界断层线、伏笔三步法或认知颠覆信号；没有直接证据时不得补写。\n"
+        f"{PLOT_PROPULSION_RULES}\n"
         "如果提供了邻接上下文，它们只用于补全跨边界信息；邻接上下文不能覆盖当前 chunk 的事件归属，不应把纯邻接上下文中的事件重复记为当前 chunk 的独立事件。\n"
         "字段定义（字段名必须保持英文原样，不要翻译）：\n"
         "- `chunk_index`：当前 chunk 的零基索引，必须等于传入值。\n"
@@ -200,7 +215,7 @@ def build_sketch_prompt(
         "`linear`（线性推进）、`flashback`（倒叙或插叙）、`unclear`（暂无法判定）。\n"
         "- `sample_coverage`：本 chunk 直接覆盖的样本阶段信号，取值只能来自 "
         "`opening_seen`、`development_seen`、`climax_seen`、`ending_seen`、`partial_fragment`、`coverage_unclear`。\n"
-        "JSON 对象只能包含上述 12 个字段，不得出现任何其他字段。\n\n"
+        "JSON 对象只能包含上述 13 个字段，不得出现任何其他字段。\n\n"
         f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
         f"当前 chunk：{chunk_index + 1}/{chunk_count}"
         f"（chunk_index={chunk_index}, chunk_count={chunk_count}）\n\n"
@@ -295,6 +310,7 @@ def build_chunk_analysis_prompt(
         "要求：保留全部 12 个情节章节，每节写 1-3 个要点；每个要点采用“推进规律 + 证据摘要”的结构，先写这一段呈现出的情节机制，再压缩说明依据。\n"
         "优先提取事件链、关系变化、压力来源、爽点兑现和主角道德口径；不要只写事件复述，也不要写成抽象读后感。\n"
         "额外追踪：这一段如何体现核心DNA、角色欲望三角、世界断层线、悬念单元推进、伏笔埋设/强化/回收、认知颠覆；没有证据就明确写证据有限。\n"
+        f"{PLOT_PROPULSION_RULES}\n"
         "如果提供了邻接上下文，它们只用于跨边界补全；不要把纯邻接上下文中的事件重复记为当前 chunk 的独立事件。\n"
         "明确区分：1）叙事出现顺序；2）若证据充分，可推断的真实时序。\n\n"
         f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
@@ -318,6 +334,7 @@ def build_merge_prompt(
         "你正在执行 Plot Lab 的全局聚合阶段。请把多个 chunk 的 Markdown 情节分析合并成一份统一的 Markdown 报告草稿。\n"
         "要求：按推进链路归并同义事件，保留叙事顺序，并在证据明确时补出真实时序；若存在倒叙/插叙/多线并行但无法完全重建，必须标注时序不确定。\n"
         "合并时保留“推进规律 + 证据摘要”的表达方式；重复证据归并，弱证据保留证据有限标记。\n"
+        f"{PLOT_PROPULSION_RULES}\n"
         "必须把样本里的核心公式、角色欲望驱动、世界压力断层、章节悬念单元、伏笔三步法与认知颠覆整理成可复用模式，不要只拼接事件摘要。\n\n"
         f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
         f"固定章节：\n{_format_sections()}\n\n"
@@ -339,6 +356,7 @@ def build_report_prompt(
         "你正在把聚合结果整理成最终 Plot Lab 分析报告。输出必须是完整 Markdown 文档。\n\n"
         "只分析上传样本，不得推断完整小说。样本未覆盖开篇、高潮或结尾时，必须在对应位置写“当前样本未覆盖/证据不足”。\n"
         "报告采用 2.5 结构，用于审阅情节写法；\n\n"
+        f"{PLOT_PROPULSION_RULES}\n"
         "最终报告必须能支撑下一步生成 Plot Writing Guide：请在各节里保留可复用的写作机制，尤其是核心DNA公式、章节推进循环、场景压力结构、设伏兑现节奏与反漂移边界。\n\n"
         f"输入判定：{json.dumps(classification, ensure_ascii=False)}\n"
         f"输出模板：\n{PLOT_REPORT_TEMPLATE}\n\n"
@@ -357,11 +375,7 @@ def build_story_engine_prompt(
         "你正在从完整 Plot Lab 报告生成一个可复用的 Plot Writing Guide。输出必须是 Markdown 文档。\n"
         "Plot Writing Guide 的目标是说明如何写小说剧情，而不是复述分析报告或样本剧情。\n\n"
         f"情节档案名称：{plot_name}\n"
-        "输出起始规则：\n"
-        "- 输出必须直接从 `# Plot Writing Guide` 开始。\n"
-        "- 不要输出任何前言、任务说明、来源说明或总结。\n"
-        "- 不要写“作为”开头的身份化句式。\n"
-        "- 不要写旧 Prompt Pack 分区名或类似的约束口号。\n\n"
+        f"{build_preface_free_start_rules('# Plot Writing Guide', source_label='分析报告', extra_rules=('不要写旧 Prompt Pack 分区名或类似的约束口号。',))}\n\n"
         "硬性结构：\n"
         "- 只允许输出 8 个二级标题：`Core Plot Formula`、`Chapter Progression Loop`、`Scene Construction Rules`、`Setup and Payoff Rules`、`Payoff and Tension Rhythm`、`Side Plot Usage`、`Hook Recipes`、`Anti-Drift Rules`。\n"
         "- 每节必须写成可执行写作规则，使用短 bullet，不要写分析口吻。\n\n"

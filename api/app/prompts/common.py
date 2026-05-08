@@ -46,6 +46,25 @@ SCHEMA_ALIGNMENT_RULE = "Prompt 中声明的字段、标题和输出形状必须
 EVIDENCE_BOUNDARY_RULE = "所有结论必须证据优先；证据不足时明确声明，不得编造输入中不存在的事实。"
 
 
+def build_preface_free_start_rules(
+    start_heading: str,
+    *,
+    source_label: str = "报告/摘要",
+    extra_rules: tuple[str, ...] = (),
+) -> str:
+    """Render the common no-preface contract for fixed-heading artifacts."""
+
+    lines = [
+        "输出起始规则：",
+        f"- 输出必须直接从 `{start_heading}` 开始。",
+        "- 不要输出任何前言、任务说明、来源说明或总结。",
+        "- 不要写“作为”开头的身份化句式。",
+        f"- 不要写“好的”“下面是”“基于你提供的{source_label}”这类解释性开场。",
+    ]
+    lines.extend(f"- {rule}" for rule in extra_rules)
+    return "\n".join(lines)
+
+
 def join_prompt_parts(parts: list[str]) -> str:
     """Join prompt fragments without introducing accidental whitespace drift."""
 

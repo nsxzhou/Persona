@@ -6,6 +6,8 @@ from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_direct_output_rules,
+    build_plot_propulsion_contract,
     build_volume_planning_budget_hint,
     get_hook_framework,
 )
@@ -80,6 +82,7 @@ def build_outline_detail_system_prompt(
         _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
     )
+    instruction += build_plot_propulsion_contract()
     instruction += build_volume_planning_budget_hint(length_preset)
     parts: list[str] = []
     append_profile_blocks(
@@ -93,12 +96,7 @@ def build_outline_detail_system_prompt(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「分卷与章节细纲」。\n"
         f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "落笔规则：\n"
-        "- 使用 Markdown 格式，标题层级清晰\n"
-        "- 不要输出顶层一级标题（# ）\n"
-        "- 卷级字段不要使用三级标题（### ），只有真实章节可使用「### 第 N 章：章名」\n"
-        "- 具体且有用，避免空泛概括\n"
-        "- 直接输出内容，不要添加任何解释性前言或总结"
+        f"{build_direct_output_rules(no_top_level_title=True, extra_rules=('卷级字段不要使用三级标题（### ），只有真实章节可使用「### 第 N 章：章名」',))}"
     )
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)

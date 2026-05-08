@@ -7,7 +7,9 @@ from app.prompts.novel_shared import (
     MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
+    build_direct_output_rules,
     build_outline_closure_hint,
+    build_plot_propulsion_contract,
     build_volume_planning_budget_hint,
     get_hook_framework,
 )
@@ -75,6 +77,7 @@ def build_outline_master_system_prompt(
         _OUTLINE_MASTER_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
     )
+    instruction += build_plot_propulsion_contract()
     instruction += build_outline_closure_hint()
     instruction += GROUNDED_INTERPRETATION_GUARDRAIL
     parts: list[str] = []
@@ -89,11 +92,7 @@ def build_outline_master_system_prompt(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「总纲」。\n"
         f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "落笔规则：\n"
-        "- 使用 Markdown 格式，标题层级清晰\n"
-        "- 若输出一级标题/书名，必须使用上下文里的「项目小说名（硬约束）」，不得自行拟定新书名\n"
-        "- 具体且有用，避免空泛概括\n"
-        "- 直接输出内容，不要添加任何解释性前言或总结"
+        f"{build_direct_output_rules(extra_rules=('若输出一级标题/书名，必须使用上下文里的「项目小说名（硬约束）」，不得自行拟定新书名',))}"
     )
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)
@@ -125,6 +124,7 @@ def build_volume_generate_system_prompt(
         _VOLUME_GENERATE_INSTRUCTION_TEMPLATE.format(hook_framework=hook_framework),
         length_preset,
     )
+    instruction += build_plot_propulsion_contract()
     instruction += build_volume_planning_budget_hint(length_preset)
     parts: list[str] = []
     append_profile_blocks(
@@ -138,12 +138,7 @@ def build_volume_generate_system_prompt(
         "你是一位起点白金作家，正在为自己的新书规划整体结构，梳理分卷规划。\n\n"
         f"{MALE_COMMERCIAL_ENGINE}"
         f"{instruction}\n\n"
-        "落笔规则：\n"
-        "- 使用 Markdown 格式\n"
-        "- 不要输出顶层一级标题（# ）\n"
-        "- 只输出规划结构，不要输出任何章节内容\n"
-        "- 不要输出章节表格、章节范围列表或「第N章」条目\n"
-        "- 直接输出内容，不要添加解释性前言或总结"
+        f"{build_direct_output_rules(no_top_level_title=True, extra_rules=('只输出规划结构，不要输出任何章节内容', '不要输出章节表格、章节范围列表或「第N章」条目'))}"
     )
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)

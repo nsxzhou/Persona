@@ -4,6 +4,7 @@ from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_contex
 from app.prompts.novel_shared import (
     BEAT_GENERATE_CONTEXT_CHARS,
     MALE_COMMERCIAL_ENGINE,
+    build_plot_propulsion_contract,
     append_profile_blocks,
     get_hook_framework,
 )
@@ -12,6 +13,7 @@ from app.schemas.prompt_profiles import GenerationProfile
 _BEAT_GENERATE_SYSTEM_TEMPLATE = (
     "你是一位番茄金番作家，正在为接下来的正文安排场景节拍和情绪钩子。\n\n"
     f"{MALE_COMMERCIAL_ENGINE}"
+    f"{build_plot_propulsion_contract()}\n"
     "节拍（Beat）是一个场景或情节的最小叙事单元，每条节拍用一句话概括将要发生的事。\n\n"
     "规划时用章节悬念节奏设计压住每一拍：\n"
     "- 每一拍都要服务本章悬念单元中的压力递进、兑现或认知颠覆\n"

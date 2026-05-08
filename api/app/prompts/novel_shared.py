@@ -49,14 +49,29 @@ GROUNDED_INTERPRETATION_GUARDRAIL = (
 
 MALE_COMMERCIAL_ENGINE = (
     "\n\n男频商业驱动内核：\n"
-    "- 先判断这本书的主燃料：力量与权力的扩张、欲望满足，或二者叠加。\n"
-    "- 每个设定、角色、事件都要挂到可追读的反馈链：压制 -> 反制 -> 兑现 -> 新压力。\n"
-    "- 优先制造清晰进度条：升级反馈、资源掠夺、身份逆转、关系占有、势力扩张或禁忌突破。\n"
-    "- 爽点不是口号，必须落成可见动作：主角拿到什么、压过谁、夺回什么、征服谁、让谁付出代价。\n"
-    "- 主流市场用打脸、暴富、长生、权力扩张和隐晦暧昧承载刺激；NSFW 市场允许把欲望满足、征服欲、背德感和生理唤醒作为主驱动。\n"
-    "- 可以充分利用“安全地打破禁忌”的心理张力，但必须服从项目已选择的 target_market、intensity_level 和边界规则。\n"
-    "- 每个规划单元都要回答：读者下一章到底在等什么，以及这个期待会在何处半兑现或反噬。\n"
+    "- 主燃料：力量与权力的扩张、欲望满足，或二者叠加。\n"
+    "- 反馈链：压制 -> 反制 -> 兑现 -> 新压力；每个设定、角色、事件都要挂到这条链上。\n"
+    "- 进度条：升级反馈、资源掠夺、身份逆转、关系占有、势力扩张或禁忌突破。\n"
+    "- 爽点必须可见：主角拿到什么、压过谁、夺回什么、征服谁、让谁付出代价。\n"
+    "- 主流市场用打脸、暴富、长生、权力扩张和隐晦暧昧承载刺激；NSFW 市场允许欲望满足、征服欲、背德感和生理唤醒主驱动。\n"
+    "- 可以充分利用“安全地打破禁忌”的张力，但必须服从 target_market、intensity_level 和边界规则。\n"
+    "- 每个规划单元都要回答：读者下一章到底在等什么，期待会在何处半兑现或反噬。\n"
 )
+
+MARKDOWN_OUTPUT_RULES = (
+    "落笔规则：\n"
+    "- 使用 Markdown 格式，标题层级清晰\n"
+    "- 具体且有用，避免空泛概括\n"
+    "- 直接输出内容，不要添加任何解释性前言或总结"
+)
+
+COMPACT_MARKDOWN_OUTPUT_RULES = (
+    "落笔规则：\n"
+    "- 使用 Markdown 格式\n"
+    "- 直接输出内容，不要添加解释性前言或总结"
+)
+
+NO_TOP_LEVEL_TITLE_RULE = "- 不要输出顶层一级标题（# ）\n"
 
 
 def get_hook_framework(generation_profile: GenerationProfile | None) -> str:
@@ -106,6 +121,41 @@ def build_outline_closure_hint() -> str:
         "- 终局要写清主角最终压过谁、拿到什么、失去或付出什么；余波要留下新的秩序、关系归属或禁忌后果\n"
         "- 结局可以保留执行细节弹性，但主线胜负、代价和余波方向必须明确"
     )
+
+
+def build_plot_propulsion_contract() -> str:
+    return (
+        "\n\n情节推进硬账：\n"
+        "- 核心DNA要清楚：主角身份、核心事件、关键行动、灾难后果、隐藏危机必须能互相咬合。\n"
+        "- 欲望驱动要落地：表层目标推动行动，深层渴望决定选择，灵魂需求制造代价。\n"
+        "- 每个悬念单元都要包含压力、半兑现、反噬和下一轮诱惑；不要只扩大地图或堆设定名词。\n"
+        "- 设伏必须可回收：埋设 -> 强化 -> 回收，每次兑现后留下新压力或新债务。\n"
+        "- 读者奖励必须具体到资源、地位、关系、真相、掌控力、打脸结果或禁忌后果。"
+    )
+
+
+def build_direct_output_rules(
+    *,
+    no_top_level_title: bool = False,
+    extra_rules: tuple[str, ...] = (),
+) -> str:
+    rules = MARKDOWN_OUTPUT_RULES
+    if no_top_level_title or extra_rules:
+        lines = [
+            "落笔规则：",
+            "- 使用 Markdown 格式，标题层级清晰",
+        ]
+        if no_top_level_title:
+            lines.append(NO_TOP_LEVEL_TITLE_RULE.strip())
+        lines.extend(f"- {rule}" for rule in extra_rules)
+        lines.extend(
+            [
+                "- 具体且有用，避免空泛概括",
+                "- 直接输出内容，不要添加任何解释性前言或总结",
+            ]
+        )
+        rules = "\n".join(lines)
+    return rules
 
 
 def build_pov_mode_hint(pov_mode: str | None) -> str:
