@@ -574,7 +574,7 @@ class NovelWorkflowPipeline:
                 current_bible=current_bible,
                 existing_assets=state.get("prompt_assets", []),
             ),
-            mode="analysis",
+            mode="none",
         )
         suggestions = parse_prompt_asset_init_response(raw)
         markdown = render_prompt_asset_suggestions_markdown(suggestions)

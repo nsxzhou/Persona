@@ -164,7 +164,7 @@ class LLMProviderService:
             return resolve_injection_mode(injection_task)
         if injection_mode is not None:
             return injection_mode
-        return "analysis"
+        return "none"
 
     def _build_model(
         self,
