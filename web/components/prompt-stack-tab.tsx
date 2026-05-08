@@ -413,7 +413,6 @@ function PromptStackPreview({ preview }: { preview: PromptStackPreviewResponse }
             <div key={layer.key} className="flex flex-wrap items-center gap-2 text-sm">
               <Badge variant="outline">{layer.title}</Badge>
               <span>{layer.char_count} chars</span>
-              {layer.truncated ? <span className="text-destructive">truncated</span> : null}
               {(layer.assets ?? []).map((asset) => <span key={asset.id}>{asset.title}</span>)}
             </div>
           ))}

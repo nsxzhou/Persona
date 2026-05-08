@@ -427,7 +427,8 @@ export interface paths {
         put?: never;
         /** Create Novel Workflow */
         post: operations["create_novel_workflow_api_v1_novel_workflows_post"];
-        delete?: never;
+        /** Clear Novel Workflow History */
+        delete: operations["clear_novel_workflow_history_api_v1_novel_workflows_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2177,10 +2178,6 @@ export interface components {
             priority: number;
             /** Char Count */
             char_count: number;
-            /** Original Char Count */
-            original_char_count: number;
-            /** Truncated */
-            truncated: boolean;
             /** Match Reasons */
             match_reasons: string[];
             /** Matched Keywords */
@@ -2194,13 +2191,6 @@ export interface components {
             title: string;
             /** Char Count */
             char_count: number;
-            /** Budget */
-            budget?: number | null;
-            /**
-             * Truncated
-             * @default false
-             */
-            truncated: boolean;
             /** Assets */
             assets?: components["schemas"]["PromptStackAssetManifestItem"][];
         };
@@ -3674,6 +3664,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    clear_novel_workflow_history_api_v1_novel_workflows_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -1455,6 +1455,18 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "novel-workflows"
+        ],
+        "summary": "Clear Novel Workflow History",
+        "operationId": "clear_novel_workflow_history_api_v1_novel_workflows_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
       }
     },
     "/api/v1/novel-workflows/{run_id}": {
@@ -6902,14 +6914,6 @@
             "type": "integer",
             "title": "Char Count"
           },
-          "original_char_count": {
-            "type": "integer",
-            "title": "Original Char Count"
-          },
-          "truncated": {
-            "type": "boolean",
-            "title": "Truncated"
-          },
           "match_reasons": {
             "items": {
               "type": "string"
@@ -6934,8 +6938,6 @@
           "title",
           "priority",
           "char_count",
-          "original_char_count",
-          "truncated",
           "match_reasons",
           "matched_keywords"
         ],
@@ -6954,22 +6956,6 @@
           "char_count": {
             "type": "integer",
             "title": "Char Count"
-          },
-          "budget": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Budget"
-          },
-          "truncated": {
-            "type": "boolean",
-            "title": "Truncated",
-            "default": false
           },
           "assets": {
             "items": {
