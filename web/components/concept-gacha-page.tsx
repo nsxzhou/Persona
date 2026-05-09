@@ -23,6 +23,7 @@ import { createProjectAction } from "@/app/(workspace)/projects/actions";
 import { LENGTH_PRESETS, type LengthPresetKey } from "@/lib/length-presets";
 import type {
   ConceptItem,
+  GenerationProfile,
   PlotProfileListItem,
   ProviderConfig,
   StyleProfileListItem,
@@ -51,6 +52,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
   const [error, setError] = useState<string | null>(null);
   const [lengthPreset, setLengthPreset] = useState<LengthPresetKey>("short");
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const generationProfile = buildDefaultGenerationProfile(targetMarket);
 
   const handleGenerate = async (options?: RegenerateOptions) => {
     if (!providerId || !inspiration.trim()) return;
@@ -68,13 +70,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
           provider_id: providerId,
           model_name: model.trim() || null,
           generation_profile: {
-            target_market: targetMarket,
-            genre_mother: "xianxia",
-            desire_overlays: [],
-            intensity_level: "plot_only",
-            pov_mode: "limited_third",
-            morality_axis: "gray_pragmatism",
-            pace_density: "balanced",
+            ...generationProfile,
           },
           count: 3,
           style_profile_id: styleProfileId === "__none__" ? null : styleProfileId,
@@ -117,13 +113,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
         auto_sync_memory: false,
         length_preset: lengthPreset,
         generation_profile: {
-          target_market: targetMarket,
-          genre_mother: "xianxia",
-          desire_overlays: [],
-          intensity_level: "plot_only",
-          pov_mode: "limited_third",
-          morality_axis: "gray_pragmatism",
-          pace_density: "balanced",
+          ...generationProfile,
         },
       });
       router.replace(`/projects/${project.id}`);
@@ -364,4 +354,25 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
       />
     </div>
   );
+}
+
+function buildDefaultGenerationProfile(targetMarket: "mainstream" | "nsfw"): GenerationProfile {
+  if (targetMarket === "nsfw") {
+    return {
+      target_market: "nsfw",
+      genre_mother: "xianxia",
+      desire_overlays: ["harem_collect"],
+      intensity_level: "edge",
+      pov_mode: "limited_third",
+      morality_axis: "gray_pragmatism",
+      pace_density: "balanced",
+    };
+  }
+  return {
+    target_market: "mainstream",
+    genre_mother: "xianxia",
+    pov_mode: "limited_third",
+    morality_axis: "gray_pragmatism",
+    pace_density: "balanced",
+  };
 }

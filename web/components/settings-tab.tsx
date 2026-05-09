@@ -44,6 +44,7 @@ interface SettingsTabProps {
 }
 
 type TabType = "generation" | "provider" | "profiles";
+type NsfwGenerationProfile = Extract<GenerationProfile, { target_market: "nsfw" }>;
 
 const OVERLAYS = [
   { id: "harem_collect", label: "后宫收集" },
@@ -78,10 +79,10 @@ export function SettingsTab({
     project.generation_profile?.genre_mother ?? null,
   );
   const [generationDesireOverlays, setGenerationDesireOverlays] = useState<string[]>(
-    project.generation_profile?.desire_overlays ?? [],
+    getNsfwFields(project.generation_profile).desire_overlays,
   );
-  const [generationIntensityLevel, setGenerationIntensityLevel] = useState<GenerationProfile["intensity_level"] | null>(
-    project.generation_profile?.intensity_level ?? null,
+  const [generationIntensityLevel, setGenerationIntensityLevel] = useState<NsfwGenerationProfile["intensity_level"] | null>(
+    getNsfwFields(project.generation_profile).intensity_level,
   );
   const [generationPovMode, setGenerationPovMode] = useState<GenerationProfile["pov_mode"]>(
     project.generation_profile?.pov_mode ?? "limited_third",
@@ -101,8 +102,8 @@ export function SettingsTab({
     setPlotProfileId(project.plot_profile_id);
     setGenerationTargetMarket(project.generation_profile?.target_market ?? "mainstream");
     setGenerationGenreMother(project.generation_profile?.genre_mother ?? null);
-    setGenerationDesireOverlays(project.generation_profile?.desire_overlays ?? []);
-    setGenerationIntensityLevel(project.generation_profile?.intensity_level ?? null);
+    setGenerationDesireOverlays(getNsfwFields(project.generation_profile).desire_overlays);
+    setGenerationIntensityLevel(getNsfwFields(project.generation_profile).intensity_level);
     setGenerationPovMode(project.generation_profile?.pov_mode ?? "limited_third");
     setGenerationMoralityAxis(project.generation_profile?.morality_axis ?? "gray_pragmatism");
     setGenerationPaceDensity(project.generation_profile?.pace_density ?? "balanced");
@@ -115,13 +116,15 @@ export function SettingsTab({
     setPlotProfileId(project.plot_profile_id);
     setGenerationTargetMarket(project.generation_profile?.target_market ?? "mainstream");
     setGenerationGenreMother(project.generation_profile?.genre_mother ?? null);
-    setGenerationDesireOverlays(project.generation_profile?.desire_overlays ?? []);
-    setGenerationIntensityLevel(project.generation_profile?.intensity_level ?? null);
+    setGenerationDesireOverlays(getNsfwFields(project.generation_profile).desire_overlays);
+    setGenerationIntensityLevel(getNsfwFields(project.generation_profile).intensity_level);
     setGenerationPovMode(project.generation_profile?.pov_mode ?? "limited_third");
     setGenerationMoralityAxis(project.generation_profile?.morality_axis ?? "gray_pragmatism");
     setGenerationPaceDensity(project.generation_profile?.pace_density ?? "balanced");
   };
 
+  const projectNsfwFields = getNsfwFields(project.generation_profile);
+  const isNsfw = generationTargetMarket === "nsfw";
   const isDirty =
     providerId !== project.provider.id ||
     model !== project.default_model ||
@@ -129,8 +132,12 @@ export function SettingsTab({
     plotProfileId !== project.plot_profile_id ||
     generationTargetMarket !== (project.generation_profile?.target_market ?? "mainstream") ||
     generationGenreMother !== (project.generation_profile?.genre_mother ?? null) ||
-    JSON.stringify(generationDesireOverlays) !== JSON.stringify(project.generation_profile?.desire_overlays ?? []) ||
-    generationIntensityLevel !== (project.generation_profile?.intensity_level ?? null) ||
+    (isNsfw || project.generation_profile?.target_market === "nsfw"
+      ? JSON.stringify(generationDesireOverlays) !== JSON.stringify(projectNsfwFields.desire_overlays)
+      : false) ||
+    (isNsfw || project.generation_profile?.target_market === "nsfw"
+      ? generationIntensityLevel !== projectNsfwFields.intensity_level
+      : false) ||
     generationPovMode !== (project.generation_profile?.pov_mode ?? "limited_third") ||
     generationMoralityAxis !== (project.generation_profile?.morality_axis ?? "gray_pragmatism") ||
     generationPaceDensity !== (project.generation_profile?.pace_density ?? "balanced");
@@ -143,24 +150,22 @@ export function SettingsTab({
   });
 
   const handleSave = () => {
-    const overlays = generationDesireOverlays as GenerationProfile["desire_overlays"];
-
     saveMutation.mutate({
       default_provider_id: providerId,
       default_model: model,
       style_profile_id: styleProfileId,
       plot_profile_id: plotProfileId,
       generation_profile:
-        generationGenreMother && generationIntensityLevel
-          ? {
-            target_market: generationTargetMarket,
-            genre_mother: generationGenreMother,
-            desire_overlays: overlays,
-            intensity_level: generationIntensityLevel,
-            pov_mode: generationPovMode,
-            morality_axis: generationMoralityAxis,
-            pace_density: generationPaceDensity,
-          }
+        generationGenreMother
+          ? buildGenerationProfilePayload({
+            targetMarket: generationTargetMarket,
+            genreMother: generationGenreMother,
+            desireOverlays: generationDesireOverlays,
+            intensityLevel: generationIntensityLevel,
+            povMode: generationPovMode,
+            moralityAxis: generationMoralityAxis,
+            paceDensity: generationPaceDensity,
+          })
           : null,
     });
   };
@@ -253,55 +258,56 @@ export function SettingsTab({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label>Overlay（多选）</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                  {OVERLAYS.map((overlay) => (
-                    <div key={overlay.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`overlay-${overlay.id}`}
-                        checked={generationDesireOverlays.includes(overlay.id)}
-                        onCheckedChange={(checked) => {
-                          setGenerationDesireOverlays((prev) =>
-                            checked
-                              ? [...prev, overlay.id]
-                              : prev.filter((id) => id !== overlay.id)
-                          );
-                        }}
-                      />
-                      <label
-                        htmlFor={`overlay-${overlay.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {overlay.label}
-                      </label>
+              {isNsfw && (
+                <>
+                  <div className="grid gap-2">
+                    <Label>Overlay（多选）</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                      {OVERLAYS.map((overlay) => (
+                        <div key={overlay.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`overlay-${overlay.id}`}
+                            checked={generationDesireOverlays.includes(overlay.id)}
+                            onCheckedChange={(checked) => {
+                              setGenerationDesireOverlays((prev) =>
+                                checked
+                                  ? [...prev, overlay.id]
+                                  : prev.filter((id) => id !== overlay.id)
+                              );
+                            }}
+                          />
+                          <label
+                            htmlFor={`overlay-${overlay.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {overlay.label}
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="settings-generation-intensity">强度档位</Label>
-                <Select
-                  value={generationIntensityLevel ?? "__none__"}
-                  onValueChange={(val) =>
-                    setGenerationIntensityLevel(
-                      val === "__none__" ? null : (val as GenerationProfile["intensity_level"]),
-                    )
-                  }
-                >
-                  <SelectTrigger id="settings-generation-intensity" aria-label="强度档位" className="bg-background">
-                    <SelectValue placeholder="选择强度档位" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">未设置</SelectItem>
-                    <SelectItem value="plot_only">剧情优先（plot_only）</SelectItem>
-                    <SelectItem value="edge">边缘暧昧（edge）</SelectItem>
-                    <SelectItem value="explicit">露骨描写（explicit）</SelectItem>
-                    <SelectItem value="graphic">强烈直白（graphic）</SelectItem>
-                    <SelectItem value="fetish_extreme">极端癖好（fetish_extreme）</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="settings-generation-intensity">强度档位</Label>
+                    <Select
+                      value={generationIntensityLevel ?? "edge"}
+                      onValueChange={(val) =>
+                        setGenerationIntensityLevel(val as NsfwGenerationProfile["intensity_level"])
+                      }
+                    >
+                      <SelectTrigger id="settings-generation-intensity" aria-label="强度档位" className="bg-background">
+                        <SelectValue placeholder="选择强度档位" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="plot_only">剧情优先（plot_only）</SelectItem>
+                        <SelectItem value="edge">边缘暧昧（edge）</SelectItem>
+                        <SelectItem value="explicit">露骨描写（explicit）</SelectItem>
+                        <SelectItem value="graphic">强烈直白（graphic）</SelectItem>
+                        <SelectItem value="fetish_extreme">极端癖好（fetish_extreme）</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="settings-generation-pov">叙事视角</Label>
                 <Select
@@ -486,4 +492,56 @@ export function SettingsTab({
       </AnimatePresence>
     </div>
   );
+}
+
+function getNsfwFields(profile: GenerationProfile | null | undefined): {
+  desire_overlays: string[];
+  intensity_level: NsfwGenerationProfile["intensity_level"] | null;
+} {
+  if (profile?.target_market === "nsfw") {
+    return {
+      desire_overlays: profile.desire_overlays,
+      intensity_level: profile.intensity_level,
+    };
+  }
+  return { desire_overlays: [], intensity_level: null };
+}
+
+function buildGenerationProfilePayload({
+  targetMarket,
+  genreMother,
+  desireOverlays,
+  intensityLevel,
+  povMode,
+  moralityAxis,
+  paceDensity,
+}: {
+  targetMarket: GenerationProfile["target_market"];
+  genreMother: GenerationProfile["genre_mother"];
+  desireOverlays: string[];
+  intensityLevel: NsfwGenerationProfile["intensity_level"] | null;
+  povMode: GenerationProfile["pov_mode"];
+  moralityAxis: GenerationProfile["morality_axis"];
+  paceDensity: GenerationProfile["pace_density"];
+}): GenerationProfile {
+  if (targetMarket === "nsfw") {
+    return {
+      target_market: "nsfw",
+      genre_mother: genreMother,
+      desire_overlays: desireOverlays.length
+        ? (desireOverlays as NsfwGenerationProfile["desire_overlays"])
+        : ["harem_collect"],
+      intensity_level: intensityLevel ?? "edge",
+      pov_mode: povMode,
+      morality_axis: moralityAxis,
+      pace_density: paceDensity,
+    };
+  }
+  return {
+    target_market: "mainstream",
+    genre_mother: genreMother,
+    pov_mode: povMode,
+    morality_axis: moralityAxis,
+    pace_density: paceDensity,
+  };
 }

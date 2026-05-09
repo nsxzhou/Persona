@@ -48,7 +48,9 @@ export type GenreMother =
   | "historical_power"
   | "infinite_flow"
   | "gaming";
-export type GenerationProfile = OpenApiSchema<"GenerationProfile">;
+export type GenerationProfile =
+  | OpenApiSchema<"MainstreamGenerationProfile">
+  | OpenApiSchema<"NsfwGenerationProfile">;
 
 export type StyleAnalysisJob = OpenApiSchema<"StyleAnalysisJobResponse">;
 export type StyleAnalysisJobListItem = OpenApiSchema<"StyleAnalysisJobBaseResponse">;
