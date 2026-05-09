@@ -47,7 +47,7 @@ def build_beat_generate_system_prompt(
     parts: list[str] = []
     append_profile_blocks(
         parts,
-        style_prompt=style_prompt,
+        style_prompt=None,
         plot_prompt=plot_prompt,
         plot_usage="用它规划压力递进、兑现节奏和章末推动点，不得替当前项目发明或照搬样本桥段。",
         generation_profile=generation_profile,

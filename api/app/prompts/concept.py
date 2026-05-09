@@ -113,13 +113,9 @@ def build_concept_generate_system_prompt(
     regenerating: bool = False,
 ) -> str:
     parts: list[str] = []
-    if style_prompt:
-        parts.append("# Style Prompt Pack（风格约束）\n\n")
-        parts.append(style_prompt.strip())
-        parts.append("\n\n---\n")
     append_profile_blocks(
         parts,
-        style_prompt=None,
+        style_prompt=style_prompt,
         plot_prompt=plot_prompt,
         plot_usage=(
             "概念生成阶段也必须应用已选 Plot/Style Profile；"

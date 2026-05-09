@@ -98,7 +98,7 @@ def build_outline_detail_system_prompt(
     parts: list[str] = []
     append_profile_blocks(
         parts,
-        style_prompt=style_prompt,
+        style_prompt=None,
         plot_prompt=plot_prompt,
         plot_usage="只吸收压力系统、推进节奏、角色功能位和兑现逻辑，不得照搬样本角色、设定、事件。",
         generation_profile=generation_profile,
@@ -137,7 +137,7 @@ def build_volume_chapters_system_prompt(
     parts: list[str] = []
     append_profile_blocks(
         parts,
-        style_prompt=style_prompt,
+        style_prompt=None,
         plot_prompt=plot_prompt,
         plot_usage="用它拆章节闭环、章末推动点和关系/资源状态变化，不得照搬样本桥段。",
         generation_profile=generation_profile,

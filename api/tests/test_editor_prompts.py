@@ -15,6 +15,7 @@ from app.prompts.concept import (
     build_concept_generate_user_message,
 )
 from app.prompts.continuity import build_continuity_system_prompt
+from app.prompts.prompt_asset_init import build_prompt_asset_init_system_prompt
 from app.prompts.memory_sync import (
     build_bible_update_system_prompt,
     build_bible_update_user_message,
@@ -84,7 +85,7 @@ def test_creative_planning_sections_prefer_useful_detail_over_maximal_fill() -> 
         assert "内容丰富具体" not in prompt
 
 
-def test_bible_generation_sections_inject_plot_prompt_after_style_prompt() -> None:
+def test_bible_generation_sections_inject_plot_prompt_without_voice_profile() -> None:
     prompt = build_section_system_prompt(
         "world_building",
         style_prompt="# Style Prompt\n风格约束\n",
@@ -92,9 +93,8 @@ def test_bible_generation_sections_inject_plot_prompt_after_style_prompt() -> No
         length_preset="long",
     )
 
-    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Style Prompt\n风格约束" not in prompt
     assert "# Plot Prompt\n情节约束" in prompt
-    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert "Plot 是结构约束，不是内容模板" in prompt
 
     characters_prompt = build_section_system_prompt(
@@ -103,44 +103,48 @@ def test_bible_generation_sections_inject_plot_prompt_after_style_prompt() -> No
         plot_prompt="# Plot Prompt\n情节约束\n",
         length_preset="long",
     )
+    assert "# Style Prompt\n风格约束" not in characters_prompt
     assert "# Plot Prompt\n情节约束" in characters_prompt
     assert "不得照搬样本角色、设定、事件" in characters_prompt
 
 
 def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
     prompts = [
-        build_concept_generate_system_prompt(
-            style_prompt="# Style Prompt\n风格约束\n",
-            plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
-        ),
         build_section_system_prompt(
             "world_building",
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
             length_preset="long",
         ),
         build_section_system_prompt(
             "characters_blueprint",
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
             length_preset="long",
         ),
         build_section_system_prompt(
             "outline_master",
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
             length_preset="long",
         ),
         build_section_system_prompt(
             "outline_detail",
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
             length_preset="long",
         ),
         build_volume_generate_system_prompt(
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
             length_preset="long",
         ),
         build_volume_chapters_system_prompt(
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
         ),
         build_beat_generate_system_prompt(
+            style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
         ),
         build_beat_expand_system_prompt(
@@ -155,6 +159,7 @@ def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
         assert "正文与节拍可以强化氛围、文风、关系张力和阶段性兑现" in prompt
         assert "输出中必须让读者看见 Plot Pack 如何改变当前项目" in prompt
         assert "不能只把 Plot Pack 当作背景参考" in prompt
+        assert "# Voice Profile（语言风格参考）" not in prompt
 
 
 def test_plot_prompt_contract_keeps_old_terms_out_of_direct_generation_targets() -> None:
@@ -175,6 +180,8 @@ def test_concept_generate_prompt_injects_style_and_plot_profiles_before_role_pro
         plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
     )
 
+    assert "# Voice Profile（语言风格参考）" in prompt
+    assert "使用边界：只提取句式、词汇、节奏、对白、标点、意象和写作忌口" in prompt
     assert "# Style Prompt\n冷白、短句、压迫感" in prompt
     assert "# Plot Prompt\n核心驱动轴" in prompt
     assert prompt.index("# Style Prompt\n冷白、短句、压迫感") < prompt.index("# Plot Prompt\n核心驱动轴")
@@ -285,7 +292,7 @@ def test_outline_closure_hint_requires_payoff_chain_not_official_summary() -> No
     assert "余波要留下新的秩序、关系归属或禁忌后果" in prompt
 
 
-def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
+def test_outline_master_prompt_injects_plot_prompt_without_voice_profile() -> None:
     prompt = build_section_system_prompt(
         "outline_master",
         style_prompt="# Style Prompt\n风格约束\n",
@@ -293,9 +300,8 @@ def test_outline_master_prompt_injects_plot_prompt_after_style_prompt() -> None:
         length_preset="long",
     )
 
-    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Style Prompt\n风格约束" not in prompt
     assert "# Plot Prompt\n情节约束" in prompt
-    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
     assert "Plot 是结构约束，不是内容模板" in prompt
 
@@ -347,16 +353,15 @@ def test_volume_budget_hint_separates_full_book_volume_promise_from_current_chap
     assert "每个后续卷至少交代压制来源、半兑现、反噬、新地图或新关系筹码" in prompt
 
 
-def test_volume_generate_prompt_injects_plot_prompt_after_style_prompt() -> None:
+def test_volume_generate_prompt_injects_plot_prompt_without_voice_profile() -> None:
     prompt = build_volume_generate_system_prompt(
         length_preset="long",
         style_prompt="# Style Prompt\n风格约束\n",
         plot_prompt="# Plot Prompt\n情节约束\n",
     )
 
-    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Style Prompt\n风格约束" not in prompt
     assert "# Plot Prompt\n情节约束" in prompt
-    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
 
 
@@ -400,15 +405,14 @@ def test_volume_generate_prompt_requires_driver_axis_and_payoff_rhythm() -> None
     assert "后续卷只保留主驱动轴、兑现物、核心阻力、卷尾推动点和角色状态变化" in prompt
 
 
-def test_volume_chapters_prompt_injects_plot_prompt_after_style_prompt() -> None:
+def test_volume_chapters_prompt_injects_plot_prompt_without_voice_profile() -> None:
     prompt = build_volume_chapters_system_prompt(
         style_prompt="# Style Prompt\n风格约束\n",
         plot_prompt="# Plot Prompt\n情节约束\n",
     )
 
-    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Style Prompt\n风格约束" not in prompt
     assert "# Plot Prompt\n情节约束" in prompt
-    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
 
 
@@ -444,7 +448,7 @@ def test_outline_detail_prompt_keeps_volume_fields_out_of_h3_headings() -> None:
     assert "角色约束" in prompt
 
 
-def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
+def test_outline_detail_prompt_injects_plot_prompt_without_voice_profile() -> None:
     prompt = build_section_system_prompt(
         "outline_detail",
         style_prompt="# Style Prompt\n风格约束\n",
@@ -452,9 +456,8 @@ def test_outline_detail_prompt_injects_plot_prompt_after_style_prompt() -> None:
         length_preset="long",
     )
 
-    assert "# Style Prompt\n风格约束" in prompt
+    assert "# Style Prompt\n风格约束" not in prompt
     assert "# Plot Prompt\n情节约束" in prompt
-    assert prompt.index("# Style Prompt\n风格约束") < prompt.index("# Plot Prompt\n情节约束")
     assert prompt.index("# Plot Prompt\n情节约束") < prompt.index("你是一位起点白金作家")
 
 
@@ -609,6 +612,14 @@ def test_beat_prompts_use_tomato_author_persona() -> None:
     assert "正在帮助作者" not in beat_generate_prompt
 
 
+def test_prompt_asset_init_prompt_stays_free_of_style_and_plot_injection() -> None:
+    prompt = build_prompt_asset_init_system_prompt()
+
+    assert "# Voice Profile（语言风格参考）" not in prompt
+    assert "# Plot Prompt Pack（情节结构约束）" not in prompt
+    assert "Plot Writing Guide" not in prompt
+
+
 def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_emotion() -> None:
     prompt = build_beat_generate_system_prompt()
 
@@ -617,6 +628,7 @@ def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_e
     assert "不要只写情绪变化，还要写清这一拍具体让读者追什么（如期待更强反制、更高地位、更大资源或更明确的关系变化）" in prompt
     assert "压制、夺回、极致打脸、关系突破、规则反转或阶段性兑现" in prompt
     assert "最后一拍要明确勾住下一拍最想看的兑现" in prompt
+    assert "# Voice Profile（语言风格参考）" not in prompt
 
 
 def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:

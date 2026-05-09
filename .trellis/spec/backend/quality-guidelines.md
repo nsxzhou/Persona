@@ -51,6 +51,16 @@ When changing novel-planning prompts or workflow intents, preserve the upstream 
 - If an upstream planning asset is missing, user messages should mark the gap as a placeholder / recommended prerequisite instead of letting the model invent a complete replacement system.
 - Backend labels and frontend prerequisites must stay aligned when this order changes.
 
+### Novel profile injection contract
+
+When changing novel prompts, preserve the profile injection matrix:
+
+- Structural planning assets (`world_building`, `characters_blueprint`, `outline_master`, `outline_detail`, `volume_generate`, `volume_chapters_generate`) must inject Plot Writing Guide and Generation Profile, but must not inject Voice Profile. Voice samples are language references and should not steer world rules, character facts, or outline structure.
+- Beat planning (`beat_generate`) must inject Plot Writing Guide and Generation Profile, but must not inject Voice Profile because it produces planning beats rather than prose.
+- Reader-facing concept generation may inject both Voice Profile and Plot Writing Guide; use the shared `append_profile_blocks()` Voice wrapper instead of ad hoc `Style Prompt Pack` text.
+- Prose generation and rewriting surfaces (`beat_expand`, `assemble_writing_context()` consumers) may inject both Voice Profile and Plot Writing Guide. Voice Profile is strongest at the language layer only and must not override project facts, character relationships, plot direction, format, or safety boundaries.
+- Prompt asset initialization must stay free of Style/Plot injection; generated assets should not duplicate or rewrite mounted Style/Plot profiles.
+
 ---
 
 ## Testing Requirements
@@ -66,6 +76,7 @@ When changing novel-planning prompts or workflow intents, preserve the upstream 
 For planning prompt or workflow dependency changes, add or update prompt contract tests that assert:
 
 - the upstream asset is explicitly present in the system prompt or user message,
+- the novel profile injection matrix is preserved for each changed prompt surface,
 - missing upstream assets produce placeholder guidance,
 - changed helper signatures are reflected at every call site,
 - frontend prerequisite metadata matches backend Bible field semantics when labels or ordering change.

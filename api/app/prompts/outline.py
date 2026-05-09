@@ -96,7 +96,7 @@ def build_outline_master_system_prompt(
     parts: list[str] = []
     append_profile_blocks(
         parts,
-        style_prompt=style_prompt,
+        style_prompt=None,
         plot_prompt=plot_prompt,
         plot_usage="只吸收压力系统、推进节奏、角色功能位和兑现逻辑，不得照搬样本角色、设定、事件。",
         generation_profile=generation_profile,
@@ -142,7 +142,7 @@ def build_volume_generate_system_prompt(
     parts: list[str] = []
     append_profile_blocks(
         parts,
-        style_prompt=style_prompt,
+        style_prompt=None,
         plot_prompt=plot_prompt,
         plot_usage="用它规划分卷压力阶梯、兑现节奏、关系状态变化和卷尾新压力，不得照搬样本桥段。",
         generation_profile=generation_profile,
