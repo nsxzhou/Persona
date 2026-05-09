@@ -14,6 +14,7 @@ import type {
   PromptStackPreviewResponse,
   SetupResponse,
   SetupStatusResponse,
+  ProviderChatTestResponse,
   StyleProfile,
   StyleAnalysisJobCreatePayload,
   StyleAnalysisJobStatusSnapshot,
@@ -158,7 +159,13 @@ describe("API contracts", () => {
         is_enabled: true,
         immersion_prompt_override_enabled: false,
         immersion_system_prompt_suffix: "",
+        chat_test_system_prompt: "",
       },
+    });
+    const chatTestPromise: Promise<ProviderChatTestResponse> = client.chatTestProviderConfig("provider-1", {
+      system_prompt: "SYSTEM",
+      messages: [{ role: "user", content: "继续" }],
+      temperature: 0.7,
     });
     const statusPromise: Promise<StyleAnalysisJobStatusSnapshot> = client.getStyleAnalysisJobStatus("job-1");
     const workflowRunsPromise = client.listNovelWorkflows({
@@ -266,6 +273,7 @@ describe("API contracts", () => {
     await Promise.all([
       setupStatusPromise,
       setupPromise,
+      chatTestPromise,
       statusPromise,
       workflowRunsPromise,
       workflowHistoryClearPromise,
@@ -297,6 +305,17 @@ describe("API contracts", () => {
     expect(request).toHaveBeenCalledWith(
       "/api/v1/projects/project-1/prompt-assets/apply-suggestions",
       expect.objectContaining({ method: "POST" }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/provider-configs/provider-1/chat-test",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          system_prompt: "SYSTEM",
+          messages: [{ role: "user", content: "继续" }],
+          temperature: 0.7,
+        }),
+      }),
     );
   });
 

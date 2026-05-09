@@ -82,6 +82,7 @@ test("setup client submits admin and first provider values then jumps to project
       is_enabled: true,
       immersion_prompt_override_enabled: false,
       immersion_system_prompt_suffix: "",
+      chat_test_system_prompt: "",
       last_test_status: null,
       last_test_error: null,
       last_tested_at: null,
@@ -131,6 +132,7 @@ test("setup client submits admin and first provider values then jumps to project
         is_enabled: true,
         immersion_prompt_override_enabled: false,
         immersion_system_prompt_suffix: "",
+        chat_test_system_prompt: "",
       },
     });
   });

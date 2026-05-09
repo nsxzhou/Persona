@@ -16,9 +16,10 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 
-test("provider configs page opens create dialog and triggers connection test", () => {
+test("provider configs page opens create dialog, prompt dialog, chat dialog and triggers connection test", () => {
   const onOpenCreate = vi.fn();
   const onTest = vi.fn();
+  const onOpenChat = vi.fn();
 
   render(
     <ProviderConfigsPageView
@@ -32,6 +33,7 @@ test("provider configs page opens create dialog and triggers connection test", (
           is_enabled: true,
           immersion_prompt_override_enabled: true,
           immersion_system_prompt_suffix: "追加提示词",
+          chat_test_system_prompt: "测试 Prompt",
           last_test_status: "success",
           last_test_error: null,
           last_tested_at: "2026-04-07T12:00:00Z",
@@ -40,14 +42,19 @@ test("provider configs page opens create dialog and triggers connection test", (
         },
       ]}
       onOpenCreate={onOpenCreate}
+      onOpenChat={onOpenChat}
       onTest={onTest}
     />,
   );
 
   fireEvent.click(screen.getByRole("button", { name: "新增配置" }));
+  fireEvent.click(screen.getByRole("button", { name: "对话测试" }));
   fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
 
   expect(onOpenCreate).toHaveBeenCalled();
+  expect(onOpenChat).toHaveBeenCalledWith(
+    expect.objectContaining({ id: "provider-1" }),
+  );
   expect(onTest).toHaveBeenCalledWith("provider-1");
   expect(screen.getByText("****1234")).toBeInTheDocument();
   expect(screen.getByText("提示词追加")).toBeInTheDocument();
@@ -69,6 +76,7 @@ test("provider prompt dialog edits override fields without connection fields", a
         is_enabled: true,
         immersion_prompt_override_enabled: false,
         immersion_system_prompt_suffix: "",
+        chat_test_system_prompt: "",
         last_test_status: null,
         last_test_error: null,
         last_tested_at: null,

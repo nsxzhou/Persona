@@ -188,6 +188,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/provider-configs/{provider_id}/chat-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chat Test Provider Config */
+        post: operations["chat_test_provider_config_api_v1_provider_configs__provider_id__chat_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects": {
         parameters: {
             query?: never;
@@ -2231,6 +2248,49 @@ export interface components {
             prompt: string;
             manifest: components["schemas"]["PromptStackManifest"];
         };
+        /** ProviderChatTestMessage */
+        ProviderChatTestMessage: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+        };
+        /** ProviderChatTestRequest */
+        ProviderChatTestRequest: {
+            /** System Prompt */
+            system_prompt: string;
+            /** Messages */
+            messages: components["schemas"]["ProviderChatTestMessage"][];
+            /**
+             * Temperature
+             * @default 0.7
+             */
+            temperature: number;
+        };
+        /** ProviderChatTestResponse */
+        ProviderChatTestResponse: {
+            /** Reply */
+            reply: string;
+            /** Sent Messages */
+            sent_messages: components["schemas"]["ProviderChatTestSentMessage"][];
+            /** Provider Prompt Override Applied */
+            provider_prompt_override_applied: boolean;
+            /** Temperature */
+            temperature: number;
+        };
+        /** ProviderChatTestSentMessage */
+        ProviderChatTestSentMessage: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "system" | "user" | "assistant";
+            /** Content */
+            content: string;
+        };
         /** ProviderConfigCreate */
         ProviderConfigCreate: {
             /** Label */
@@ -2256,6 +2316,11 @@ export interface components {
              * @default
              */
             immersion_system_prompt_suffix: string;
+            /**
+             * Chat Test System Prompt
+             * @default
+             */
+            chat_test_system_prompt: string;
         };
         /** ProviderConfigResponse */
         ProviderConfigResponse: {
@@ -2275,6 +2340,8 @@ export interface components {
             immersion_prompt_override_enabled: boolean;
             /** Immersion System Prompt Suffix */
             immersion_system_prompt_suffix: string;
+            /** Chat Test System Prompt */
+            chat_test_system_prompt: string;
             /** Last Test Status */
             last_test_status: string | null;
             /** Last Test Error */
@@ -2308,6 +2375,8 @@ export interface components {
             immersion_prompt_override_enabled?: boolean | null;
             /** Immersion System Prompt Suffix */
             immersion_system_prompt_suffix?: string | null;
+            /** Chat Test System Prompt */
+            chat_test_system_prompt?: string | null;
         };
         /** ProviderSummary */
         ProviderSummary: {
@@ -2964,6 +3033,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectionTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_test_provider_config_api_v1_provider_configs__provider_id__chat_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderChatTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderChatTestResponse"];
                 };
             };
             /** @description Validation Error */

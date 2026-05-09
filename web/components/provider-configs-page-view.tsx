@@ -2,10 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { LoaderCircle, MessageSquareText, PencilLine, PlugZap, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, MessageSquare, MessageSquareText, PencilLine, PlugZap, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
+import { ProviderChatTestDialog } from "@/components/provider-chat-test-dialog";
 import { ProviderConfigFormDialog } from "@/components/provider-config-form-dialog";
 import { ProviderPromptOverrideDialog } from "@/components/provider-prompt-override-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { api } from "@/lib/api";
 import { providerQueryKeys } from "@/lib/provider-query-keys";
 import type {
   ProviderConfig,
+  ProviderChatTestRequest,
   ProviderConfigCreatePayload,
   ProviderConfigUpdatePayload,
 } from "@/lib/types";
@@ -28,6 +30,8 @@ export function ProviderConfigsPageClient() {
   const [editingProvider, setEditingProvider] = useState<ProviderConfig | null>(null);
   const [promptProvider, setPromptProvider] = useState<ProviderConfig | null>(null);
   const [promptDialogOpen, setPromptDialogOpen] = useState(false);
+  const [chatProvider, setChatProvider] = useState<ProviderConfig | null>(null);
+  const [chatDialogOpen, setChatDialogOpen] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
   const providersQuery = useQuery({
@@ -72,6 +76,25 @@ export function ProviderConfigsPageClient() {
 
   const testMutation = useMutation({
     mutationFn: (id: string) => api.testProviderConfig(id),
+  });
+
+  const chatTestMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ProviderChatTestRequest }) =>
+      api.chatTestProviderConfig(id, payload),
+    onError: (error) => toast.error(error.message),
+  });
+
+  const chatPromptSaveMutation = useMutation({
+    mutationFn: async ({
+      id,
+      systemPrompt,
+    }: {
+      id: string;
+      systemPrompt: string;
+    }) => api.updateProviderConfig(id, { chat_test_system_prompt: systemPrompt }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: providerQueryKeys.lists() });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -138,6 +161,10 @@ export function ProviderConfigsPageClient() {
           setPromptProvider(provider);
           setPromptDialogOpen(true);
         }}
+        onOpenChat={(provider) => {
+          setChatProvider(provider);
+          setChatDialogOpen(true);
+        }}
         onOpenCreate={() => {
           setEditingProvider(null);
           setDialogOpen(true);
@@ -167,6 +194,7 @@ export function ProviderConfigsPageClient() {
                     ...payload,
                     immersion_prompt_override_enabled: false,
                     immersion_system_prompt_suffix: "",
+                    chat_test_system_prompt: "",
                   },
                 },
           );
@@ -184,6 +212,30 @@ export function ProviderConfigsPageClient() {
           await promptSaveMutation.mutateAsync(values);
         }}
       />
+      <ProviderChatTestDialog
+        open={chatDialogOpen}
+        provider={chatProvider}
+        submitting={chatTestMutation.isPending}
+        onOpenChange={(open) => {
+          setChatDialogOpen(open);
+          if (!open) setChatProvider(null);
+        }}
+        onSaveSystemPrompt={async (systemPrompt) => {
+          if (!chatProvider) {
+            throw new Error("Provider 不存在");
+          }
+          await chatPromptSaveMutation.mutateAsync({
+            id: chatProvider.id,
+            systemPrompt,
+          });
+        }}
+        onSubmit={async (payload) => {
+          if (!chatProvider) {
+            throw new Error("Provider 不存在");
+          }
+          return await chatTestMutation.mutateAsync({ id: chatProvider.id, payload });
+        }}
+      />
     </div>
   );
 }
@@ -194,6 +246,7 @@ export function ProviderConfigsPageView({
   onOpenCreate,
   onEdit,
   onEditPrompt,
+  onOpenChat,
   onTest,
   onDelete,
 }: {
@@ -202,6 +255,7 @@ export function ProviderConfigsPageView({
   onOpenCreate: () => void;
   onEdit?: (provider: ProviderConfig) => void;
   onEditPrompt?: (provider: ProviderConfig) => void;
+  onOpenChat?: (provider: ProviderConfig) => void;
   onTest: (id: string) => void;
   onDelete?: (id: string) => void;
 }) {
@@ -254,8 +308,14 @@ export function ProviderConfigsPageView({
                   </span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button variant="outline" onClick={() => onTest(provider.id)} disabled={testingId === provider.id}>
+              <div className="grid gap-2 pt-2">
+                <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className="min-w-[150px] flex-1 sm:flex-none"
+                  onClick={() => onTest(provider.id)}
+                  disabled={testingId === provider.id}
+                >
                   {testingId === provider.id ? (
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -263,15 +323,37 @@ export function ProviderConfigsPageView({
                   )}
                   {testingId === provider.id ? "测试中…" : "测试连接"}
                 </Button>
-                <Button variant="outline" onClick={() => onEditPrompt?.(provider)}>
+                <Button
+                  variant="outline"
+                  className="min-w-[132px] flex-1 sm:flex-none"
+                  onClick={() => onEditPrompt?.(provider)}
+                >
                   <MessageSquareText className="mr-2 h-4 w-4" />提示词
                 </Button>
-                <Button variant="secondary" onClick={() => onEdit?.(provider)}>
+                <Button
+                  variant="outline"
+                  className="min-w-[132px] flex-1 sm:flex-none"
+                  onClick={() => onOpenChat?.(provider)}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />对话测试
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="min-w-[116px] flex-1 sm:flex-none"
+                  onClick={() => onEdit?.(provider)}
+                >
                   <PencilLine className="mr-2 h-4 w-4" />编辑
                 </Button>
-                <Button variant="ghost" className="sm:ml-auto text-red-600 hover:bg-red-100 hover:text-red-900" onClick={() => onDelete?.(provider.id)}>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-100 hover:text-red-900"
+                    onClick={() => onDelete?.(provider.id)}
+                  >
                   <Trash2 className="mr-2 h-4 w-4" />删除
-                </Button>
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

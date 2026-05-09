@@ -40,6 +40,8 @@ import type {
   PlotSkeletonMarkdown,
   StoryEngineMarkdown,
   ProviderConfig,
+  ProviderChatTestRequest,
+  ProviderChatTestResponse,
   ProviderConfigUpdatePayload,
   ProviderPayload,
   SetupPayload,
@@ -101,6 +103,11 @@ export function createApiClient(request: Requester) {
     testProviderConfig: (id: string) =>
       request<ConnectionTestResponse>(`/api/v1/provider-configs/${id}/test`, {
         method: "POST",
+      }),
+    chatTestProviderConfig: (id: string, payload: ProviderChatTestRequest) =>
+      request<ProviderChatTestResponse>(`/api/v1/provider-configs/${id}/chat-test`, {
+        method: "POST",
+        body: JSON.stringify(payload),
       }),
     deleteProviderConfig: (id: string) =>
       request<void>(`/api/v1/provider-configs/${id}`, {

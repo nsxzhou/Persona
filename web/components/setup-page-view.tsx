@@ -55,6 +55,7 @@ export function SetupPageView({
         is_enabled: true,
         immersion_prompt_override_enabled: false,
         immersion_system_prompt_suffix: "",
+        chat_test_system_prompt: "",
       },
     };
     void onSubmit(finalValues);
