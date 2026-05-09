@@ -37,18 +37,70 @@ from app.prompts.section_router import (
 from app.schemas.novel_workflows import NovelWorkflowCreateRequest
 from app.schemas.prompt_profiles import GenerationProfile
 
-def test_world_building_prompt_ties_setting_to_reader_desire_supply() -> None:
+def test_world_building_prompt_ties_setting_to_neutral_story_function() -> None:
     prompt = build_section_system_prompt("world_building", length_preset="long")
 
-    assert "世界观不是资料库，而是主角行动和读者期待的供给系统" in prompt
-    assert "阶层落差、秩序断层、资源机制、身份压迫" in prompt
-    assert "制造打脸反转的规则漏洞" in prompt
+    assert "产出纯内部创作 Bible" in prompt
+    assert "世界观不是资料库，而是故事运行底层" in prompt
+    assert "角色选择、冲突升级、信息差、资源流动或行动成本" in prompt
+    assert "三维世界构建法做隐式质检" in prompt
+    assert "不要输出成固定结构" in prompt
+
+
+def test_world_building_prompt_uses_fixed_creative_bible_sections_and_item_budget() -> None:
+    prompt = build_section_system_prompt("world_building", length_preset="long")
+
+    for section in (
+        "## 世界底盘",
+        "## 秩序与压力",
+        "## 资源与利益",
+        "## 规则漏洞",
+        "## 前期可用冲突",
+        "## 禁止补完",
+    ):
+        assert section in prompt
+    assert "每个必需区块通常写 2-5 条；每条 1-3 句" in prompt
+    assert "只在简介或上下文支持时出现" in prompt
+    assert "避免长篇历史散文、百科式术语表、完整势力年表" in prompt
+    assert "篇幅适配提示" not in prompt
+
+
+def test_world_building_prompt_omits_market_engine_and_prose_pov_profile_rules() -> None:
+    prompt = build_section_system_prompt(
+        "world_building",
+        generation_profile=GenerationProfile(
+            target_market="nsfw",
+            genre_mother="urban",
+            desire_overlays=["dominance_capture"],
+            intensity_level="explicit",
+            pov_mode="limited_third",
+            morality_axis="gray_pragmatism",
+            pace_density="fast",
+        ),
+        length_preset="long",
+    )
+
+    assert "# Generation Profile（世界观资产约束）" in prompt
+    assert "target_market: nsfw" in prompt
+    assert "genre_mother: urban" in prompt
+    assert "desire_overlays: dominance_capture" in prompt
+    assert "intensity_level: explicit" in prompt
+    assert "morality_axis: gray_pragmatism" in prompt
+    assert "pace_density: fast" in prompt
+    assert "pov_mode" not in prompt
+    assert "视角约束" not in prompt
+    assert "限制性第三人称" not in prompt
+    assert "男频商业驱动内核" not in prompt
+    assert "男频核心驱动框架" not in prompt
+    assert "主流市场语义边界" not in prompt
+    assert "成人向语义开关" not in prompt
+    assert "欲望满足" not in prompt
+    assert "征服" not in prompt
+    assert "爽点" not in prompt
 
 
 def test_editor_prompts_enforce_mainstream_adult_semantics_boundary() -> None:
     prompts = [
-        build_concept_generate_system_prompt(),
-        build_section_system_prompt("world_building", length_preset="long"),
         build_section_system_prompt("characters_blueprint", length_preset="long"),
         build_section_system_prompt("outline_master", length_preset="long"),
         build_section_system_prompt("outline_detail", length_preset="long"),
@@ -174,20 +226,49 @@ def test_plot_prompt_contract_keeps_old_terms_out_of_direct_generation_targets()
     assert "遗留高风险 Plot Pack 抽象化" not in prompt
 
 
-def test_concept_generate_prompt_injects_style_and_plot_profiles_before_role_prompt() -> None:
+def test_concept_generate_prompt_uses_plot_reference_without_voice_profile() -> None:
     prompt = build_concept_generate_system_prompt(
         style_prompt="# Style Prompt\n冷白、短句、压迫感\n",
         plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
     )
 
-    assert "# Voice Profile（语言风格参考）" in prompt
-    assert "使用边界：只提取句式、词汇、节奏、对白、标点、意象和写作忌口" in prompt
-    assert "# Style Prompt\n冷白、短句、压迫感" in prompt
+    assert "# Voice Profile（语言风格参考）" not in prompt
+    assert "冷白、短句、压迫感" not in prompt
     assert "# Plot Prompt\n核心驱动轴" in prompt
-    assert prompt.index("# Style Prompt\n冷白、短句、压迫感") < prompt.index("# Plot Prompt\n核心驱动轴")
     assert prompt.index("# Plot Prompt\n核心驱动轴") < prompt.index("你是一位深耕网文市场")
-    assert "概念生成阶段也必须应用已选 Plot/Style Profile" in prompt
-    assert "标题和简介要体现 Plot Pack 的主驱动轴、读者追读问题和角色功能位" in prompt
+    assert "Plot Pack 在概念生成阶段只作为结构参考" in prompt
+    assert "故事承诺、压力形态和兑现节奏" in prompt
+    assert "标题和简介必须写成读者可见的书页包装" in prompt
+    assert "标题和简介要体现 Plot Pack 的主驱动轴、读者追读问题和角色功能位" not in prompt
+    assert "Plot 指纹落地契约" not in prompt
+    assert "输出中必须让读者看见 Plot Pack 如何改变当前项目" not in prompt
+    assert "必须服从 Generation Profile" not in prompt
+
+
+def test_concept_generate_prompt_ignores_generation_profile_runtime_constraints() -> None:
+    prompt = build_concept_generate_system_prompt(
+        generation_profile=GenerationProfile(
+            target_market="nsfw",
+            genre_mother="urban",
+            desire_overlays=["dominance_capture"],
+            intensity_level="explicit",
+            pov_mode="limited_third",
+            morality_axis="gray_pragmatism",
+            pace_density="fast",
+        )
+    )
+
+    assert "# Generation Profile（运行时生成约束）" not in prompt
+    assert "target_market:" not in prompt
+    assert "genre_mother:" not in prompt
+    assert "desire_overlays:" not in prompt
+    assert "intensity_level:" not in prompt
+    assert "pov_mode:" not in prompt
+    assert "morality_axis:" not in prompt
+    assert "pace_density:" not in prompt
+    assert "视角约束" not in prompt
+    assert "dominance_capture" not in prompt
+    assert "成人向语义开关" not in prompt
 
 
 def test_character_prompt_prioritizes_conflict_function_over_packaging() -> None:
@@ -536,10 +617,10 @@ def test_bible_update_prompt_tracks_only_persistent_compliant_tension() -> None:
 def test_concept_generate_prompt_prefers_compact_project_intro_over_long_packaging() -> None:
     prompt = build_concept_generate_system_prompt()
 
-    assert "每个概念包含标题和一段可直接用作项目简介的简介" in prompt
-    assert "字数控制在 150-260 字左右" in prompt
-    assert "按 1-3 个自然段组织" in prompt
-    assert "宁可短而抓人，也不要为了显得厚重而写成长简介" in prompt
+    assert "每个概念包含标题和一段可直接放到书页上的简介" in prompt
+    assert "可以是一段短钩子，也可以是 1-3 个自然段；强钩子允许更短" in prompt
+    assert "字数控制在 150-260 字左右" not in prompt
+    assert "宁可短而抓人，也不要为了显得厚重而写成长简介" not in prompt
     assert "一段可直接用作项目简介的长简介" not in prompt
 
 
@@ -557,25 +638,34 @@ def test_concept_generate_prompt_requires_reader_retention_diagnosis_and_driver_
     prompt = build_concept_generate_system_prompt()
 
     assert "读者为什么会点进来并继续追" in prompt
-    assert "主驱动轴" in prompt
-    assert "升级/权力扩张、局势反压、身份逆转、资源掠夺、关系张力、暧昧兑现" in prompt
+    assert "故事承诺" in prompt
+    assert "身份压力、世界异常、机制玩法、关系张力、对抗局面、资源问题或悬念问题" in prompt
     assert "不是只换标题和设定表皮" in prompt
+
 
 def test_concept_generate_prompt_requires_genre_sensitive_opening_and_novel_intro_tone() -> None:
     prompt = build_concept_generate_system_prompt()
 
-    assert "按题材决定是否使用短标签开头" in prompt
+    assert "开头可以是对白、问题、碎片句、世界异常、身份压力、机制亮点或直接叙事" in prompt
+    assert "短标签可选；只有用户灵感里已经有对应卖点时才使用" in prompt
     assert "像小说简介，不像广告投流文案" in prompt
     assert "不要空泛开场" in prompt
     assert "不要把简介写成金句合集" in prompt
 
 
-def test_concept_generate_prompt_uses_examples_without_allowing_example_copy() -> None:
+def test_concept_generate_prompt_avoids_reference_examples_and_internal_analysis_output() -> None:
     prompt = build_concept_generate_system_prompt()
 
-    assert "仅学习标题气质、简介节奏与卖点组织方式" in prompt
-    assert "不要照搬示例中的设定、身份、名词、人物关系和具体桥段" in prompt
-    assert "标题参考气质" in prompt
+    assert "标题参考气质" not in prompt
+    assert "示例参考" not in prompt
+    assert "反派：仙子哪里逃" not in prompt
+    assert "道诡异仙" not in prompt
+    assert "核心DNA公式" not in prompt
+    assert "当[主角+身份]遭遇[核心事件]" not in prompt
+    assert "否则[灾难后果]" not in prompt
+    assert "隐藏的更大危机" not in prompt
+    assert "不要输出任何序号、分析字段、DNA字段或解释说明" in prompt
+    assert "### [标题]" in prompt
 
 
 def test_creative_section_prompts_adopt_qidian_author_persona() -> None:
@@ -711,8 +801,6 @@ def test_creative_fixed_prompts_remove_old_external_helper_language() -> None:
 
 def test_creative_fixed_prompts_embed_commercial_male_reader_engine() -> None:
     prompts = [
-        build_concept_generate_system_prompt(),
-        build_section_system_prompt("world_building", length_preset="long"),
         build_section_system_prompt("characters_blueprint", length_preset="long"),
         build_section_system_prompt("outline_master", length_preset="long"),
         build_section_system_prompt("outline_detail", length_preset="long"),
@@ -730,6 +818,20 @@ def test_creative_fixed_prompts_embed_commercial_male_reader_engine() -> None:
         assert "升级反馈、资源掠夺、身份逆转、关系占有" in prompt
         assert "安全地打破禁忌" in prompt
         assert "读者下一章到底在等什么" in prompt
+
+
+def test_concept_generate_prompt_avoids_heavy_runtime_engine_frameworks() -> None:
+    prompt = build_concept_generate_system_prompt()
+
+    assert "男频商业驱动内核" not in prompt
+    assert "男频核心驱动框架" not in prompt
+    assert "成人向核心驱动框架" not in prompt
+    assert "主流市场语义边界" not in prompt
+    assert "成人向语义开关" not in prompt
+    assert "欲望满足" not in prompt
+    assert "安全地打破禁忌" not in prompt
+    assert "读者会不会点、会不会追、会不会等更新" in prompt
+    assert "市场判断标准" in prompt
 
 
 def test_maintenance_prompts_track_serial_payoff_debt_without_breaking_contracts() -> None:

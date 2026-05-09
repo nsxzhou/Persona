@@ -24,6 +24,20 @@ def test_immersion_marker_does_not_force_first_person_inner_monologue() -> None:
     assert "我暗自" not in marker
 
 
+def test_analysis_marker_stays_lightweight_for_planning_assets() -> None:
+    marker = marker_for_mode(resolve_injection_mode(PromptInjectionTask.EDITOR_SECTION_GENERATION))
+
+    assert "规划输出约束" in marker
+    assert "不输出思考过程、推理记录或模型自我说明" in marker
+    assert "格式外的前言、解释或元评论" in marker
+    assert "规划方式要求" not in marker
+    assert "（心想：……）" not in marker
+    assert "(内心OS：……)" not in marker
+    assert "我心想" not in marker
+    assert "我觉得" not in marker
+    assert "我暗自" not in marker
+
+
 def test_prompt_injection_policy_routes_analysis_tasks_to_analysis() -> None:
     analysis_tasks = [
         PromptInjectionTask.EDITOR_SECTION_GENERATION,

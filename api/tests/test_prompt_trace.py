@@ -162,7 +162,8 @@ async def test_invoke_completion_trace_callback_receives_injected_messages(monke
     assert messages[0].content == "SYSTEM"
     assert messages[1].role == "user"
     assert messages[1].content.startswith("USER")
-    assert "规划方式要求" in messages[1].content
+    assert "规划输出约束" in messages[1].content
+    assert "不输出思考过程、推理记录或模型自我说明" in messages[1].content
     assert "<think>" not in messages[1].content
     assert traces[0]["provider_prompt_override_applied"] is False
 
@@ -220,7 +221,8 @@ async def test_invoke_completion_appends_provider_override_only_for_immersion(
     assert traces[0]["provider_prompt_override_applied"] is True
 
     assert fake_model.calls[1][0].content == "SYSTEM"
-    assert "规划方式要求" in fake_model.calls[1][1].content
+    assert "规划输出约束" in fake_model.calls[1][1].content
+    assert "不进行角色扮演式内心独白" in fake_model.calls[1][1].content
     assert "<think>" not in fake_model.calls[1][1].content
     assert traces[1]["provider_prompt_override_applied"] is False
 

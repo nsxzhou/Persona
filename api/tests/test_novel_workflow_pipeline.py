@@ -213,7 +213,7 @@ async def test_selection_rewrite_selects_active_characters_and_includes_selectio
     )
 
     assert result.persist_payload["markdown"] == "沈砚压低声音，指节扣住账册边缘。"
-    assert [call["mode"] for call in llm.calls] == ["none", "immersion"]
+    assert [call["mode"] for call in llm.calls] == ["analysis", "immersion"]
     prose_call = llm.calls[1]
     assert "# Active Character Focus" in prose_call["system_prompt"]
     assert "角色功能：破局者" in prose_call["system_prompt"]
@@ -279,7 +279,7 @@ async def test_chapter_write_beat_expansion_reuses_one_focused_context(
     assert prose == "第一拍正文第二拍正文"
     assert warnings == []
     assert [call["mode"] for call in llm.calls] == [
-        "none",
+        "analysis",
         "immersion",
         "analysis",
         "immersion",
@@ -519,7 +519,7 @@ async def test_chapter_write_pipeline_pauses_on_beats_then_expands_with_one_focu
     assert result.latest_artifacts == ["beats_markdown", "prose_markdown"]
     assert [call["mode"] for call in llm.calls] == [
         "analysis",
-        "none",
+        "analysis",
         "immersion",
         "analysis",
         "immersion",

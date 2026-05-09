@@ -72,8 +72,8 @@ def test_novel_prompt_methodology_is_embedded_in_agent_prompts() -> None:
     chapter_plan = build_section_system_prompt("outline_detail")
     beats = build_beat_generate_system_prompt()
 
-    assert "核心DNA" in concept
-    assert "当[主角+身份]遭遇[核心事件]，必须[关键行动]，否则[灾难后果]" in concept
+    assert "最有点击力的故事承诺" in concept
+    assert "共享同一故事主轴" in concept
     assert "表层目标、深层渴望、灵魂需求" in characters
     assert "初始状态 → 触发事件 → 认知失调 → 蜕变节点 → 最终状态" in characters
     assert "物理维度、社会维度、隐喻维度" in world
