@@ -222,26 +222,26 @@ export function WorkbenchTabs({
         </div>
       ) : null}
       <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
-        <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
+        <TabsList className="w-full justify-start gap-0.5 rounded-none border-b bg-transparent p-0 h-auto">
         {BIBLE_SECTION_META.map((section) => (
           <TabsTrigger
             key={section.key}
             value={section.key}
-            className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            className="shrink-0 rounded-none border-b-2 border-transparent px-3 py-3 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
           >
             {section.title}
           </TabsTrigger>
         ))}
         <TabsTrigger
           value="prompt_stack"
-          className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          className="shrink-0 rounded-none border-b-2 border-transparent px-3 py-3 text-sm text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <Layers3 className="mr-1.5 h-3.5 w-3.5" />
           Prompt 栈
         </TabsTrigger>
         <TabsTrigger
           value="settings"
-          className="ml-auto rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          className="shrink-0 rounded-none border-b-2 border-transparent px-3 py-3 text-sm text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <Settings className="mr-1.5 h-3.5 w-3.5" />
           设置
