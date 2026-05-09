@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.core.length_presets import LengthPresetKey, get_planning_budget
-from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.schemas.prompt_profiles import GenerationProfile
 
 BEAT_GENERATE_CONTEXT_CHARS = 2000
