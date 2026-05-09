@@ -35,7 +35,7 @@ from app.prompts.section_router import (
     build_section_user_message,
 )
 from app.schemas.novel_workflows import NovelWorkflowCreateRequest
-from app.schemas.prompt_profiles import GenerationProfile
+from app.schemas.prompt_profiles import GENERATION_PROFILE_ADAPTER
 
 def test_world_building_prompt_ties_setting_to_neutral_story_function() -> None:
     prompt = build_section_system_prompt("world_building", length_preset="long")
@@ -68,15 +68,15 @@ def test_world_building_prompt_uses_fixed_creative_bible_sections_and_item_budge
 def test_world_building_prompt_omits_market_engine_and_prose_pov_profile_rules() -> None:
     prompt = build_section_system_prompt(
         "world_building",
-        generation_profile=GenerationProfile(
-            target_market="nsfw",
-            genre_mother="urban",
-            desire_overlays=["dominance_capture"],
-            intensity_level="explicit",
-            pov_mode="limited_third",
-            morality_axis="gray_pragmatism",
-            pace_density="fast",
-        ),
+        generation_profile=GENERATION_PROFILE_ADAPTER.validate_python({
+            "target_market": "nsfw",
+            "genre_mother": "urban",
+            "desire_overlays": ["dominance_capture"],
+            "intensity_level": "explicit",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "fast",
+        }),
         length_preset="long",
     )
 
@@ -111,9 +111,24 @@ def test_editor_prompts_enforce_mainstream_adult_semantics_boundary() -> None:
     ]
 
     for prompt in prompts:
-        assert "未成年相关内容绝对禁止" in prompt
         assert "主流市场语义边界" in prompt
-        assert "不要注入露骨欲望、生理唤醒、肉体征服、后宫占有或强制性成人语义" in prompt
+        assert "用压力、行动、兑现、反噬、章末期待、资源、身份、关系、信息差和主动权承载推进" in prompt
+        for banned in (
+            "男频",
+            "欲望满足",
+            "征服",
+            "背德",
+            "生理唤醒",
+            "后宫占有",
+            "desire_overlays",
+            "intensity_level",
+            "特殊关系功能只能",
+            "特殊关系兑现只能",
+            "特殊关系兑现必须",
+            "特殊表达只能",
+            "露骨成人语义",
+        ):
+            assert banned not in prompt
 
 
 def test_adjacent_prompts_preserve_grounded_reading() -> None:
@@ -247,15 +262,15 @@ def test_concept_generate_prompt_uses_plot_reference_without_voice_profile() -> 
 
 def test_concept_generate_prompt_ignores_generation_profile_runtime_constraints() -> None:
     prompt = build_concept_generate_system_prompt(
-        generation_profile=GenerationProfile(
-            target_market="nsfw",
-            genre_mother="urban",
-            desire_overlays=["dominance_capture"],
-            intensity_level="explicit",
-            pov_mode="limited_third",
-            morality_axis="gray_pragmatism",
-            pace_density="fast",
-        )
+        generation_profile=GENERATION_PROFILE_ADAPTER.validate_python({
+            "target_market": "nsfw",
+            "genre_mother": "urban",
+            "desire_overlays": ["dominance_capture"],
+            "intensity_level": "explicit",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "fast",
+        })
     )
 
     assert "# Generation Profile（运行时生成约束）" not in prompt
@@ -316,7 +331,7 @@ def test_character_budget_hint_ties_each_tier_to_reader_function_and_prompt_weig
     prompt = build_section_system_prompt("characters_blueprint", length_preset="long")
 
     assert "角色不是设定展示位，而是追读功能位" in prompt
-    assert "T0 主角承担欲望入口、升级反馈和最终胜负" in prompt
+    assert "T0 主角承担行动入口、升级反馈和最终胜负" in prompt
     assert "T1 承担核心压迫、核心奖励、核心背叛或核心关系兑现" in prompt
     assert "T2 承担阶段性阻力、资源入口、情绪缓冲或小高潮触发" in prompt
     assert "T3 只保留一个可回收的钩子" in prompt
@@ -723,19 +738,17 @@ def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_e
 
 def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:
     prompt = build_beat_expand_system_prompt(
-        generation_profile=GenerationProfile(
-            target_market="mainstream",
-            genre_mother="urban",
-            desire_overlays=[],
-            intensity_level="plot_only",
-            pov_mode="limited_third",
-            morality_axis="gray_pragmatism",
-            pace_density="balanced",
-        )
+        generation_profile=GENERATION_PROFILE_ADAPTER.validate_python({
+            "target_market": "mainstream",
+            "genre_mother": "urban",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        })
     )
 
     assert "每一段都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转" in prompt
-    assert "成人向欲望表达只能在 Generation Profile 明确允许时出现" in prompt
+    assert "表达落点必须服务当前节拍" in prompt
     assert "让读者看见主角正在获得更清晰的筹码、地位、主动权或关系变化" in prompt
     assert "视角约束" in prompt
     assert "不要写括号式内心独白" in prompt
@@ -752,15 +765,13 @@ def test_beat_expand_prompt_prioritizes_voice_profile_language_contract() -> Non
             "## 3.1 口头禅与常用表达\n- 执行规则：冷白短句，反问收束。\n"
         ),
         plot_prompt="# Plot Prompt\n核心驱动轴：压制 -> 反制 -> 兑现。\n",
-        generation_profile=GenerationProfile(
-            target_market="mainstream",
-            genre_mother="urban",
-            desire_overlays=[],
-            intensity_level="plot_only",
-            pov_mode="limited_third",
-            morality_axis="gray_pragmatism",
-            pace_density="balanced",
-        ),
+        generation_profile=GENERATION_PROFILE_ADAPTER.validate_python({
+            "target_market": "mainstream",
+            "genre_mother": "urban",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        }),
     )
 
     assert "Voice Profile Runtime Contract（语言层最高优先级）" in prompt
@@ -769,7 +780,7 @@ def test_beat_expand_prompt_prioritizes_voice_profile_language_contract() -> Non
     assert "商业爽点、节拍推进和 Generation Profile 仍要完成" in prompt
     assert "Voice Profile 只约束语言表达，不覆盖当前项目事实、角色关系、世界观、剧情走向、题材强度和边界规则" in prompt
     assert "不得复制样本角色、设定、事件或桥段" in prompt
-    assert "男频商业驱动内核" in prompt
+    assert "商业叙事驱动内核" in prompt
     assert "直接输出正文" in prompt
     assert "视角约束" in prompt
 
@@ -799,7 +810,7 @@ def test_creative_fixed_prompts_remove_old_external_helper_language() -> None:
         assert "小说执笔者" not in prompt
 
 
-def test_creative_fixed_prompts_embed_commercial_male_reader_engine() -> None:
+def test_creative_fixed_prompts_embed_neutral_mainstream_reader_engine() -> None:
     prompts = [
         build_section_system_prompt("characters_blueprint", length_preset="long"),
         build_section_system_prompt("outline_master", length_preset="long"),
@@ -811,12 +822,10 @@ def test_creative_fixed_prompts_embed_commercial_male_reader_engine() -> None:
     ]
 
     for prompt in prompts:
-        assert "男频商业驱动内核" in prompt
-        assert "力量与权力的扩张" in prompt
-        assert "欲望满足" in prompt
+        assert "商业叙事驱动内核" in prompt
+        assert "压力收紧、行动反制、资源变化、身份变化、关系变化、信息差回收和主动权提升" in prompt
         assert "压制 -> 反制 -> 兑现 -> 新压力" in prompt
-        assert "升级反馈、资源掠夺、身份逆转、关系占有" in prompt
-        assert "安全地打破禁忌" in prompt
+        assert "升级反馈、资源获得、身份逆转、关系推进" in prompt
         assert "读者下一章到底在等什么" in prompt
 
 

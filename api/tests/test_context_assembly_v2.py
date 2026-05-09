@@ -12,7 +12,7 @@ from app.services.context_assembly import (
 def test_writing_context_uses_fixed_six_section_order() -> None:
     module = importlib.import_module("app.schemas.prompt_profiles")
     ChapterObjectiveCard = getattr(module, "ChapterObjectiveCard")
-    GenerationProfile = getattr(module, "GenerationProfile")
+    GenerationProfileAdapter = getattr(module, "GENERATION_PROFILE_ADAPTER")
     IntensityProfile = getattr(module, "IntensityProfile")
 
     prompt = assemble_writing_context(
@@ -31,14 +31,15 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
             boundary_rules=["未成年相关绝对移除"],
             soft_conflicts=[],
         ),
-        generation_profile=GenerationProfile(
-            genre_mother="xianxia",
-            desire_overlays=["harem_collect"],
-            intensity_level="explicit",
-            pov_mode="limited_third",
-            morality_axis="ruthless_growth",
-            pace_density="fast",
-        ),
+        generation_profile=GenerationProfileAdapter.validate_python({
+            "target_market": "nsfw",
+            "genre_mother": "xianxia",
+            "desire_overlays": ["harem_collect"],
+            "intensity_level": "explicit",
+            "pov_mode": "limited_third",
+            "morality_axis": "ruthless_growth",
+            "pace_density": "fast",
+        }),
         chapter_objective_card=ChapterObjectiveCard(
             chapter_goal="seduce",
             payoff_target="relationship",
@@ -62,7 +63,7 @@ def test_writing_context_uses_fixed_six_section_order() -> None:
         "# Active Character Focus",
         "# Voice Profile",
         "# Plot Writing Guide",
-        "# Intensity Profile",
+        "# Generation Profile",
         "# Project Context",
     )
 
@@ -136,3 +137,59 @@ def test_writing_context_injects_prompt_asset_layers_in_fixed_order() -> None:
     assert prompt.index("# Active Character Cards") < prompt.index("# Author Notes")
     assert "Layer contract: low-priority writing preference" in prompt
     assert prompt.index("# Author Notes") < prompt.index("Near output")
+
+
+def test_mainstream_writing_context_omits_nsfw_profile_fields() -> None:
+    module = importlib.import_module("app.schemas.prompt_profiles")
+    GenerationProfileAdapter = getattr(module, "GENERATION_PROFILE_ADAPTER")
+
+    prompt = assemble_writing_context(
+        generation_profile=GenerationProfileAdapter.validate_python(
+            {
+                "target_market": "mainstream",
+                "genre_mother": "urban",
+                "pov_mode": "limited_third",
+                "morality_axis": "gray_pragmatism",
+                "pace_density": "balanced",
+            }
+        ),
+        sections=WritingContextSections(outline_detail="本章用压力迫使主角行动。"),
+    )
+
+    assert "target_market: mainstream" in prompt
+    assert "genre_mother: urban" in prompt
+    assert "pov_mode: limited_third" in prompt
+    assert "morality_axis: gray_pragmatism" in prompt
+    assert "pace_density: balanced" in prompt
+    assert "chapter_goal: advance" in prompt
+    assert "payoff_target: status" in prompt
+    assert "desire_overlays" not in prompt
+    assert "intensity_level" not in prompt
+    assert "adult_expression_mode" not in prompt
+    assert "成人向" not in prompt
+    assert "NSFW" not in prompt
+
+
+def test_nsfw_writing_context_includes_nsfw_profile_fields() -> None:
+    module = importlib.import_module("app.schemas.prompt_profiles")
+    GenerationProfileAdapter = getattr(module, "GENERATION_PROFILE_ADAPTER")
+
+    prompt = assemble_writing_context(
+        generation_profile=GenerationProfileAdapter.validate_python(
+            {
+                "target_market": "nsfw",
+                "genre_mother": "urban",
+                "desire_overlays": ["dominance_capture"],
+                "intensity_level": "explicit",
+                "pov_mode": "limited_third",
+                "morality_axis": "ruthless_growth",
+                "pace_density": "fast",
+            }
+        ),
+        sections=WritingContextSections(outline_detail="本章用压力迫使主角行动。"),
+    )
+
+    assert "target_market: nsfw" in prompt
+    assert "desire_overlays: dominance_capture" in prompt
+    assert "intensity_level: explicit" in prompt
+    assert "adult_expression_mode: explicit" in prompt

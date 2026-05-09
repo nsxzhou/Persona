@@ -20,7 +20,10 @@ def _load_prompt_profile_symbols() -> dict[str, object]:
         for name in (
             "ChapterObjectiveCard",
             "GenerationProfile",
+            "GENERATION_PROFILE_ADAPTER",
             "IntensityProfile",
+            "MainstreamGenerationProfile",
+            "NsfwGenerationProfile",
             "PlotWritingGuideProfile",
             "StoryEngineProfile",
             "VoiceProfile",
@@ -29,8 +32,50 @@ def _load_prompt_profile_symbols() -> dict[str, object]:
 
 
 def _build_generation_profile():
-    GenerationProfile = _load_prompt_profile_symbols()["GenerationProfile"]
-    return GenerationProfile(
+    GenerationProfileAdapter = _load_prompt_profile_symbols()["GENERATION_PROFILE_ADAPTER"]
+    return GenerationProfileAdapter.validate_python(
+        {
+            "target_market": "nsfw",
+            "genre_mother": "xianxia",
+            "desire_overlays": ["harem_collect"],
+            "intensity_level": "explicit",
+            "pov_mode": "limited_third",
+            "morality_axis": "ruthless_growth",
+            "pace_density": "fast",
+        }
+    )
+
+
+def _build_mainstream_generation_profile():
+    GenerationProfileAdapter = _load_prompt_profile_symbols()["GENERATION_PROFILE_ADAPTER"]
+    return GenerationProfileAdapter.validate_python(
+        {
+            "target_market": "mainstream",
+            "genre_mother": "xianxia",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        }
+    )
+
+
+def _build_nsfw_generation_profile():
+    GenerationProfileAdapter = _load_prompt_profile_symbols()["GENERATION_PROFILE_ADAPTER"]
+    return GenerationProfileAdapter.validate_python(
+        {
+            "target_market": "nsfw",
+            "genre_mother": "xianxia",
+            "desire_overlays": ["dominance_capture"],
+            "intensity_level": "explicit",
+            "pov_mode": "limited_third",
+            "morality_axis": "ruthless_growth",
+            "pace_density": "fast",
+        }
+    )
+
+
+def _build_legacy_flat_generation_profile_payload():
+    return dict(
         genre_mother="xianxia",
         desire_overlays=["harem_collect"],
         intensity_level="explicit",
@@ -45,6 +90,8 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
     VoiceProfile = symbols["VoiceProfile"]
     PlotWritingGuideProfile = symbols["PlotWritingGuideProfile"]
     StoryEngineProfile = symbols["StoryEngineProfile"]
+    MainstreamGenerationProfile = symbols["MainstreamGenerationProfile"]
+    NsfwGenerationProfile = symbols["NsfwGenerationProfile"]
     IntensityProfile = symbols["IntensityProfile"]
     ChapterObjectiveCard = symbols["ChapterObjectiveCard"]
     voice = VoiceProfile(
@@ -70,6 +117,22 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
         scene_verbs=["入局", "压制", "试探", "收割"],
         hook_recipes=["半兑现后立刻追加新压力"],
         anti_drift_guardrails=["不要退化成纯气氛描写"],
+    )
+    mainstream_generation = MainstreamGenerationProfile(
+        target_market="mainstream",
+        genre_mother="xianxia",
+        pov_mode="limited_third",
+        morality_axis="gray_pragmatism",
+        pace_density="balanced",
+    )
+    nsfw_generation = NsfwGenerationProfile(
+        target_market="nsfw",
+        genre_mother="xianxia",
+        desire_overlays=["harem_collect"],
+        intensity_level="explicit",
+        pov_mode="limited_third",
+        morality_axis="ruthless_growth",
+        pace_density="fast",
     )
     plot_guide = PlotWritingGuideProfile(
         core_plot_formula=["用压力迫使主角行动。"],
@@ -121,6 +184,22 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
         "hook_recipes",
         "anti_drift_guardrails",
     }
+    assert set(mainstream_generation.model_dump().keys()) == {
+        "target_market",
+        "genre_mother",
+        "pov_mode",
+        "morality_axis",
+        "pace_density",
+    }
+    assert set(nsfw_generation.model_dump().keys()) == {
+        "target_market",
+        "genre_mother",
+        "desire_overlays",
+        "intensity_level",
+        "pov_mode",
+        "morality_axis",
+        "pace_density",
+    }
     assert set(plot_guide.model_dump().keys()) == {
         "core_plot_formula",
         "chapter_progression_loop",
@@ -150,17 +229,20 @@ def test_prompt_profile_schemas_expose_exact_required_fields() -> None:
 
 def test_generation_profile_enforces_declared_enums() -> None:
     symbols = _load_prompt_profile_symbols()
-    GenerationProfile = symbols["GenerationProfile"]
+    GenerationProfileAdapter = symbols["GENERATION_PROFILE_ADAPTER"]
     IntensityProfile = symbols["IntensityProfile"]
 
     with pytest.raises(ValidationError):
-        GenerationProfile(
-            genre_mother="western_fantasy",
-            desire_overlays=[],
-            intensity_level="explicit",
-            pov_mode="limited_third",
-            morality_axis="ruthless_growth",
-            pace_density="fast",
+        GenerationProfileAdapter.validate_python(
+            {
+                "target_market": "nsfw",
+                "genre_mother": "western_fantasy",
+                "desire_overlays": ["harem_collect"],
+                "intensity_level": "explicit",
+                "pov_mode": "limited_third",
+                "morality_axis": "ruthless_growth",
+                "pace_density": "fast",
+            }
         )
 
     with pytest.raises(ValidationError):
@@ -171,6 +253,72 @@ def test_generation_profile_enforces_declared_enums() -> None:
             boundary_rules=["未成年相关绝对移除"],
             soft_conflicts=[],
         )
+
+
+def test_generation_profile_discriminates_mainstream_and_nsfw_contracts() -> None:
+    GenerationProfileAdapter = _load_prompt_profile_symbols()["GENERATION_PROFILE_ADAPTER"]
+
+    mainstream = GenerationProfileAdapter.validate_python(
+        {
+            "target_market": "mainstream",
+            "genre_mother": "urban",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        }
+    )
+    nsfw = GenerationProfileAdapter.validate_python(
+        {
+            "target_market": "nsfw",
+            "genre_mother": "urban",
+            "desire_overlays": ["dominance_capture"],
+            "intensity_level": "explicit",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        }
+    )
+
+    assert mainstream.target_market == "mainstream"
+    assert not hasattr(mainstream, "desire_overlays")
+    assert not hasattr(mainstream, "intensity_level")
+    assert nsfw.desire_overlays == ["dominance_capture"]
+    assert nsfw.intensity_level == "explicit"
+
+    with pytest.raises(ValidationError):
+        GenerationProfileAdapter.validate_python(
+            {
+                "target_market": "mainstream",
+                "genre_mother": "urban",
+                "desire_overlays": ["harem_collect"],
+                "pov_mode": "limited_third",
+                "morality_axis": "gray_pragmatism",
+                "pace_density": "balanced",
+            }
+        )
+    with pytest.raises(ValidationError):
+        GenerationProfileAdapter.validate_python(
+            {
+                "target_market": "mainstream",
+                "genre_mother": "urban",
+                "intensity_level": "plot_only",
+                "pov_mode": "limited_third",
+                "morality_axis": "gray_pragmatism",
+                "pace_density": "balanced",
+            }
+        )
+    with pytest.raises(ValidationError):
+        GenerationProfileAdapter.validate_python(
+            {
+                "target_market": "nsfw",
+                "genre_mother": "urban",
+                "pov_mode": "limited_third",
+                "morality_axis": "gray_pragmatism",
+                "pace_density": "balanced",
+            }
+        )
+    with pytest.raises(ValidationError):
+        GenerationProfileAdapter.validate_python(_build_legacy_flat_generation_profile_payload())
 
 
 def test_project_and_novel_workflow_requests_accept_generation_profile() -> None:
