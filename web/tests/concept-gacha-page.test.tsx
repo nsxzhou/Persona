@@ -110,8 +110,6 @@ describe("ConceptGachaPage", () => {
         generation_profile: {
           target_market: "mainstream",
           genre_mother: "xianxia",
-          desire_overlays: [],
-          intensity_level: "plot_only",
           pov_mode: "limited_third",
           morality_axis: "gray_pragmatism",
           pace_density: "balanced",

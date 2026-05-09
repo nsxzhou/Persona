@@ -371,7 +371,7 @@ describe("API contracts", () => {
       model_name: "gpt-4.1-mini",
       count: 3,
       generation_profile: {
-        target_market: "mainstream",
+        target_market: "nsfw",
         genre_mother: "xianxia",
         desire_overlays: ["harem_collect"],
         intensity_level: "explicit",

@@ -139,12 +139,10 @@ const project: Project = {
   plot_profile_id: null,
   generation_profile: {
     genre_mother: "historical_power",
-    intensity_level: "edge",
     pov_mode: "limited_third",
     morality_axis: "gray_pragmatism",
     pace_density: "fast",
     target_market: "mainstream",
-    desire_overlays: [],
   },
   length_preset: "short",
   auto_sync_memory: false,
