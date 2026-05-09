@@ -35,6 +35,7 @@ async def test_provider_configs_mask_keys_and_support_crud(
     assert created["api_key_hint"] == "****5678"
     assert created["immersion_prompt_override_enabled"] is False
     assert created["immersion_system_prompt_suffix"] == ""
+    assert created["chat_test_system_prompt"] == ""
 
     update_response = await initialized_client.patch(
         f"/api/v1/provider-configs/{created['id']}",
@@ -43,6 +44,7 @@ async def test_provider_configs_mask_keys_and_support_crud(
             "default_model": "gpt-4.1-mini",
             "immersion_prompt_override_enabled": True,
             "immersion_system_prompt_suffix": "Provider-specific immersion ending.",
+            "chat_test_system_prompt": "Provider-specific chat test prompt.",
         },
     )
     assert update_response.status_code == 200
@@ -52,6 +54,9 @@ async def test_provider_configs_mask_keys_and_support_crud(
     assert (
         update_response.json()["immersion_system_prompt_suffix"]
         == "Provider-specific immersion ending."
+    )
+    assert update_response.json()["chat_test_system_prompt"] == (
+        "Provider-specific chat test prompt."
     )
 
 @pytest.mark.asyncio
@@ -79,6 +84,129 @@ async def test_provider_connection_test_masks_sensitive_error_details(
     refreshed = (await initialized_client.get("/api/v1/provider-configs")).json()[0]
     assert refreshed["last_test_status"] is None
     assert refreshed["last_test_error"] is None
+
+
+@pytest.mark.asyncio
+async def test_provider_chat_test_returns_reply_sent_messages_and_temperature(
+    initialized_client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.llm_provider import LLMProviderService
+
+    async def fake_invoke_chat_test(
+        self,
+        provider_config,
+        *,
+        system_prompt: str,
+        messages,
+        temperature: float,
+    ):  # type: ignore[no-untyped-def]
+        del self, provider_config
+        assert system_prompt == "SYSTEM"
+        assert [message.model_dump() for message in messages] == [
+            {"role": "user", "content": "第一句"},
+            {"role": "assistant", "content": "上一轮回复"},
+            {"role": "user", "content": "继续"},
+        ]
+        assert temperature == 0.4
+        return (
+            "模型回复",
+            [
+                SimpleNamespace(role="system", content="SYSTEM"),
+                SimpleNamespace(role="user", content="第一句"),
+                SimpleNamespace(role="assistant", content="上一轮回复"),
+                SimpleNamespace(role="user", content="继续"),
+            ],
+            False,
+        )
+
+    monkeypatch.setattr(LLMProviderService, "invoke_chat_test", fake_invoke_chat_test)
+
+    provider = (await initialized_client.get("/api/v1/provider-configs")).json()[0]
+    update_response = await initialized_client.patch(
+        f"/api/v1/provider-configs/{provider['id']}",
+        json={
+            "immersion_prompt_override_enabled": True,
+            "immersion_system_prompt_suffix": "Provider suffix",
+            "is_enabled": False,
+        },
+    )
+    assert update_response.status_code == 200
+
+    response = await initialized_client.post(
+        f"/api/v1/provider-configs/{provider['id']}/chat-test",
+        json={
+            "system_prompt": "SYSTEM",
+            "messages": [
+                {"role": "user", "content": "第一句"},
+                {"role": "assistant", "content": "上一轮回复"},
+                {"role": "user", "content": "继续"},
+            ],
+            "temperature": 0.4,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["reply"] == "模型回复"
+    assert body["provider_prompt_override_applied"] is False
+    assert body["temperature"] == 0.4
+    assert body["sent_messages"][0] == {
+        "role": "system",
+        "content": "SYSTEM",
+    }
+    assert body["sent_messages"][1] == {
+        "role": "user",
+        "content": "第一句",
+    }
+    assert body["sent_messages"][2] == {
+        "role": "assistant",
+        "content": "上一轮回复",
+    }
+
+
+@pytest.mark.asyncio
+async def test_provider_chat_test_validates_temperature_and_latest_user_message(
+    initialized_client: AsyncClient,
+) -> None:
+    provider = (await initialized_client.get("/api/v1/provider-configs")).json()[0]
+
+    high_temperature_response = await initialized_client.post(
+        f"/api/v1/provider-configs/{provider['id']}/chat-test",
+        json={
+            "system_prompt": "SYSTEM",
+            "messages": [{"role": "user", "content": "继续"}],
+            "temperature": 2.1,
+        },
+    )
+    assert high_temperature_response.status_code == 422
+
+    assistant_latest_response = await initialized_client.post(
+        f"/api/v1/provider-configs/{provider['id']}/chat-test",
+        json={
+            "system_prompt": "SYSTEM",
+            "messages": [{"role": "assistant", "content": "上一轮回复"}],
+            "temperature": 0.7,
+        },
+    )
+    assert assistant_latest_response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_provider_chat_test_returns_not_found_for_missing_provider(
+    initialized_client: AsyncClient,
+) -> None:
+    response = await initialized_client.post(
+        "/api/v1/provider-configs/missing-provider/chat-test",
+        json={
+            "system_prompt": "SYSTEM",
+            "messages": [{"role": "user", "content": "继续"}],
+            "temperature": 0.7,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Provider 不存在"
 
 
 @pytest.mark.asyncio
@@ -168,6 +296,7 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
             is_enabled: bool,
             immersion_prompt_override_enabled: bool,
             immersion_system_prompt_suffix: str,
+            chat_test_system_prompt: str,
             user_id: str,
         ):
             del session
@@ -181,6 +310,7 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
                 is_enabled=is_enabled,
                 immersion_prompt_override_enabled=immersion_prompt_override_enabled,
                 immersion_system_prompt_suffix=immersion_system_prompt_suffix,
+                chat_test_system_prompt=chat_test_system_prompt,
                 user_id=user_id,
             )
 
@@ -195,6 +325,7 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
             is_enabled=True,
             immersion_prompt_override_enabled=True,
             immersion_system_prompt_suffix="Override suffix",
+            chat_test_system_prompt="Chat test prompt",
         ),
     )
 
@@ -202,6 +333,7 @@ async def test_provider_config_service_create_uses_repository_user_lookup() -> N
     assert created_provider.user_id == "user-1"
     assert created_provider.immersion_prompt_override_enabled is True
     assert created_provider.immersion_system_prompt_suffix == "Override suffix"
+    assert created_provider.chat_test_system_prompt == "Chat test prompt"
 
 
 @pytest.mark.asyncio

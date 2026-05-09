@@ -9,6 +9,8 @@ from app.api.deps import (
 )
 from app.schemas.provider_configs import (
     ConnectionTestResponse,
+    ProviderChatTestRequest,
+    ProviderChatTestResponse,
     ProviderConfigCreate,
     ProviderConfigResponse,
     ProviderConfigUpdate,
@@ -71,6 +73,21 @@ async def test_provider_config(
         user_id=getattr(_current_user, "id", None),
     )
     return ConnectionTestResponse(**result)
+
+@router.post("/{provider_id}/chat-test", response_model=ProviderChatTestResponse)
+async def chat_test_provider_config(
+    provider_id: str,
+    payload: ProviderChatTestRequest,
+    current_user: CurrentUserDep,
+    db_session: DbSessionDep,
+    provider_service: ProviderConfigServiceDep,
+) -> ProviderChatTestResponse:
+    return await provider_service.chat_test(
+        db_session,
+        provider_id,
+        payload,
+        user_id=current_user.id,
+    )
 
 @router.delete("/{provider_id}", status_code=204)
 async def delete_provider_config(

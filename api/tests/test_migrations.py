@@ -318,6 +318,62 @@ def test_provider_prompt_override_migration_defaults_existing_providers(
     assert prompt_override == (0, "")
 
 
+def test_provider_chat_test_prompt_migration_backfills_from_provider_suffix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "provider-chat-test-prompt.db"
+    monkeypatch.delenv("PERSONA_ENCRYPTION_KEY", raising=False)
+    get_settings.cache_clear()
+    alembic_config = Config("alembic.ini")
+    alembic_config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+
+    try:
+        command.upgrade(alembic_config, "0019_project_prompt_assets")
+        import sqlite3
+
+        with sqlite3.connect(database_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO users (id, username, password_hash)
+                VALUES ('user-1', 'owner', 'hash')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO provider_configs (
+                    id, user_id, label, base_url, api_key_encrypted,
+                    api_key_hint_last4, default_model, is_enabled,
+                    immersion_prompt_override_enabled, immersion_system_prompt_suffix
+                )
+                VALUES (
+                    'provider-1', 'user-1', 'Provider', 'https://example.com',
+                    'encrypted', '0000', 'model', 1,
+                    1, 'Existing suffix'
+                )
+                """
+            )
+
+        command.upgrade(alembic_config, "head")
+
+        with sqlite3.connect(database_path) as connection:
+            provider_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(provider_configs)").fetchall()
+            }
+            chat_test_prompt = connection.execute(
+                """
+                SELECT chat_test_system_prompt
+                FROM provider_configs
+                WHERE id = 'provider-1'
+                """
+            ).fetchone()
+    finally:
+        get_settings.cache_clear()
+
+    assert "chat_test_system_prompt" in provider_columns
+    assert chat_test_prompt == ("Existing suffix",)
+
+
 def test_alembic_revision_ids_fit_version_column_limit() -> None:
     versions_dir = Path(__file__).resolve().parent.parent / "alembic" / "versions"
     for migration_file in versions_dir.glob("*.py"):

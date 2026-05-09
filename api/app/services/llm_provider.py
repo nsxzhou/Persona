@@ -6,11 +6,12 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from openai import PermissionDeniedError
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.redaction import summarize_exception
 from app.db.models import ProviderConfig
+from app.schemas.provider_configs import ProviderChatTestMessage, ProviderChatTestSentMessage
 from app.services.llm_model_factory import build_chat_model
 from app.services.prompt_injection import (
     PromptInjectionMode,
@@ -110,6 +111,8 @@ def _trace_messages(messages: list[Any]) -> list[PromptTraceMessage]:
             role = "system"
         elif isinstance(message, HumanMessage):
             role = "user"
+        elif isinstance(message, AIMessage):
+            role = "assistant"
         else:
             role = getattr(message, "type", None) or getattr(message, "role", None) or role
         traced.append(
@@ -127,6 +130,17 @@ def _append_system_prompt_suffix(system_prompt: str, suffix: str) -> str:
     if not system_prompt:
         return suffix
     return f"{system_prompt}\n\n{suffix}"
+
+
+def _should_apply_provider_prompt_override(
+    provider_config: ProviderConfig,
+    mode: PromptInjectionMode,
+) -> bool:
+    return (
+        mode == "immersion"
+        and bool(getattr(provider_config, "immersion_prompt_override_enabled", False))
+        and bool(str(getattr(provider_config, "immersion_system_prompt_suffix", "")).strip())
+    )
 
 
 class EmptyMarkdownResponseError(ValueError):
@@ -225,10 +239,9 @@ class LLMProviderService:
             injection_task=injection_task,
             injection_mode=injection_mode,
         )
-        provider_prompt_override_applied = (
-            resolved_mode == "immersion"
-            and bool(getattr(provider_config, "immersion_prompt_override_enabled", False))
-            and bool(str(getattr(provider_config, "immersion_system_prompt_suffix", "")).strip())
+        provider_prompt_override_applied = _should_apply_provider_prompt_override(
+            provider_config,
+            resolved_mode,
         )
         final_system_prompt = (
             _append_system_prompt_suffix(
@@ -273,6 +286,30 @@ class LLMProviderService:
             prompt_stack_manifest=prompt_stack_manifest,
         )
         return content
+
+    async def invoke_chat_test(
+        self,
+        provider_config: ProviderConfig,
+        *,
+        system_prompt: str,
+        messages: list[ProviderChatTestMessage],
+        temperature: float = _DEFAULT_TEMPERATURE,
+    ) -> tuple[str, list[ProviderChatTestSentMessage], bool]:
+        """Non-streaming Provider chat test call with visible final messages."""
+        model = self._build_model(provider_config, temperature=temperature)
+        langchain_messages: list[Any] = [SystemMessage(content=system_prompt)]
+        for message in messages:
+            if message.role == "assistant":
+                langchain_messages.append(AIMessage(content=message.content))
+            else:
+                langchain_messages.append(HumanMessage(content=message.content))
+
+        response = await model.ainvoke(langchain_messages)
+        sent_messages = [
+            ProviderChatTestSentMessage(role=message.role, content=message.content)
+            for message in _trace_messages(langchain_messages)
+        ]
+        return str(response.content), sent_messages, False
 
     async def _record_prompt_trace_success(
         self,

@@ -129,6 +129,12 @@ class ProviderConfig(TimestampMixin, Base):
         default="",
         server_default="",
     )
+    chat_test_system_prompt: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="",
+        server_default="",
+    )
     last_test_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     last_test_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_tested_at: Mapped[datetime | None] = mapped_column(

@@ -261,3 +261,56 @@ async def test_invoke_completion_ignores_blank_provider_override_suffix(
 
     assert fake_model.messages[0].content == "SYSTEM"
     assert traces[0]["provider_prompt_override_applied"] is False
+
+
+@pytest.mark.asyncio
+async def test_invoke_chat_test_sends_exact_test_messages_without_immersion_injection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.schemas.provider_configs import ProviderChatTestMessage
+    from app.services.llm_provider import LLMProviderService
+
+    class FakeModel:
+        async def ainvoke(self, messages):  # type: ignore[no-untyped-def]
+            self.messages = messages
+            return SimpleNamespace(content="done")
+
+    fake_model = FakeModel()
+    service = LLMProviderService()
+    temperatures: list[float] = []
+
+    def fake_build_model(*_, temperature: float, **__):  # type: ignore[no-untyped-def]
+        temperatures.append(temperature)
+        return fake_model
+
+    monkeypatch.setattr(service, "_build_model", fake_build_model)
+
+    reply, sent_messages, provider_prompt_override_applied = await service.invoke_chat_test(
+        provider_config=SimpleNamespace(
+            immersion_prompt_override_enabled=True,
+            immersion_system_prompt_suffix="Provider suffix",
+        ),
+        system_prompt="SYSTEM",
+        messages=[
+            ProviderChatTestMessage(role="user", content="第一句"),
+            ProviderChatTestMessage(role="assistant", content="上一轮回复"),
+            ProviderChatTestMessage(role="user", content="继续"),
+        ],
+        temperature=0.3,
+    )
+
+    assert reply == "done"
+    assert temperatures == [0.3]
+    assert provider_prompt_override_applied is False
+    assert fake_model.messages[0].content == "SYSTEM"
+    assert fake_model.messages[1].content == "第一句"
+    assert fake_model.messages[2].content == "上一轮回复"
+    assert fake_model.messages[3].content == "继续"
+    assert [message.role for message in sent_messages] == [
+        "system",
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert sent_messages[0].content == "SYSTEM"
+    assert sent_messages[1].content == "第一句"

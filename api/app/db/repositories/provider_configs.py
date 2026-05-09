@@ -36,6 +36,7 @@ class ProviderConfigRepository:
         is_enabled: bool,
         immersion_prompt_override_enabled: bool,
         immersion_system_prompt_suffix: str,
+        chat_test_system_prompt: str,
         user_id: str,
     ) -> ProviderConfig:
         provider = ProviderConfig(
@@ -47,6 +48,7 @@ class ProviderConfigRepository:
             is_enabled=is_enabled,
             immersion_prompt_override_enabled=immersion_prompt_override_enabled,
             immersion_system_prompt_suffix=immersion_system_prompt_suffix,
+            chat_test_system_prompt=chat_test_system_prompt,
             user_id=user_id,
         )
         session.add(provider)

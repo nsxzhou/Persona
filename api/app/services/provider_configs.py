@@ -11,15 +11,21 @@ from app.core.domain_errors import (
     UnprocessableEntityError,
 )
 from app.core.security import encrypt_secret
-from app.core.redaction import redact_sensitive_text
+from app.core.redaction import redact_sensitive_text, summarize_exception
 from app.db.models import ProviderConfig
 from app.db.repositories.provider_configs import ProviderConfigRepository
-from app.schemas.provider_configs import ProviderConfigCreate, ProviderConfigUpdate
+from app.schemas.provider_configs import (
+    ProviderChatTestRequest,
+    ProviderChatTestResponse,
+    ProviderConfigCreate,
+    ProviderConfigUpdate,
+)
 from app.services.llm_provider import LLMProviderService
 from app.services.provider_references import ProviderReferenceService
 
 
 PROVIDER_CONNECTION_TEST_ERROR_MESSAGE = "Provider 连通性测试失败，请检查配置后重试"
+PROVIDER_CHAT_TEST_ERROR_MESSAGE = "Provider 对话测试失败，请检查配置后重试"
 
 
 class ProviderConfigService:
@@ -68,6 +74,7 @@ class ProviderConfigService:
             is_enabled=payload.is_enabled,
             immersion_prompt_override_enabled=payload.immersion_prompt_override_enabled,
             immersion_system_prompt_suffix=payload.immersion_system_prompt_suffix,
+            chat_test_system_prompt=payload.chat_test_system_prompt,
             user_id=resolved_user_id,
         )
 
@@ -109,6 +116,8 @@ class ProviderConfigService:
             provider.immersion_system_prompt_suffix = (
                 data["immersion_system_prompt_suffix"] or ""
             )
+        if "chat_test_system_prompt" in data:
+            provider.chat_test_system_prompt = data["chat_test_system_prompt"] or ""
         if data.get("api_key"):
             provider.api_key_encrypted = encrypt_secret(data["api_key"])
             provider.api_key_hint_last4 = data["api_key"][-4:]
@@ -162,6 +171,43 @@ class ProviderConfigService:
         )
         raise BadRequestError(
             f"{PROVIDER_CONNECTION_TEST_ERROR_MESSAGE}（原因：{error_summary}）"
+        )
+
+    async def chat_test(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        payload: ProviderChatTestRequest,
+        *,
+        user_id: str | None = None,
+    ) -> ProviderChatTestResponse:
+        provider = await self.get_or_404(session, provider_id, user_id=user_id)
+        try:
+            reply, sent_messages, provider_prompt_override_applied = (
+                await self.llm_provider_service.invoke_chat_test(
+                    provider,
+                    system_prompt=payload.system_prompt,
+                    messages=payload.messages,
+                    temperature=payload.temperature,
+                )
+            )
+        except Exception as exc:
+            error_summary = redact_sensitive_text(summarize_exception(exc)).strip()
+            if error_summary:
+                error_summary = (
+                    error_summary[:199] + "…" if len(error_summary) > 200 else error_summary
+                )
+            else:
+                error_summary = "UnknownError"
+            raise BadRequestError(
+                f"{PROVIDER_CHAT_TEST_ERROR_MESSAGE}（原因：{error_summary}）"
+            ) from exc
+
+        return ProviderChatTestResponse(
+            reply=reply,
+            sent_messages=sent_messages,
+            provider_prompt_override_applied=provider_prompt_override_applied,
+            temperature=payload.temperature,
         )
 
     async def delete(
