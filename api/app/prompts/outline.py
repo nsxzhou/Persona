@@ -4,7 +4,6 @@ from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     GROUNDED_INTERPRETATION_GUARDRAIL,
-    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
     build_desire_semantics_hint,
@@ -12,6 +11,7 @@ from app.prompts.novel_shared import (
     build_outline_closure_hint,
     build_plot_propulsion_contract,
     build_volume_planning_budget_hint,
+    get_commercial_engine,
     get_hook_framework,
 )
 from app.prompts.section_context import build_section_user_message
@@ -50,7 +50,7 @@ _OUTLINE_MASTER_INSTRUCTION_TEMPLATE = (
     "- 每个阶段结束都要推动主爽点进入下一轮兑现\n"
     "- 读者下一阶段最想看主角拿到什么、压过谁、改变什么关系或突破什么规则，必须写清楚\n"
     "- 角色关系如果发生变化，只能是总纲级局部推进，不能在这里把全书角色网络整体洗牌\n"
-    "- 核心爽点必须聚焦于极致打脸、资源兑现、权力扩张、身份反转或关系推进；成人向兑现只能在 Generation Profile 明确允许时出现"
+    "- 核心爽点必须聚焦于极致打脸、资源兑现、权力扩张、身份反转或关系推进；关系变化必须承担明确剧情功能"
     "{hook_framework}"
 )
 
@@ -103,7 +103,7 @@ def build_outline_master_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「总纲」。\n"
-        f"{MALE_COMMERCIAL_ENGINE}"
+        f"{get_commercial_engine(generation_profile)}"
         f"{instruction}\n\n"
         f"{build_direct_output_rules(extra_rules=('若输出一级标题/书名，必须使用上下文里的「项目小说名（硬约束）」，不得自行拟定新书名',))}"
     )
@@ -149,7 +149,7 @@ def build_volume_generate_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书规划整体结构，梳理分卷规划。\n\n"
-        f"{MALE_COMMERCIAL_ENGINE}"
+        f"{get_commercial_engine(generation_profile)}"
         f"{instruction}\n\n"
         f"{build_direct_output_rules(no_top_level_title=True, extra_rules=('只输出规划结构，不要输出任何章节内容', '不要输出章节表格、章节范围列表或「第N章」条目'))}"
     )

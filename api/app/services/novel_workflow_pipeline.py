@@ -764,11 +764,11 @@ class NovelWorkflowPipeline:
             await self.stage_callback(stage)
 
     def _generation_profile_obj(self, state: NovelWorkflowState):
-        from app.schemas.prompt_profiles import GenerationProfile, default_generation_profile
+        from app.schemas.prompt_profiles import default_generation_profile, validate_generation_profile
 
         payload = state.get("generation_profile")
         if payload:
-            return GenerationProfile.model_validate(payload)
+            return validate_generation_profile(payload)
         return default_generation_profile()
 
 

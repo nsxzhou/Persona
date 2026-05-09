@@ -25,7 +25,7 @@ _PLOT_APPLICATION_RULES = """
 - 不要把 Plot Writing Guide 当成背景参考；每次正文生成都要让它显式改变当前章节的推进选择。
 - 每次正文生成至少推进信息差、利益绑定、资源兑现、关系重组或新压力中的一项。
 - 关系张力必须承担剧情功能：奖励源、阻力源、情绪牵引源、身份压迫源或未兑现承诺。
-- 强度档位改变欲望的落地方式，不改变剧情推进义务。
+- 配置只改变表达落点，不改变剧情推进义务。
 """
 
 
@@ -132,15 +132,9 @@ def assemble_writing_context(
         "- 禁止前言、自述、总结、初始化说明、显式 thinking。\n"
         "- 不要解释你如何理解规则，不要输出任何元评论。",
         "# Chapter Objective Card\n"
-        + _format_mapping(
-            {
-                "chapter_goal": resolved_objective_card.chapter_goal,
-                "payoff_target": resolved_objective_card.payoff_target,
-                "pressure_source": resolved_objective_card.pressure_source,
-                "relationship_delta": resolved_objective_card.relationship_delta,
-                "adult_expression_mode": resolved_objective_card.adult_expression_mode,
-                "hook_type": resolved_objective_card.hook_type,
-            }
+        + _format_chapter_objective_card(
+            resolved_objective_card,
+            target_market=resolved_generation_profile.target_market,
         ),
         "# Active Character Focus\n"
         + (
@@ -160,18 +154,8 @@ def assemble_writing_context(
         + _strip_duplicate_top_heading(resolved_story_markdown, "# Plot Writing Guide")
         + "\n\n## Runtime Guardrails\n"
         + _PLOT_APPLICATION_RULES.strip(),
-        "# Intensity Profile\n"
-        + _format_mapping(
-            {
-                "genre_mother": resolved_generation_profile.genre_mother,
-                "pov_mode": resolved_generation_profile.pov_mode,
-                "intensity_level": resolved_intensity_profile.intensity_level,
-                "desire_overlays": ", ".join(resolved_intensity_profile.desire_overlays) or "none",
-                "expression_focus": "; ".join(resolved_intensity_profile.expression_focus),
-                "boundary_rules": "; ".join(resolved_intensity_profile.boundary_rules),
-                "soft_conflicts": "; ".join(resolved_intensity_profile.soft_conflicts) or "none",
-            }
-        )
+        "# Generation Profile\n"
+        + _format_generation_context_profile(resolved_generation_profile, resolved_intensity_profile)
         + build_pov_mode_hint(resolved_generation_profile.pov_mode),
     ]
 
@@ -231,6 +215,47 @@ def _strip_duplicate_top_heading(markdown: str, heading: str) -> str:
 
 def _format_mapping(values: dict[str, str]) -> str:
     return "\n".join(f"{key}: {value}" for key, value in values.items())
+
+
+def _format_chapter_objective_card(
+    objective_card: ChapterObjectiveCard,
+    *,
+    target_market: str,
+) -> str:
+    values = {
+        "chapter_goal": objective_card.chapter_goal,
+        "payoff_target": objective_card.payoff_target,
+        "pressure_source": objective_card.pressure_source,
+        "relationship_delta": objective_card.relationship_delta,
+        "hook_type": objective_card.hook_type,
+    }
+    if target_market == "nsfw":
+        values["adult_expression_mode"] = objective_card.adult_expression_mode
+    return _format_mapping(values)
+
+
+def _format_generation_context_profile(
+    generation_profile: GenerationProfile,
+    intensity_profile: IntensityProfile,
+) -> str:
+    values = {
+        "target_market": generation_profile.target_market,
+        "genre_mother": generation_profile.genre_mother,
+        "pov_mode": generation_profile.pov_mode,
+        "morality_axis": generation_profile.morality_axis,
+        "pace_density": generation_profile.pace_density,
+    }
+    if generation_profile.target_market == "nsfw":
+        values.update(
+            {
+                "intensity_level": intensity_profile.intensity_level,
+                "desire_overlays": ", ".join(intensity_profile.desire_overlays) or "none",
+                "expression_focus": "; ".join(intensity_profile.expression_focus),
+                "boundary_rules": "; ".join(intensity_profile.boundary_rules),
+                "soft_conflicts": "; ".join(intensity_profile.soft_conflicts) or "none",
+            }
+        )
+    return _format_mapping(values)
 
 
 def _wrap_asset_layer(layer: WritingPromptAssetLayer) -> str:

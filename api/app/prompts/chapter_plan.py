@@ -3,13 +3,13 @@ from __future__ import annotations
 from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
-    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
     build_desire_semantics_hint,
     build_direct_output_rules,
     build_plot_propulsion_contract,
     build_volume_planning_budget_hint,
+    get_commercial_engine,
     get_hook_framework,
 )
 from app.prompts.section_context import build_section_user_message
@@ -40,7 +40,7 @@ _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
     "- 章节级补强只允许局部增加动机、场面和兑现，不允许改写全书角色功能位\n\n"
     "节奏规则：\n"
     "- 同一规划块内的章节情绪应有起伏，但高潮环节可以连续强化打脸、资源兑现、身份反转或关系推进\n"
-    "- 每章都要服务追读期待；成人向欲望兑现只能在 Generation Profile 明确允许时成为核心章节功能\n"
+    "- 每章都要服务追读期待；关系兑现必须与资源、身份、信息差或主动权变化绑定\n"
     "- 不必每章硬凹爆点，关键是明确下一章的兑现期待\n"
     "- 该收束时安排伏笔回收和主线收口，但不要机械地按篇幅预设倒推结构\n"
     "- 每章都要回答：下一章读者到底在等什么兑现\n"
@@ -51,7 +51,7 @@ _OUTLINE_DETAIL_INSTRUCTION_TEMPLATE = (
 
 _VOLUME_CHAPTERS_SYSTEM_TEMPLATE = (
     "你是一位起点白金作家，正在为自己的当前卷拆章节细纲，控制章节推进、情绪起伏和章末钩子。\n\n"
-    f"{MALE_COMMERCIAL_ENGINE}"
+    "{commercial_engine}"
     "{planning_budget_hint}\n\n"
     "硬输入检查：\n"
     "- 当前卷只能在总纲和角色索引/关系网的约束下下沉展开\n"
@@ -105,7 +105,7 @@ def build_outline_detail_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「分卷与章节细纲」。\n"
-        f"{MALE_COMMERCIAL_ENGINE}"
+        f"{get_commercial_engine(generation_profile)}"
         f"{instruction}\n\n"
         f"{build_direct_output_rules(no_top_level_title=True, extra_rules=('卷级字段不要使用三级标题（### ），只有真实章节可使用「### 第 N 章：章名」',))}"
     )
@@ -145,6 +145,7 @@ def build_volume_chapters_system_prompt(
     hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     parts.append(
         _VOLUME_CHAPTERS_SYSTEM_TEMPLATE.format(
+            commercial_engine=get_commercial_engine(generation_profile),
             planning_budget_hint=build_volume_planning_budget_hint(length_preset).strip(),
             hook_framework=hook_framework,
         )

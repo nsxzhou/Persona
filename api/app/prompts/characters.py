@@ -4,12 +4,12 @@ from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE
 from app.prompts.novel_shared import (
     GROUNDED_INTERPRETATION_GUARDRAIL,
-    MALE_COMMERCIAL_ENGINE,
     append_profile_blocks,
     append_soft_length_hint,
     build_desire_semantics_hint,
     build_character_planning_budget_hint,
     build_direct_output_rules,
+    get_commercial_engine,
     get_hook_framework,
 )
 from app.prompts.section_context import build_section_user_message
@@ -35,7 +35,7 @@ _CHARACTER_BLUEPRINT_INSTRUCTION_TEMPLATE = (
     "功能分配规则：\n"
     "- 角色群里要有明确的奖励源、资源入口、阻力源、压迫源、反转源、情绪牵引源\n"
     "- 写清短期目标、长期目标、缺陷与可被撬动/攻略的弱点\n"
-    "- 角色功能必须服务主线推进、读者奖励、局势压力或关系张力；成人向功能只能在 Generation Profile 明确允许时出现\n"
+    "- 角色功能必须服务主线推进、读者奖励、局势压力或关系张力；不要添加与当前配置无关的关系功能\n"
     "- 冻结规则：已经定义过的核心角色关系、功能位和关键动机，后续只允许局部补强，不允许整组重写\n"
     "- 摘要规则：每个核心角色都要配一条可直接回流到后续总纲/分卷的短摘要\n"
     "- 避免只写人设标签或空泛魅力描述\n\n"
@@ -71,7 +71,7 @@ def build_character_blueprint_system_prompt(
     )
     parts.append(
         "你是一位起点白金作家，正在为自己的新书搭设定、排结构、拆章法，现在要完成「角色索引与关系网」。\n"
-        f"{MALE_COMMERCIAL_ENGINE}"
+        f"{get_commercial_engine(generation_profile)}"
         f"{instruction}\n\n"
         f"{build_direct_output_rules()}"
     )

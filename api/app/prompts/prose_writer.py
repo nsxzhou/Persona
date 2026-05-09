@@ -3,10 +3,10 @@ from __future__ import annotations
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     BEAT_EXPAND_CONTEXT_CHARS,
-    MALE_COMMERCIAL_ENGINE,
     build_desire_semantics_hint,
     build_plot_propulsion_contract,
     append_profile_blocks,
+    get_commercial_engine,
     get_hook_framework,
 )
 from app.schemas.prompt_profiles import GenerationProfile
@@ -23,10 +23,14 @@ VOICE_PROFILE_LANGUAGE_PRIORITY_CONTRACT = """
 """.strip()
 
 
-def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str = "") -> str:
+def _build_beat_expand_system(
+    beat_expand_chars: int = 500,
+    hook_framework: str = "",
+    commercial_engine: str = "",
+) -> str:
     return (
         "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
-        f"{MALE_COMMERCIAL_ENGINE}"
+        f"{commercial_engine}"
         f"{build_plot_propulsion_contract()}\n"
         "落笔规则：\n"
         f"- 按照节拍描述展开约 {beat_expand_chars} 字的叙事段落\n"
@@ -37,8 +41,8 @@ def _build_beat_expand_system(beat_expand_chars: int = 500, hook_framework: str 
         "- 段落控制在 150 字以内，适配移动端阅读\n"
         "- 动作/战斗场景用短句加快节奏\n"
         "- 每一段都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转\n"
-        "- 可以强化氛围、五感描写和情绪张力；成人向欲望表达只能在 Generation Profile 明确允许时出现\n"
-        "- 让读者看见主角正在获得更清晰的筹码、地位、主动权或关系变化，不要在主流配置下注入露骨成人语义\n"
+        "- 可以强化氛围、五感描写和情绪张力，但表达落点必须服务当前节拍\n"
+        "- 让读者看见主角正在获得更清晰的筹码、地位、主动权或关系变化\n"
         "- 直接输出正文，绝不输出章节标题（如“# 第x章”），不要输出节拍本身、不要解释\n"
         f"{hook_framework}"
     )
@@ -63,7 +67,13 @@ def build_beat_expand_system_prompt(
         parts.append(VOICE_PROFILE_LANGUAGE_PRIORITY_CONTRACT)
         parts.append("\n\n---\n")
     hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
-    parts.append(_build_beat_expand_system(beat_expand_chars, hook_framework))
+    parts.append(
+        _build_beat_expand_system(
+            beat_expand_chars,
+            hook_framework,
+            get_commercial_engine(generation_profile),
+        )
+    )
     if regenerating:
         parts.append(REGENERATION_GUIDANCE)
     return "\n".join(parts)

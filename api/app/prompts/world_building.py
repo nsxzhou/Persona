@@ -3,8 +3,8 @@ from __future__ import annotations
 from app.core.length_presets import LengthPresetKey
 from app.prompts.common import REGENERATION_GUIDANCE
 from app.prompts.novel_shared import (
-    build_direct_output_rules,
     append_profile_blocks,
+    build_direct_output_rules,
 )
 from app.prompts.section_context import build_section_user_message
 from app.schemas.prompt_profiles import GenerationProfile
@@ -43,16 +43,28 @@ def _format_world_building_generation_profile(
 ) -> str:
     if generation_profile is None:
         return ""
-    return (
-        "# Generation Profile（世界观资产约束）\n\n"
-        f"target_market: {generation_profile.target_market}\n"
-        f"genre_mother: {generation_profile.genre_mother}\n"
-        f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
-        f"intensity_level: {generation_profile.intensity_level}\n"
-        f"morality_axis: {generation_profile.morality_axis}\n"
-        f"pace_density: {generation_profile.pace_density}\n\n"
-        "这些字段只用于校准题材边界、压力强度和推进密度，不添加正文视角或叙事口吻规则。"
+    lines = [
+        "# Generation Profile（世界观资产约束）",
+        "",
+        f"target_market: {generation_profile.target_market}",
+        f"genre_mother: {generation_profile.genre_mother}",
+    ]
+    if generation_profile.target_market == "nsfw":
+        lines.extend(
+            [
+                f"desire_overlays: {', '.join(generation_profile.desire_overlays)}",
+                f"intensity_level: {generation_profile.intensity_level}",
+            ]
+        )
+    lines.extend(
+        [
+            f"morality_axis: {generation_profile.morality_axis}",
+            f"pace_density: {generation_profile.pace_density}",
+            "",
+            "这些字段只用于校准题材边界、压力强度和推进密度，不添加正文视角或叙事口吻规则。",
+        ]
     )
+    return "\n".join(lines)
 
 
 def build_world_building_system_prompt(

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal, TypeAlias
 import re
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 
 TargetMarket = Literal["mainstream", "nsfw"]
@@ -76,14 +76,33 @@ class IntensityProfile(BaseModel):
     soft_conflicts: list[str] = Field(default_factory=list)
 
 
-class GenerationProfile(BaseModel):
-    target_market: TargetMarket = "mainstream"
+class MainstreamGenerationProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_market: Literal["mainstream"]
     genre_mother: GenreMother
-    desire_overlays: list[DesireOverlay] = Field(default_factory=list)
+    pov_mode: PovMode
+    morality_axis: MoralityAxis
+    pace_density: PaceDensity
+
+
+class NsfwGenerationProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_market: Literal["nsfw"]
+    genre_mother: GenreMother
+    desire_overlays: list[DesireOverlay] = Field(min_length=1)
     intensity_level: IntensityLevel
     pov_mode: PovMode
     morality_axis: MoralityAxis
     pace_density: PaceDensity
+
+
+GenerationProfile: TypeAlias = Annotated[
+    MainstreamGenerationProfile | NsfwGenerationProfile,
+    Field(discriminator="target_market"),
+]
+GENERATION_PROFILE_ADAPTER: TypeAdapter[GenerationProfile] = TypeAdapter(GenerationProfile)
 
 
 class ChapterObjectiveCard(BaseModel):
@@ -258,18 +277,38 @@ def default_generation_profile(
     genre_mother: GenreMother = "xianxia"
     if story_engine_profile is not None:
         genre_mother = story_engine_profile.genre_mother
-    return GenerationProfile(
-        target_market=target_market,
+    if target_market == "nsfw":
+        return NsfwGenerationProfile(
+            target_market="nsfw",
+            genre_mother=genre_mother,
+            desire_overlays=["harem_collect"],
+            intensity_level="edge",
+            pov_mode="limited_third",
+            morality_axis="gray_pragmatism",
+            pace_density="balanced",
+        )
+    return MainstreamGenerationProfile(
+        target_market="mainstream",
         genre_mother=genre_mother,
-        desire_overlays=[],
-        intensity_level="plot_only",
         pov_mode="limited_third",
         morality_axis="gray_pragmatism",
         pace_density="balanced",
     )
 
 
+def validate_generation_profile(payload: object) -> GenerationProfile:
+    return GENERATION_PROFILE_ADAPTER.validate_python(payload)
+
+
 def build_intensity_profile(generation_profile: GenerationProfile) -> IntensityProfile:
+    if generation_profile.target_market == "mainstream":
+        return IntensityProfile(
+            intensity_level="plot_only",
+            desire_overlays=[],
+            expression_focus=["剧情推进", "行动选择", "关系张力"],
+            boundary_rules=["以压力、行动、兑现和反噬推进章节，不注入成人向语义"],
+            soft_conflicts=[],
+        )
     focus_by_level: dict[IntensityLevel, list[str]] = {
         "plot_only": ["剧情推进", "权力变化", "关系张力"],
         "edge": ["暧昧推拉", "身体距离", "占有欲"],
@@ -295,13 +334,13 @@ def build_chapter_objective_card(
     current_chapter_context: str = "",
     outline_detail: str = "",
 ) -> ChapterObjectiveCard:
-    overlays = set(generation_profile.desire_overlays)
+    overlays = set(generation_profile.desire_overlays) if generation_profile.target_market == "nsfw" else set()
     chapter_goal: ChapterGoal = "advance"
     payoff_target: PayoffTarget = "power"
     relationship_delta = "推进当前局面并制造下一轮压力。"
     hook_type: HookType = "pressure_escalation"
 
-    if overlays:
+    if generation_profile.target_market == "nsfw" and overlays:
         chapter_goal = "seduce" if generation_profile.intensity_level in {"edge", "explicit"} else "corrupt"
         payoff_target = "relationship" if "harem_collect" in overlays or "wife_steal" in overlays else "control"
         relationship_delta = "从试探推进到默认暧昧绑定或支配失衡。"
@@ -315,6 +354,8 @@ def build_chapter_objective_card(
         payoff_target=payoff_target,
         pressure_source=pressure_source[:160],
         relationship_delta=relationship_delta,
-        adult_expression_mode=generation_profile.intensity_level,
+        adult_expression_mode=generation_profile.intensity_level
+        if generation_profile.target_market == "nsfw"
+        else "plot_only",
         hook_type=hook_type,
     )

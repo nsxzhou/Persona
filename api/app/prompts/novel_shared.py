@@ -13,13 +13,14 @@ LENGTH_HINT_LABELS: dict[LengthPresetKey, str] = {
 }
 
 MAINSTREAM_HOOK_FRAMEWORK = (
-    "\n\n男频核心驱动框架（力量与权力的扩张）：\n"
-    "- 明确本阶段的多巴胺来源：极致打脸逆袭、阶级跃升的掌控感。\n"
-    "- 明确本阶段的核心期待：主角何时能获得金钱、权力、地位的绝对扩张。\n"
-    "- 充分发挥“安全地打破禁忌”带来的背德刺激，但不得偏离项目已明确的题材解释与生成配置。\n"
-    "统一强模式约束：\n"
-    "- 未成年相关内容绝对禁止\n"
-    "- 保持爽文节奏，重点突出升级、暴富、打脸、长生等核心爽点。\n"
+    "\n\n主流叙事推进框架（压力、行动与兑现）：\n"
+    "- 明确本阶段的主要压力：谁在逼主角行动，代价是什么，局面如何收紧。\n"
+    "- 明确本阶段的行动选择：主角用资源、身份、信息、关系或能力做出可见反制。\n"
+    "- 明确本阶段的阶段兑现：资源变化、身份变化、关系变化、信息差回收或主动权提升必须落到事件上。\n"
+    "- 明确本阶段的反噬与追读期待：兑现后追加新压力、新问题、新代价或新选择。\n"
+    "统一推进约束：\n"
+    "- 每个规划单元都要回答读者下一章在等什么，以及这个期待会在何处半兑现或反噬。\n"
+    "- 保持行动驱动，避免只写氛围、标签或设定展示。\n"
 )
 
 NSFW_HOOK_FRAMEWORK = (
@@ -39,23 +40,33 @@ PLOT_FINGERPRINT_CONTRACT = (
     "- 输出中必须让读者看见 Plot Pack 如何改变当前项目，不能只把 Plot Pack 当作背景参考。\n"
     "- 隐式提取并应用 Plot Pack 的核心驱动轴、读者追读问题、节奏约束、角色功能位和禁区。\n"
     "- 规划单元必须聚焦可见的读者奖励、局势变化、资源兑现、身份反转或关系推进。\n"
-    "- 正文与节拍可以强化氛围、文风、关系张力和阶段性兑现，但必须服从 Generation Profile 的市场与强度边界。\n"
+    "- 正文与节拍可以强化氛围、文风、关系张力和阶段性兑现，但必须服从 Generation Profile 的题材定位与表达边界。\n"
 )
 
 GROUNDED_INTERPRETATION_GUARDRAIL = (
     "\n\n题材收束提醒：\n- 沿用世界观已确定的题材解释，不得臆想毫无根据的设定\n"
 )
 
-MALE_COMMERCIAL_ENGINE = (
-    "\n\n男频商业驱动内核：\n"
+NEUTRAL_COMMERCIAL_ENGINE = (
+    "\n\n商业叙事驱动内核：\n"
+    "- 主燃料：压力收紧、行动反制、资源变化、身份变化、关系变化、信息差回收和主动权提升。\n"
+    "- 反馈链：压制 -> 反制 -> 兑现 -> 新压力；每个设定、角色、事件都要挂到这条链上。\n"
+    "- 进度条：升级反馈、资源获得、身份逆转、关系推进、势力扩张、真相揭示或行动成本变化。\n"
+    "- 读者奖励必须可见：主角拿到什么、压过谁、夺回什么、改变什么关系、获得什么选择权或让谁付出代价。\n"
+    "- 每个规划单元都要回答：读者下一章到底在等什么，期待会在何处半兑现或反噬。\n"
+)
+
+NSFW_COMMERCIAL_ENGINE = (
+    "\n\nNSFW 商业驱动内核：\n"
     "- 主燃料：力量与权力的扩张、欲望满足，或二者叠加。\n"
     "- 反馈链：压制 -> 反制 -> 兑现 -> 新压力；每个设定、角色、事件都要挂到这条链上。\n"
     "- 进度条：升级反馈、资源掠夺、身份逆转、关系占有、势力扩张或禁忌突破。\n"
     "- 爽点必须可见：主角拿到什么、压过谁、夺回什么、征服谁、让谁付出代价。\n"
-    "- 主流市场用打脸、暴富、长生、权力扩张和隐晦暧昧承载刺激；NSFW 市场允许欲望满足、征服欲、背德感和生理唤醒主驱动。\n"
-    "- 可以充分利用“安全地打破禁忌”的张力，但必须服从 target_market、intensity_level 和边界规则。\n"
+    "- 服从 target_market、intensity_level 和边界规则，只有显式 NSFW 配置才能把成人向兑现作为主驱动。\n"
     "- 每个规划单元都要回答：读者下一章到底在等什么，期待会在何处半兑现或反噬。\n"
 )
+
+MALE_COMMERCIAL_ENGINE = NEUTRAL_COMMERCIAL_ENGINE
 
 MARKDOWN_OUTPUT_RULES = (
     "落笔规则：\n"
@@ -80,6 +91,13 @@ def get_hook_framework(generation_profile: GenerationProfile | None) -> str:
     return MAINSTREAM_HOOK_FRAMEWORK
 
 
+def get_commercial_engine(generation_profile: GenerationProfile | None) -> str:
+    target_market = generation_profile.target_market if generation_profile else "mainstream"
+    if target_market == "nsfw":
+        return NSFW_COMMERCIAL_ENGINE
+    return NEUTRAL_COMMERCIAL_ENGINE
+
+
 def build_desire_semantics_hint(generation_profile: GenerationProfile | None) -> str:
     if generation_profile and generation_profile.target_market == "nsfw":
         return (
@@ -89,8 +107,8 @@ def build_desire_semantics_hint(generation_profile: GenerationProfile | None) ->
         )
     return (
         "\n\n主流市场语义边界：\n"
-        "- 当前按 mainstream 处理；使用升级、打脸、暴富、地位跃升、资源兑现、关系张力和隐晦暧昧承载刺激。\n"
-        "- 不要注入露骨欲望、生理唤醒、肉体征服、后宫占有或强制性成人语义。"
+        "- 当前按 mainstream 处理；用压力、行动、兑现、反噬、章末期待、资源、身份、关系、信息差和主动权承载推进。\n"
+        "- 不要额外添加与当前配置无关的表达或关系功能。"
     )
 
 
@@ -115,7 +133,7 @@ def build_character_planning_budget_hint(length_preset: LengthPresetKey) -> str:
         "\n\n角色池预算提示：\n"
         f"- 关键角色池目标：{character_count} 个；这里指长期有叙事功能的关键角色，不包含临时 NPC\n"
         "- 角色不是设定展示位，而是追读功能位；先满足角色池数量，再按重要程度分配详略\n"
-        "- T0：主角，完整动力学详卡；T0 主角承担欲望入口、升级反馈和最终胜负\n"
+        "- T0：主角，完整动力学详卡；T0 主角承担行动入口、升级反馈和最终胜负\n"
         "- T1：核心关系人/核心对手，较详卡；T1 承担核心压迫、核心奖励、核心背叛或核心关系兑现\n"
         "- T2：重要配角/阶段性阻力/奖励源，轻卡；T2 承担阶段性阻力、资源入口、情绪缓冲或小高潮触发\n"
         "- T3：伏笔角色/后期引线/势力代表，极简卡；T3 只保留一个可回收的钩子\n"
@@ -140,7 +158,7 @@ def build_plot_propulsion_contract() -> str:
     return (
         "\n\n情节推进硬账：\n"
         "- 核心DNA要清楚：主角身份、核心事件、关键行动、灾难后果、隐藏危机必须能互相咬合。\n"
-        "- 欲望驱动要落地：表层目标推动行动，深层渴望决定选择，灵魂需求制造代价。\n"
+        "- 动机驱动要落地：表层目标推动行动，深层需求决定选择，价值缺口制造代价。\n"
         "- 每个悬念单元都要包含压力、半兑现、反噬和下一轮诱惑；不要只扩大地图或堆设定名词。\n"
         "- 设伏必须可回收：埋设 -> 强化 -> 回收，每次兑现后留下新压力或新债务。\n"
         "- 读者奖励必须具体到资源、地位、关系、真相、掌控力、打脸结果或禁忌后果。"
@@ -230,18 +248,30 @@ def format_plot_prompt_pack(
 def format_generation_profile(generation_profile: GenerationProfile | None) -> str:
     if generation_profile is None:
         return ""
-    return (
-        "# Generation Profile（运行时生成约束）\n\n"
-        f"target_market: {generation_profile.target_market}\n"
-        f"genre_mother: {generation_profile.genre_mother}\n"
-        f"desire_overlays: {', '.join(generation_profile.desire_overlays) or 'none'}\n"
-        f"intensity_level: {generation_profile.intensity_level}\n"
-        f"pov_mode: {generation_profile.pov_mode}\n"
-        f"{build_pov_mode_hint(generation_profile.pov_mode)}\n"
-        f"morality_axis: {generation_profile.morality_axis}\n"
-        f"pace_density: {generation_profile.pace_density}\n\n"
-        "这些字段是显式创作目标，必须直接作用于规划与正文生成。"
+    lines = [
+        "# Generation Profile（运行时生成约束）",
+        "",
+        f"target_market: {generation_profile.target_market}",
+        f"genre_mother: {generation_profile.genre_mother}",
+    ]
+    if generation_profile.target_market == "nsfw":
+        lines.extend(
+            [
+                f"desire_overlays: {', '.join(generation_profile.desire_overlays)}",
+                f"intensity_level: {generation_profile.intensity_level}",
+            ]
+        )
+    lines.extend(
+        [
+            f"pov_mode: {generation_profile.pov_mode}",
+            build_pov_mode_hint(generation_profile.pov_mode).strip(),
+            f"morality_axis: {generation_profile.morality_axis}",
+            f"pace_density: {generation_profile.pace_density}",
+            "",
+            "这些字段是显式创作目标，必须直接作用于规划与正文生成。",
+        ]
     )
+    return "\n".join(lines)
 
 
 def append_profile_blocks(

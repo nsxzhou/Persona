@@ -3,17 +3,17 @@ from __future__ import annotations
 from app.prompts.common import REGENERATION_GUIDANCE, append_regeneration_context
 from app.prompts.novel_shared import (
     BEAT_GENERATE_CONTEXT_CHARS,
-    MALE_COMMERCIAL_ENGINE,
     build_desire_semantics_hint,
     build_plot_propulsion_contract,
     append_profile_blocks,
+    get_commercial_engine,
     get_hook_framework,
 )
 from app.schemas.prompt_profiles import GenerationProfile
 
 _BEAT_GENERATE_SYSTEM_TEMPLATE = (
     "你是一位番茄金番作家，正在为接下来的正文安排场景节拍和情绪钩子。\n\n"
-    f"{MALE_COMMERCIAL_ENGINE}"
+    "{commercial_engine}"
     f"{build_plot_propulsion_contract()}\n"
     "节拍（Beat）是一个场景或情节的最小叙事单元，每条节拍用一句话概括将要发生的事。\n\n"
     "规划时用章节悬念节奏设计压住每一拍：\n"
@@ -28,9 +28,9 @@ _BEAT_GENERATE_SYSTEM_TEMPLATE = (
     "  例：[平静→疑惑] 主角注意到地上有一串不属于任何人的脚印\n"
     "  例：[震惊→狂喜] 彻底打脸！\n"
     "- 节拍之间应有递进的叙事逻辑和情绪起伏\n"
-    "- 在爽点兑现的高潮环节，可以连续强化打脸、资源兑现、身份反转或关系推进；成人向兑现必须由 Generation Profile 明确允许\n"
+    "- 在爽点兑现的高潮环节，可以连续强化打脸、资源兑现、身份反转或关系推进\n"
     "- 不要只写情绪变化，还要写清这一拍具体让读者追什么（如期待更强反制、更高地位、更大资源或更明确的关系变化）\n"
-    "- 动作可以是压制、夺回、极致打脸、关系突破、规则反转或阶段性兑现；不要在主流配置下注入露骨成人语义\n"
+    "- 动作可以是压制、夺回、极致打脸、关系突破、规则反转或阶段性兑现；不要添加与当前配置无关的表达或关系功能\n"
     "- 最后一拍必须是钩子（悬念/反转/新信息揭露），并且最后一拍要明确勾住下一拍最想看的兑现\n"
     "- 参考已有大纲和前文，保持情节连贯\n"
     "- 只输出节拍列表，不要解释、不要前言"
@@ -55,6 +55,7 @@ def build_beat_generate_system_prompt(
     hook_framework = get_hook_framework(generation_profile)
     parts.append(
         _BEAT_GENERATE_SYSTEM_TEMPLATE.format(
+            commercial_engine=get_commercial_engine(generation_profile),
             hook_framework=hook_framework + build_desire_semantics_hint(generation_profile)
         )
     )
