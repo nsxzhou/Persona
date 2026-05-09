@@ -61,6 +61,13 @@ When changing novel prompts, preserve the profile injection matrix:
 - Prose generation and rewriting surfaces (`beat_expand`, `assemble_writing_context()` consumers) may inject both Voice Profile and Plot Writing Guide. Voice Profile is strongest at the language layer only and must not override project facts, character relationships, plot direction, format, or safety boundaries.
 - Prompt asset initialization must stay free of Style/Plot injection; generated assets should not duplicate or rewrite mounted Style/Plot profiles.
 
+### Generation profile compatibility boundaries
+
+- Keep `GENERATION_PROFILE_ADAPTER` strict for the canonical discriminated union contract.
+- If persisted or UI-derived project/workflow payloads need compatibility cleanup, centralize it in `prompt_profiles.py` and reuse it from every schema boundary that accepts or returns `generation_profile`.
+- Current compatibility rule: `target_market="mainstream"` may discard only the legacy/intensity keys `desire_overlays` and `intensity_level`; unrelated extra keys must still raise Pydantic validation errors.
+- Regression tests must cover project create/update/response paths, workflow create requests, and direct persisted-state helpers such as `validate_generation_profile()`.
+
 ---
 
 ## Testing Requirements

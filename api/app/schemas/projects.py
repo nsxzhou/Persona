@@ -6,26 +6,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.provider_configs import ProviderSummary
-from app.schemas.prompt_profiles import GenerationProfile
+from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_profile_payload
 
 
 ProjectStatus = Literal["draft", "active", "paused"]
 LengthPreset = Literal["short", "medium", "long"]
 PromptAssetKind = Literal["character_card", "lorebook_entry", "author_note"]
 PromptAssetScope = Literal["project", "chapter"]
-
-_MAINSTREAM_RESPONSE_INTENSITY_KEYS = {"desire_overlays", "intensity_level"}
-
-
-def _normalize_generation_profile_response(value: object) -> object:
-    if not isinstance(value, dict) or value.get("target_market") != "mainstream":
-        return value
-    return {
-        key: profile_value
-        for key, profile_value in value.items()
-        if key not in _MAINSTREAM_RESPONSE_INTENSITY_KEYS
-    }
-
 
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
@@ -39,6 +26,11 @@ class ProjectCreate(BaseModel):
     length_preset: LengthPreset = "short"
     auto_sync_memory: bool = False
 
+    @field_validator("generation_profile", mode="before")
+    @classmethod
+    def normalize_generation_profile_request(cls, value: object) -> object:
+        return normalize_generation_profile_payload(value)
+
 
 class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
@@ -51,6 +43,11 @@ class ProjectUpdate(BaseModel):
     generation_profile: GenerationProfile | None = None
     length_preset: LengthPreset | None = None
     auto_sync_memory: bool | None = None
+
+    @field_validator("generation_profile", mode="before")
+    @classmethod
+    def normalize_generation_profile_request(cls, value: object) -> object:
+        return normalize_generation_profile_payload(value)
 
 
 class ProjectResponse(BaseModel):
@@ -75,7 +72,7 @@ class ProjectResponse(BaseModel):
     @field_validator("generation_profile", mode="before")
     @classmethod
     def normalize_generation_profile_response(cls, value: object) -> object:
-        return _normalize_generation_profile_response(value)
+        return normalize_generation_profile_payload(value)
 
 
 class ProjectBibleUpdate(BaseModel):
@@ -131,7 +128,7 @@ class ProjectSummaryResponse(BaseModel):
     @field_validator("generation_profile", mode="before")
     @classmethod
     def normalize_generation_profile_response(cls, value: object) -> object:
-        return _normalize_generation_profile_response(value)
+        return normalize_generation_profile_payload(value)
 
 
 class ProjectPromptAssetBase(BaseModel):

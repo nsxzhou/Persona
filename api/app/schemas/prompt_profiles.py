@@ -103,6 +103,17 @@ GenerationProfile: TypeAlias = Annotated[
     Field(discriminator="target_market"),
 ]
 GENERATION_PROFILE_ADAPTER: TypeAdapter[GenerationProfile] = TypeAdapter(GenerationProfile)
+_MAINSTREAM_COMPATIBILITY_INTENSITY_KEYS = {"desire_overlays", "intensity_level"}
+
+
+def normalize_generation_profile_payload(value: object) -> object:
+    if not isinstance(value, dict) or value.get("target_market") != "mainstream":
+        return value
+    return {
+        key: profile_value
+        for key, profile_value in value.items()
+        if key not in _MAINSTREAM_COMPATIBILITY_INTENSITY_KEYS
+    }
 
 
 class ChapterObjectiveCard(BaseModel):
@@ -297,7 +308,7 @@ def default_generation_profile(
 
 
 def validate_generation_profile(payload: object) -> GenerationProfile:
-    return GENERATION_PROFILE_ADAPTER.validate_python(payload)
+    return GENERATION_PROFILE_ADAPTER.validate_python(normalize_generation_profile_payload(payload))
 
 
 def build_intensity_profile(generation_profile: GenerationProfile) -> IntensityProfile:

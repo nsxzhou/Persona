@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
 
-from app.schemas.prompt_profiles import GenerationProfile
+from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_profile_payload
 
 
 NOVEL_WORKFLOW_STATUS_PENDING = "pending"
@@ -95,6 +95,11 @@ class NovelWorkflowCreateRequest(BaseModel):
     feedback: str | None = None
     previous_output: str | None = None
     model_overrides: NovelWorkflowModelOverrides | None = None
+
+    @field_validator("generation_profile", mode="before")
+    @classmethod
+    def normalize_generation_profile_request(cls, value: object) -> object:
+        return normalize_generation_profile_payload(value)
 
 
 class NovelWorkflowDecisionRequest(BaseModel):

@@ -27,6 +27,7 @@ def _load_prompt_profile_symbols() -> dict[str, object]:
             "PlotWritingGuideProfile",
             "StoryEngineProfile",
             "VoiceProfile",
+            "validate_generation_profile",
         )
     }
 
@@ -321,6 +322,38 @@ def test_generation_profile_discriminates_mainstream_and_nsfw_contracts() -> Non
         GenerationProfileAdapter.validate_python(_build_legacy_flat_generation_profile_payload())
 
 
+def test_validate_generation_profile_normalizes_mainstream_intensity_compatibility_keys() -> None:
+    validate_generation_profile = _load_prompt_profile_symbols()["validate_generation_profile"]
+
+    profile = validate_generation_profile(
+        {
+            "target_market": "mainstream",
+            "genre_mother": "urban",
+            "desire_overlays": [],
+            "intensity_level": "plot_only",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        }
+    )
+
+    assert profile.target_market == "mainstream"
+    assert not hasattr(profile, "desire_overlays")
+    assert not hasattr(profile, "intensity_level")
+
+    with pytest.raises(ValidationError):
+        validate_generation_profile(
+            {
+                "target_market": "mainstream",
+                "genre_mother": "urban",
+                "unexpected_key": "still invalid",
+                "pov_mode": "limited_third",
+                "morality_axis": "gray_pragmatism",
+                "pace_density": "balanced",
+            }
+        )
+
+
 def test_project_and_novel_workflow_requests_accept_generation_profile() -> None:
     generation_profile = _build_generation_profile()
 
@@ -364,6 +397,42 @@ def test_project_and_novel_workflow_requests_accept_generation_profile() -> None
     assert update_payload.generation_profile == generation_profile
     assert workflow_payload.generation_profile == generation_profile
     assert response.generation_profile == generation_profile
+
+
+def test_project_and_novel_workflow_requests_normalize_mainstream_intensity_compatibility_keys() -> None:
+    generation_profile_payload = {
+        "target_market": "mainstream",
+        "genre_mother": "urban",
+        "desire_overlays": [],
+        "intensity_level": "plot_only",
+        "pov_mode": "limited_third",
+        "morality_axis": "gray_pragmatism",
+        "pace_density": "balanced",
+    }
+
+    create_payload = ProjectCreate(
+        name="新书",
+        default_provider_id="provider-1",
+        generation_profile=generation_profile_payload,
+    )
+    update_payload = ProjectUpdate(generation_profile=generation_profile_payload)
+    workflow_payload = NovelWorkflowCreateRequest(
+        intent_type="selection_rewrite",
+        selected_text="他看着她，没有说话。",
+        rewrite_instruction="加强潜台词。",
+        generation_profile=generation_profile_payload,
+    )
+
+    assert create_payload.generation_profile is not None
+    assert create_payload.generation_profile.model_dump(mode="json") == {
+        "target_market": "mainstream",
+        "genre_mother": "urban",
+        "pov_mode": "limited_third",
+        "morality_axis": "gray_pragmatism",
+        "pace_density": "balanced",
+    }
+    assert update_payload.generation_profile == create_payload.generation_profile
+    assert workflow_payload.generation_profile == create_payload.generation_profile
 
 
 def test_style_and_plot_profile_payloads_accept_new_markdown_fields_without_legacy_prompt_pack() -> None:
