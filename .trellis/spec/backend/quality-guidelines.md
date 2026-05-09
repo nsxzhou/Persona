@@ -57,7 +57,7 @@ When changing novel prompts, preserve the profile injection matrix:
 
 - Structural planning assets (`world_building`, `characters_blueprint`, `outline_master`, `outline_detail`, `volume_generate`, `volume_chapters_generate`) must inject Plot Writing Guide and Generation Profile, but must not inject Voice Profile. Voice samples are language references and should not steer world rules, character facts, or outline structure.
 - Beat planning (`beat_generate`) must inject Plot Writing Guide and Generation Profile, but must not inject Voice Profile because it produces planning beats rather than prose.
-- Reader-facing concept generation may inject both Voice Profile and Plot Writing Guide; use the shared `append_profile_blocks()` Voice wrapper instead of ad hoc `Style Prompt Pack` text.
+- Reader-facing concept generation must not inject Voice Profile or Generation Profile runtime constraints. It may include Plot Writing Guide only as a narrowed structure reference for story promise, pressure shape, and payoff rhythm; do not use the shared `append_profile_blocks()` helper because that adds prose/planning contracts that are too heavy for concept cards.
 - Prose generation and rewriting surfaces (`beat_expand`, `assemble_writing_context()` consumers) may inject both Voice Profile and Plot Writing Guide. Voice Profile is strongest at the language layer only and must not override project facts, character relationships, plot direction, format, or safety boundaries.
 - Prompt asset initialization must stay free of Style/Plot injection; generated assets should not duplicate or rewrite mounted Style/Plot profiles.
 
