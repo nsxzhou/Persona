@@ -78,7 +78,7 @@ Makefile 中有两个“偷懒但实用”的设计：
 | Web 启起来了但登录失败 | API 没真正监听 8000 或 Cookie/CORS 配错 | `.run/api.log` |
 | Style Lab 任务一直 pending | 后台 Worker 没启动，或日志中已报错退出 | `.run/worker.log`、`make status` |
 | Plot Lab 任务一直 pending | 后台 Worker 没启动，或 Plot 执行循环在日志中报错 | `.run/worker.log`，再看 `api/app/worker.py` 与 `plot_analysis_worker.py` |
-| 修改依赖后行为异常 | 手动用了 `pip`/`npm` 绕过项目约束 | 根 `AGENT.md` 的包管理约束 |
+| 修改依赖后行为异常 | 手动用了 `pip`/`npm` 绕过项目约束 | `.trellis/spec/guides/agent-workflow-guidelines.md` 的包管理约束 |
 
 ## 相关章节
 

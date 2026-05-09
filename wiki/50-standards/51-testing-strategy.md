@@ -59,7 +59,7 @@ Vitest 配置在 `web/vitest.config.ts:4`：
 
 ### LLM 相关测试分 mock 与 live 两层
 
-`AGENT.md:104` 起已经把这件事讲清：
+`.trellis/spec/backend/quality-guidelines.md` 已经把这件事讲清：
 
 - 默认优先 mock，验证状态机和接口逻辑
 - 只有在必须验证 Prompt 准确性或真实结构化输出边界时，才走 live provider
@@ -93,4 +93,4 @@ Vitest 配置在 `web/vitest.config.ts:4`：
 
 - [40 本地开发与 Makefile](../40-operations/40-local-dev-and-make.md) — 如何快速拉起环境后跑验证
 - [50 编码规范](./50-coding-standards.md) — 测试要求的权威背景
-- 根目录 `AGENT.md`
+- `.trellis/spec/` — 权威测试与交付规则来源

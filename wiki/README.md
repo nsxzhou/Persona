@@ -60,7 +60,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 
 ### 50 规范与流程
 
-- [50 编码规范（叙事向导）](./50-standards/50-coding-standards.md) — 权威规则见根目录 `AGENT.md`
+- [50 编码规范（叙事向导）](./50-standards/50-coding-standards.md) — 权威规则见 `.trellis/spec/`
 - [51 测试策略](./50-standards/51-testing-strategy.md)
 - [52 贡献与 Git 流程](./50-standards/52-contribution-workflow.md)
 
@@ -95,7 +95,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 - `20-domains/19-novel-workflow.md`（长篇创作异步流与 LangGraph 基础）
 - `20-domains/27-style-analysis-pipeline.md`（LangGraph 最深的案例）
 - `30-prompt-engineering/31-prompt-schema-coupling.md`
-- `50-standards/50-coding-standards.md`（后端部分）+ 根目录 `AGENT.md`
+- `50-standards/50-coding-standards.md`（后端部分）+ `.trellis/spec/`
 
 ### 🎨 仅做前端（Next.js / React / Hooks）
 
@@ -106,7 +106,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 - `20-domains/23-bible-worldbuilding.md`
 - `20-domains/24-outline-and-beats.md`
 - `20-domains/26-style-lab.md`（Wizard + 实时日志的交互案例）
-- `50-standards/50-coding-standards.md`（前端部分）+ 根目录 `AGENT.md`
+- `50-standards/50-coding-standards.md`（前端部分）+ `.trellis/spec/`
 
 ### 🧪 只想上手跑测试
 
@@ -147,7 +147,7 @@ Persona 是一个**单用户、BYOK、约束式**的 AI 长篇创作平台。目
 | 文件 | 用途 | 与本 wiki 关系 |
 | --- | --- | --- |
 | `README.md` | 项目门面、快速启动 | 顶部链到此 wiki；启动命令等内容保留在根 README |
-| `AGENT.md` | AI 工具 / 人类贡献者的**最高级编码约束** | wiki 中 `50-coding-standards.md` 是叙事向导，**权威规则以根目录 AGENT.md 为准** |
+| `.trellis/spec/` | AI 工具 / 人类贡献者的**最高级编码约束** | wiki 中 `50-coding-standards.md` 是叙事向导，**权威规则以 `.trellis/spec/` 为准** |
 | `ANALYZE-GENERATE.md` | 原始 Prompt 工程方法论 | 内容已吸纳进 `30-prompt-engineering/32-analyze-generate-playbook.md`，原根级文件已删除 |
 | `Persona-约束式文风模仿长篇创作系统设计.md` | 产品设计文档 | 内容已拆进 `00-overview/` 与各领域章节，原根级文件已删除 |
 

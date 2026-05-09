@@ -1,6 +1,6 @@
 # 50 编码规范（叙事向导）
 
-> 权威规则以根目录 `AGENT.md` 为准。本章只是面向开发者的叙事性索引，不替代原文。
+> 权威规则以 `.trellis/spec/` 为准。本章只是面向开发者的叙事性索引，不替代原文。
 
 ## 要解决什么问题
 
@@ -14,7 +14,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 ### 后端：严格三层，不要偷懒
 
-`AGENT.md:19` 明确要求：
+`.trellis/spec/backend/directory-structure.md` 明确要求：
 
 - Router 只收参数、做依赖注入、返回响应
 - Service 放业务逻辑
@@ -30,7 +30,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 ### 后端：坚持现代类型、Pydantic V2 和 `Annotated`
 
-`AGENT.md:25` 到 `28` 定了三条硬规则：
+`.trellis/spec/backend/quality-guidelines.md` 定了三条硬规则：
 
 - 用 Python 3.11+ 类型写法
 - FastAPI 依赖注入用 `Annotated`
@@ -40,7 +40,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 ### 后端：数据库默认异步、默认防 N+1
 
-`AGENT.md:30` 到 `37` 要求：
+`.trellis/spec/backend/database-guidelines.md` 要求：
 
 - 只用 SQLAlchemy 2.0 异步风格
 - 常规请求由 `get_db_session()` 统一 commit/rollback
@@ -55,7 +55,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 ### Prompt / Schema / 状态机是高风险区
 
-`AGENT.md:39` 到 `45` 专门为 LLM 管道立规矩：
+`.trellis/spec/guides/agent-workflow-guidelines.md` 与 `.trellis/spec/backend/quality-guidelines.md` 专门为 LLM 管道立规矩：
 
 - Prompt 与 Schema 强绑定
 - 不要在循环或节点里重复实例化 LLM 客户端
@@ -69,7 +69,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 ### 前端：默认 Server Component，状态下放到叶子
 
-`AGENT.md:61` 到 `65` 是前端最常用的边界规则：
+`.trellis/spec/frontend/component-guidelines.md` 是前端最常用的边界规则：
 
 - 默认 Server Components
 - 只在真需要状态或浏览器 API 时才写 `'use client'`
@@ -83,7 +83,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 
 ### 前端：表单与样式也有固定套路
 
-`AGENT.md:67` 到 `78` 要求：
+`.trellis/spec/frontend/component-guidelines.md` 与 `.trellis/spec/frontend/state-management.md` 要求：
 
 - 表单优先 `react-hook-form + zod`
 - 动态类名用 `cn`
@@ -108,7 +108,7 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 4. 我有没有把不该上浏览器的逻辑写进 `'use client'` 文件？
 5. 我有没有先读现有实现再改？
 
-### 何时优先查 `AGENT.md`
+### 何时优先查 `.trellis/spec/`
 
 以下场景不要靠记忆，直接回看原文：
 
@@ -132,4 +132,4 @@ Persona 的代码量不算巨大，但约束很硬。如果不了解这些约束
 - [12 前端架构](../10-architecture/12-frontend-architecture.md)
 - [31 Prompt ↔ Schema 强绑定](../30-prompt-engineering/31-prompt-schema-coupling.md)
 - [51 测试策略](./51-testing-strategy.md)
-- 根目录 `AGENT.md`
+- `.trellis/spec/` — 权威规则来源

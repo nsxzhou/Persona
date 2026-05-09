@@ -8,7 +8,7 @@ Persona 目前没有复杂的发布流水线，但本地贡献仍然应该有一
 
 ### 推荐的本地工作流
 
-1. 先阅读相关实现与 `AGENT.md`
+1. 先阅读相关实现与 `.trellis/spec/`
 2. 跑 `make dev`，确认数据库 / API / Worker / Web 都正常
 3. 做最小化修改
 4. 跑相关验证
@@ -85,4 +85,4 @@ cd web && pnpm build
 - [40 本地开发与 Makefile](../40-operations/40-local-dev-and-make.md)
 - [51 测试策略](./51-testing-strategy.md)
 - [31 Prompt ↔ Schema 强绑定](../30-prompt-engineering/31-prompt-schema-coupling.md)
-- 根目录 `AGENT.md`
+- `.trellis/spec/` — 权威开发流程规则来源

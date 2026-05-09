@@ -39,7 +39,7 @@
 - `api/app/schemas/style_analysis_jobs.py`
 - `api/app/prompts/style_analysis.py`
 
-规则出处：`AGENT.md:40`。
+规则出处：`.trellis/spec/guides/agent-workflow-guidelines.md`。
 
 ## 前端页面能跑，`pnpm build` 却失败，为什么？
 

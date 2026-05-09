@@ -7,21 +7,21 @@ Persona 有两条容易出事故的链路：
 - Novel Workflow Prompt 改了，但 API request/response schema 没改
 - Style Lab 输出模板改了，但 RootModel / payload 解析没改
 
-这不是抽象风险，而是本项目被 `AGENT.md` 明确上升为硬规则的问题。
+这不是抽象风险，而是本项目被 `.trellis/spec/` 明确上升为硬规则的问题。
 
 ## 关键概念与约束
 
-### 权威规则先看 `AGENT.md`
+### 权威规则先看 `.trellis/spec/`
 
-根目录 `AGENT.md:40` 明确写道：
+`.trellis/spec/guides/agent-workflow-guidelines.md` 明确写道：
 
 - Prompt 模板与 Pydantic 结构化输出 Schema 高度耦合
 - 修改其中一方时，必须全局检索对应另一方并同步修改
 
 同一份文档还给出两条补充约束：
 
-- 状态对象必须是纯数据结构，见 `AGENT.md:42`
-- Request / Response 必须使用 Pydantic V2 API，见 `AGENT.md:25`
+- 状态对象必须是纯数据结构，见 `.trellis/spec/backend/quality-guidelines.md`
+- Request / Response 必须使用 Pydantic V2 API，见 `.trellis/spec/backend/quality-guidelines.md`
 
 因此本章不是在发明新规则，而是在解释项目里这条规则具体长什么样。
 
@@ -120,4 +120,4 @@ Style Lab 的几个输出类型被封装成 RootModel：
 - [22 Zen Editor](../20-domains/22-zen-editor.md) — Editor Prompt 的主要消费者
 - [26 Style Lab](../20-domains/26-style-lab.md) — 风格档案保存链路
 - [27 Style Analysis 管道](../20-domains/27-style-analysis-pipeline.md) — Markdown-First 分析产物
-- 根目录 `AGENT.md` — 本章所解释规则的权威来源
+- `.trellis/spec/guides/agent-workflow-guidelines.md` — 本章所解释规则的权威来源

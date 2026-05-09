@@ -825,7 +825,7 @@ uv run alembic heads        # 查看分支（健康代码库只应一个 head）
 - `api/app/core/config.py` — `Settings.database_url`
 - `docker-compose.yml` — Postgres 17 容器
 - `api/app/core/security.py` — 密码 Argon2 / 加密密钥逻辑（供 provider_configs 使用）
-- `AGENT.md` §2.3 — 数据库操作规范出处
+- `.trellis/spec/backend/database-guidelines.md` — 数据库操作规范出处
 
 ## 相关章节
 
