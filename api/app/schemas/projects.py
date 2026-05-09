@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.provider_configs import ProviderSummary
 from app.schemas.prompt_profiles import GenerationProfile
@@ -13,6 +13,18 @@ ProjectStatus = Literal["draft", "active", "paused"]
 LengthPreset = Literal["short", "medium", "long"]
 PromptAssetKind = Literal["character_card", "lorebook_entry", "author_note"]
 PromptAssetScope = Literal["project", "chapter"]
+
+_MAINSTREAM_RESPONSE_INTENSITY_KEYS = {"desire_overlays", "intensity_level"}
+
+
+def _normalize_generation_profile_response(value: object) -> object:
+    if not isinstance(value, dict) or value.get("target_market") != "mainstream":
+        return value
+    return {
+        key: profile_value
+        for key, profile_value in value.items()
+        if key not in _MAINSTREAM_RESPONSE_INTENSITY_KEYS
+    }
 
 
 class ProjectCreate(BaseModel):
@@ -59,6 +71,11 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     provider: ProviderSummary
+
+    @field_validator("generation_profile", mode="before")
+    @classmethod
+    def normalize_generation_profile_response(cls, value: object) -> object:
+        return _normalize_generation_profile_response(value)
 
 
 class ProjectBibleUpdate(BaseModel):
@@ -110,6 +127,11 @@ class ProjectSummaryResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     provider: ProviderSummary
+
+    @field_validator("generation_profile", mode="before")
+    @classmethod
+    def normalize_generation_profile_response(cls, value: object) -> object:
+        return _normalize_generation_profile_response(value)
 
 
 class ProjectPromptAssetBase(BaseModel):

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import io
 import zipfile
+from datetime import UTC, datetime
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
+from pydantic import ValidationError
 
 
 @pytest.mark.asyncio
@@ -208,6 +211,104 @@ async def test_project_crud_archive_restore_and_filtering(
 
     get_response = await initialized_client.get(f"/api/v1/projects/{created['id']}")
     assert get_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_project_list_normalizes_mainstream_generation_profile_intensity_fields(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+    app_with_db: FastAPI,
+) -> None:
+    from app.db.models import Project
+
+    provider_id = str(initialized_provider["id"])
+    create_response = await initialized_client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Mainstream Archive",
+            "description": "验证历史 generation_profile 兼容",
+            "status": "draft",
+            "default_provider_id": provider_id,
+            "default_model": "",
+            "generation_profile": {
+                "target_market": "mainstream",
+                "genre_mother": "urban",
+                "pov_mode": "limited_third",
+                "morality_axis": "gray_pragmatism",
+                "pace_density": "balanced",
+            },
+        },
+    )
+    assert create_response.status_code == 201
+    project_id = create_response.json()["id"]
+
+    async with app_with_db.state.session_factory() as session:
+        project = await session.get(Project, project_id)
+        assert project is not None
+        project.generation_profile_payload = {
+            "target_market": "mainstream",
+            "genre_mother": "urban",
+            "desire_overlays": [],
+            "intensity_level": "plot_only",
+            "pov_mode": "limited_third",
+            "morality_axis": "gray_pragmatism",
+            "pace_density": "balanced",
+        }
+        project.archived_at = datetime.now(UTC)
+        await session.commit()
+
+    include_archived = await initialized_client.get("/api/v1/projects?include_archived=true")
+
+    assert include_archived.status_code == 200
+    projects = include_archived.json()
+    assert len(projects) == 1
+    generation_profile = projects[0]["generation_profile"]
+    assert generation_profile == {
+        "target_market": "mainstream",
+        "genre_mother": "urban",
+        "pov_mode": "limited_third",
+        "morality_axis": "gray_pragmatism",
+        "pace_density": "balanced",
+    }
+    assert "desire_overlays" not in generation_profile
+    assert "intensity_level" not in generation_profile
+
+
+def test_project_summary_response_rejects_unrelated_mainstream_generation_profile_keys() -> None:
+    from app.schemas.projects import ProjectSummaryResponse
+
+    with pytest.raises(ValidationError):
+        ProjectSummaryResponse.model_validate(
+            {
+                "id": "project-1",
+                "name": "Mainstream",
+                "description": "",
+                "status": "draft",
+                "default_provider_id": "provider-1",
+                "default_model": "gpt-4.1-mini",
+                "style_profile_id": None,
+                "plot_profile_id": None,
+                "generation_profile": {
+                    "target_market": "mainstream",
+                    "genre_mother": "urban",
+                    "unexpected_key": "still invalid",
+                    "pov_mode": "limited_third",
+                    "morality_axis": "gray_pragmatism",
+                    "pace_density": "balanced",
+                },
+                "length_preset": "short",
+                "archived_at": None,
+                "created_at": "2025-01-01T00:00:00Z",
+                "updated_at": "2025-01-01T00:00:00Z",
+                "provider": {
+                    "id": "provider-1",
+                    "label": "primary",
+                    "base_url": "https://example.invalid/v1",
+                    "default_model": "gpt-4.1-mini",
+                    "is_enabled": True,
+                },
+            }
+        )
 
 
 @pytest.mark.asyncio
