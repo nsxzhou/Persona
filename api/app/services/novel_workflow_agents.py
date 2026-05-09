@@ -62,15 +62,18 @@ class ActiveCharactersAgent:
     ) -> list[str]:
         if self.llm_complete is None:
             raise RuntimeError("llm_complete is required")
-        response = await self.llm_complete(
-            system_prompt=build_active_characters_system_prompt(),
-            user_context=build_active_characters_user_message(
-                text_before_cursor=text_before_cursor[-2000:],
-                current_chapter_context=current_chapter_context[-4000:],
-            ),
-            mode="none",
-        )
-        return self.parse_names(response)
+        try:
+            response = await self.llm_complete(
+                system_prompt=build_active_characters_system_prompt(),
+                user_context=build_active_characters_user_message(
+                    text_before_cursor=text_before_cursor[-2000:],
+                    current_chapter_context=current_chapter_context[-4000:],
+                ),
+                mode="analysis",
+            )
+            return self.parse_names(response)
+        except (RuntimeError, ValueError):
+            return []
 
     @staticmethod
     def parse_names(markdown: str) -> list[str]:
