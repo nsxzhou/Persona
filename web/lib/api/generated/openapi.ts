@@ -1057,26 +1057,30 @@ export interface components {
             /** Message */
             message: string;
         };
-        /** GenerationProfile */
-        GenerationProfile: {
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LoginRequest */
+        LoginRequest: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string;
+        };
+        /** MainstreamGenerationProfile */
+        MainstreamGenerationProfile: {
             /**
-             * Target Market
-             * @default mainstream
+             * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            target_market: "mainstream" | "nsfw";
+            target_market: "mainstream";
             /**
              * Genre Mother
              * @enum {string}
              */
             genre_mother: "xianxia" | "urban" | "historical_power" | "infinite_flow" | "gaming";
-            /** Desire Overlays */
-            desire_overlays?: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
-            /**
-             * Intensity Level
-             * @enum {string}
-             */
-            intensity_level: "plot_only" | "edge" | "explicit" | "graphic" | "fetish_extreme";
             /**
              * Pov Mode
              * @enum {string}
@@ -1092,18 +1096,6 @@ export interface components {
              * @enum {string}
              */
             pace_density: "slow" | "balanced" | "fast";
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** LoginRequest */
-        LoginRequest: {
-            /** Username */
-            username: string;
-            /** Password */
-            password: string;
         };
         /**
          * MarkdownArtifactResponse
@@ -1253,7 +1245,8 @@ export interface components {
             style_profile_id?: string | null;
             /** Plot Profile Id */
             plot_profile_id?: string | null;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /** Generation Profile */
+            generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /** Feedback */
             feedback?: string | null;
             /** Previous Output */
@@ -1389,6 +1382,41 @@ export interface components {
             updated_at: string;
             /** Pause Requested At */
             pause_requested_at?: string | null;
+        };
+        /** NsfwGenerationProfile */
+        NsfwGenerationProfile: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            target_market: "nsfw";
+            /**
+             * Genre Mother
+             * @enum {string}
+             */
+            genre_mother: "xianxia" | "urban" | "historical_power" | "infinite_flow" | "gaming";
+            /** Desire Overlays */
+            desire_overlays: ("harem_collect" | "wife_steal" | "reverse_ntr" | "hypnosis_control" | "corruption_fall" | "dominance_capture")[];
+            /**
+             * Intensity Level
+             * @enum {string}
+             */
+            intensity_level: "plot_only" | "edge" | "explicit" | "graphic" | "fetish_extreme";
+            /**
+             * Pov Mode
+             * @enum {string}
+             */
+            pov_mode: "limited_third" | "first_person" | "deep_first";
+            /**
+             * Morality Axis
+             * @enum {string}
+             */
+            morality_axis: "ruthless_growth" | "gray_pragmatism" | "domination_first" | "vengeful";
+            /**
+             * Pace Density
+             * @enum {string}
+             */
+            pace_density: "slow" | "balanced" | "fast";
         };
         /** PlotAnalysisJobBaseResponse */
         PlotAnalysisJobBaseResponse: {
@@ -1889,7 +1917,8 @@ export interface components {
             style_profile_id?: string | null;
             /** Plot Profile Id */
             plot_profile_id?: string | null;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /** Generation Profile */
+            generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /**
              * Length Preset
              * @default short
@@ -2091,7 +2120,8 @@ export interface components {
             style_profile_id: string | null;
             /** Plot Profile Id */
             plot_profile_id: string | null;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /** Generation Profile */
+            generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /** Length Preset */
             length_preset: string;
             /** Auto Sync Memory */
@@ -2134,7 +2164,8 @@ export interface components {
             style_profile_id: string | null;
             /** Plot Profile Id */
             plot_profile_id: string | null;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /** Generation Profile */
+            generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /** Length Preset */
             length_preset: string;
             /** Archived At */
@@ -2167,7 +2198,8 @@ export interface components {
             style_profile_id?: string | null;
             /** Plot Profile Id */
             plot_profile_id?: string | null;
-            generation_profile?: components["schemas"]["GenerationProfile"] | null;
+            /** Generation Profile */
+            generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /** Length Preset */
             length_preset?: ("short" | "medium" | "long") | null;
             /** Auto Sync Memory */
