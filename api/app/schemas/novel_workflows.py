@@ -39,6 +39,8 @@ NovelWorkflowIntentType: TypeAlias = Literal[
     "volume_generate",
     "volume_chapters_generate",
     "selection_rewrite",
+    "chapter_enrichment_rewrite",
+    "imported_chapter_full_rewrite",
     "beats_generate",
     "beat_expand",
     "chapter_expand",
@@ -79,6 +81,8 @@ class NovelWorkflowCreateRequest(BaseModel):
     rewrite_instruction: str = ""
     current_chapter_context: str = ""
     previous_chapter_context: str = ""
+    imported_previous_chapter: dict[str, str] | None = None
+    imported_next_chapter: dict[str, str] | None = None
     total_content_length: int = Field(default=0, ge=0)
     beat: str | None = None
     beats: list[str] = Field(default_factory=list)

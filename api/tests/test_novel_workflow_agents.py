@@ -75,6 +75,22 @@ async def test_active_characters_agent_parses_json_array_and_limits_input() -> N
 
 
 @pytest.mark.asyncio
+async def test_active_characters_agent_can_preserve_pre_sampled_text() -> None:
+    from app.services.novel_workflow_agents import ActiveCharactersAgent
+
+    llm = StubLLM("[]")
+    await ActiveCharactersAgent(llm).extract(
+        text_before_cursor="HEAD_SAMPLE" + ("中" * 2400) + "TAIL_SAMPLE",
+        current_chapter_context="",
+        preserve_text_sample=True,
+    )
+
+    user_context = llm.calls[0]["user_context"]
+    assert "HEAD_SAMPLE" in user_context
+    assert "TAIL_SAMPLE" in user_context
+
+
+@pytest.mark.asyncio
 async def test_active_characters_agent_parses_fenced_json_array() -> None:
     from app.services.novel_workflow_agents import ActiveCharactersAgent
 

@@ -160,6 +160,11 @@ class NovelWorkflowService:
                 payload.project_id,
                 user_id=user_id,
             )
+            if (
+                payload.intent_type == "imported_chapter_full_rewrite"
+                and getattr(project, "project_origin", "normal") != "txt_import_rewrite"
+            ):
+                raise UnprocessableEntityError("导入章节改写仅支持 TXT 导入改写项目")
             if chapter_id is not None:
                 await self.project_chapter_service.get_or_404(
                     session,
@@ -171,6 +176,8 @@ class NovelWorkflowService:
             model_name = model_name or project.default_model
         elif chapter_id is not None:
             raise UnprocessableEntityError("章节工作流必须绑定项目")
+        elif payload.intent_type == "imported_chapter_full_rewrite":
+            raise UnprocessableEntityError("导入章节改写必须绑定 TXT 导入项目")
         if provider_id is not None:
             await self.provider_service.ensure_enabled(session, provider_id, user_id=user_id)
 

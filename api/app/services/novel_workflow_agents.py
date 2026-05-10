@@ -61,15 +61,18 @@ class ActiveCharactersAgent:
         *,
         text_before_cursor: str,
         current_chapter_context: str,
+        preserve_text_sample: bool = False,
     ) -> list[str]:
         if self.llm_complete is None:
             raise RuntimeError("llm_complete is required")
+        text_sample = text_before_cursor if preserve_text_sample else text_before_cursor[-2000:]
         try:
             response = await self.llm_complete(
                 system_prompt=build_active_characters_system_prompt(),
                 user_context=build_active_characters_user_message(
-                    text_before_cursor=text_before_cursor[-2000:],
+                    text_before_cursor=text_sample,
                     current_chapter_context=current_chapter_context[-4000:],
+                    preserve_text_sample=preserve_text_sample,
                 ),
                 mode="analysis",
             )

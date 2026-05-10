@@ -32,6 +32,7 @@ from app.services.projects import ProjectService
 from app.services.style_profiles import StyleProfileService
 
 logger = logging.getLogger(__name__)
+_IMPORTED_REWRITE_ACTIVATION_SAMPLE_CHARS = 12_000
 
 
 @dataclass(frozen=True)
@@ -379,6 +380,16 @@ class NovelWorkflowJobExecutor:
                         "content_to_check",
                     )
                 )
+                if request_payload.get("intent_type") == "imported_chapter_full_rewrite":
+                    selected_text = str(request_payload.get("selected_text") or "")
+                    activation_user_context = "\n".join(
+                        part
+                        for part in (
+                            _sample_text_for_imported_rewrite(selected_text),
+                            str(request_payload.get("rewrite_instruction") or ""),
+                        )
+                        if part
+                    )
                 prompt_stack = await PromptStackService(
                     project_service=self.project_service,
                     chapter_service=self.project_chapter_service,
@@ -389,7 +400,13 @@ class NovelWorkflowJobExecutor:
                     chapter_id=run.chapter_id,
                     current_chapter_context=str(request_payload.get("current_chapter_context") or ""),
                     text_before_cursor=str(
-                        request_payload.get("text_before_cursor")
+                        (
+                            _sample_text_for_imported_rewrite(
+                                str(request_payload.get("selected_text") or "")
+                            )
+                            if request_payload.get("intent_type") == "imported_chapter_full_rewrite"
+                            else request_payload.get("text_before_cursor")
+                        )
                         or request_payload.get("text_before_selection")
                         or ""
                     ),
@@ -441,7 +458,6 @@ class NovelWorkflowJobExecutor:
                 model_name=model_name,
                 initial_state=initial_state,
             )
-
     async def _persist_pipeline_result(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -553,6 +569,21 @@ class NovelWorkflowJobExecutor:
                 continue
             await asyncio.sleep(current_interval)
             current_interval = min(max_poll_interval_seconds, current_interval * 2)
+
+
+def _sample_text_for_imported_rewrite(text: str) -> str:
+    stripped = text.strip()
+    if len(stripped) <= _IMPORTED_REWRITE_ACTIVATION_SAMPLE_CHARS:
+        return stripped
+    segment = _IMPORTED_REWRITE_ACTIVATION_SAMPLE_CHARS // 3
+    middle_start = max((len(stripped) - segment) // 2, segment)
+    return "\n\n".join(
+        (
+            stripped[:segment],
+            stripped[middle_start : middle_start + segment],
+            stripped[-segment:],
+        )
+    )
 
 
 NovelWorkflowWorkerService = NovelWorkflowJobExecutor

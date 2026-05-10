@@ -13,6 +13,16 @@ from app.prompts.chapter_plan import (
     build_volume_chapters_system_prompt,
     build_volume_chapters_user_message,
 )
+from app.prompts.imported_chapter_rewrite import (
+    IMPORTED_CHAPTER_FULL_REWRITE_INTENT,
+    build_imported_chapter_rewrite_system_prompt,
+    build_imported_chapter_rewrite_user_context,
+    build_imported_context_manifest,
+    state_chapter_content,
+    state_chapter_title,
+    state_imported_chapter,
+    validate_imported_chapter_rewrite_output,
+)
 from app.prompts.outline import (
     build_volume_generate_system_prompt,
     build_volume_generate_user_message,
@@ -61,6 +71,7 @@ DecisionLoader = Callable[[str], dict[str, Any] | None]
 StageCallback = Callable[[str | None], Awaitable[None]]
 
 _TOP_LEVEL_HEADING_RE = re.compile(r"^#(?!#)\s+.+$")
+_IMPORTED_ACTIVE_CHARACTER_SAMPLE_CHARS = 2_000
 
 
 def _format_project_book_title(project_name: str | None) -> str:
@@ -115,6 +126,8 @@ class NovelWorkflowState(TypedDict):
     rewrite_instruction: NotRequired[str]
     current_chapter_context: NotRequired[str]
     previous_chapter_context: NotRequired[str]
+    imported_previous_chapter: NotRequired[dict[str, str] | None]
+    imported_next_chapter: NotRequired[dict[str, str] | None]
     total_content_length: NotRequired[int]
     volume_index: NotRequired[int | None]
     section: NotRequired[str | None]
@@ -158,6 +171,12 @@ class NovelWorkflowPipelineResult:
     checkpoint_kind: str | None = None
 
 
+@dataclass(frozen=True)
+class ImportedRewriteCharacterContext:
+    active_character_focus: str
+    active_character_names: list[str]
+
+
 class NovelWorkflowPipeline:
     def __init__(
         self,
@@ -188,6 +207,8 @@ class NovelWorkflowPipeline:
             "volume_generate": self._handle_volume_generate,
             "volume_chapters_generate": self._handle_volume_chapters_generate,
             "selection_rewrite": self._handle_selection_rewrite,
+            "chapter_enrichment_rewrite": self._handle_chapter_enrichment_rewrite,
+            IMPORTED_CHAPTER_FULL_REWRITE_INTENT: self._handle_imported_chapter_full_rewrite,
             "beats_generate": self._handle_beats_generate,
             "beat_expand": self._handle_beat_expand,
             "chapter_expand": self._handle_chapter_expand,
@@ -489,6 +510,46 @@ class NovelWorkflowPipeline:
             "persist_payload": {"markdown": markdown},
         }
 
+    async def _handle_chapter_enrichment_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "chapter_rewrite_markdown"
+        markdown = await self._generate_chapter_enrichment_rewrite(state)
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+        }
+
+    async def _handle_imported_chapter_full_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "chapter_rewrite_markdown"
+        markdown = await self._generate_imported_chapter_full_rewrite(state)
+        validation_warnings = validate_imported_chapter_rewrite_output(
+            output=markdown,
+            original=state_chapter_content(state),
+            target_title=state_chapter_title(state),
+            next_chapter=state_imported_chapter(state, "imported_next_chapter"),
+            user_instruction=state.get("rewrite_instruction", ""),
+        )
+        warnings = [*state.get("warnings", []), *validation_warnings]
+        for warning in validation_warnings:
+            await self.storage_service.append_job_log(
+                state["run_id"],
+                f"[Warning] imported_chapter_full_rewrite: {warning}",
+            )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        return {
+            "latest_artifacts": [artifact_name],
+            "persist_payload": {"markdown": markdown},
+            "warnings": warnings,
+        }
+
     async def _handle_beats_generate(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         artifact_name = "beats_markdown"
         markdown = await self.beat_agent.generate(
@@ -730,6 +791,127 @@ class NovelWorkflowPipeline:
             prompt_stack_manifest=_state_prompt_stack_manifest(state),
         )
 
+    async def _generate_chapter_enrichment_rewrite(self, state: NovelWorkflowState) -> str:
+        chapter_content = (
+            state.get("chapter_snapshot", {}).get("content", "")
+            if isinstance(state.get("chapter_snapshot"), dict)
+            else ""
+        ) or state.get("selected_text", "")
+        if not chapter_content.strip():
+            raise ValueError("当前章节正文为空，无法改写")
+        if len(chapter_content) > 80_000:
+            raise ValueError("当前章节过长，v1 暂不支持自动分块改写")
+
+        current_bible = state.get("current_bible", {})
+        selected_context = await self._select_writing_context(
+            {
+                **state,
+                "text_before_cursor": chapter_content,
+                "current_chapter_context": (
+                    state.get("current_chapter_context", "")
+                    or chapter_content[:3000]
+                ),
+            },
+            current_bible,
+        )
+        generation_profile = self._generation_profile_obj(state)
+        objective_card = build_chapter_objective_card(
+            generation_profile,
+            current_chapter_context=state.get("current_chapter_context", ""),
+            outline_detail=selected_context.outline_detail,
+        )
+        system_prompt = (
+            assemble_writing_context(
+                voice_profile_markdown=state.get("style_prompt"),
+                story_engine_markdown=state.get("plot_prompt"),
+                generation_profile=generation_profile,
+                intensity_profile=build_intensity_profile(generation_profile),
+                chapter_objective_card=objective_card,
+                sections=WritingContextSections(
+                    description=state.get("project_description", ""),
+                    world_building=selected_context.world_building,
+                    characters_blueprint=selected_context.characters_blueprint,
+                    outline_master=selected_context.outline_master,
+                    outline_detail=selected_context.outline_detail,
+                    characters_status=selected_context.characters_status,
+                    runtime_state=selected_context.runtime_state,
+                    runtime_threads=selected_context.runtime_threads,
+                    story_summary=selected_context.story_summary,
+                    active_character_focus=selected_context.active_character_focus,
+                ),
+                prompt_asset_layers=_state_prompt_asset_layers(state),
+                length_preset=state.get("length_preset", "long"),
+                content_length=len(chapter_content),
+            )
+            + "\n\n## 章节全文改写硬规则\n"
+            "- 你只输出改写后的小说正文。\n"
+            "- 不输出分析、标题、说明、代码围栏、Markdown 包装或修改清单。\n"
+            "- 用户自由指令是本次改写的主要创作目标；在不冲突时保留原章节的核心事实、视角连续性与剧情顺序。\n"
+            "- 可以增强叙事密度、情绪、动作、环境和人物反应，但不得续写到下一章。"
+        )
+        parts = []
+        if state.get("previous_chapter_context", "").strip():
+            parts.append(f"## 前序章节\n\n{state.get('previous_chapter_context', '')}")
+        if state.get("current_chapter_context", "").strip():
+            parts.append(f"## 当前章节定位\n\n{state.get('current_chapter_context', '')}")
+        parts.append(f"## 原章节正文\n\n{chapter_content}")
+        parts.append(
+            "## 用户自由改写指令\n\n"
+            f"{state.get('rewrite_instruction', '').strip()}\n\n"
+            "按上述指令改写整个章节。只输出改写后的小说正文。"
+        )
+        return await self._call_prompt(
+            system_prompt=system_prompt,
+            user_context="\n\n---\n\n".join(parts),
+            mode="immersion",
+            prompt_stack_manifest=_state_prompt_stack_manifest(state),
+        )
+
+    async def _generate_imported_chapter_full_rewrite(self, state: NovelWorkflowState) -> str:
+        chapter_content = state_chapter_content(state)
+        if not chapter_content.strip():
+            raise ValueError("当前章节正文为空，无法改写")
+        if len(chapter_content) > 80_000:
+            raise ValueError("当前章节过长，v1 暂不支持自动分块改写")
+
+        current_bible = state.get("current_bible", {})
+        selected_context = await self._select_imported_rewrite_character_context(
+            state,
+            current_bible,
+            chapter_content,
+        )
+        active_character_focus = selected_context.active_character_focus.strip()
+        system_prompt = build_imported_chapter_rewrite_system_prompt(
+            voice_profile_markdown=state.get("style_prompt", ""),
+            active_character_focus=active_character_focus,
+        )
+        previous_chapter = state_imported_chapter(state, "imported_previous_chapter")
+        next_chapter = state_imported_chapter(state, "imported_next_chapter")
+        user_context = build_imported_chapter_rewrite_user_context(
+            target_title=state_chapter_title(state),
+            chapter_content=chapter_content,
+            previous_chapter=previous_chapter,
+            next_chapter=next_chapter,
+            rewrite_instruction=state.get("rewrite_instruction", ""),
+        )
+        return await self._call_prompt(
+            system_prompt=system_prompt,
+            user_context=user_context,
+            mode="immersion",
+            prompt_stack_manifest=_merge_prompt_stack_manifest(
+                _state_prompt_stack_manifest(state),
+                build_imported_context_manifest(
+                    state=state,
+                    chapter_content=chapter_content,
+                    previous_chapter=previous_chapter,
+                    next_chapter=next_chapter,
+                    voice_profile_markdown=state.get("style_prompt", ""),
+                    active_character_focus=active_character_focus,
+                    active_character_names=selected_context.active_character_names,
+                ),
+            ),
+        )
+
     async def _write_chapter_from_beats(
         self,
         state: NovelWorkflowState,
@@ -793,6 +975,38 @@ class NovelWorkflowPipeline:
             description=state.get("project_description", ""),
         )
 
+    async def _select_imported_rewrite_character_context(
+        self,
+        state: NovelWorkflowState,
+        current_bible: dict[str, str],
+        chapter_content: str,
+    ) -> "ImportedRewriteCharacterContext":
+        sample = _sample_head_middle_tail(
+            chapter_content,
+            segment_chars=_IMPORTED_ACTIVE_CHARACTER_SAMPLE_CHARS,
+        )
+        active_character_names = await self.active_characters_agent.extract(
+            text_before_cursor=sample,
+            current_chapter_context=state_chapter_title(state),
+            preserve_text_sample=True,
+        )
+        if not active_character_names:
+            return ImportedRewriteCharacterContext(
+                active_character_focus="",
+                active_character_names=[],
+            )
+        selected_context = select_writing_context(
+            current_bible=current_bible,
+            active_character_names=active_character_names,
+            current_chapter_context=state_chapter_title(state),
+            text_before_cursor=sample,
+            description="",
+        )
+        return ImportedRewriteCharacterContext(
+            active_character_focus=selected_context.active_character_focus,
+            active_character_names=active_character_names,
+        )
+
     async def _call_prompt(
         self,
         *,
@@ -836,6 +1050,32 @@ def _state_prompt_stack_manifest(state: dict[str, Any]) -> dict | None:
     if isinstance(manifest, dict):
         return manifest
     return None
+
+
+def _merge_prompt_stack_manifest(
+    prompt_stack_manifest: dict | None,
+    imported_context_manifest: dict[str, Any],
+) -> dict[str, Any]:
+    if prompt_stack_manifest is None:
+        return {"imported_rewrite_context": imported_context_manifest}
+    return {
+        **prompt_stack_manifest,
+        "imported_rewrite_context": imported_context_manifest,
+    }
+
+
+def _sample_head_middle_tail(text: str, *, segment_chars: int) -> str:
+    stripped = text.strip()
+    if len(stripped) <= segment_chars * 3:
+        return stripped
+    middle_start = max((len(stripped) - segment_chars) // 2, segment_chars)
+    return "\n\n".join(
+        (
+            stripped[:segment_chars],
+            stripped[middle_start : middle_start + segment_chars],
+            stripped[-segment_chars:],
+        )
+    )
 
 
 def _state_prompt_asset_layers(state: dict[str, Any]) -> list[WritingPromptAssetLayer]:

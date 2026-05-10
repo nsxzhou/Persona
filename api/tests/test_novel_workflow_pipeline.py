@@ -49,6 +49,28 @@ class FailingReviewLLM(StubLLM):
         )
 
 
+class StubLLMWithKwargs(StubLLM):
+    async def __call__(
+        self,
+        *,
+        system_prompt: str,
+        user_context: str,
+        mode: str,
+        **kwargs,
+    ) -> str:
+        self.calls.append(
+            {
+                "system_prompt": system_prompt,
+                "user_context": user_context,
+                "mode": mode,
+                **kwargs,
+            }
+        )
+        if not self._outputs:
+            raise AssertionError("stub llm exhausted")
+        return self._outputs.pop(0)
+
+
 @pytest.mark.asyncio
 async def test_section_generation_passes_project_name_to_prompt_context(
     tmp_path,
@@ -246,6 +268,171 @@ async def test_selection_rewrite_selects_active_characters_and_includes_selectio
 
 
 @pytest.mark.asyncio
+async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_excludes_planning_context(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    rewritten = (
+        "沈砚推开窗，雨声压低了屋里的呼吸。"
+        "他把旧卷宗合上，记住最后一行墨迹。"
+        "门外的脚步停住时，他没有继续往前追。"
+    )
+    llm = StubLLMWithKwargs(['["沈砚"]', rewritten])
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-imported-rewrite-context",
+        initial_state={
+            "intent_type": "imported_chapter_full_rewrite",
+            "project_description": "SHOULD_NOT_APPEAR_PROJECT_CONTEXT",
+            "style_prompt": "短句、冷雨、低声对白。",
+            "plot_prompt": "SHOULD_NOT_APPEAR_PLOT_GUIDE",
+            "current_chapter_context": "第2章 旧卷宗",
+            "selected_text": "沈砚推开窗，雨落进来。他合上卷宗，停在门前。",
+            "rewrite_instruction": "增强压迫感，不要改变结尾。",
+            "imported_previous_chapter": {
+                "title": "第1章 雨夜归来",
+                "summary": "沈砚回城。",
+                "excerpt": "上一章尾声：城门在雨里合上。",
+            },
+            "imported_next_chapter": {
+                "title": "第3章 暗巷灯火",
+                "summary": "暗巷出现新线索。",
+                "excerpt": "下一章开头：灯火在暗巷尽头亮起。",
+            },
+            "chapter_snapshot": {
+                "title": "第2章 旧卷宗",
+                "content": "沈砚推开窗，雨落进来。他合上卷宗，停在门前。",
+                "summary": "",
+            },
+            "current_bible": {
+                "world_building": "SHOULD_NOT_APPEAR_WORLD",
+                "characters_blueprint": (
+                    "## 沈砚\n- 查案者\n\n"
+                    "## 无关角色\n- SHOULD_NOT_APPEAR_CHARACTER"
+                ),
+                "characters_status": "## 沈砚\n- 刚拿到卷宗",
+                "outline_master": "SHOULD_NOT_APPEAR_MASTER",
+                "outline_detail": "SHOULD_NOT_APPEAR_OUTLINE_NAV",
+                "runtime_state": "SHOULD_NOT_APPEAR_RUNTIME_STATE",
+                "runtime_threads": "SHOULD_NOT_APPEAR_RUNTIME_THREADS",
+                "story_summary": "SHOULD_NOT_APPEAR_STORY_SUMMARY",
+            },
+        },
+    )
+
+    assert result.persist_payload["markdown"] == rewritten
+    assert [call["mode"] for call in llm.calls] == ["analysis", "immersion"]
+    active_call = llm.calls[0]
+    assert "沈砚推开窗" in active_call["user_context"]
+    assert "他合上卷宗" in active_call["user_context"]
+    prose_call = llm.calls[1]
+    assert "## 目标章节标题（仅定位参考，不要输出）" in prose_call["user_context"]
+    assert "第2章 旧卷宗" in prose_call["user_context"]
+    assert "## 上一章边界参考" in prose_call["user_context"]
+    assert "上一章尾声" in prose_call["user_context"]
+    assert "## 当前章节原文（唯一改写目标）" in prose_call["user_context"]
+    assert "沈砚推开窗，雨落进来" in prose_call["user_context"]
+    assert "## 下一章边界参考（不得写入输出）" in prose_call["user_context"]
+    assert "下一章开头" in prose_call["user_context"]
+    assert "增强压迫感" in prose_call["user_context"]
+    assert "不要输出章节标题" in prose_call["user_context"]
+    assert "只输出改写后的当前章节正文" in prose_call["system_prompt"]
+    assert "Plot Writing Guide disabled" in prose_call["system_prompt"]
+    assert "短句、冷雨、低声对白。" in prose_call["system_prompt"]
+    assert "查案者" in prose_call["system_prompt"]
+    for forbidden in (
+        "SHOULD_NOT_APPEAR_PROJECT_CONTEXT",
+        "SHOULD_NOT_APPEAR_PLOT_GUIDE",
+        "SHOULD_NOT_APPEAR_WORLD",
+        "SHOULD_NOT_APPEAR_MASTER",
+        "SHOULD_NOT_APPEAR_OUTLINE_NAV",
+        "SHOULD_NOT_APPEAR_RUNTIME_STATE",
+        "SHOULD_NOT_APPEAR_RUNTIME_THREADS",
+        "SHOULD_NOT_APPEAR_STORY_SUMMARY",
+        "SHOULD_NOT_APPEAR_CHARACTER",
+    ):
+        assert forbidden not in prose_call["system_prompt"]
+        assert forbidden not in prose_call["user_context"]
+    manifest = prose_call["prompt_stack_manifest"]["imported_rewrite_context"]
+    assert manifest["intent"] == "imported_chapter_full_rewrite"
+    assert manifest["context_policy"] == "imported_chapter_adjacent_window_v1"
+    assert manifest["target_chapter_title"] == "第2章 旧卷宗"
+    assert manifest["previous_context_title"] == "第1章 雨夜归来"
+    assert manifest["previous_context_char_count"] == len(
+        "第1章 雨夜归来" + "沈砚回城。" + "上一章尾声：城门在雨里合上。"
+    )
+    assert manifest["next_context_title"] == "第3章 暗巷灯火"
+    assert manifest["next_context_char_count"] == len(
+        "第3章 暗巷灯火" + "暗巷出现新线索。" + "下一章开头：灯火在暗巷尽头亮起。"
+    )
+    assert manifest["voice_profile_injected"] is True
+    assert manifest["plot_guide_disabled"] is True
+    assert manifest["active_character_names"] == ["沈砚"]
+
+    stored = await storage.read_stage_markdown_artifact(
+        "run-imported-rewrite-context",
+        name="chapter_rewrite_markdown",
+    )
+    assert stored == rewritten
+
+
+@pytest.mark.asyncio
+async def test_imported_chapter_full_rewrite_omits_active_character_block_when_no_match(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLMWithKwargs(["[]", "改写后的正文仍停在原结尾。"])
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+
+    await pipeline.run(
+        run_id="run-imported-rewrite-no-character",
+        initial_state={
+            "intent_type": "imported_chapter_full_rewrite",
+            "selected_text": "原正文停在门前。",
+            "chapter_snapshot": {"title": "第2章", "content": "原正文停在门前。"},
+            "current_bible": {
+                "characters_blueprint": "## 沈砚\n- 查案者",
+                "characters_status": "## 沈砚\n- 当前状态",
+            },
+        },
+    )
+
+    prose_call = llm.calls[1]
+    assert "Active Character Reference" not in prose_call["system_prompt"]
+    assert "未识别到明确活跃角色" not in prose_call["system_prompt"]
+    assert prose_call["prompt_stack_manifest"]["imported_rewrite_context"][
+        "active_character_names"
+    ] == []
+    assert prose_call["prompt_stack_manifest"]["imported_rewrite_context"][
+        "active_character_material_char_count"
+    ] == 0
+
+
+@pytest.mark.asyncio
 async def test_chapter_write_beat_expansion_reuses_one_focused_context(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
@@ -329,6 +516,57 @@ def test_parse_beats_markdown_prefers_explicit_bracketed_beats_and_skips_noise()
         "[爆发→压制] 林景行看着他",
         "[震惊→决然] 他走了两步",
     ]
+
+
+def test_imported_chapter_rewrite_validation_fatal_cases() -> None:
+    from app.prompts.imported_chapter_rewrite import (
+        validate_imported_chapter_rewrite_output,
+    )
+
+    original = "原章节正文。" * 20
+    next_chapter = {
+        "title": "第3章 暗巷灯火",
+        "excerpt": "下一章开头出现新线索，灯火在暗巷尽头亮起，沈砚听见陌生人的脚步声。",
+    }
+
+    fatal_cases = [
+        "",
+        "以下是改写后的正文：\n原章节正文。",
+        "- 改写要点\n- 第一\n- 第二",
+        "第3章 暗巷灯火\n下一章开头出现新线索，灯火在暗巷尽头亮起。",
+        "太短",
+    ]
+    for output in fatal_cases:
+        with pytest.raises(ValueError):
+            validate_imported_chapter_rewrite_output(
+                output=output,
+                original=original,
+                target_title="第2章 旧卷宗",
+                next_chapter=next_chapter,
+                user_instruction="润色",
+            )
+
+
+def test_imported_chapter_rewrite_validation_warning_cases() -> None:
+    from app.prompts.imported_chapter_rewrite import (
+        validate_imported_chapter_rewrite_output,
+    )
+
+    original = "“去查。”沈砚推门。她点头。“现在？”“现在。”他停在门前。" * 6
+    output = "第2章 旧卷宗\n" + ("沈砚沉默地停在门前。" * 36)
+
+    warnings = validate_imported_chapter_rewrite_output(
+        output=output,
+        original=original,
+        target_title="第2章 旧卷宗",
+        next_chapter=None,
+        user_instruction="补写省略处并丰富细节",
+    )
+
+    assert "imported_rewrite_length_180_300_percent" in warnings
+    assert "imported_rewrite_possible_chapter_title" in warnings
+    assert "imported_rewrite_possible_dialogue_or_action_loss" in warnings
+    assert "imported_rewrite_substantial_localized_expansion" in warnings
 
 
 def test_parse_prompt_asset_init_response_accepts_fenced_json() -> None:
