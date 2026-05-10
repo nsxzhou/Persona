@@ -84,6 +84,85 @@ Add a new prose prompt and only update the frontend hook, leaving `NovelWorkflow
 #### Correct
 Update the Pydantic workflow request contract, pipeline handler, prompt builders, artifacts, warnings, worker activation context, generated OpenAPI output, frontend API client, hook behavior, and deterministic tests in the same change.
 
+## Scenario: TXT Novel Import And Imported Chapter Rewrite
+
+### 1. Scope / Trigger
+- Trigger: changing TXT import, imported chapter persistence, imported full-chapter rewrite, or selected-chapter enrichment rewrite APIs.
+- This is a cross-layer contract: upload validation, import draft storage, project creation, `outline_detail`, `project_chapters`, Novel Workflow intent handling, generated OpenAPI, frontend import wizard, and editor rewrite UI must stay aligned.
+
+### 2. Signatures
+- Import preview: `POST /api/v1/novel-imports/preview` with multipart fields `project_name`, `default_provider_id`, optional `default_model`, optional `style_profile_id`, optional `plot_profile_id`, optional `generation_profile`, `length_preset`, `rights_confirmed`, and `file`.
+- Import draft update: `PATCH /api/v1/novel-imports/{draft_id}` with project metadata and ordered chapter drafts.
+- Import commit: `POST /api/v1/novel-imports/{draft_id}/commit` returning `project_id`.
+- Rewrite job create: `POST /api/v1/novel-chapter-rewrite-jobs` with `project_id`, `chapter_id`, and free-form `instruction`.
+- Rewrite job read/apply: `GET /status`, `GET /logs`, `GET /artifact`, and `POST /apply` under `/api/v1/novel-chapter-rewrite-jobs/{job_id}`.
+- Normal-project workflow intent: `intent_type="chapter_enrichment_rewrite"`; artifact name: `chapter_rewrite_markdown`.
+- TXT-imported workflow intent: `intent_type="imported_chapter_full_rewrite"`; artifact name: `chapter_rewrite_markdown`.
+
+### 3. Contracts
+- Import requires explicit `rights_confirmed=true`; the product must not fetch or advertise arbitrary third-party book rewriting.
+- Import drafts are short-lived server-side JSON documents keyed by generated UUIDs; route draft ids must be normalized as UUIDs before path construction.
+- TXT parsing should split common chapter headings and return a single editable chapter plus warning when no standard headings exist.
+- Commit must create a normal project, write parser-compatible `outline_detail`, sync chapters, then write imported chapter `content` and `word_count`.
+- Rewrite jobs wrap the existing Novel Workflow worker and must not mutate chapter content until `apply`.
+- For `project_origin="txt_import_rewrite"`, rewrite job creation must route to `imported_chapter_full_rewrite`; normal projects continue to route to `chapter_enrichment_rewrite`.
+- The imported full-rewrite prompt must use the current chapter as the only rewrite target, with previous chapter tail and next chapter head as boundary context.
+- The imported full-rewrite prompt must not inject full `outline_detail`, `story_summary`, runtime bible sections, `Chapter Objective Card`, `Intensity Profile`, `Runtime Guardrails`, or Plot Writing Guide by default.
+- Voice Profile may be injected as language/style reference only.
+- Active character extraction for imported full rewrite is optional support for selecting relevant character material; if no match is found, omit the block instead of emitting fallback prose.
+- Trace metadata for imported full rewrite must expose the `imported_chapter_adjacent_window_v1` context policy and injected context sizes.
+- `apply` may replace the chapter content only after the rewrite workflow has succeeded and the artifact is non-empty.
+
+### 4. Validation & Error Matrix
+- Missing rights confirmation -> `422 请先确认你拥有处理该 TXT 内容的权利`.
+- Non-`.txt` upload or unsupported content type -> `422`.
+- Empty TXT -> `422 上传的 TXT 文件为空`.
+- Oversized upload -> upload-cleaning validation error; do not write a draft.
+- Invalid, expired, or cross-user draft id -> `404 导入草稿不存在或已过期`.
+- Empty imported chapter title -> `422 章节标题不能为空`.
+- Empty target chapter -> `422 当前章节正文为空，无法改写`.
+- Oversized target chapter for v1 rewrite -> `422 当前章节过长，v1 暂不支持自动分块改写`.
+- Applying a non-succeeded rewrite job or empty artifact -> `409`.
+- Direct `imported_chapter_full_rewrite` workflow creation for a non-`txt_import_rewrite` project -> reject before generation.
+- Imported full-rewrite output that is empty, meta commentary, non-prose, below 30% original length, or copies the next chapter boundary -> fail the workflow.
+- Imported full-rewrite output with suspicious but reviewable drift, such as 180%-300% length or possible chapter-title retention -> store workflow warnings and append job logs.
+
+### 5. Good/Base/Bad Cases
+- Good: a user uploads an authorized TXT, confirms parsed chapters, commits a new project, rewrites one selected chapter, previews the artifact, and applies it explicitly.
+- Good: imported project chapter rewrite uses `imported_chapter_full_rewrite`, injects adjacent chapter windows, and outputs only the rewritten chapter body without the chapter title.
+- Base: a no-heading TXT imports as one chapter with a warning and remains editable before commit.
+- Bad: constructing draft file paths from unvalidated route params.
+- Bad: directly overwriting chapter content when the rewrite job is created or when the artifact is generated.
+- Bad: using `assemble_writing_context()` or a generated `Chapter Objective Card` for imported full rewrite, because imported outline navigation is not a real plot plan and can make the model continue into later chapter events.
+- Bad: treating next-chapter context as generation material instead of a boundary guard.
+
+### 6. Tests Required
+- Import tests for valid split headings, no-heading fallback, rights confirmation, non-TXT/empty/oversized uploads, invalid draft ids, and commit chapter ordering/content.
+- Rewrite job tests for create validation, artifact generation/storage, status/log/artifact reads, non-succeeded apply rejection, and successful apply updating `content` and `word_count`.
+- Imported full-rewrite tests for project-origin intent routing, direct-origin gate, adjacent-window prompt inclusion, planning-context exclusion, trace manifest metadata, deterministic validation fatal cases, and warning cases.
+- API/OpenAPI contract tests proving frontend client payloads match backend schemas.
+- Frontend tests for import wizard preview/update/commit, warning display, rewrite dialog progress/preview, and explicit apply.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+Treat import drafts as arbitrary filenames or let frontend code chain project creation, outline sync, and chapter writes manually.
+
+#### Correct
+Validate draft ids as generated UUIDs, keep import commit in a backend service transaction boundary, and expose one commit API that produces a normal project plus normal `project_chapters`.
+
+#### Wrong
+Use the chapter rewrite endpoint as a direct update endpoint that replaces content immediately.
+
+#### Correct
+Persist rewrite output as `chapter_rewrite_markdown` first; require a separate apply call to mutate the selected chapter.
+
+#### Wrong
+Route imported project full-chapter rewrites through `chapter_enrichment_rewrite` and the shared writing-context assembler.
+
+#### Correct
+Route imported project full-chapter rewrites through `imported_chapter_full_rewrite`, use the imported adjacent-window prompt builder, and keep full-project planning context disabled.
+
 ### Bible planning asset dependency contract
 
 When changing novel-planning prompts or workflow intents, preserve the upstream asset order:
