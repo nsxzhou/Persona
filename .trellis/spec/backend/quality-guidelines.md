@@ -39,6 +39,51 @@ Backend changes must preserve Python 3.11+ typing, FastAPI dependency clarity, P
 - Node business logic should be pure or update state through explicit return values.
 - Prompt output format text must match the Pydantic schema or parser contract exactly.
 
+## Scenario: Novel Workflow Full-Chapter Beat Expansion
+
+### 1. Scope / Trigger
+- Trigger: adding or changing a Novel Workflow prose-generation intent that crosses `NovelWorkflowCreateRequest`, workflow state, prompt builders, stored artifacts, OpenAPI output, and frontend editor hooks.
+
+### 2. Signatures
+- Backend request intent: `intent_type="chapter_expand"`.
+- Request payload field: `beats: list[str] = Field(default_factory=list)`.
+- Frontend client entry: `runChapterExpandWorkflow(projectId, chapterId, textBeforeCursor, runtimeState, runtimeThreads, outlineDetail, beats, currentChapterContext?, previousChapterContext?, styleProfileId?, plotProfileId?, options?)`.
+
+### 3. Contracts
+- `chapter_expand` must consume the full ordered beat list and write the generated chapter to artifact `prose_markdown`.
+- It must also write the raw review result to artifact `chapter_expand_review`.
+- Review issues are delivered through workflow `warnings` and frontend `reviewIssues`; clean reviews must produce no warning noise.
+- The full-chapter writer is a prose surface, so it may inject both Voice Profile and Plot Writing Guide. Beat planning remains a planning surface and must not inject Voice Profile.
+- Workflow payload `style_profile_id` / `plot_profile_id` must override the project defaults for that run; if omitted, use the project's mounted profiles.
+- Runtime Prompt Stack activation must include the complete `beats` list so beat-keyword assets can activate for `chapter_expand`.
+
+### 4. Validation & Error Matrix
+- Empty `beats` in request -> backend may fall back to stored `beats_markdown` when available.
+- Writer LLM failure -> workflow fails normally; no partial prose should be marked succeeded.
+- Review LLM failure -> workflow must still succeed, preserve `prose_markdown`, and emit a review-warning message.
+- Review output that is not parseable JSON -> treat the raw non-empty text as one warning rather than failing the workflow.
+
+### 5. Good/Base/Bad Cases
+- Good: 8 user-edited beats create one `chapter_expand` run, one `prose_markdown` artifact, one review artifact, and warning toasts only when review issues exist.
+- Base: legacy `beat_expand` remains available for per-beat/internal expansion and keeps its `beat`, `beat_index`, `total_beats`, and `preceding_beats_prose` contract.
+- Bad: looping over `beat_expand` from the editor as the default path after full-chapter expansion exists.
+- Bad: allowing the review pass to block delivery of successfully generated prose.
+
+### 6. Tests Required
+- Prompt tests asserting the full-chapter writer includes ordered beat coverage, 3,000-5,000 character target, and forbidden-format rules.
+- Pipeline tests asserting `chapter_expand` stores `prose_markdown`, stores `chapter_expand_review`, parses review issues into warnings, and keeps prose delivery when review fails.
+- Worker/context tests asserting request-level Style/Plot profile overrides are injected into the runtime prompt context.
+- Prompt Stack tests asserting the full `beats` list participates in runtime activation.
+- Frontend client/hook tests asserting one `chapter_expand` workflow call replaces the previous per-beat loop and surfaces review warnings after delivery.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+Add a new prose prompt and only update the frontend hook, leaving `NovelWorkflowIntentType`, generated OpenAPI types, artifacts, and prompt-stack activation unaware of the new intent.
+
+#### Correct
+Update the Pydantic workflow request contract, pipeline handler, prompt builders, artifacts, warnings, worker activation context, generated OpenAPI output, frontend API client, hook behavior, and deterministic tests in the same change.
+
 ### Bible planning asset dependency contract
 
 When changing novel-planning prompts or workflow intents, preserve the upstream asset order:
