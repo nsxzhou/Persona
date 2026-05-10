@@ -406,12 +406,14 @@ async def test_project_create_persists_length_preset_and_auto_sync_memory(
     assert create_response.status_code == 201
     created = create_response.json()
     assert created["length_preset"] == "medium"
+    assert created["project_origin"] == "normal"
     assert created["auto_sync_memory"] is True
 
     get_response = await initialized_client.get(f"/api/v1/projects/{created['id']}")
     assert get_response.status_code == 200
     fetched = get_response.json()
     assert fetched["length_preset"] == "medium"
+    assert fetched["project_origin"] == "normal"
     assert fetched["auto_sync_memory"] is True
 
 

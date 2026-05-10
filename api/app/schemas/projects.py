@@ -11,6 +11,7 @@ from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_
 
 ProjectStatus = Literal["draft", "active", "paused"]
 LengthPreset = Literal["short", "medium", "long"]
+ProjectOrigin = Literal["normal", "txt_import_rewrite"]
 PromptAssetKind = Literal["character_card", "lorebook_entry", "author_note"]
 PromptAssetScope = Literal["project", "chapter"]
 
@@ -24,6 +25,7 @@ class ProjectCreate(BaseModel):
     plot_profile_id: str | None = None
     generation_profile: GenerationProfile | None = None
     length_preset: LengthPreset = "short"
+    project_origin: ProjectOrigin = "normal"
     auto_sync_memory: bool = False
 
     @field_validator("generation_profile", mode="before")
@@ -63,6 +65,7 @@ class ProjectResponse(BaseModel):
     plot_profile_id: str | None
     generation_profile: GenerationProfile | None = None
     length_preset: str
+    project_origin: ProjectOrigin
     auto_sync_memory: bool
     archived_at: datetime | None
     created_at: datetime
@@ -120,6 +123,7 @@ class ProjectSummaryResponse(BaseModel):
     plot_profile_id: str | None
     generation_profile: GenerationProfile | None = None
     length_preset: str
+    project_origin: ProjectOrigin
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime

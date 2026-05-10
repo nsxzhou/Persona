@@ -63,6 +63,7 @@ class ProjectRepository:
         plot_profile_id: str | None,
         generation_profile_payload: dict | None,
         length_preset: str,
+        project_origin: str,
         auto_sync_memory: bool,
     ) -> Project:
         project = Project(
@@ -75,6 +76,7 @@ class ProjectRepository:
             plot_profile_id=plot_profile_id,
             generation_profile_payload=generation_profile_payload,
             length_preset=length_preset,
+            project_origin=project_origin,
             auto_sync_memory=auto_sync_memory,
             user_id=user_id,
         )

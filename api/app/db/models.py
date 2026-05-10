@@ -188,6 +188,13 @@ class Project(TimestampMixin, Base):
     generation_profile_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # short / medium / long
     length_preset: Mapped[str] = mapped_column(String(16), nullable=False, default="short")
+    # normal / txt_import_rewrite
+    project_origin: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="normal",
+        server_default="normal",
+    )
     # 逐拍写作完成时是否静默自动同步记忆
     auto_sync_memory: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()

@@ -136,6 +136,9 @@ class ProjectChapterService:
         if "summary" in update_data:
             chapter.summary = update_data["summary"] or ""
 
+        if "title" in update_data:
+            chapter.title = update_data["title"] or ""
+
         for field in (
             "memory_sync_status",
             "memory_sync_source",

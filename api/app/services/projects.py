@@ -100,6 +100,7 @@ class ProjectService:
                 else None
             ),
             length_preset=payload.length_preset,
+            project_origin=payload.project_origin,
             auto_sync_memory=payload.auto_sync_memory,
         )
         await self.repository.refresh_provider(session, project)
