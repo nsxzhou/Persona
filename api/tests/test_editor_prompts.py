@@ -731,7 +731,10 @@ def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_e
     prompt = build_beat_generate_system_prompt()
 
     assert "不要编号、不要项目符号、不要标题、不要代码块、不要前言和总结" in prompt
-    assert "格式必须严格为：[情绪标签] 事件描述" in prompt
+    assert "格式必须严格为：[情绪标签] 剧情落点句" in prompt
+    assert "节拍（Beat）是正文展开前的剧情落点，不是分镜、动作清单或压缩正文" in prompt
+    assert "每条节拍用一句剧情落点句写清这一拍必须抵达的情节结果" in prompt
+    assert "不要写成固定正文句、镜头调度、走位动作清单或过细的打斗/表情/环境描写" in prompt
     assert "不要只写情绪变化，还要写清这一拍具体让读者追什么（如期待更强反制、更高地位、更大资源或更明确的关系变化）" in prompt
     assert "压制、夺回、极致打脸、关系突破、规则反转或阶段性兑现" in prompt
     assert "最后一拍要明确勾住下一拍最想看的兑现" in prompt
@@ -1121,6 +1124,10 @@ def test_chapter_expand_prompt_requires_full_chapter_ordered_coverage() -> None:
     assert "完整节拍列表" in prompt
     assert "按节拍列表原顺序覆盖全部节拍" in prompt
     assert "3000-5000 个中文字符" in prompt
+    assert "节拍列表是剧情骨架，不是正文篇幅上限" in prompt
+    assert "8 个节拍时每拍大约展开 350-600 个中文字符" in prompt
+    assert "节拍更少时每拍要扩写得更充分" in prompt
+    assert "可以围绕节拍做充分的创造性展开" in prompt
     assert "输出只能是读者可见的小说正文" in prompt
     assert "禁止输出章节标题、小标题、节拍编号、节拍标签、列表、分析说明、代码围栏、前言或结语" in prompt
     assert "Voice Profile Runtime Contract" in prompt
@@ -1133,14 +1140,21 @@ def test_chapter_expand_user_message_contains_all_beats_and_regeneration_context
         outline_detail="细纲",
         runtime_state="状态",
         runtime_threads="伏笔",
+        current_chapter_context="本章核心事件：发现密室账本。本章章末钩子：账本主人推门进来。",
         previous_output="旧本章正文",
         user_feedback="增强章末钩子",
     )
 
+    assert "## 当前章节\n\n本章核心事件：发现密室账本。本章章末钩子：账本主人推门进来。" in message
     assert "## 完整节拍列表（必须按顺序覆盖）" in message
     assert "1. 发现脚印" in message
     assert "2. 推门对峙" in message
     assert "3. 章末反转" in message
+    assert "硬锁：当前章节上下文中的本章核心事件和章末钩子必须保留" in message
+    assert "完整节拍列表必须按原顺序逐拍抵达，不得跳拍、并拍或重排" in message
+    assert "节拍只是剧情骨架，不是正文篇幅上限" in message
+    assert "8 个节拍时每拍大约 350-600 个中文字符" in message
+    assert "节拍更少时每拍要扩写得更充分" in message
     assert "请一次性输出 3000-5000 个中文字符的完整章节正文。只输出正文。" in message
     assert "## 上一版结果\n\n旧本章正文" in message
     assert "## 用户意见（本次必须遵循）\n\n增强章末钩子" in message
