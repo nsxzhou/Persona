@@ -110,6 +110,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
         style_profile_id: styleProfileId === "__none__" ? undefined : styleProfileId,
         plot_profile_id: plotProfileId === "__none__" ? undefined : plotProfileId,
         status: "draft",
+        project_origin: "normal",
         auto_sync_memory: false,
         length_preset: lengthPreset,
         generation_profile: {

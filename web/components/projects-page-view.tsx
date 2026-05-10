@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Plus, ArchiveRestore, Archive, PenLine, Trash2 } from "lucide-react";
+import { Plus, ArchiveRestore, Archive, FileUp, PenLine, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageError, PageLoading } from "@/components/page-state";
@@ -32,8 +32,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { api } from "@/lib/api";
-import type { ProjectSummary } from "@/lib/types";
+import type { PlotProfileListItem, ProjectSummary, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 import { ExportProjectDialog } from "./export-project-dialog";
+import { ImportTxtDialog } from "@/components/import-txt-dialog";
 
 const PAGE_SIZE = 10;
 
@@ -41,6 +42,7 @@ export function ProjectsPageClient() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [page, setPage] = useState(1);
   const [mounted, setMounted] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -69,6 +71,21 @@ export function ProjectsPageClient() {
       limit: PAGE_SIZE 
     }),
     enabled: mounted,
+  });
+  const providersQuery = useQuery({
+    queryKey: ["provider-configs"],
+    queryFn: () => api.getProviderConfigs(),
+    enabled: mounted && isImportOpen,
+  });
+  const styleProfilesQuery = useQuery({
+    queryKey: ["style-profiles", "import-txt"],
+    queryFn: () => api.getStyleProfiles({ limit: 100 }),
+    enabled: mounted && isImportOpen,
+  });
+  const plotProfilesQuery = useQuery({
+    queryKey: ["plot-profiles", "import-txt"],
+    queryFn: () => api.getPlotProfiles({ limit: 100 }),
+    enabled: mounted && isImportOpen,
   });
 
   const archiveMutation = useMutation({
@@ -122,6 +139,12 @@ export function ProjectsPageClient() {
       onIncludeArchivedChange={handleIncludeArchivedChange}
       onRestore={(projectId) => restoreMutation.mutate(projectId)}
       onDelete={(projectId) => deleteMutation.mutate(projectId)}
+      onOpenImport={() => setIsImportOpen(true)}
+      providers={providersQuery.data ?? []}
+      styleProfiles={styleProfilesQuery.data ?? []}
+      plotProfiles={plotProfilesQuery.data ?? []}
+      importOpen={isImportOpen}
+      onImportOpenChange={setIsImportOpen}
     />
   );
 }
@@ -136,6 +159,12 @@ export function ProjectsPageView({
   onArchive,
   onRestore,
   onDelete,
+  onOpenImport,
+  importOpen = false,
+  onImportOpenChange = () => {},
+  providers = [],
+  styleProfiles = [],
+  plotProfiles = [],
 }: {
   projects: ProjectSummary[];
   includeArchived: boolean;
@@ -146,6 +175,12 @@ export function ProjectsPageView({
   onArchive?: (id: string) => void;
   onRestore?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onOpenImport?: () => void;
+  importOpen?: boolean;
+  onImportOpenChange?: (open: boolean) => void;
+  providers?: ProviderConfig[];
+  styleProfiles?: StyleProfileListItem[];
+  plotProfiles?: PlotProfileListItem[];
 }) {
   return (
     <section className="space-y-6">
@@ -173,8 +208,19 @@ export function ProjectsPageView({
               新建项目
             </Link>
           </Button>
+          <Button variant="outline" onClick={onOpenImport}>
+            <FileUp className="mr-2 h-4 w-4" />
+            导入 TXT
+          </Button>
         </div>
       </div>
+      <ImportTxtDialog
+        open={importOpen}
+        providers={providers}
+        styleProfiles={styleProfiles}
+        plotProfiles={plotProfiles}
+        onOpenChange={onImportOpenChange}
+      />
 
       <div className="grid gap-4">
         {projects.length === 0 ? (

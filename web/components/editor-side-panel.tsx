@@ -27,6 +27,8 @@ export function EditorSidePanel({
   onToggleAutoSyncMemory,
   onGoGenerateVolume,
   mode = "navigation",
+  hideLengthProgress = false,
+  hideCreationControls = false,
 }: {
   project: Project;
   projectBible: ProjectBible;
@@ -42,6 +44,8 @@ export function EditorSidePanel({
   onToggleAutoSyncMemory?: (value: boolean) => void | Promise<void>;
   onGoGenerateVolume?: (volumeIndex: number) => void;
   mode?: "navigation" | "settings";
+  hideLengthProgress?: boolean;
+  hideCreationControls?: boolean;
 }) {
   const [fields, setFields] = useState<Record<BibleFieldKey, string>>(() => ({
     description: project.description,
@@ -137,22 +141,24 @@ export function EditorSidePanel({
       </div>
 
       {/* Progress bar */}
-      <div className="px-4 py-3 border-b border-border shrink-0 space-y-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">{presetCfg.label}</span>
-          <span className={progressColor}>
-            {contentLength.toLocaleString()} / {(presetCfg.targetMin / 10000)}-{(presetCfg.targetMax / 10000)}万字
-            {" · "}{progress.percentage}%
-            {phaseLabel && <span className="ml-1 font-medium">{` · ${phaseLabel}`}</span>}
-          </span>
+      {!hideLengthProgress ? (
+        <div className="px-4 py-3 border-b border-border shrink-0 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{presetCfg.label}</span>
+            <span className={progressColor}>
+              {contentLength.toLocaleString()} / {(presetCfg.targetMin / 10000)}-{(presetCfg.targetMax / 10000)}万字
+              {" · "}{progress.percentage}%
+              {phaseLabel && <span className="ml-1 font-medium">{` · ${phaseLabel}`}</span>}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${progressBarColor}`}
+              style={{ width: `${Math.min(progress.percentage, 100)}%` }}
+            />
+          </div>
         </div>
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${progressBarColor}`}
-            style={{ width: `${Math.min(progress.percentage, 100)}%` }}
-          />
-        </div>
-      </div>
+      ) : null}
 
       {mode === "navigation" ? (
         <>
@@ -162,11 +168,11 @@ export function EditorSidePanel({
               currentChapter={currentChapter}
               completedChapters={completedChapters}
               onSelectChapter={onSelectChapter}
-              onGoGenerateVolume={onGoGenerateVolume}
+              onGoGenerateVolume={hideCreationControls ? undefined : onGoGenerateVolume}
             />
           </div>
 
-          {currentChapterTitle && currentVolumeHasChapters && (
+          {currentChapterTitle && currentVolumeHasChapters && !hideCreationControls && (
             <div className="border-t border-border p-3 space-y-1.5 shrink-0">
               <Button
                 className="w-full gap-2"

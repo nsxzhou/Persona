@@ -9,6 +9,15 @@ import type {
   NovelWorkflowListItem,
   NovelWorkflowLogs,
   NovelWorkflowStatusSnapshot,
+  NovelChapterRewriteJob,
+  NovelChapterRewriteJobApplyResponse,
+  NovelChapterRewriteJobCreatePayload,
+  NovelChapterRewriteJobLogs,
+  NovelChapterRewriteJobStatus,
+  NovelImportCommitResponse,
+  NovelImportCreatePayload,
+  NovelImportPreview,
+  NovelImportUpdatePayload,
   Project,
   SetupResponse,
   SetupStatusResponse,
@@ -209,6 +218,53 @@ export function createApiClient(request: Requester) {
       request<void>(`/api/v1/projects/${id}`, {
         method: "DELETE",
       }),
+    previewNovelImport: (payload: NovelImportCreatePayload) => {
+      const formData = new FormData();
+      formData.append("project_name", payload.project_name);
+      formData.append("default_provider_id", payload.default_provider_id);
+      if (payload.default_model) formData.append("default_model", payload.default_model);
+      if (payload.style_profile_id) formData.append("style_profile_id", payload.style_profile_id);
+      if (payload.plot_profile_id) formData.append("plot_profile_id", payload.plot_profile_id);
+      if (payload.generation_profile) {
+        formData.append("generation_profile", JSON.stringify(payload.generation_profile));
+      }
+      formData.append("rights_confirmed", String(payload.rights_confirmed));
+      formData.append("file", payload.file);
+
+      return request<NovelImportPreview>("/api/v1/novel-imports/preview", {
+        method: "POST",
+        body: formData,
+      });
+    },
+    updateNovelImport: (draftId: string, payload: NovelImportUpdatePayload) =>
+      request<NovelImportPreview>(`/api/v1/novel-imports/${draftId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    commitNovelImport: (draftId: string) =>
+      request<NovelImportCommitResponse>(`/api/v1/novel-imports/${draftId}/commit`, {
+        method: "POST",
+      }),
+    createNovelChapterRewriteJob: (payload: NovelChapterRewriteJobCreatePayload) =>
+      request<NovelChapterRewriteJob>("/api/v1/novel-chapter-rewrite-jobs", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    getNovelChapterRewriteJobStatus: (id: string) =>
+      request<NovelChapterRewriteJobStatus>(`/api/v1/novel-chapter-rewrite-jobs/${id}/status`),
+    getNovelChapterRewriteJobLogs: (id: string, offset = 0) =>
+      request<NovelChapterRewriteJobLogs>(
+        `/api/v1/novel-chapter-rewrite-jobs/${id}/logs?offset=${offset}`,
+      ),
+    getNovelChapterRewriteJobArtifact: (id: string) =>
+      request<string>(`/api/v1/novel-chapter-rewrite-jobs/${id}/artifact`),
+    applyNovelChapterRewriteJob: (id: string) =>
+      request<NovelChapterRewriteJobApplyResponse>(
+        `/api/v1/novel-chapter-rewrite-jobs/${id}/apply`,
+        {
+          method: "POST",
+        },
+      ),
     listNovelWorkflows: (params?: {
       projectId?: string | null;
       intentType?: NovelWorkflowCreatePayload["intent_type"] | null;

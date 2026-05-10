@@ -5,8 +5,14 @@ import { createJsonRequester } from "@/lib/api/transport";
 import { parseBeatsMarkdown } from "@/lib/novel-workflow-client";
 import type {
   ConceptGeneratePayload,
+  NovelChapterRewriteJob,
+  NovelChapterRewriteJobApplyResponse,
+  NovelChapterRewriteJobLogs,
+  NovelChapterRewriteJobStatus,
   NovelBeatWorkflowResult,
   NovelChapterExpandWorkflowResult,
+  NovelImportCommitResponse,
+  NovelImportPreview,
   NovelMemoryWorkflowResult,
   PlotProfile,
   ProjectPromptAssetApplySuggestionsResponse,
@@ -139,6 +145,117 @@ describe("API contracts", () => {
       if (path === "/api/v1/projects/project-1/prompt-assets/apply-suggestions") {
         return {
           assets: [],
+        } as T;
+      }
+      if (path === "/api/v1/novel-imports/preview") {
+        return {
+          draft_id: "draft-1",
+          project: {
+            project_name: "导入项目",
+            default_provider_id: "provider-1",
+            default_model: "gpt-4.1-mini",
+            style_profile_id: null,
+            plot_profile_id: null,
+            generation_profile: null,
+          },
+          chapters: [
+            {
+              client_id: "chapter-1",
+              title: "第1章",
+              content: "正文",
+              word_count: 2,
+            },
+          ],
+          warnings: [],
+          created_at: "2026-05-10T00:00:00Z",
+          expires_at: "2026-05-11T00:00:00Z",
+        } as T;
+      }
+      if (path === "/api/v1/novel-imports/draft-1" && init?.method === "PATCH") {
+        return {
+          draft_id: "draft-1",
+          project: {
+            project_name: "导入项目",
+            default_provider_id: "provider-1",
+            default_model: "gpt-4.1-mini",
+            style_profile_id: null,
+            plot_profile_id: null,
+            generation_profile: null,
+          },
+          chapters: [],
+          warnings: [],
+          created_at: "2026-05-10T00:00:00Z",
+          expires_at: "2026-05-11T00:00:00Z",
+        } as T;
+      }
+      if (path === "/api/v1/novel-imports/draft-1/commit") {
+        return { project_id: "project-imported" } as T;
+      }
+      if (path === "/api/v1/novel-chapter-rewrite-jobs") {
+        return {
+          id: "rewrite-job-1",
+          intent_type: "chapter_enrichment_rewrite",
+          project_id: "project-1",
+          chapter_id: "chapter-1",
+          provider_id: "provider-1",
+          model_name: "gpt-4.1-mini",
+          status: "pending",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: [],
+          warnings: [],
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-05-10T00:00:00Z",
+          updated_at: "2026-05-10T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path === "/api/v1/novel-chapter-rewrite-jobs/rewrite-job-1/status") {
+        return {
+          id: "rewrite-job-1",
+          status: "succeeded",
+          stage: null,
+          checkpoint_kind: null,
+          latest_artifacts: ["chapter_rewrite_markdown"],
+          warnings: [],
+          error_message: null,
+          updated_at: "2026-05-10T00:00:00Z",
+          pause_requested_at: null,
+        } as T;
+      }
+      if (path === "/api/v1/novel-chapter-rewrite-jobs/rewrite-job-1/logs?offset=0") {
+        return { content: "done", next_offset: 4, truncated: false } as T;
+      }
+      if (path === "/api/v1/novel-chapter-rewrite-jobs/rewrite-job-1/artifact") {
+        return "改写正文" as T;
+      }
+      if (path === "/api/v1/novel-chapter-rewrite-jobs/rewrite-job-1/apply") {
+        return {
+          chapter: {
+            id: "chapter-1",
+            project_id: "project-1",
+            volume_index: 0,
+            chapter_index: 0,
+            title: "第1章",
+            content: "改写正文",
+            beats_markdown: "",
+            summary: "",
+            word_count: 4,
+            memory_sync_status: null,
+            memory_sync_source: null,
+            memory_sync_scope: null,
+            memory_sync_checked_at: null,
+            memory_sync_checked_content_hash: null,
+            memory_sync_error_message: null,
+            memory_sync_proposed_characters_status: null,
+            memory_sync_proposed_state: null,
+            memory_sync_proposed_threads: null,
+            memory_sync_proposed_summary: null,
+            created_at: "2026-05-10T00:00:00Z",
+            updated_at: "2026-05-10T00:00:00Z",
+          },
         } as T;
       }
       return undefined as T;
@@ -277,6 +394,45 @@ describe("API contracts", () => {
         ],
       });
     const promptAssetDeletePromise: Promise<void> = client.deleteProjectPromptAsset("project-1", "asset-1");
+    const importPreviewPromise: Promise<NovelImportPreview> = client.previewNovelImport({
+      project_name: "导入项目",
+      default_provider_id: "provider-1",
+      default_model: "gpt-4.1-mini",
+      rights_confirmed: true,
+      file: new File(["正文"], "novel.txt", { type: "text/plain" }),
+    });
+    const importUpdatePromise: Promise<NovelImportPreview> = client.updateNovelImport("draft-1", {
+      project: {
+        project_name: "导入项目",
+        default_provider_id: "provider-1",
+        default_model: "gpt-4.1-mini",
+        style_profile_id: null,
+        plot_profile_id: null,
+        generation_profile: null,
+      },
+      chapters: [
+        {
+          client_id: "chapter-1",
+          title: "第1章",
+          content: "正文",
+          word_count: 2,
+        },
+      ],
+    });
+    const importCommitPromise: Promise<NovelImportCommitResponse> = client.commitNovelImport("draft-1");
+    const rewriteJobPromise: Promise<NovelChapterRewriteJob> = client.createNovelChapterRewriteJob({
+      project_id: "project-1",
+      chapter_id: "chapter-1",
+      instruction: "增强压迫感",
+    });
+    const rewriteStatusPromise: Promise<NovelChapterRewriteJobStatus> =
+      client.getNovelChapterRewriteJobStatus("rewrite-job-1");
+    const rewriteLogsPromise: Promise<NovelChapterRewriteJobLogs> =
+      client.getNovelChapterRewriteJobLogs("rewrite-job-1");
+    const rewriteArtifactPromise: Promise<string> =
+      client.getNovelChapterRewriteJobArtifact("rewrite-job-1");
+    const rewriteApplyPromise: Promise<NovelChapterRewriteJobApplyResponse> =
+      client.applyNovelChapterRewriteJob("rewrite-job-1");
 
     const payload: StyleAnalysisJobCreatePayload = {
       style_name: "冷白风",
@@ -307,6 +463,14 @@ describe("API contracts", () => {
       promptAssetInitPromise,
       applySuggestionsPromise,
       promptAssetDeletePromise,
+      importPreviewPromise,
+      importUpdatePromise,
+      importCommitPromise,
+      rewriteJobPromise,
+      rewriteStatusPromise,
+      rewriteLogsPromise,
+      rewriteArtifactPromise,
+      rewriteApplyPromise,
     ]);
     expect(request).toHaveBeenCalled();
     expect(createdPayloads).toEqual(
@@ -343,6 +507,10 @@ describe("API contracts", () => {
           temperature: 0.7,
         }),
       }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/novel-chapter-rewrite-jobs/rewrite-job-1/apply",
+      expect.objectContaining({ method: "POST" }),
     );
   });
 

@@ -432,6 +432,142 @@ export interface paths {
         patch: operations["update_project_chapter_api_v1_projects__project_id__chapters__chapter_id__patch"];
         trace?: never;
     };
+    "/api/v1/novel-imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Novel Import */
+        post: operations["preview_novel_import_api_v1_novel_imports_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/novel-imports/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Novel Import Draft */
+        patch: operations["update_novel_import_draft_api_v1_novel_imports__draft_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/novel-imports/{draft_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Novel Import */
+        post: operations["commit_novel_import_api_v1_novel_imports__draft_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/novel-chapter-rewrite-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Novel Chapter Rewrite Job */
+        post: operations["create_novel_chapter_rewrite_job_api_v1_novel_chapter_rewrite_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/novel-chapter-rewrite-jobs/{job_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Novel Chapter Rewrite Job Status */
+        get: operations["get_novel_chapter_rewrite_job_status_api_v1_novel_chapter_rewrite_jobs__job_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/novel-chapter-rewrite-jobs/{job_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Novel Chapter Rewrite Job Logs */
+        get: operations["get_novel_chapter_rewrite_job_logs_api_v1_novel_chapter_rewrite_jobs__job_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/novel-chapter-rewrite-jobs/{job_id}/artifact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Novel Chapter Rewrite Job Artifact */
+        get: operations["get_novel_chapter_rewrite_job_artifact_api_v1_novel_chapter_rewrite_jobs__job_id__artifact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/novel-chapter-rewrite-jobs/{job_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Novel Chapter Rewrite Job */
+        post: operations["apply_novel_chapter_rewrite_job_api_v1_novel_chapter_rewrite_jobs__job_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/novel-workflows": {
         parameters: {
             query?: never;
@@ -1050,6 +1186,28 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_preview_novel_import_api_v1_novel_imports_preview_post */
+        Body_preview_novel_import_api_v1_novel_imports_preview_post: {
+            /** Project Name */
+            project_name: string;
+            /** Default Provider Id */
+            default_provider_id: string;
+            /** Default Model */
+            default_model?: string | null;
+            /** Style Profile Id */
+            style_profile_id?: string | null;
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
+            /** Generation Profile */
+            generation_profile?: string | null;
+            /**
+             * Rights Confirmed
+             * @default false
+             */
+            rights_confirmed: boolean;
+            /** File */
+            file: string;
+        };
         /** ConnectionTestResponse */
         ConnectionTestResponse: {
             /** Status */
@@ -1102,6 +1260,82 @@ export interface components {
          * @description Markdown artifact content.
          */
         MarkdownArtifactResponse: string;
+        /** NovelChapterRewriteJobApplyResponse */
+        NovelChapterRewriteJobApplyResponse: {
+            chapter: components["schemas"]["ProjectChapterResponse"];
+        };
+        /** NovelChapterRewriteJobCreateRequest */
+        NovelChapterRewriteJobCreateRequest: {
+            /** Project Id */
+            project_id: string;
+            /** Chapter Id */
+            chapter_id: string;
+            /** Instruction */
+            instruction: string;
+        };
+        /** NovelImportChapterDraft */
+        NovelImportChapterDraft: {
+            /** Client Id */
+            client_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Word Count
+             * @default 0
+             */
+            word_count: number;
+        };
+        /** NovelImportCommitResponse */
+        NovelImportCommitResponse: {
+            /** Project Id */
+            project_id: string;
+        };
+        /** NovelImportDraftPreview */
+        NovelImportDraftPreview: {
+            /** Draft Id */
+            draft_id: string;
+            project: components["schemas"]["NovelImportProjectMetadata"];
+            /** Chapters */
+            chapters: components["schemas"]["NovelImportChapterDraft"][];
+            /** Warnings */
+            warnings?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** NovelImportDraftUpdateRequest */
+        NovelImportDraftUpdateRequest: {
+            project: components["schemas"]["NovelImportProjectMetadata"];
+            /** Chapters */
+            chapters: components["schemas"]["NovelImportChapterDraft"][];
+        };
+        /** NovelImportProjectMetadata */
+        NovelImportProjectMetadata: {
+            /** Project Name */
+            project_name: string;
+            /** Default Provider Id */
+            default_provider_id: string;
+            /** Default Model */
+            default_model?: string | null;
+            /** Style Profile Id */
+            style_profile_id?: string | null;
+            /** Plot Profile Id */
+            plot_profile_id?: string | null;
+            /** Generation Profile */
+            generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
+        };
         /** NovelWorkflowBaseResponse */
         NovelWorkflowBaseResponse: {
             /** Id */
@@ -1110,7 +1344,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "chapter_enrichment_rewrite" | "imported_chapter_full_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1163,7 +1397,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "chapter_enrichment_rewrite" | "imported_chapter_full_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
             /** Project Id */
             project_id?: string | null;
             /** Chapter Id */
@@ -1207,6 +1441,14 @@ export interface components {
              * @default
              */
             previous_chapter_context: string;
+            /** Imported Previous Chapter */
+            imported_previous_chapter?: {
+                [key: string]: string;
+            } | null;
+            /** Imported Next Chapter */
+            imported_next_chapter?: {
+                [key: string]: string;
+            } | null;
             /**
              * Total Content Length
              * @default 0
@@ -1303,7 +1545,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "chapter_enrichment_rewrite" | "imported_chapter_full_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1928,6 +2170,12 @@ export interface components {
              */
             length_preset: "short" | "medium" | "long";
             /**
+             * Project Origin
+             * @default normal
+             * @enum {string}
+             */
+            project_origin: "normal" | "txt_import_rewrite";
+            /**
              * Auto Sync Memory
              * @default false
              */
@@ -2126,6 +2374,11 @@ export interface components {
             generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /** Length Preset */
             length_preset: string;
+            /**
+             * Project Origin
+             * @enum {string}
+             */
+            project_origin: "normal" | "txt_import_rewrite";
             /** Auto Sync Memory */
             auto_sync_memory: boolean;
             /** Archived At */
@@ -2170,6 +2423,11 @@ export interface components {
             generation_profile?: (components["schemas"]["MainstreamGenerationProfile"] | components["schemas"]["NsfwGenerationProfile"]) | null;
             /** Length Preset */
             length_preset: string;
+            /**
+             * Project Origin
+             * @enum {string}
+             */
+            project_origin: "normal" | "txt_import_rewrite";
             /** Archived At */
             archived_at: string | null;
             /**
@@ -3737,11 +3995,269 @@ export interface operations {
             };
         };
     };
+    preview_novel_import_api_v1_novel_imports_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_novel_import_api_v1_novel_imports_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelImportDraftPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_novel_import_draft_api_v1_novel_imports__draft_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NovelImportDraftUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelImportDraftPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_novel_import_api_v1_novel_imports__draft_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelImportCommitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_novel_chapter_rewrite_job_api_v1_novel_chapter_rewrite_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NovelChapterRewriteJobCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowBaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_novel_chapter_rewrite_job_status_api_v1_novel_chapter_rewrite_jobs__job_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_novel_chapter_rewrite_job_logs_api_v1_novel_chapter_rewrite_jobs__job_id__logs_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_novel_chapter_rewrite_job_artifact_api_v1_novel_chapter_rewrite_jobs__job_id__artifact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkdownArtifactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_novel_chapter_rewrite_job_api_v1_novel_chapter_rewrite_jobs__job_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelChapterRewriteJobApplyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_novel_workflows_api_v1_novel_workflows_get: {
         parameters: {
             query?: {
                 project_id?: string | null;
-                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init") | null;
+                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "chapter_enrichment_rewrite" | "imported_chapter_full_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init") | null;
                 status?: ("pending" | "running" | "paused" | "succeeded" | "failed") | null;
                 offset?: number;
                 limit?: number;

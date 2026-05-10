@@ -71,6 +71,7 @@ const project: ProjectSummary = {
   plot_profile_id: null,
   generation_profile: null,
   length_preset: "short",
+  project_origin: "normal",
   archived_at: null,
   created_at: "2026-05-07T00:00:00Z",
   updated_at: "2026-05-07T00:00:00Z",
@@ -110,6 +111,19 @@ describe("WorkflowRunsPageView", () => {
         expect.objectContaining({ status: "succeeded" }),
       );
     });
+  });
+
+  test("labels imported chapter full rewrite runs", async () => {
+    apiMock.listNovelWorkflows.mockResolvedValue([
+      {
+        ...run,
+        intent_type: "imported_chapter_full_rewrite",
+      },
+    ]);
+
+    renderWithClient(<WorkflowRunsPageView />);
+
+    expect(await screen.findByText("导入章节改写")).toBeInTheDocument();
   });
 
   test("shows empty state", async () => {

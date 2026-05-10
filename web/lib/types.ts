@@ -29,6 +29,22 @@ export type MemorySyncSource = NonNullable<ProjectChapter["memory_sync_source"]>
 export type MemorySyncScope = NonNullable<ProjectChapter["memory_sync_scope"]>;
 
 export type ProjectChapter = OpenApiSchema<"ProjectChapterResponse">;
+export type NovelImportPreview = OpenApiSchema<"NovelImportDraftPreview">;
+export type NovelImportUpdatePayload = components["schemas"]["NovelImportDraftUpdateRequest"];
+export type NovelImportCommitResponse = OpenApiSchema<"NovelImportCommitResponse">;
+export type NovelImportCreatePayload =
+  Omit<
+    components["schemas"]["Body_preview_novel_import_api_v1_novel_imports_preview_post"],
+    "file" | "length_preset"
+  > & {
+    file: File;
+  };
+export type NovelChapterRewriteJobCreatePayload =
+  components["schemas"]["NovelChapterRewriteJobCreateRequest"];
+export type NovelChapterRewriteJob = OpenApiSchema<"NovelWorkflowBaseResponse">;
+export type NovelChapterRewriteJobStatus = OpenApiSchema<"NovelWorkflowStatusResponse">;
+export type NovelChapterRewriteJobLogs = OpenApiSchema<"NovelWorkflowLogsResponse">;
+export type NovelChapterRewriteJobApplyResponse = OpenApiSchema<"NovelChapterRewriteJobApplyResponse">;
 
 export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
 export type AnalysisReportMarkdown = OpenApiSchema<"AnalysisReportMarkdown">;
