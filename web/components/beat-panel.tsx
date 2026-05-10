@@ -209,7 +209,7 @@ export function BeatPanel({
             disabled={disabled}
           >
             <Play className="h-4 w-4" />
-            开始逐拍写作
+            开始写作本章
           </Button>
         )}
         {beats.length > 0
@@ -229,7 +229,7 @@ export function BeatPanel({
         )}
         {isExpandingBeat && (
           <p className="text-xs text-center text-muted-foreground">
-            正在展开第 {currentBeatIndex + 1}/{beats.length} 拍...
+            正在写作本章...
           </p>
         )}
       </div>

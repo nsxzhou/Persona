@@ -77,50 +77,47 @@ export function useBeatGeneration({
 
     const textBeforeCursor = "";
     const textAfterCursor = "";
+    setCurrentBeatIndex(0);
+    setIsExpandingBeat(true);
 
-    let beatsProse = "";
-    for (let i = 0; i < beats.length; i++) {
-      setCurrentBeatIndex(i);
-      setIsExpandingBeat(true);
+    let chapterProse = "";
+    try {
+      const { response, reviewIssues } = await api.runChapterExpandWorkflow(
+        project.id,
+        chapterId,
+        textBeforeCursor,
+        projectBible.runtime_state ?? "",
+        projectBible.runtime_threads ?? "",
+        projectBible.outline_detail ?? "",
+        beats,
+        currentChapterContext,
+        previousChapterContext,
+        project.style_profile_id,
+        project.plot_profile_id,
+        options,
+      );
 
-      try {
-        const response = await api.runBeatExpandWorkflow(
-          project.id,
-          chapterId,
-          textBeforeCursor,
-          projectBible.runtime_state ?? "",
-          projectBible.runtime_threads ?? "",
-          projectBible.outline_detail ?? "",
-          beats[i],
-          i,
-          beats.length,
-          beatsProse,
-          currentChapterContext,
-          previousChapterContext,
-          options,
-        );
-
-        const beatGenerated = await consumeResponse({
-          response,
-          onFlush: (fullText) => {
-            const newContent = textBeforeCursor + beatsProse + fullText + textAfterCursor;
-            store.getState().setContent(newContent);
-          },
-        });
-
-        beatsProse += beatGenerated;
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : "展开失败";
-        if (message !== "The operation was cancelled.") {
-          toast.error(message);
-        }
-        break;
+      chapterProse = await consumeResponse({
+        response,
+        onFlush: (fullText) => {
+          const newContent = textBeforeCursor + fullText + textAfterCursor;
+          store.getState().setContent(newContent);
+        },
+      });
+      if (reviewIssues.length > 0) {
+        toast.message(`章节审校提示：${reviewIssues.join("；")}`);
       }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "展开失败";
+      if (message !== "The operation was cancelled.") {
+        toast.error(message);
+      }
+    } finally {
+      setIsExpandingBeat(false);
+      setCurrentBeatIndex(-1);
     }
-    setIsExpandingBeat(false);
-    setCurrentBeatIndex(-1);
-    if (beatsProse.trim()) await onBeatExpandCompleted?.(beatsProse);
-  }, [beats, chapterId, consumeResponse, currentChapterContext, disabled, isExpandingBeat, isGenerating, onBeatExpandCompleted, previousChapterContext, project.id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads, store]);
+    if (chapterProse.trim()) await onBeatExpandCompleted?.(chapterProse);
+  }, [beats, chapterId, consumeResponse, currentChapterContext, disabled, isExpandingBeat, isGenerating, onBeatExpandCompleted, previousChapterContext, project.id, project.plot_profile_id, project.style_profile_id, projectBible.outline_detail, projectBible.runtime_state, projectBible.runtime_threads, store]);
 
   return {
     beats,
