@@ -330,17 +330,23 @@ class NovelWorkflowJobExecutor:
             chapter = run.chapter
             style_prompt = None
             plot_prompt = None
-            if project is not None and project.style_profile_id:
+            style_profile_id = request_payload.get("style_profile_id") or (
+                project.style_profile_id if project is not None else None
+            )
+            plot_profile_id = request_payload.get("plot_profile_id") or (
+                project.plot_profile_id if project is not None else None
+            )
+            if project is not None and style_profile_id:
                 style_profile = await self.style_profile_service.get_or_404(
                     session,
-                    project.style_profile_id,
+                    str(style_profile_id),
                     user_id=run.user_id,
                 )
                 style_prompt = style_profile.voice_profile_payload
-            if project is not None and project.plot_profile_id:
+            if project is not None and plot_profile_id:
                 plot_profile = await self.plot_profile_service.get_or_404(
                     session,
-                    project.plot_profile_id,
+                    str(plot_profile_id),
                     user_id=run.user_id,
                 )
                 plot_prompt = plot_profile.story_engine_payload
@@ -368,6 +374,7 @@ class NovelWorkflowJobExecutor:
                         "text_after_selection",
                         "rewrite_instruction",
                         "beat",
+                        "beats",
                         "preceding_beats_prose",
                         "content_to_check",
                     )

@@ -41,6 +41,7 @@ NovelWorkflowIntentType: TypeAlias = Literal[
     "selection_rewrite",
     "beats_generate",
     "beat_expand",
+    "chapter_expand",
     "prompt_asset_init",
 ]
 
@@ -80,6 +81,7 @@ class NovelWorkflowCreateRequest(BaseModel):
     previous_chapter_context: str = ""
     total_content_length: int = Field(default=0, ge=0)
     beat: str | None = None
+    beats: list[str] = Field(default_factory=list)
     beat_index: int | None = Field(default=None, ge=0)
     total_beats: int | None = Field(default=None, ge=1)
     preceding_beats_prose: str = ""

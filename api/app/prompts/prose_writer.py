@@ -15,44 +15,40 @@ from app.schemas.prompt_profiles import GenerationProfile
 VOICE_PROFILE_LANGUAGE_PRIORITY_CONTRACT = """
 # Voice Profile Runtime Contract（语言层最高优先级）
 
-- 已挂载 Voice Profile 时，它是逐拍扩写的语言层最高优先级。
-- 逐拍正文必须优先执行 Voice Profile 中的句式、词汇、对白、标点、节奏、意象、叙述视角和写作忌口。
+- 已挂载 Voice Profile 时，它是整章正文写作的语言层最高优先级。
+- 本章正文必须优先执行 Voice Profile 中的句式、词汇、对白、标点、节奏、意象、叙述视角和写作忌口。
 - 商业爽点、节拍推进和 Generation Profile 仍要完成，但落笔方式要先服从 Voice Profile 的语言指纹。
 - 冲突边界：Voice Profile 只约束语言表达，不覆盖当前项目事实、角色关系、世界观、剧情走向、题材强度和边界规则。
 - 不得复制样本角色、设定、事件或桥段；样本专名和专属设定只能抽象成语气、节奏或叙述手法。
 """.strip()
 
 
-def _build_beat_expand_system(
-    beat_expand_chars: int = 500,
+def _build_chapter_expand_system(
     hook_framework: str = "",
     commercial_engine: str = "",
 ) -> str:
     return (
-        "你是一位番茄金番作家，正在根据前文和给定节拍继续落正文。\n\n"
+        "你是一位番茄金番作家，正在根据完整节拍列表一次性写出本章正文。\n\n"
         f"{commercial_engine}"
         f"{build_plot_propulsion_contract()}\n"
-        "落笔规则：\n"
-        f"- 按照节拍描述展开约 {beat_expand_chars} 字的叙事段落\n"
-        "- 保持与前文的语感和风格一致\n"
-        "- 自然衔接前文，不要重复已有内容\n"
-        "- 至少包含一个五感细节（视觉/听觉/嗅觉/触觉）\n"
-        "- 对话部分要有潜台词，不直接说出意图\n"
+        "全章落笔规则：\n"
+        "- 必须按节拍列表原顺序覆盖全部节拍，不得跳拍、并拍、重排或额外改写节拍目标\n"
+        "- 目标篇幅为 3000-5000 个中文字符\n"
+        "- 输出只能是读者可见的小说正文\n"
+        "- 禁止输出章节标题、小标题、节拍编号、节拍标签、列表、分析说明、代码围栏、前言或结语\n"
+        "- 保持与前文的语感和风格一致，自然衔接前文，不要重复已有内容\n"
         "- 段落控制在 150 字以内，适配移动端阅读\n"
-        "- 动作/战斗场景用短句加快节奏\n"
-        "- 每一段都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转\n"
-        "- 可以强化氛围、五感描写和情绪张力，但表达落点必须服务当前节拍\n"
-        "- 让读者看见主角正在获得更清晰的筹码、地位、主动权或关系变化\n"
-        "- 直接输出正文，绝不输出章节标题（如“# 第x章”），不要输出节拍本身、不要解释\n"
+        "- 对话要有潜台词，动作/战斗场景用短句加快节奏\n"
+        "- 每一组段落都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转\n"
+        "- 结尾必须形成章末钩子，让读者明确期待下一章的冲突、反转或兑现\n"
         f"{hook_framework}"
     )
 
 
-def build_beat_expand_system_prompt(
+def build_chapter_expand_system_prompt(
     style_prompt: str | None = None,
     plot_prompt: str | None = None,
     generation_profile: GenerationProfile | None = None,
-    beat_expand_chars: int = 500,
     regenerating: bool = False,
 ) -> str:
     parts: list[str] = []
@@ -68,8 +64,7 @@ def build_beat_expand_system_prompt(
         parts.append("\n\n---\n")
     hook_framework = get_hook_framework(generation_profile) + build_desire_semantics_hint(generation_profile)
     parts.append(
-        _build_beat_expand_system(
-            beat_expand_chars,
+        _build_chapter_expand_system(
             hook_framework,
             get_commercial_engine(generation_profile),
         )
@@ -79,12 +74,10 @@ def build_beat_expand_system_prompt(
     return "\n".join(parts)
 
 
-def build_beat_expand_user_message(
+def build_chapter_expand_user_message(
+    *,
     text_before_cursor: str,
-    beat: str,
-    beat_index: int,
-    total_beats: int,
-    preceding_beats_prose: str,
+    beats: list[str],
     outline_detail: str,
     runtime_state: str,
     runtime_threads: str,
@@ -114,13 +107,38 @@ def build_beat_expand_user_message(
     )
     if recent.strip():
         parts.append(f"## 前文\n\n{recent}")
-    if preceding_beats_prose.strip():
-        parts.append(f"## 本轮已生成的内容\n\n{preceding_beats_prose}")
+    beat_lines = "\n".join(f"{index + 1}. {beat}" for index, beat in enumerate(beats))
     parts.append(
-        f"## 当前节拍（第 {beat_index + 1}/{total_beats} 拍）\n\n"
-        f"{beat}\n\n"
-        "语言层执行提醒：本拍正文必须沿用已挂载 Voice Profile 的语言指纹，"
-        "优先落实句式、词汇、对白、标点、节奏、意象和写作忌口。"
+        "## 完整节拍列表（必须按顺序覆盖）\n\n"
+        f"{beat_lines}\n\n"
+        "语言层执行提醒：全章正文必须沿用已挂载 Voice Profile 的语言指纹，"
+        "优先落实句式、词汇、对白、标点、节奏、意象和写作忌口。\n\n"
+        "请一次性输出 3000-5000 个中文字符的完整章节正文。只输出正文。"
     )
     append_regeneration_context(parts, previous_output, user_feedback)
     return "\n\n---\n\n".join(parts)
+
+
+def build_chapter_expand_review_system_prompt() -> str:
+    return (
+        "你是一位连载章节质量审校人，只负责指出本章生成稿的交付风险。\n"
+        "检查维度：节拍覆盖与顺序、3000-5000 中文字符目标、结构漂移、禁用格式噪音、章末钩子质量。\n"
+        "只输出 JSON 对象，不要 Markdown，不要代码围栏。格式必须为：\n"
+        '{"issues":["问题1","问题2"]}\n'
+        "如果没有问题，输出 {\"issues\":[]}。"
+    )
+
+
+def build_chapter_expand_review_user_message(
+    *,
+    beats: list[str],
+    prose_markdown: str,
+) -> str:
+    beat_lines = "\n".join(f"{index + 1}. {beat}" for index, beat in enumerate(beats))
+    return (
+        "## 完整节拍列表\n\n"
+        f"{beat_lines}\n\n"
+        "---\n\n"
+        "## 待审校正文\n\n"
+        f"{prose_markdown}"
+    )

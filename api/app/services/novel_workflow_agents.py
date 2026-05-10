@@ -34,8 +34,10 @@ from app.prompts.memory_sync import (
     parse_bible_update_response,
 )
 from app.prompts.prose_writer import (
-    build_beat_expand_system_prompt,
-    build_beat_expand_user_message,
+    build_chapter_expand_review_system_prompt,
+    build_chapter_expand_review_user_message,
+    build_chapter_expand_system_prompt,
+    build_chapter_expand_user_message,
 )
 
 LLMComplete = Callable[..., Awaitable[str]]
@@ -225,12 +227,17 @@ class BeatAgent:
     ) -> str:
         if self.llm_complete is None:
             raise RuntimeError("llm_complete is required")
-        user_context = build_beat_expand_user_message(
+        contextual_beat = beat
+        if total_beats > 1:
+            contextual_beat = f"第 {beat_index + 1}/{total_beats} 拍：{beat}"
+        if preceding_beats_prose.strip():
+            contextual_beat = (
+                f"{contextual_beat}\n"
+                f"已生成正文衔接参考：{preceding_beats_prose.strip()}"
+            )
+        user_context = build_chapter_expand_user_message(
             text_before_cursor=state.get("text_before_cursor", ""),
-            beat=beat,
-            beat_index=beat_index,
-            total_beats=total_beats,
-            preceding_beats_prose=preceding_beats_prose,
+            beats=[contextual_beat],
             outline_detail=current_bible.get("outline_detail", ""),
             runtime_state=current_bible.get("runtime_state", ""),
             runtime_threads=current_bible.get("runtime_threads", ""),
@@ -241,7 +248,7 @@ class BeatAgent:
             user_feedback=user_feedback,
         )
         kwargs = {
-            "system_prompt": build_beat_expand_system_prompt(
+            "system_prompt": build_chapter_expand_system_prompt(
                 style_prompt=state.get("style_prompt"),
                 plot_prompt=state.get("plot_prompt"),
                 generation_profile=generation_profile,
@@ -256,6 +263,67 @@ class BeatAgent:
         if prompt_stack_manifest is not None:
             kwargs["prompt_stack_manifest"] = prompt_stack_manifest
         return await self.llm_complete(**kwargs)
+
+    async def expand_chapter(
+        self,
+        *,
+        state: dict[str, Any],
+        current_bible: dict[str, str],
+        generation_profile: Any,
+        beats: list[str],
+        previous_output: str | None,
+        user_feedback: str | None = None,
+        regenerating: bool = False,
+        prompt_stack_manifest: dict | None = None,
+        prompt_asset_layers: list[Any] | None = None,
+    ) -> str:
+        if self.llm_complete is None:
+            raise RuntimeError("llm_complete is required")
+        user_context = build_chapter_expand_user_message(
+            text_before_cursor=state.get("text_before_cursor", ""),
+            beats=beats,
+            outline_detail=current_bible.get("outline_detail", ""),
+            runtime_state=current_bible.get("runtime_state", ""),
+            runtime_threads=current_bible.get("runtime_threads", ""),
+            current_chapter_context=state.get("current_chapter_context", ""),
+            previous_chapter_context=state.get("previous_chapter_context", ""),
+            active_character_focus=current_bible.get("active_character_focus", ""),
+            previous_output=previous_output,
+            user_feedback=user_feedback,
+        )
+        kwargs = {
+            "system_prompt": build_chapter_expand_system_prompt(
+                style_prompt=state.get("style_prompt"),
+                plot_prompt=state.get("plot_prompt"),
+                generation_profile=generation_profile,
+                regenerating=regenerating,
+            ),
+            "user_context": _compose_beat_expand_user_context(
+                user_context,
+                prompt_asset_layers or [],
+            ),
+            "mode": "immersion",
+        }
+        if prompt_stack_manifest is not None:
+            kwargs["prompt_stack_manifest"] = prompt_stack_manifest
+        return await self.llm_complete(**kwargs)
+
+    async def review_chapter_expansion(
+        self,
+        *,
+        beats: list[str],
+        prose_markdown: str,
+    ) -> str:
+        if self.llm_complete is None:
+            raise RuntimeError("llm_complete is required")
+        return await self.llm_complete(
+            system_prompt=build_chapter_expand_review_system_prompt(),
+            user_context=build_chapter_expand_review_user_message(
+                beats=beats,
+                prose_markdown=prose_markdown,
+            ),
+            mode="analysis",
+        )
 
 
 @dataclass

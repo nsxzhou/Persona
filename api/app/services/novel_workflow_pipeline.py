@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -124,6 +125,7 @@ class NovelWorkflowState(TypedDict):
     feedback: NotRequired[str | None]
     previous_output: NotRequired[str | None]
     beat: NotRequired[str | None]
+    beats: NotRequired[list[str]]
     beat_index: NotRequired[int | None]
     total_beats: NotRequired[int | None]
     preceding_beats_prose: NotRequired[str]
@@ -188,6 +190,7 @@ class NovelWorkflowPipeline:
             "selection_rewrite": self._handle_selection_rewrite,
             "beats_generate": self._handle_beats_generate,
             "beat_expand": self._handle_beat_expand,
+            "chapter_expand": self._handle_chapter_expand,
             "memory_refresh": self._handle_memory_refresh,
             "prompt_asset_init": self._handle_prompt_asset_init,
         }
@@ -532,6 +535,57 @@ class NovelWorkflowPipeline:
             "persist_payload": {"markdown": markdown},
         }
 
+    async def _handle_chapter_expand(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
+        artifact_name = "prose_markdown"
+        focused_bible = (
+            await self._select_writing_context(state, current_bible)
+        ).as_bible()
+        beats = [beat.strip() for beat in state.get("beats", []) if beat.strip()]
+        if not beats:
+            beats = parse_beats_markdown(state.get("beats_markdown", ""))
+        markdown = await self.beat_agent.expand_chapter(
+            state=state,
+            current_bible=focused_bible,
+            generation_profile=generation_profile,
+            beats=beats,
+            previous_output=state.get("previous_output"),
+            user_feedback=state.get("feedback"),
+            regenerating=bool(state.get("previous_output") or state.get("feedback")),
+            prompt_stack_manifest=_state_prompt_stack_manifest(state),
+            prompt_asset_layers=_state_prompt_asset_layers(state),
+        )
+        try:
+            review_raw = await self.beat_agent.review_chapter_expansion(
+                beats=beats,
+                prose_markdown=markdown,
+            )
+        except Exception:
+            review_raw = json.dumps(
+                {"issues": ["章节审校未完成：审校调用失败，已保留生成正文"]},
+                ensure_ascii=False,
+            )
+        review_issues = _parse_chapter_expand_review_issues(review_raw)
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=artifact_name,
+            markdown=markdown,
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name="chapter_expand_review",
+            markdown=review_raw,
+        )
+        warnings = list(state.get("warnings", []))
+        warnings.extend(review_issues)
+        return {
+            "latest_artifacts": [artifact_name, "chapter_expand_review"],
+            "warnings": warnings,
+            "persist_payload": {
+                "markdown": markdown,
+                "review_issues": review_issues,
+            },
+        }
+
     async def _handle_memory_refresh(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         artifact_name = "memory_update_bundle"
         memory_result = await self.memory_sync_agent.refresh(
@@ -802,3 +856,18 @@ def _state_prompt_asset_layers(state: dict[str, Any]) -> list[WritingPromptAsset
             "author_notes",
         }
     ]
+
+
+def _parse_chapter_expand_review_issues(markdown: str) -> list[str]:
+    stripped = markdown.strip()
+    match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.DOTALL)
+    if match:
+        stripped = match.group(1).strip()
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        return [stripped] if stripped else []
+    issues = payload.get("issues") if isinstance(payload, dict) else payload
+    if not isinstance(issues, list):
+        return [stripped] if stripped else []
+    return [issue.strip() for issue in issues if isinstance(issue, str) and issue.strip()]
