@@ -6,6 +6,7 @@ import { parseBeatsMarkdown } from "@/lib/novel-workflow-client";
 import type {
   ConceptGeneratePayload,
   NovelBeatWorkflowResult,
+  NovelChapterExpandWorkflowResult,
   NovelMemoryWorkflowResult,
   PlotProfile,
   ProjectPromptAssetApplySuggestionsResponse,
@@ -22,9 +23,11 @@ import type {
 
 describe("API contracts", () => {
   test("api client methods align with exported OpenAPI contract types", async () => {
+    const createdPayloads: Array<{ intent_type?: string; beats?: string[] }> = [];
     const request = vi.fn(async <T,>(path: string, init?: RequestInit) => {
       if (path === "/api/v1/novel-workflows" && init?.method === "POST") {
-        const payload = JSON.parse(String(init.body ?? "{}")) as { intent_type?: string };
+        const payload = JSON.parse(String(init.body ?? "{}")) as { intent_type?: string; beats?: string[] };
+        createdPayloads.push(payload);
         return {
           id: `${payload.intent_type ?? "workflow"}-1`,
           intent_type: payload.intent_type ?? "section_generate",
@@ -184,6 +187,19 @@ describe("API contracts", () => {
       "",
       "",
     );
+    const chapterExpandPromise: Promise<NovelChapterExpandWorkflowResult> = client.runChapterExpandWorkflow(
+      "project-1",
+      "chapter-1",
+      "",
+      "",
+      "",
+      "",
+      ["第一拍", "第二拍"],
+      "当前章节",
+      "前章摘要",
+      "style-1",
+      "plot-1",
+    );
     const biblePromise: Promise<NovelMemoryWorkflowResult> = client.proposeBibleUpdate(
       "project-1",
       "",
@@ -278,6 +294,7 @@ describe("API contracts", () => {
       workflowRunsPromise,
       workflowHistoryClearPromise,
       beatsPromise,
+      chapterExpandPromise,
       biblePromise,
       styleProfileCreatePromise,
       styleProfileUpdatePromise,
@@ -292,6 +309,16 @@ describe("API contracts", () => {
       promptAssetDeletePromise,
     ]);
     expect(request).toHaveBeenCalled();
+    expect(createdPayloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          intent_type: "chapter_expand",
+          beats: ["第一拍", "第二拍"],
+          style_profile_id: "style-1",
+          plot_profile_id: "plot-1",
+        }),
+      ]),
+    );
     expect(parseBeatsMarkdown("节拍如下：\n- 【平静→疑惑】 发现脚印\n- 旁白说明")).toEqual([
       "[平静→疑惑] 发现脚印",
     ]);
