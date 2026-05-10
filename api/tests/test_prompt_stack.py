@@ -348,6 +348,104 @@ async def test_runtime_prompt_stack_selection_service(
 
 
 @pytest.mark.asyncio
+async def test_chapter_expand_runtime_prompt_stack_uses_full_beat_list(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+    app_with_db: FastAPI,
+) -> None:
+    from app.services.novel_workflow_worker import NovelWorkflowJobExecutor
+
+    project = await _create_project(initialized_client, str(initialized_provider["id"]))
+    asset = await initialized_client.post(
+        f"/api/v1/projects/{project['id']}/prompt-assets",
+        json={
+            "kind": "lorebook_entry",
+            "scope": "project",
+            "title": "Seal lore",
+            "content": "The blood seal can only be opened once.",
+            "keywords": ["血印"],
+            "enabled": True,
+            "always_on": False,
+            "priority": 5,
+        },
+    )
+    assert asset.status_code == 201
+
+    run_response = await initialized_client.post(
+        "/api/v1/novel-workflows",
+        json={
+            "intent_type": "chapter_expand",
+            "project_id": project["id"],
+            "beats": ["主角发现血印", "反派抢先开启密室"],
+        },
+    )
+    assert run_response.status_code == 201
+
+    executor = NovelWorkflowJobExecutor()
+    context = await executor._load_run_context(
+        app_with_db.state.session_factory,
+        run_response.json()["id"],
+    )
+
+    prompt_stack = context.initial_state["prompt_stack"]
+    assert prompt_stack is not None
+    assert "The blood seal can only be opened once." in prompt_stack.prompt_text
+    assert prompt_stack.manifest.selected_assets[0].matched_keywords == ["血印"]
+
+
+@pytest.mark.asyncio
+async def test_chapter_expand_runtime_context_uses_request_style_profile_override(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+    app_with_db: FastAPI,
+) -> None:
+    from app.services.novel_workflow_worker import NovelWorkflowJobExecutor
+
+    project = await _create_project(initialized_client, str(initialized_provider["id"]))
+    default_profile = await _create_style_profile(
+        initialized_client,
+        app_with_db,
+        initialized_provider,
+        project["id"],
+        "默认风格",
+        _voice_profile("默认短句推进"),
+    )
+    override_profile = await _create_style_profile(
+        initialized_client,
+        app_with_db,
+        initialized_provider,
+        None,
+        "覆盖风格",
+        _voice_profile("覆盖冷白反问"),
+    )
+
+    project_update = await initialized_client.patch(
+        f"/api/v1/projects/{project['id']}",
+        json={"style_profile_id": default_profile["id"]},
+    )
+    assert project_update.status_code == 200
+    run_response = await initialized_client.post(
+        "/api/v1/novel-workflows",
+        json={
+            "intent_type": "chapter_expand",
+            "project_id": project["id"],
+            "style_profile_id": override_profile["id"],
+            "beats": ["第一拍", "第二拍"],
+        },
+    )
+    assert run_response.status_code == 201
+
+    executor = NovelWorkflowJobExecutor()
+    context = await executor._load_run_context(
+        app_with_db.state.session_factory,
+        run_response.json()["id"],
+    )
+
+    assert "覆盖冷白反问" in context.initial_state["style_prompt"]
+    assert "默认短句推进" not in context.initial_state["style_prompt"]
+
+
+@pytest.mark.asyncio
 async def test_prompt_stack_manifest_keeps_full_lengths_without_truncation_budget(
     app_with_db: FastAPI,
 ) -> None:
@@ -436,3 +534,71 @@ async def _create_project(client: AsyncClient, provider_id: str) -> dict:
     )
     assert bible_response.status_code == 200
     return project
+
+
+async def _create_style_profile(
+    client: AsyncClient,
+    app_with_db: FastAPI,
+    provider: dict[str, object],
+    mount_project_id: str | None,
+    style_name: str,
+    voice_profile_markdown: str,
+) -> dict:
+    from app.services.style_analysis_jobs import StyleAnalysisJobService
+
+    job_response = await client.post(
+        "/api/v1/style-analysis-jobs",
+        data={"style_name": style_name, "provider_id": str(provider["id"])},
+        files={"file": ("sample.txt", "第一章 风雪夜归人".encode("utf-8"), "text/plain")},
+    )
+    assert job_response.status_code == 201
+    job_id = job_response.json()["id"]
+    async with app_with_db.state.session_factory() as session:
+        await StyleAnalysisJobService().mark_job_succeeded(
+            session,
+            job_id,
+            analysis_meta_payload={
+                "source_filename": "sample.txt",
+                "model_name": str(provider["default_model"]),
+                "text_type": "章节正文",
+                "has_timestamps": False,
+                "has_speaker_labels": False,
+                "has_noise_markers": False,
+                "uses_batch_processing": False,
+                "location_indexing": "章节或段落位置",
+                "chunk_count": 1,
+            },
+            analysis_report_payload="# 执行摘要\n风格稳定。",
+            voice_profile_payload=voice_profile_markdown,
+        )
+        await session.commit()
+
+    response = await client.post(
+        "/api/v1/style-profiles",
+        json={
+            "job_id": job_id,
+            "style_name": style_name,
+            "mount_project_id": mount_project_id,
+            "voice_profile_markdown": voice_profile_markdown,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def _voice_profile(marker: str) -> str:
+    return (
+        "# Voice Profile\n"
+        f"## 3.1 口头禅与常用表达\n- 执行规则：{marker}。\n\n"
+        "## 3.2 固定句式与节奏偏好\n- 执行规则：长短句交替。\n\n"
+        "## 3.3 词汇选择偏好\n- 执行规则：混用现代术语与古典四字格。\n\n"
+        "## 3.4 句子构造习惯\n- 执行规则：句首落判断。\n\n"
+        "## 3.5 生活经历线索\n- 执行规则：生活线索弱。\n\n"
+        "## 3.6 行业／地域词汇\n- 执行规则：行业词偏运营。\n\n"
+        "## 3.7 自然化缺陷\n- 执行规则：保留省略和跳接。\n\n"
+        "## 3.8 写作忌口与避讳\n- 执行规则：少写解释性开场。\n\n"
+        "## 3.9 比喻口味与意象库\n- 执行规则：意象偏月色与视线。\n\n"
+        "## 3.10 思维模式与表达逻辑\n- 执行规则：观察、质疑、类比、结论递进。\n\n"
+        "## 3.11 常见场景的说话方式\n- 执行规则：对白抢拍试探。\n\n"
+        "## 3.12 个人价值取向与反复母题\n- 执行规则：强调效率和掌控。\n"
+    )

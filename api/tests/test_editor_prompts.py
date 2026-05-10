@@ -27,8 +27,10 @@ from app.prompts.outline import (
     build_volume_generate_user_message,
 )
 from app.prompts.prose_writer import (
-    build_beat_expand_system_prompt,
-    build_beat_expand_user_message,
+    build_chapter_expand_review_system_prompt,
+    build_chapter_expand_review_user_message,
+    build_chapter_expand_system_prompt,
+    build_chapter_expand_user_message,
 )
 from app.prompts.section_router import (
     build_section_system_prompt,
@@ -107,7 +109,7 @@ def test_editor_prompts_enforce_mainstream_adult_semantics_boundary() -> None:
         build_volume_generate_system_prompt(length_preset="long"),
         build_volume_chapters_system_prompt(),
         build_beat_generate_system_prompt(),
-        build_beat_expand_system_prompt(),
+        build_chapter_expand_system_prompt(),
     ]
 
     for prompt in prompts:
@@ -214,7 +216,7 @@ def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
             style_prompt="# Style Prompt\n风格约束\n",
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
         ),
-        build_beat_expand_system_prompt(
+        build_chapter_expand_system_prompt(
             plot_prompt="# Plot Prompt\n核心驱动轴：信息差胁迫 → 利益绑定 → 资源兑现\n",
         ),
     ]
@@ -230,7 +232,7 @@ def test_planning_prompts_add_visible_plot_fingerprint_contract() -> None:
 
 
 def test_plot_prompt_contract_keeps_old_terms_out_of_direct_generation_targets() -> None:
-    prompt = build_beat_expand_system_prompt(
+    prompt = build_chapter_expand_system_prompt(
         plot_prompt=(
             "# Plot Prompt\n"
             "旧模板：公共情欲压迫、密室双修、催眠控制、药物控制、未经同意越界。\n"
@@ -709,11 +711,11 @@ def test_volume_prompts_use_qidian_planning_persona() -> None:
 
 def test_beat_prompts_use_tomato_author_persona() -> None:
     beat_generate_prompt = build_beat_generate_system_prompt()
-    beat_expand_prompt = build_beat_expand_system_prompt()
+    chapter_expand_prompt = build_chapter_expand_system_prompt()
 
     assert "番茄金番作家" in beat_generate_prompt
-    assert "番茄金番作家" in beat_expand_prompt
-    assert "小说执笔者" not in beat_expand_prompt
+    assert "番茄金番作家" in chapter_expand_prompt
+    assert "小说执笔者" not in chapter_expand_prompt
     assert "正在帮助作者" not in beat_generate_prompt
 
 
@@ -736,8 +738,8 @@ def test_beat_generate_prompt_requires_actionable_reader_hooks_instead_of_only_e
     assert "# Voice Profile（语言风格参考）" not in prompt
 
 
-def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:
-    prompt = build_beat_expand_system_prompt(
+def test_chapter_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> None:
+    prompt = build_chapter_expand_system_prompt(
         generation_profile=GENERATION_PROFILE_ADAPTER.validate_python({
             "target_market": "mainstream",
             "genre_mother": "urban",
@@ -747,9 +749,9 @@ def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> 
         })
     )
 
-    assert "每一段都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转" in prompt
-    assert "表达落点必须服务当前节拍" in prompt
-    assert "让读者看见主角正在获得更清晰的筹码、地位、主动权或关系变化" in prompt
+    assert "每一组段落都要落下可感知的读者奖励，如局势推进、资源兑现、权力变化、关系张力或信息差反转" in prompt
+    assert "必须按节拍列表原顺序覆盖全部节拍" in prompt
+    assert "结尾必须形成章末钩子" in prompt
     assert "视角约束" in prompt
     assert "不要写括号式内心独白" in prompt
     assert "不要直接写“我心想”" in prompt
@@ -758,8 +760,8 @@ def test_beat_expand_prompt_blocks_hollow_prose_and_requires_payoff_motion() -> 
     assert "“我”只允许出现在角色对白中" in prompt
 
 
-def test_beat_expand_prompt_prioritizes_voice_profile_language_contract() -> None:
-    prompt = build_beat_expand_system_prompt(
+def test_chapter_expand_prompt_prioritizes_voice_profile_language_contract() -> None:
+    prompt = build_chapter_expand_system_prompt(
         style_prompt=(
             "# Voice Profile\n"
             "## 3.1 口头禅与常用表达\n- 执行规则：冷白短句，反问收束。\n"
@@ -775,13 +777,16 @@ def test_beat_expand_prompt_prioritizes_voice_profile_language_contract() -> Non
     )
 
     assert "Voice Profile Runtime Contract（语言层最高优先级）" in prompt
-    assert "已挂载 Voice Profile 时，它是逐拍扩写的语言层最高优先级" in prompt
+    assert "# Voice Profile（语言风格参考）" in prompt
+    assert "## 3.1 口头禅与常用表达" in prompt
+    assert "执行规则：冷白短句，反问收束。" in prompt
+    assert "已挂载 Voice Profile 时，它是整章正文写作的语言层最高优先级" in prompt
     assert "句式、词汇、对白、标点、节奏、意象、叙述视角和写作忌口" in prompt
     assert "商业爽点、节拍推进和 Generation Profile 仍要完成" in prompt
     assert "Voice Profile 只约束语言表达，不覆盖当前项目事实、角色关系、世界观、剧情走向、题材强度和边界规则" in prompt
     assert "不得复制样本角色、设定、事件或桥段" in prompt
     assert "商业叙事驱动内核" in prompt
-    assert "直接输出正文" in prompt
+    assert "输出只能是读者可见的小说正文" in prompt
     assert "视角约束" in prompt
 
 
@@ -799,7 +804,7 @@ def test_creative_fixed_prompts_remove_old_external_helper_language() -> None:
         build_volume_generate_system_prompt(),
         build_volume_chapters_system_prompt(),
         build_beat_generate_system_prompt(),
-        build_beat_expand_system_prompt(),
+        build_chapter_expand_system_prompt(),
         build_bible_update_system_prompt(),
     ]
 
@@ -818,7 +823,7 @@ def test_creative_fixed_prompts_embed_neutral_mainstream_reader_engine() -> None
         build_volume_generate_system_prompt(length_preset="long"),
         build_volume_chapters_system_prompt(length_preset="long"),
         build_beat_generate_system_prompt(),
-        build_beat_expand_system_prompt(),
+        build_chapter_expand_system_prompt(),
     ]
 
     for prompt in prompts:
@@ -897,7 +902,7 @@ def test_non_analysis_fixed_prompts_do_not_keep_generic_official_sections() -> N
         build_volume_generate_system_prompt(length_preset="long"),
         build_volume_chapters_system_prompt(length_preset="long"),
         build_beat_generate_system_prompt(),
-        build_beat_expand_system_prompt(),
+        build_chapter_expand_system_prompt(),
         build_bible_update_system_prompt(),
         build_chapter_summary_system_prompt(),
         build_story_summary_system_prompt(),
@@ -994,7 +999,7 @@ _REGEN_MARKER = "## 重新生成指令"
         (build_volume_chapters_system_prompt, {}),
         (build_bible_update_system_prompt, {}),
         (build_beat_generate_system_prompt, {}),
-        (build_beat_expand_system_prompt, {}),
+        (build_chapter_expand_system_prompt, {}),
     ],
 )
 def test_system_prompts_include_regeneration_guidance_only_when_requested(
@@ -1110,41 +1115,52 @@ def test_beat_generate_user_message_appends_regeneration_context() -> None:
     assert message.index("## 上一版结果") < message.index("请生成 5 个节拍：")
 
 
-def test_beat_expand_user_message_appends_regeneration_context() -> None:
-    message = build_beat_expand_user_message(
+def test_chapter_expand_prompt_requires_full_chapter_ordered_coverage() -> None:
+    prompt = build_chapter_expand_system_prompt(style_prompt="# Voice Profile\n短句推进")
+
+    assert "完整节拍列表" in prompt
+    assert "按节拍列表原顺序覆盖全部节拍" in prompt
+    assert "3000-5000 个中文字符" in prompt
+    assert "输出只能是读者可见的小说正文" in prompt
+    assert "禁止输出章节标题、小标题、节拍编号、节拍标签、列表、分析说明、代码围栏、前言或结语" in prompt
+    assert "Voice Profile Runtime Contract" in prompt
+
+
+def test_chapter_expand_user_message_contains_all_beats_and_regeneration_context() -> None:
+    message = build_chapter_expand_user_message(
         text_before_cursor="前文",
-        beat="一拍",
-        beat_index=0,
-        total_beats=3,
-        preceding_beats_prose="",
-        outline_detail="",
-        runtime_state="",
-        runtime_threads="",
-        previous_output="旧正文段",
-        user_feedback="少对话多动作",
+        beats=["发现脚印", "推门对峙", "章末反转"],
+        outline_detail="细纲",
+        runtime_state="状态",
+        runtime_threads="伏笔",
+        previous_output="旧本章正文",
+        user_feedback="增强章末钩子",
     )
 
-    assert "## 上一版结果\n\n旧正文段" in message
-    assert "## 用户意见（本次必须遵循）\n\n少对话多动作" in message
+    assert "## 完整节拍列表（必须按顺序覆盖）" in message
+    assert "1. 发现脚印" in message
+    assert "2. 推门对峙" in message
+    assert "3. 章末反转" in message
+    assert "请一次性输出 3000-5000 个中文字符的完整章节正文。只输出正文。" in message
+    assert "## 上一版结果\n\n旧本章正文" in message
+    assert "## 用户意见（本次必须遵循）\n\n增强章末钩子" in message
 
 
-def test_beat_expand_user_message_reminds_current_beat_to_apply_voice_fingerprint() -> None:
-    message = build_beat_expand_user_message(
-        text_before_cursor="前文",
-        beat="[压迫→反制] 主角按住账册，逼对方交出筹码",
-        beat_index=1,
-        total_beats=4,
-        preceding_beats_prose="",
-        outline_detail="",
-        runtime_state="",
-        runtime_threads="",
+def test_chapter_expand_review_prompt_checks_required_dimensions() -> None:
+    prompt = build_chapter_expand_review_system_prompt()
+    message = build_chapter_expand_review_user_message(
+        beats=["发现脚印", "章末反转"],
+        prose_markdown="正文",
     )
 
-    assert "## 当前节拍（第 2/4 拍）" in message
-    assert "[压迫→反制] 主角按住账册，逼对方交出筹码" in message
-    assert "语言层执行提醒" in message
-    assert "本拍正文必须沿用已挂载 Voice Profile 的语言指纹" in message
-    assert "句式、词汇、对白、标点、节奏、意象和写作忌口" in message
+    assert "节拍覆盖与顺序" in prompt
+    assert "3000-5000 中文字符目标" in prompt
+    assert "结构漂移" in prompt
+    assert "禁用格式噪音" in prompt
+    assert "章末钩子质量" in prompt
+    assert '{"issues":["问题1","问题2"]}' in prompt
+    assert "1. 发现脚印" in message
+    assert "## 待审校正文\n\n正文" in message
 
 
 def test_user_messages_omit_regeneration_sections_when_fields_are_none() -> None:
@@ -1163,8 +1179,15 @@ def test_user_messages_omit_regeneration_sections_when_fields_are_none() -> None
     )
     volume_msg = build_volume_generate_user_message("总纲", "")
     chapters_msg = build_volume_chapters_user_message("总纲", "", "卷一", "", "")
+    chapter_expand_msg = build_chapter_expand_user_message(
+        text_before_cursor="",
+        beats=["一拍"],
+        outline_detail="",
+        runtime_state="",
+        runtime_threads="",
+    )
 
-    for msg in (concept_msg, section_msg, volume_msg, chapters_msg):
+    for msg in (concept_msg, section_msg, volume_msg, chapters_msg, chapter_expand_msg):
         assert "## 上一版结果" not in msg
         assert "## 用户意见" not in msg
 
@@ -1194,6 +1217,7 @@ def test_user_messages_ignore_empty_whitespace_only_regeneration_fields() -> Non
             "beat_index": 0,
             "total_beats": 3,
         },
+        {"intent_type": "chapter_expand", "beats": ["一拍", "二拍"]},
         {"intent_type": "volume_chapters_generate", "volume_index": 0},
         {"intent_type": "volume_generate"},
         {"intent_type": "concept_bootstrap", "inspiration": "灵感", "provider_id": "p-1"},

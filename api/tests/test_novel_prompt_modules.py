@@ -39,8 +39,10 @@ def test_agent_prompt_modules_exist_and_own_prompt_builders() -> None:
             "build_beat_generate_user_message",
         },
         "prose_writer.py": {
-            "build_beat_expand_system_prompt",
-            "build_beat_expand_user_message",
+            "build_chapter_expand_system_prompt",
+            "build_chapter_expand_user_message",
+            "build_chapter_expand_review_system_prompt",
+            "build_chapter_expand_review_user_message",
         },
         "memory_sync.py": {
             "parse_bible_update_response",

@@ -30,6 +30,25 @@ class StubLLM:
         return self._outputs.pop(0)
 
 
+class FailingReviewLLM(StubLLM):
+    async def __call__(
+        self,
+        *,
+        system_prompt: str,
+        user_context: str,
+        mode: str,
+        **kwargs,
+    ) -> str:
+        if mode == "analysis" and "连载章节质量审校人" in system_prompt:
+            raise RuntimeError("review provider unavailable")
+        return await super().__call__(
+            system_prompt=system_prompt,
+            user_context=user_context,
+            mode=mode,
+            **kwargs,
+        )
+
+
 @pytest.mark.asyncio
 async def test_section_generation_passes_project_name_to_prompt_context(
     tmp_path,
@@ -607,4 +626,132 @@ async def test_beat_expand_injects_prompt_asset_layers_in_runtime_order(
     user_context = next(call["user_context"] for call in llm.calls if call["mode"] == "immersion")
     assert user_context.index("# Active Lorebook Entries") < user_context.index("# Active Character Cards")
     assert user_context.index("# Active Character Cards") < user_context.index("# Author Notes")
-    assert user_context.index("# Author Notes") < user_context.index("## 当前节拍")
+    assert user_context.index("# Author Notes") < user_context.index("## 完整节拍列表（必须按顺序覆盖）")
+
+
+@pytest.mark.asyncio
+async def test_chapter_expand_generates_once_and_exposes_review_issues(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM([
+        "[]",
+        "完整章节正文",
+        '{"issues":["漏掉第 3 拍","章末钩子偏弱"]}',
+    ])
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-expand",
+        initial_state={
+            "intent_type": "chapter_expand",
+            "beats": ["第一拍", "第二拍", "第三拍"],
+            "current_chapter_context": "本章上下文",
+            "current_bible": {
+                "outline_detail": "章节细纲",
+                "runtime_state": "运行状态",
+                "runtime_threads": "伏笔",
+            },
+        },
+    )
+
+    assert result.persist_payload["markdown"] == "完整章节正文"
+    assert result.persist_payload["review_issues"] == ["漏掉第 3 拍", "章末钩子偏弱"]
+    assert result.warnings == ["漏掉第 3 拍", "章末钩子偏弱"]
+    assert result.latest_artifacts == ["prose_markdown", "chapter_expand_review"]
+    assert await storage.read_stage_markdown_artifact("run-chapter-expand", name="prose_markdown") == "完整章节正文"
+    assert await storage.read_stage_markdown_artifact("run-chapter-expand", name="chapter_expand_review") == '{"issues":["漏掉第 3 拍","章末钩子偏弱"]}'
+    immersion_calls = [call for call in llm.calls if call["mode"] == "immersion"]
+    assert len(immersion_calls) == 1
+    assert "3000-5000 个中文字符" in immersion_calls[0]["system_prompt"]
+    assert "1. 第一拍" in immersion_calls[0]["user_context"]
+    assert "2. 第二拍" in immersion_calls[0]["user_context"]
+    assert "3. 第三拍" in immersion_calls[0]["user_context"]
+
+
+@pytest.mark.asyncio
+async def test_chapter_expand_clean_review_has_no_warnings(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(["[]", "完整章节正文", '{"issues":[]}'])
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-expand-clean-review",
+        initial_state={
+            "intent_type": "chapter_expand",
+            "beats": ["第一拍", "第二拍"],
+            "current_bible": {},
+        },
+    )
+
+    assert result.persist_payload["markdown"] == "完整章节正文"
+    assert result.persist_payload["review_issues"] == []
+    assert result.warnings == []
+
+
+@pytest.mark.asyncio
+async def test_chapter_expand_review_failure_does_not_block_delivery(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    storage = NovelWorkflowStorageService()
+    llm = FailingReviewLLM(["[]", "完整章节正文"])
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-expand-review-failure",
+        initial_state={
+            "intent_type": "chapter_expand",
+            "beats": ["第一拍", "第二拍"],
+            "current_bible": {},
+        },
+    )
+
+    assert result.persist_payload["markdown"] == "完整章节正文"
+    assert result.persist_payload["review_issues"] == [
+        "章节审校未完成：审校调用失败，已保留生成正文"
+    ]
+    assert result.warnings == ["章节审校未完成：审校调用失败，已保留生成正文"]
+    assert (
+        await storage.read_stage_markdown_artifact(
+            "run-chapter-expand-review-failure",
+            name="prose_markdown",
+        )
+        == "完整章节正文"
+    )

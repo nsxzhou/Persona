@@ -162,7 +162,7 @@ async def test_update_missing_chapter_returns_404(
 
 def test_editor_prompt_builders_include_chapter_scoped_context() -> None:
     from app.prompts.beat import build_beat_generate_user_message
-    from app.prompts.prose_writer import build_beat_expand_user_message
+    from app.prompts.prose_writer import build_chapter_expand_user_message
 
     beat_message = build_beat_generate_user_message(
         text_before_cursor="当前章光标前",
@@ -173,12 +173,9 @@ def test_editor_prompt_builders_include_chapter_scoped_context() -> None:
         current_chapter_context="第1章上下文",
         previous_chapter_context="前序章节摘要",
     )
-    expand_message = build_beat_expand_user_message(
+    expand_message = build_chapter_expand_user_message(
         text_before_cursor="当前章光标前",
-        beat="主角发现案卷",
-        beat_index=0,
-        total_beats=5,
-        preceding_beats_prose="",
+        beats=["主角发现案卷"],
         outline_detail="总大纲",
         runtime_state="时间线",
         runtime_threads="伏笔",
