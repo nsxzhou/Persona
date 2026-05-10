@@ -1385,6 +1385,7 @@
                     "selection_rewrite",
                     "beats_generate",
                     "beat_expand",
+                    "chapter_expand",
                     "prompt_asset_init"
                   ],
                   "type": "string"
@@ -3569,6 +3570,7 @@
               "selection_rewrite",
               "beats_generate",
               "beat_expand",
+              "chapter_expand",
               "prompt_asset_init"
             ],
             "title": "Intent Type"
@@ -3797,6 +3799,7 @@
               "selection_rewrite",
               "beats_generate",
               "beat_expand",
+              "chapter_expand",
               "prompt_asset_init"
             ],
             "title": "Intent Type"
@@ -3897,6 +3900,13 @@
               }
             ],
             "title": "Beat"
+          },
+          "beats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Beats"
           },
           "beat_index": {
             "anyOf": [
@@ -4190,6 +4200,7 @@
               "selection_rewrite",
               "beats_generate",
               "beat_expand",
+              "chapter_expand",
               "prompt_asset_init"
             ],
             "title": "Intent Type"

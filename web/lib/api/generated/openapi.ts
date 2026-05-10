@@ -1110,7 +1110,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -1163,7 +1163,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
             /** Project Id */
             project_id?: string | null;
             /** Chapter Id */
@@ -1214,6 +1214,8 @@ export interface components {
             total_content_length: number;
             /** Beat */
             beat?: string | null;
+            /** Beats */
+            beats?: string[];
             /** Beat Index */
             beat_index?: number | null;
             /** Total Beats */
@@ -1301,7 +1303,7 @@ export interface components {
              * Intent Type
              * @enum {string}
              */
-            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init";
+            intent_type: "concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init";
             /** Project Id */
             project_id: string | null;
             /** Chapter Id */
@@ -3739,7 +3741,7 @@ export interface operations {
         parameters: {
             query?: {
                 project_id?: string | null;
-                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "prompt_asset_init") | null;
+                intent_type?: ("concept_bootstrap" | "memory_refresh" | "section_generate" | "volume_generate" | "volume_chapters_generate" | "selection_rewrite" | "beats_generate" | "beat_expand" | "chapter_expand" | "prompt_asset_init") | null;
                 status?: ("pending" | "running" | "paused" | "succeeded" | "failed") | null;
                 offset?: number;
                 limit?: number;

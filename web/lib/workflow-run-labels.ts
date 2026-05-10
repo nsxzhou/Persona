@@ -9,6 +9,7 @@ export const WORKFLOW_INTENT_LABELS: Record<NovelWorkflowListItem["intent_type"]
   selection_rewrite: "局部改写",
   beats_generate: "节拍生成",
   beat_expand: "节拍扩写",
+  chapter_expand: "本章写作",
   prompt_asset_init: "Prompt 资产初始化",
 };
 

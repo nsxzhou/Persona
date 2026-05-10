@@ -396,6 +396,7 @@ export function createApiClient(request: Requester) {
     proposeBibleUpdate: novelWorkflowClient.proposeBibleUpdate,
     runBeatsWorkflow: novelWorkflowClient.runBeatsWorkflow,
     runBeatExpandWorkflow: novelWorkflowClient.runBeatExpandWorkflow,
+    runChapterExpandWorkflow: novelWorkflowClient.runChapterExpandWorkflow,
     runSectionWorkflow: novelWorkflowClient.runSectionWorkflow,
     streamNovelWorkflowArtifact: novelWorkflowClient.streamNovelWorkflowArtifact,
     runVolumeWorkflow: novelWorkflowClient.runVolumeWorkflow,

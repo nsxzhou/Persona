@@ -81,6 +81,10 @@ export type PlotAnalysisJobCreatePayload =
     file: File;
   };
 export type NovelBeatWorkflowResult = { beats: string[] };
+export type NovelChapterExpandWorkflowResult = {
+  response: Response;
+  reviewIssues: string[];
+};
 export type NovelMemoryWorkflowResult = {
   proposed_characters_status: string;
   proposed_runtime_state: string;

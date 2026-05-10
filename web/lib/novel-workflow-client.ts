@@ -8,6 +8,7 @@ import type {
   ConceptGeneratePayload,
   GenerationProfile,
   NovelBeatWorkflowResult,
+  NovelChapterExpandWorkflowResult,
   NovelMemoryWorkflowResult,
   NovelWorkflowCreatePayload,
   NovelWorkflowListItem,
@@ -264,6 +265,40 @@ export function createNovelWorkflowClient(request: Requester) {
         `/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`,
       );
       return buildSseResponse(markdown);
+    },
+    runChapterExpandWorkflow: async (
+      projectId: string,
+      chapterId: string | null,
+      textBeforeCursor: string,
+      runtimeState: string,
+      runtimeThreads: string,
+      outlineDetail: string,
+      beats: string[],
+      currentChapterContext?: string,
+      previousChapterContext?: string,
+      styleProfileId?: string | null,
+      plotProfileId?: string | null,
+      options?: RegenerateOptions,
+    ): Promise<NovelChapterExpandWorkflowResult> => {
+      const { run, status } = await createNovelWorkflowAndWait({
+        intent_type: "chapter_expand",
+        project_id: projectId,
+        chapter_id: chapterId,
+        text_before_cursor: textBeforeCursor,
+        beats,
+        current_chapter_context: currentChapterContext ?? "",
+        previous_chapter_context: previousChapterContext ?? "",
+        ...(styleProfileId ? { style_profile_id: styleProfileId } : {}),
+        ...(plotProfileId ? { plot_profile_id: plotProfileId } : {}),
+        ...regenerateFields(options),
+      } as NovelWorkflowCreatePayload);
+      const markdown = await request<string>(
+        `/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`,
+      );
+      return {
+        response: buildSseResponse(markdown),
+        reviewIssues: status.warnings ?? [],
+      };
     },
     runSectionWorkflow: (
       projectId: string,
