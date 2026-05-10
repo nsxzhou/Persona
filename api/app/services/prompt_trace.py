@@ -269,6 +269,11 @@ def _render_call(call: PromptTraceCall) -> list[str]:
 
 def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
     lines: list[str] = ["### Prompt Stack Manifest", ""]
+    imported_rewrite_context = (
+        manifest.get("imported_rewrite_context") if isinstance(manifest, dict) else None
+    )
+    if isinstance(imported_rewrite_context, dict):
+        lines.extend(_render_imported_rewrite_context_manifest(imported_rewrite_context))
     layers = manifest.get("layers") if isinstance(manifest, dict) else None
     selected_assets = manifest.get("selected_assets") if isinstance(manifest, dict) else None
     if not isinstance(layers, list):
@@ -329,6 +334,29 @@ def _render_prompt_stack_manifest(manifest: dict) -> list[str]:
             )
         lines.append("")
     return lines
+
+
+def _render_imported_rewrite_context_manifest(manifest: dict) -> list[str]:
+    disabled_sections = manifest.get("bible_sections_disabled")
+    active_names = manifest.get("active_character_names")
+    return [
+        "#### Imported Rewrite Context Policy",
+        "",
+        "| Field | Value |",
+        "| --- | --- |",
+        f"| Intent | `{_escape_table(str(manifest.get('intent') or '-'))}` |",
+        f"| Context policy | `{_escape_table(str(manifest.get('context_policy') or '-'))}` |",
+        f"| Target chapter | `{_escape_table(str(manifest.get('target_chapter_id') or '-'))}` / `{_escape_table(str(manifest.get('target_chapter_title') or '-'))}` |",
+        f"| Target chars | {manifest.get('target_chapter_char_count') if manifest.get('target_chapter_char_count') is not None else '-'} |",
+        f"| Previous context | `{_escape_table(str(manifest.get('previous_context_title') or '-'))}` / {manifest.get('previous_context_char_count') if manifest.get('previous_context_char_count') is not None else '-'} chars |",
+        f"| Next context | `{_escape_table(str(manifest.get('next_context_title') or '-'))}` / {manifest.get('next_context_char_count') if manifest.get('next_context_char_count') is not None else '-'} chars |",
+        f"| Voice Profile injected | {_format_bool(bool(manifest.get('voice_profile_injected')))} / {manifest.get('voice_profile_char_count') if manifest.get('voice_profile_char_count') is not None else '-'} chars |",
+        f"| Plot Guide disabled | {_format_bool(bool(manifest.get('plot_guide_disabled')))} |",
+        f"| Bible sections disabled | `{_escape_table(', '.join(disabled_sections) if isinstance(disabled_sections, list) else '-')}` |",
+        f"| Active characters | `{_escape_table(', '.join(active_names) if isinstance(active_names, list) else '-')}` |",
+        f"| Active character chars | {manifest.get('active_character_material_char_count') if manifest.get('active_character_material_char_count') is not None else '-'} |",
+        "",
+    ]
 
 
 def _fenced_code_block(content: str) -> str:

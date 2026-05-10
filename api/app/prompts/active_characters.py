@@ -14,10 +14,12 @@ def build_active_characters_system_prompt() -> str:
 def build_active_characters_user_message(
     text_before_cursor: str,
     current_chapter_context: str,
+    preserve_text_sample: bool = False,
 ) -> str:
     parts = []
     if current_chapter_context.strip():
         parts.append(f"## 当前章节上下文\n\n{current_chapter_context}")
     if text_before_cursor.strip():
-        parts.append(f"## 近期正文片段\n\n{text_before_cursor[-2000:]}")
+        text_sample = text_before_cursor if preserve_text_sample else text_before_cursor[-2000:]
+        parts.append(f"## 近期正文片段\n\n{text_sample}")
     return "\n\n---\n\n".join(parts)
