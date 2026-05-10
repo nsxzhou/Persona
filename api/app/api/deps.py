@@ -13,6 +13,8 @@ from app.services.auth import AuthService
 from app.services.checkpointer_factory import PlotAnalysisCheckpointerFactory
 from app.services.export import ProjectExportService
 from app.services.novel_workflows import NovelWorkflowService
+from app.services.novel_chapter_rewrite_jobs import NovelChapterRewriteJobService
+from app.services.novel_imports import NovelImportService
 from app.services.plot_analysis_jobs import PlotAnalysisJobService
 from app.services.plot_analysis_storage import PlotAnalysisStorageService
 from app.services.plot_profiles import PlotProfileService
@@ -207,4 +209,36 @@ def get_novel_workflow_service(
 NovelWorkflowServiceDep = Annotated[
     NovelWorkflowService,
     Depends(get_novel_workflow_service),
+]
+
+
+def get_novel_import_service(
+    project_service: ProjectServiceDep,
+    project_chapter_service: ProjectChapterServiceDep,
+) -> NovelImportService:
+    return NovelImportService(
+        project_service=project_service,
+        chapter_service=project_chapter_service,
+    )
+
+
+NovelImportServiceDep = Annotated[
+    NovelImportService,
+    Depends(get_novel_import_service),
+]
+
+
+def get_novel_chapter_rewrite_job_service(
+    novel_workflow_service: NovelWorkflowServiceDep,
+    project_chapter_service: ProjectChapterServiceDep,
+) -> NovelChapterRewriteJobService:
+    return NovelChapterRewriteJobService(
+        workflow_service=novel_workflow_service,
+        chapter_service=project_chapter_service,
+    )
+
+
+NovelChapterRewriteJobServiceDep = Annotated[
+    NovelChapterRewriteJobService,
+    Depends(get_novel_chapter_rewrite_job_service),
 ]

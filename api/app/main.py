@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # setup: 系统初始化相关接口
 from app.api.routes import (
     auth,
+    novel_chapter_rewrite_jobs,
+    novel_imports,
     novel_workflows,
     plot_analysis_jobs,
     plot_profiles,
@@ -130,6 +132,8 @@ def create_app(*, session_factory=None) -> FastAPI:
     app.include_router(provider_configs.router, prefix="/api/v1")
     app.include_router(projects.router, prefix="/api/v1")
     app.include_router(project_chapters.router, prefix="/api/v1")
+    app.include_router(novel_imports.router, prefix="/api/v1")
+    app.include_router(novel_chapter_rewrite_jobs.router, prefix="/api/v1")
     app.include_router(novel_workflows.router, prefix="/api/v1")
     app.include_router(style_analysis_jobs.router, prefix="/api/v1")
     app.include_router(style_profiles.router, prefix="/api/v1")
