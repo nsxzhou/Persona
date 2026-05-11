@@ -318,6 +318,23 @@ class NovelWorkflowService:
             now=datetime.now(UTC),
         )
 
+    async def claim_job_by_id_for_worker(
+        self,
+        session: AsyncSession,
+        run_id: str,
+        *,
+        worker_id: str,
+    ) -> bool:
+        return await self.repository.claim_pending_run_by_id(
+            session,
+            run_id,
+            worker_id=worker_id,
+            preparing_stage=NOVEL_WORKFLOW_STAGE_PREPARING,
+            running_status=NOVEL_WORKFLOW_STATUS_RUNNING,
+            pending_status=NOVEL_WORKFLOW_STATUS_PENDING,
+            now=datetime.now(UTC),
+        )
+
     async def heartbeat_run(
         self,
         session: AsyncSession,
@@ -383,11 +400,12 @@ class NovelWorkflowService:
         *,
         error_message: str,
         max_attempts: int,
+        force_terminal: bool = False,
     ) -> bool:
         run = await self.repository.get_by_id(session, run_id)
         if run is None:
             raise NotFoundError("工作流任务不存在")
-        is_terminal = run.attempt_count >= max_attempts
+        is_terminal = force_terminal or run.attempt_count >= max_attempts
         if is_terminal:
             run.status = NOVEL_WORKFLOW_STATUS_FAILED
             run.error_message = error_message

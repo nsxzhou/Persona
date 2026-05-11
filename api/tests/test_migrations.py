@@ -263,6 +263,47 @@ def test_novel_workflow_migration_adds_story_summary_beats_and_runs_table(
     assert "novel_workflow_runs" in run_tables
 
 
+def test_chapter_rewrite_batch_migration_adds_batch_tables(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "chapter-rewrite-batch-migration.db"
+    monkeypatch.delenv("PERSONA_ENCRYPTION_KEY", raising=False)
+    get_settings.cache_clear()
+    alembic_config = Config("alembic.ini")
+    alembic_config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+
+    try:
+        command.upgrade(alembic_config, "head")
+        import sqlite3
+
+        with sqlite3.connect(database_path) as connection:
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            batch_columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(chapter_rewrite_batches)"
+                ).fetchall()
+            }
+            item_columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(chapter_rewrite_batch_items)"
+                ).fetchall()
+            }
+    finally:
+        get_settings.cache_clear()
+
+    assert "chapter_rewrite_batches" in tables
+    assert "chapter_rewrite_batch_items" in tables
+    assert {"instruction", "status", "generated_count", "failed_count"}.issubset(batch_columns)
+    assert {"batch_id", "chapter_id", "child_run_id", "position", "status"}.issubset(item_columns)
+
+
 def test_provider_prompt_override_migration_defaults_existing_providers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # setup: 系统初始化相关接口
 from app.api.routes import (
     auth,
+    chapter_rewrite_batches,
     novel_chapter_rewrite_jobs,
     novel_imports,
     novel_workflows,
@@ -36,6 +37,7 @@ from app.core.domain_errors import DomainError
 # create_engine: 创建数据库连接引擎
 # create_session_factory: 创建数据库会话工厂
 from app.db.session import create_engine, create_session_factory
+from app.services.chapter_rewrite_batch_worker import ChapterRewriteBatchWorkerService
 from app.services.style_analysis_worker import StyleAnalysisWorkerService
 from app.services.plot_analysis_worker import PlotAnalysisWorkerService
 from app.services.novel_workflow_worker import NovelWorkflowWorkerService
@@ -56,6 +58,7 @@ def create_app(*, session_factory=None) -> FastAPI:
         worker_service = StyleAnalysisWorkerService()
         plot_worker_service = PlotAnalysisWorkerService()
         novel_workflow_worker_service = NovelWorkflowWorkerService()
+        chapter_rewrite_batch_worker_service = ChapterRewriteBatchWorkerService()
         await worker_service.fail_stale_running_jobs(
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
@@ -68,12 +71,17 @@ def create_app(*, session_factory=None) -> FastAPI:
             app.state.session_factory,
             stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
         )
+        await chapter_rewrite_batch_worker_service.fail_stale_running_batches(
+            app.state.session_factory,
+            stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
+        )
         try:
             yield
         finally:
             await worker_service.aclose()
             await plot_worker_service.aclose()
             await novel_workflow_worker_service.aclose()
+            await chapter_rewrite_batch_worker_service.aclose()
             if getattr(app.state, "owns_engine", False):
                 await app.state.engine.dispose()
 
@@ -133,6 +141,7 @@ def create_app(*, session_factory=None) -> FastAPI:
     app.include_router(projects.router, prefix="/api/v1")
     app.include_router(project_chapters.router, prefix="/api/v1")
     app.include_router(novel_imports.router, prefix="/api/v1")
+    app.include_router(chapter_rewrite_batches.router, prefix="/api/v1")
     app.include_router(novel_chapter_rewrite_jobs.router, prefix="/api/v1")
     app.include_router(novel_workflows.router, prefix="/api/v1")
     app.include_router(style_analysis_jobs.router, prefix="/api/v1")

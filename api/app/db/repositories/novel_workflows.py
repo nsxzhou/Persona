@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import case, delete, func, select, update
+from sqlalchemy import case, delete, exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.db.models import NovelWorkflowRun
+from app.db.models import ChapterRewriteBatchItem, NovelWorkflowRun
 
 
 class NovelWorkflowRepository:
@@ -154,6 +154,7 @@ class NovelWorkflowRepository:
             .where(
                 NovelWorkflowRun.status == pending_status,
                 NovelWorkflowRun.attempt_count < max_attempts,
+                ~exists().where(ChapterRewriteBatchItem.child_run_id == NovelWorkflowRun.id),
             )
             .order_by(NovelWorkflowRun.created_at.asc())
             .limit(1)
@@ -182,6 +183,37 @@ class NovelWorkflowRepository:
             .returning(NovelWorkflowRun.id)
         )
         return result.scalar_one_or_none()
+
+    async def claim_pending_run_by_id(
+        self,
+        session: AsyncSession,
+        run_id: str,
+        *,
+        worker_id: str,
+        preparing_stage: str,
+        running_status: str,
+        pending_status: str,
+        now: datetime,
+    ) -> bool:
+        result = await session.execute(
+            update(NovelWorkflowRun)
+            .where(
+                NovelWorkflowRun.id == run_id,
+                NovelWorkflowRun.status == pending_status,
+            )
+            .values(
+                status=running_status,
+                stage=preparing_stage,
+                error_message=None,
+                started_at=now,
+                completed_at=None,
+                locked_by=worker_id,
+                locked_at=now,
+                last_heartbeat_at=now,
+                attempt_count=NovelWorkflowRun.attempt_count + 1,
+            )
+        )
+        return bool(result.rowcount)
 
     async def heartbeat(
         self,

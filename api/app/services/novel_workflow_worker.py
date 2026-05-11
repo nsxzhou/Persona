@@ -16,6 +16,12 @@ from app.schemas.novel_workflows import NOVEL_WORKFLOW_STAGE_PREPARING
 from app.schemas.project_chapters import ProjectChapterUpdate
 from app.schemas.projects import ProjectBibleUpdate, ProjectPromptAssetResponse
 from app.services.llm_provider import LLMProviderService
+from openai import (
+    AuthenticationError as OpenAIAuthenticationError,
+    BadRequestError as OpenAIBadRequestError,
+    NotFoundError as OpenAINotFoundError,
+    UnprocessableEntityError as OpenAIUnprocessableEntityError,
+)
 from app.services.novel_workflow_checkpointer import NovelWorkflowCheckpointerFactory
 from app.services.novel_workflow_pipeline import (
     NovelWorkflowAwaitingHuman,
@@ -33,6 +39,25 @@ from app.services.style_profiles import StyleProfileService
 
 logger = logging.getLogger(__name__)
 _IMPORTED_REWRITE_ACTIVATION_SAMPLE_CHARS = 12_000
+
+_NON_RETRYABLE_ERRORS = (
+    OpenAINotFoundError,
+    OpenAIAuthenticationError,
+    OpenAIBadRequestError,
+    OpenAIUnprocessableEntityError,
+)
+
+
+def _is_non_retryable_error(exc: Exception) -> bool:
+    """Permanent LLM/API errors that should not be retried."""
+    if isinstance(exc, _NON_RETRYABLE_ERRORS):
+        return True
+    cause = exc.__cause__
+    while cause is not None:
+        if isinstance(cause, _NON_RETRYABLE_ERRORS):
+            return True
+        cause = getattr(cause, "__cause__", None)
+    return False
 
 
 @dataclass(frozen=True)
@@ -65,6 +90,22 @@ class NovelWorkflowJobExecutor:
         worker_id = self._worker_id
         run_id = await self._claim_next_pending_run(session_factory, worker_id=worker_id)
         if run_id is None:
+            return False
+        await self._run_claimed_job(session_factory, run_id)
+        return True
+
+    async def process_run_by_id(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        run_id: str,
+    ) -> bool:
+        async with session_factory.begin() as session:
+            claimed = await self.job_service.claim_job_by_id_for_worker(
+                session,
+                run_id,
+                worker_id=self._worker_id,
+            )
+        if not claimed:
             return False
         await self._run_claimed_job(session_factory, run_id)
         return True
@@ -164,6 +205,7 @@ class NovelWorkflowJobExecutor:
                 session_factory,
                 run_id,
                 error_message=str(exc),
+                force_terminal=_is_non_retryable_error(exc),
             )
         finally:
             stop_heartbeat.set()
@@ -514,6 +556,7 @@ class NovelWorkflowJobExecutor:
         run_id: str,
         *,
         error_message: str,
+        force_terminal: bool = False,
     ) -> bool:
         async with session_factory.begin() as session:
             return await self.job_service.mark_run_failed(
@@ -521,6 +564,7 @@ class NovelWorkflowJobExecutor:
                 run_id,
                 error_message=error_message,
                 max_attempts=get_settings().style_analysis_max_attempts,
+                force_terminal=force_terminal,
             )
 
     async def fail_stale_running_jobs(

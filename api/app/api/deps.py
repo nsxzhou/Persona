@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_db_session
 from app.services.auth import AuthService
+from app.services.chapter_rewrite_batches import ChapterRewriteBatchService
 from app.services.checkpointer_factory import PlotAnalysisCheckpointerFactory
 from app.services.export import ProjectExportService
 from app.services.novel_workflows import NovelWorkflowService
@@ -241,4 +242,24 @@ def get_novel_chapter_rewrite_job_service(
 NovelChapterRewriteJobServiceDep = Annotated[
     NovelChapterRewriteJobService,
     Depends(get_novel_chapter_rewrite_job_service),
+]
+
+
+def get_chapter_rewrite_batch_service(
+    project_service: ProjectServiceDep,
+    project_chapter_service: ProjectChapterServiceDep,
+    novel_chapter_rewrite_job_service: NovelChapterRewriteJobServiceDep,
+    novel_workflow_service: NovelWorkflowServiceDep,
+) -> ChapterRewriteBatchService:
+    return ChapterRewriteBatchService(
+        project_service=project_service,
+        chapter_service=project_chapter_service,
+        rewrite_job_service=novel_chapter_rewrite_job_service,
+        workflow_service=novel_workflow_service,
+    )
+
+
+ChapterRewriteBatchServiceDep = Annotated[
+    ChapterRewriteBatchService,
+    Depends(get_chapter_rewrite_batch_service),
 ]

@@ -59,6 +59,9 @@ class User(TimestampMixin, Base):
     projects: Mapped[list["Project"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    chapter_rewrite_batches: Mapped[list["ChapterRewriteBatch"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     novel_workflow_runs: Mapped[list["NovelWorkflowRun"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -223,6 +226,9 @@ class Project(TimestampMixin, Base):
     prompt_assets: Mapped[list["ProjectPromptAsset"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    chapter_rewrite_batches: Mapped[list["ChapterRewriteBatch"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
     @property
     def generation_profile(self) -> dict | None:
@@ -291,6 +297,9 @@ class ProjectChapter(TimestampMixin, Base):
         back_populates="chapter"
     )
     prompt_assets: Mapped[list["ProjectPromptAsset"]] = relationship(
+        back_populates="chapter"
+    )
+    rewrite_batch_items: Mapped[list["ChapterRewriteBatchItem"]] = relationship(
         back_populates="chapter"
     )
 
@@ -408,6 +417,9 @@ class NovelWorkflowRun(TimestampMixin, Base):
     project: Mapped["Project | None"] = relationship(back_populates="novel_workflow_runs")
     chapter: Mapped["ProjectChapter | None"] = relationship(back_populates="novel_workflow_runs")
     provider: Mapped["ProviderConfig | None"] = relationship(back_populates="novel_workflow_runs")
+    rewrite_batch_item: Mapped["ChapterRewriteBatchItem | None"] = relationship(
+        back_populates="child_run"
+    )
 
     @property
     def latest_artifacts(self) -> list[str]:
@@ -431,6 +443,82 @@ class NovelWorkflowRun(TimestampMixin, Base):
     def provider_label(self) -> str | None:
         provider = self.__dict__.get("provider")
         return provider.label if provider is not None else None
+
+
+class ChapterRewriteBatch(TimestampMixin, Base):
+    __tablename__ = "chapter_rewrite_batches"
+    __table_args__ = (
+        Index("ix_chapter_rewrite_batches_status_created_at", "status", "created_at"),
+        Index("ix_chapter_rewrite_batches_project_status", "project_id", "status"),
+        Index(
+            "ix_chapter_rewrite_batches_status_last_heartbeat_at",
+            "status",
+            "last_heartbeat_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    instruction: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", index=True)
+    stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    generated_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    applied_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="chapter_rewrite_batches")
+    project: Mapped["Project"] = relationship(back_populates="chapter_rewrite_batches")
+    items: Mapped[list["ChapterRewriteBatchItem"]] = relationship(
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        order_by="ChapterRewriteBatchItem.position",
+    )
+
+
+class ChapterRewriteBatchItem(TimestampMixin, Base):
+    __tablename__ = "chapter_rewrite_batch_items"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "chapter_id", name="uq_chapter_rewrite_batch_item_chapter"),
+        UniqueConstraint("batch_id", "position", name="uq_chapter_rewrite_batch_item_position"),
+        Index("ix_chapter_rewrite_batch_items_batch_status", "batch_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    batch_id: Mapped[str] = mapped_column(
+        ForeignKey("chapter_rewrite_batches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    chapter_id: Mapped[str] = mapped_column(
+        ForeignKey("project_chapters.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    child_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("novel_workflow_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="waiting", index=True)
+    stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    batch: Mapped["ChapterRewriteBatch"] = relationship(back_populates="items")
+    chapter: Mapped["ProjectChapter"] = relationship(back_populates="rewrite_batch_items")
+    child_run: Mapped["NovelWorkflowRun | None"] = relationship(back_populates="rewrite_batch_item")
+
+    @property
+    def chapter_title(self) -> str | None:
+        chapter = self.__dict__.get("chapter")
+        return chapter.title if chapter is not None else None
 
 
 class StyleSampleFile(TimestampMixin, Base):
