@@ -163,6 +163,63 @@ Route imported project full-chapter rewrites through `chapter_enrichment_rewrite
 #### Correct
 Route imported project full-chapter rewrites through `imported_chapter_full_rewrite`, use the imported adjacent-window prompt builder, and keep full-project planning context disabled.
 
+## Scenario: Persistent Chapter Rewrite Batches
+
+### 1. Scope / Trigger
+- Trigger: changing multi-chapter rewrite creation, batch status recovery, batch workers, or editor rewrite review/application.
+- This is a cross-layer contract: DB batch tables, child `NovelWorkflowRun` jobs, generated OpenAPI, editor polling/recovery, and explicit chapter apply must stay aligned.
+
+### 2. Signatures
+- Batch create: `POST /api/v1/chapter-rewrite-batches` with `project_id`, ordered `chapter_ids`, and free-form `instruction`.
+- Batch list/detail: `GET /api/v1/chapter-rewrite-batches?project_id=...` and `GET /api/v1/chapter-rewrite-batches/{batch_id}`.
+- Item logs/artifact: `GET /api/v1/chapter-rewrite-batches/{batch_id}/items/{item_id}/logs` and `/artifact`.
+- Apply: `POST /api/v1/chapter-rewrite-batches/{batch_id}/items/{item_id}/apply` and `POST /api/v1/chapter-rewrite-batches/{batch_id}/apply`.
+- Child workflow artifact remains `chapter_rewrite_markdown`.
+
+### 3. Contracts
+- A batch is the durable user-facing task; child workflow runs are implementation details and must not be claimed out of order by the normal novel workflow lane.
+- Batch execution is sequential by chapter order. Do not add implicit concurrency without adding resource-control and status tests.
+- Closing the editor dialog must never cancel a batch; recovery is through persisted batch/item status.
+- Item success stores a generated preview only as the child workflow artifact. Chapter content changes only through an explicit apply endpoint.
+- A failed item must not stop later items. The completed batch can still be `succeeded` if at least one item generated.
+- Applying a fully completed batch item must mark that item applied so the editor does not keep reopening a non-actionable completed batch.
+
+### 4. Validation & Error Matrix
+- Empty chapter list -> `422`.
+- Chapter outside the project/user scope -> `404 章节不存在`.
+- Empty or oversized target chapter -> same errors as single chapter rewrite.
+- Reading logs/artifact for an item without a child run or artifact -> `404`.
+- Applying before the item is generated or with an empty artifact -> `409`.
+- Applying an already applied item should be idempotent or return the current applied chapter without rewriting unrelated items.
+
+### 5. Good/Base/Bad Cases
+- Good: a 10-chapter batch continues in the worker after the editor dialog is closed, and the editor header can reopen progress/review state.
+- Good: chapter 2 fails, chapters 3-10 still run, and successful chapters can be reviewed and applied after completion.
+- Base: a single selected chapter can still use the batch API and behaves like the old single-job review flow.
+- Bad: a frontend-only loop owns batch progress; refresh loses queued chapters and generated previews.
+- Bad: applying an item while the batch is still running changes context for later chapters and makes generation provenance unclear.
+
+### 6. Tests Required
+- Migration tests for `chapter_rewrite_batches` and `chapter_rewrite_batch_items`.
+- API tests for create/list/detail, ownership, logs/artifact, single apply, bulk apply, and invalid state errors.
+- Worker tests for sequential execution, partial failure, all failure, status counters, and worker cleanup.
+- Frontend contract tests for generated OpenAPI client methods and editor recovery polling.
+- Editor tests for close/reopen while running, completed review/apply, failed item display, and starting a new batch after all items are applied.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+Let the normal novel workflow worker claim all batch child runs from the global pending queue.
+
+#### Correct
+Keep child workflow runs reserved for the batch worker so chapters execute in batch order and the batch can update item status deterministically.
+
+#### Wrong
+Keep a fully applied completed batch selected as the editor's active rewrite task.
+
+#### Correct
+Treat only pending/running/generated/failed-with-review batches as actionable; clear fully applied batches so users can start a fresh rewrite.
+
 ### Bible planning asset dependency contract
 
 When changing novel-planning prompts or workflow intents, preserve the upstream asset order:
