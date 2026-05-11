@@ -320,15 +320,30 @@ def test_apply_chapter_rewrite_patches_rejects_overlapping_or_contained_anchors(
         )
 
 
-def test_apply_chapter_rewrite_patches_rejects_budget_outside_tolerance() -> None:
+def test_apply_chapter_rewrite_patches_allows_growth_above_budget() -> None:
     from app.services.chapter_rewrite_patches import (
         ChapterRewritePatch,
         apply_chapter_rewrite_patches,
     )
 
-    with pytest.raises(ValueError, match="扩写字数超出预算"):
+    result = apply_chapter_rewrite_patches(
+        "1234567890\n\n第二段。",
+        [ChapterRewritePatch("insert_after", "1234567890", "新增内容。" * 10)],
+        expansion_ratio_percent=20,
+    )
+
+    assert "新增内容。" * 10 in result
+
+
+def test_apply_chapter_rewrite_patches_rejects_growth_below_budget() -> None:
+    from app.services.chapter_rewrite_patches import (
+        ChapterRewritePatch,
+        apply_chapter_rewrite_patches,
+    )
+
+    with pytest.raises(ValueError, match="扩写字数低于预算"):
         apply_chapter_rewrite_patches(
             "1234567890\n\n第二段。",
-            [ChapterRewritePatch("insert_after", "1234567890", "新增内容。")],
+            [ChapterRewritePatch("replace", "1234567890", "1234567890")],
             expansion_ratio_percent=20,
         )

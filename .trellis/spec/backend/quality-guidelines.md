@@ -103,6 +103,8 @@ Update the Pydantic workflow request contract, pipeline handler, prompt builders
 - Import requires explicit `rights_confirmed=true`; the product must not fetch or advertise arbitrary third-party book rewriting.
 - Import drafts are short-lived server-side JSON documents keyed by generated UUIDs; route draft ids must be normalized as UUIDs before path construction.
 - TXT parsing should split common chapter headings and return a single editable chapter plus warning when no standard headings exist.
+- Import preview/update/commit must normalize `NovelImportProjectMetadata` through the enabled `ProviderConfig` before writing or using a draft: blank `default_model` falls back to the selected Provider `default_model`, and changing `default_provider_id` in a draft resets `default_model` to the new Provider default.
+- Metadata normalization must preserve Pydantic validation by rebuilding with `NovelImportProjectMetadata.model_validate(...)` after applying Provider/model defaults; do not use `model_copy(update=...)` for changes that can alter validated constraints such as a trimmed project name.
 - Commit must create a normal project, write parser-compatible `outline_detail`, sync chapters, then write imported chapter `content` and `word_count`.
 - Rewrite jobs wrap the existing Novel Workflow worker and must not mutate chapter content until `apply`.
 - For `project_origin="txt_import_rewrite"`, rewrite job creation must route to `imported_chapter_full_rewrite`; normal projects continue to route to `chapter_enrichment_rewrite`.
@@ -115,6 +117,9 @@ Update the Pydantic workflow request contract, pipeline handler, prompt builders
 
 ### 4. Validation & Error Matrix
 - Missing rights confirmation -> `422 请先确认你拥有处理该 TXT 内容的权利`.
+- Blank import `default_model` -> accepted; response metadata uses the selected Provider `default_model`.
+- Draft update changes `default_provider_id` -> accepted only for an enabled Provider; response metadata resets `default_model` to that Provider's `default_model`.
+- Metadata normalization produces invalid fields, such as a whitespace-only project name after trimming -> `422 导入项目元数据不完整或格式错误`.
 - Non-`.txt` upload or unsupported content type -> `422`.
 - Empty TXT -> `422 上传的 TXT 文件为空`.
 - Oversized upload -> upload-cleaning validation error; do not write a draft.
@@ -137,7 +142,7 @@ Update the Pydantic workflow request contract, pipeline handler, prompt builders
 - Bad: treating next-chapter context as generation material instead of a boundary guard.
 
 ### 6. Tests Required
-- Import tests for valid split headings, no-heading fallback, rights confirmation, non-TXT/empty/oversized uploads, invalid draft ids, and commit chapter ordering/content.
+- Import tests for valid split headings, no-heading fallback, Provider default-model normalization, Provider-change model reset, rights confirmation, non-TXT/empty/oversized uploads, invalid draft ids, and commit chapter ordering/content/default model.
 - Rewrite job tests for create validation, artifact generation/storage, status/log/artifact reads, non-succeeded apply rejection, and successful apply updating `content` and `word_count`.
 - Imported full-rewrite tests for project-origin intent routing, direct-origin gate, adjacent-window prompt inclusion, planning-context exclusion, trace manifest metadata, deterministic validation fatal cases, and warning cases.
 - API/OpenAPI contract tests proving frontend client payloads match backend schemas.
@@ -150,6 +155,12 @@ Treat import drafts as arbitrary filenames or let frontend code chain project cr
 
 #### Correct
 Validate draft ids as generated UUIDs, keep import commit in a backend service transaction boundary, and expose one commit API that produces a normal project plus normal `project_chapters`.
+
+#### Wrong
+Trust the import dialog's `default_model` string as an independent project override after the user changes Provider.
+
+#### Correct
+Normalize every import draft through the selected enabled Provider before preview response, draft update response, and commit; treat Provider changes as a signal to reset the model to the new Provider default.
 
 #### Wrong
 Use the chapter rewrite endpoint as a direct update endpoint that replaces content immediately.
@@ -184,7 +195,7 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 - `No patches.` is a workflow failure, not a successful unchanged rewrite.
 - The backend must parse and validate patches before writing artifacts. Never partially apply valid patches when any patch fails.
 - `chapter_rewrite_markdown` remains the only artifact used by existing preview/apply mutation paths. `chapter_rewrite_patches_markdown` is for trace/debug/review.
-- Net synthesized growth must match `expansion_ratio_percent` with 20% tolerance.
+- Net synthesized growth should reach at least 80% of `expansion_ratio_percent`; growth above the requested budget is allowed and must not fail the workflow.
 
 ### 4. Validation & Error Matrix
 - Empty LLM output -> workflow failure.
@@ -193,7 +204,8 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 - Unknown operation -> workflow failure.
 - Empty patch list or `No patches.` -> workflow failure.
 - Anchor not found, duplicate anchor occurrence, repeated anchor, multi-paragraph anchor, non-paragraph-boundary anchor, or overlapping/contained anchors -> workflow failure.
-- Synthesized growth outside the ±20% budget window -> workflow failure.
+- Synthesized growth below 80% of the requested budget -> workflow failure.
+- Synthesized growth above the requested budget -> accepted; do not fail the workflow for over-expansion.
 - Non-succeeded workflow, missing synthesized artifact, or empty synthesized artifact on apply -> `409` as with other rewrite artifacts.
 
 ### 5. Good/Base/Bad Cases
@@ -206,7 +218,7 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 
 ### 6. Tests Required
 - Parser tests for legal Markdown, missing/unknown operation, missing code blocks, non-`text` fences, stray text, and `No patches.`.
-- Applier tests for `insert_after`, `replace`, missing anchors, duplicate anchors, repeated anchors, multi-paragraph anchors, non-boundary anchors, overlapping anchors, order normalization, and budget failures.
+- Applier tests for `insert_after`, `replace`, missing anchors, duplicate anchors, repeated anchors, multi-paragraph anchors, non-boundary anchors, overlapping anchors, order normalization, below-budget failures, and above-budget acceptance.
 - Workflow tests proving both rewrite intents save `chapter_rewrite_patches_markdown` and synthesized `chapter_rewrite_markdown`.
 - API tests proving `expansion_ratio_percent` validation and propagation through single and batch rewrite creation.
 - Migration tests proving `chapter_rewrite_batches.expansion_ratio_percent` exists with default `20`.

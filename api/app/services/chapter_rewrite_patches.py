@@ -147,12 +147,11 @@ def validate_chapter_rewrite_growth(
     original_length = len(original)
     target_growth = original_length * expansion_ratio_percent / 100
     lower_bound = math.floor(target_growth * 0.8)
-    upper_bound = math.ceil(target_growth * 1.2)
     growth = len(synthesized) - original_length
-    if growth < lower_bound or growth > upper_bound:
+    if growth < lower_bound:
         raise ValueError(
-            "章节改写扩写字数超出预算: "
-            f"目标增长约 {target_growth:.0f} 字，允许 {lower_bound}..{upper_bound} 字，实际 {growth} 字"
+            "章节改写扩写字数低于预算: "
+            f"目标增长约 {target_growth:.0f} 字，至少 {lower_bound} 字，实际 {growth} 字"
         )
 
 

@@ -963,7 +963,7 @@ class NovelWorkflowPipeline:
             "- New Text 必须放在 ```text 代码块中，可以包含一个或多个新自然段。\n"
             "- insert_after 表示把 New Text 插入到 Anchor 段落后；replace 表示只替换 Anchor 这一个自然段。\n"
             "- 不得重复使用 Anchor，不得使用互相重叠或包含的 Anchor。\n"
-            f"- 合成后的净增长目标是原文字数的 {expansion_ratio_percent}%，允许上下 20% 浮动。\n"
+            f"- 合成后的净增长至少达到原文字数的 {expansion_ratio_percent}% 目标的 80%；允许超出目标上限。\n"
             "- 如果没有可用补丁，只能输出 `# Chapter Rewrite Patches` 后接 `No patches.`，这会被视为失败。\n"
             "\n"
             "格式示例：\n"
