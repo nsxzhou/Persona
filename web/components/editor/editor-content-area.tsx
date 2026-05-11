@@ -18,7 +18,7 @@ import { EditorLayout } from "./editor-layout";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
 import { MemorySyncButton } from "@/components/memory-sync-button";
 import { BeatPanel } from "@/components/beat-panel";
-import { ArrowLeft, BookOpen, Settings, Sparkles, Loader2, ListOrdered } from "lucide-react";
+import { ArrowLeft, BookOpen, Settings, Sparkles, Loader2, ListOrdered, GitCompareArrows } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EditorNovelMenu } from "@/components/editor-novel-menu";
 import { EditorSidePanel } from "@/components/editor-side-panel";
@@ -309,6 +309,8 @@ export function EditorContentArea({
     setActiveChapterId: setActiveChapterRewriteId,
     isRunning: isChapterRewriteRunning,
     isApplying: isChapterRewriteApplying,
+    activeBatch: activeChapterRewriteBatch,
+    hasTaskEntry: hasChapterRewriteTaskEntry,
     openRewrite: handleOpenChapterRewrite,
     closeRewrite: handleCloseChapterRewrite,
     startRewrite: handleStartChapterRewrite,
@@ -752,12 +754,23 @@ export function EditorContentArea({
               variant="outline"
               size="sm"
               onClick={handleOpenChapterRewrite}
-              disabled={chapters.length === 0 || isChapterRewriteRunning}
+              disabled={chapters.length === 0}
               className="gap-2"
             >
               <Sparkles className="w-4 h-4" />
               {isImportedRewriteProject ? "改写章节" : "章节润色"}
             </Button>
+            {hasChapterRewriteTaskEntry && activeChapterRewriteBatch ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleOpenChapterRewrite}
+                className="gap-2"
+              >
+                <GitCompareArrows className="h-4 w-4" />
+                改写任务 {activeChapterRewriteBatch.generated_count + activeChapterRewriteBatch.failed_count}/{activeChapterRewriteBatch.total_count}
+              </Button>
+            ) : null}
           </>
         }
         chapterBanner={
@@ -881,6 +894,7 @@ export function EditorContentArea({
         activeItem={activeChapterRewriteItem}
         activeChapterId={activeChapterRewriteId}
         instruction={chapterRewriteInstruction}
+        batch={activeChapterRewriteBatch}
         isRunning={isChapterRewriteRunning}
         isApplying={isChapterRewriteApplying}
         onInstructionChange={setChapterRewriteInstruction}

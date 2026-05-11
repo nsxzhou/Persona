@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { ChapterRewriteItem } from "@/hooks/use-chapter-enrichment-rewrite";
+import type { ChapterRewriteBatch } from "@/lib/types";
 import {
   computeLineDiff,
   groupDiffBlocks,
@@ -43,6 +44,7 @@ type ChapterEnrichmentRewriteDialogProps = {
   activeItem: ChapterRewriteItem | null;
   activeChapterId: string | null;
   instruction: string;
+  batch: ChapterRewriteBatch | null;
   isRunning: boolean;
   isApplying: boolean;
   onInstructionChange: (value: string) => void;
@@ -82,6 +84,7 @@ export function ChapterEnrichmentRewriteDialog({
   activeItem,
   activeChapterId,
   instruction,
+  batch,
   isRunning,
   isApplying,
   onInstructionChange,
@@ -94,7 +97,7 @@ export function ChapterEnrichmentRewriteDialog({
 }: ChapterEnrichmentRewriteDialogProps) {
   const hasGeneratedPreview = items.some((item) => item.preview.trim() && item.state !== "applied");
   const hasFailure = items.some((item) => item.state === "failed" || item.state === "apply_failed");
-  const [manualPhase, setManualPhase] = useState<"setup" | "review">(
+  const [manualPhase, setManualPhase] = useState<"setup" | "progress" | "review">(
     hasGeneratedPreview || hasFailure ? "review" : "setup",
   );
   const [showQueue, setShowQueue] = useState(false);
@@ -102,12 +105,14 @@ export function ChapterEnrichmentRewriteDialog({
   const [onlyChanges, setOnlyChanges] = useState(false);
   const hasReviewSignalRef = useRef(hasGeneratedPreview || hasFailure);
   const busy = isRunning || isApplying;
-  const phase = manualPhase;
+  const batchComplete = Boolean(batch && batch.status !== "pending" && batch.status !== "running");
+  const phase = isRunning ? "progress" : batchComplete ? "review" : manualPhase;
   const itemByChapterId = new Map(items.map((item) => [item.chapter.id, item]));
   const generatedCount = items.filter((item) => item.preview.trim() && item.state !== "applied").length;
   const selectedCount = selectedChapterIds.size;
   const appliedCount = items.filter((item) => item.state === "applied").length;
   const failedCount = items.filter((item) => item.state === "failed" || item.state === "apply_failed").length;
+  const runningItem = items.find((item) => item.state === "running") ?? null;
   const activeItemIndex = activeItem
     ? items.findIndex((item) => item.chapter.id === activeItem.chapter.id)
     : -1;
@@ -152,13 +157,13 @@ export function ChapterEnrichmentRewriteDialog({
     if (hasReviewSignal && !hasReviewSignalRef.current) {
       setManualPhase("review");
     }
-    if (!hasReviewSignal) {
+    if (!hasReviewSignal && !isRunning) {
       setManualPhase("setup");
       setShowQueue(false);
       setShowLogs(false);
     }
     hasReviewSignalRef.current = hasReviewSignal;
-  }, [hasFailure, hasGeneratedPreview]);
+  }, [hasFailure, hasGeneratedPreview, isRunning]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -173,14 +178,16 @@ export function ChapterEnrichmentRewriteDialog({
               <DialogDescription>
                 {phase === "setup"
                   ? "先填写改写要求并选择章节，生成后进入差异审核。"
+                  : phase === "progress"
+                    ? "任务在后台顺序改写章节，关闭窗口不会中断。"
                   : "逐章检查左右差异，确认后再替换正文。"}
               </DialogDescription>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <StatusPill
                 label={phase === "setup" ? "已选" : "进度"}
-                value={phase === "setup" ? selectedCount : reviewPosition}
-                suffix={phase === "setup" ? undefined : `/${items.length}`}
+                value={phase === "setup" ? selectedCount : (batch?.generated_count ?? generatedCount) + (batch?.failed_count ?? failedCount)}
+                suffix={phase === "setup" ? undefined : `/${batch?.total_count ?? items.length}`}
               />
               <StatusPill label="可应用" value={generatedCount} tone={generatedCount > 0 ? "success" : "neutral"} />
               {failedCount > 0 ? <StatusPill label="失败" value={failedCount} tone="danger" /> : null}
@@ -233,6 +240,71 @@ export function ChapterEnrichmentRewriteDialog({
                   <p className="text-sm text-muted-foreground">
                     运行期间会锁定改写要求与章节选择，生成完成后自动进入差异审核。
                   </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : phase === "progress" ? (
+          <section className="flex min-h-0 flex-1 overflow-hidden bg-muted/10 px-5 py-5">
+            <div className="grid min-h-0 w-full gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <aside className="flex min-h-0 flex-col overflow-hidden rounded-md border bg-background">
+                <div className="flex items-center justify-between border-b px-3.5 py-3">
+                  <Label>章节队列</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {batch?.generated_count ?? generatedCount}/{batch?.total_count ?? items.length}
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+                  <ChapterQueue
+                    chapters={chapters}
+                    itemByChapterId={itemByChapterId}
+                    selectedChapterIds={selectedChapterIds}
+                    activeChapterId={activeChapterId}
+                    busy={busy}
+                    onSelectChapter={onSelectChapter}
+                    onActiveChapterChange={onActiveChapterChange}
+                    compact={false}
+                    simplifyUnselected={false}
+                  />
+                </div>
+              </aside>
+              <div className="flex min-h-0 flex-col rounded-md border bg-background">
+                <div className="border-b p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold">
+                        {runningItem?.chapter.title ?? batch?.current_chapter_title ?? "等待 worker 接手"}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {batch?.stage ?? runningItem?.statusLabel ?? "pending"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <StatusPill label="总数" value={batch?.total_count ?? items.length} />
+                      <StatusPill label="已生成" value={batch?.generated_count ?? generatedCount} tone="success" />
+                      <StatusPill label="失败" value={batch?.failed_count ?? failedCount} tone={failedCount > 0 ? "danger" : "neutral"} />
+                    </div>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 p-5">
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round(
+                            (((batch?.generated_count ?? generatedCount) + (batch?.failed_count ?? failedCount)) /
+                              Math.max(batch?.total_count ?? items.length, 1)) *
+                              100,
+                          ),
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-5 rounded-md border bg-muted/20 p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    {logContent}
+                  </div>
                 </div>
               </div>
             </div>
@@ -349,7 +421,7 @@ export function ChapterEnrichmentRewriteDialog({
                 <Button
                   variant="outline"
                   onClick={() => activeItem && onApplyOne(activeItem.chapter.id)}
-                  disabled={busy || !activeItem?.preview.trim() || activeItem.state === "applied"}
+                  disabled={busy || !batchComplete || !activeItem?.preview.trim() || activeItem.state === "applied" || activeItem.state === "failed"}
                 >
                   应用当前
                 </Button>
@@ -364,30 +436,37 @@ export function ChapterEnrichmentRewriteDialog({
         )}
 
         <DialogFooter className="border-t px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             关闭
           </Button>
-          {phase === "review" && !busy ? (
+          {phase === "review" && !busy && !batch ? (
             <Button variant="ghost" onClick={() => setManualPhase("setup")}>
               返回配置
             </Button>
           ) : null}
-          <Button variant="outline" onClick={onStart} disabled={busy || !instruction.trim() || selectedChapterIds.size === 0}>
-            {isRunning ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                运行中
-              </>
-            ) : (
-              "开始改写"
-            )}
-          </Button>
+          {phase === "setup" ? (
+            <Button variant="outline" onClick={onStart} disabled={busy || !instruction.trim() || selectedChapterIds.size === 0 || Boolean(batch)}>
+              {isRunning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  运行中
+                </>
+              ) : (
+                "开始改写"
+              )}
+            </Button>
+          ) : null}
           {phase === "setup" && hasGeneratedPreview ? (
             <Button variant="outline" onClick={() => setManualPhase("review")}>
               查看预览
             </Button>
           ) : null}
-          <Button onClick={onApplyAll} disabled={busy || generatedCount === 0}>
+          {batchComplete && phase === "progress" ? (
+            <Button variant="outline" onClick={() => setManualPhase("review")}>
+              审核结果
+            </Button>
+          ) : null}
+          <Button onClick={onApplyAll} disabled={busy || !batchComplete || generatedCount === 0}>
             {isApplying ? "应用中..." : "应用全部预览"}
           </Button>
         </DialogFooter>

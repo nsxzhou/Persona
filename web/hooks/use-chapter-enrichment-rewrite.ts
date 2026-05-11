@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
-import type { ProjectChapter } from "@/lib/types";
+import type { ChapterRewriteBatch, ChapterRewriteBatchItem, ProjectChapter } from "@/lib/types";
 
-const POLL_INTERVAL_MS = 800;
+const POLL_INTERVAL_MS = 1000;
 
 export type ChapterRewriteState =
   | "waiting"
@@ -16,6 +17,7 @@ export type ChapterRewriteState =
   | "apply_failed";
 
 export type ChapterRewriteItem = {
+  id: string;
   chapter: ProjectChapter;
   state: ChapterRewriteState;
   jobId: string | null;
@@ -26,23 +28,55 @@ export type ChapterRewriteItem = {
   applyErrorMessage: string | null;
 };
 
-function buildItem(chapter: ProjectChapter): ChapterRewriteItem {
-  return {
-    chapter,
-    state: "waiting",
-    jobId: null,
-    preview: "",
-    logs: "",
-    statusLabel: "等待中",
-    errorMessage: null,
-    applyErrorMessage: null,
-  };
-}
+const chapterRewriteBatchKeys = {
+  list: (projectId: string) => ["chapter-rewrite-batches", projectId] as const,
+  detail: (batchId: string | null) => ["chapter-rewrite-batch", batchId] as const,
+};
 
 function sortChapters(chapters: ProjectChapter[]): ProjectChapter[] {
   return [...chapters].sort((left, right) =>
     left.volume_index - right.volume_index || left.chapter_index - right.chapter_index
   );
+}
+
+function isBatchActive(batch: Pick<ChapterRewriteBatch, "status">) {
+  return batch.status === "pending" || batch.status === "running";
+}
+
+function isBatchReviewable(batch: Pick<ChapterRewriteBatch, "status" | "generated_count" | "applied_count">) {
+  return batch.status !== "pending" && batch.status !== "running" && batch.generated_count > batch.applied_count;
+}
+
+function isBatchActionable(batch: Pick<ChapterRewriteBatch, "status" | "generated_count" | "applied_count">) {
+  return isBatchActive(batch) || isBatchReviewable(batch);
+}
+
+function mapItemState(item: ChapterRewriteBatchItem): ChapterRewriteState {
+  if (item.status === "waiting") return "waiting";
+  if (item.status === "running") return "running";
+  if (item.status === "generated") return "generated";
+  if (item.status === "failed") return "failed";
+  return "applied";
+}
+
+function buildDisplayItem(
+  item: ChapterRewriteBatchItem,
+  chapter: ProjectChapter,
+  preview: string,
+  logs: string,
+): ChapterRewriteItem {
+  const state = mapItemState(item);
+  return {
+    id: item.id,
+    chapter,
+    state,
+    jobId: item.child_run_id,
+    preview,
+    logs,
+    statusLabel: item.stage ? `${item.status} / ${item.stage}` : item.status,
+    errorMessage: item.error_message,
+    applyErrorMessage: null,
+  };
 }
 
 export function useChapterEnrichmentRewrite({
@@ -56,118 +90,165 @@ export function useChapterEnrichmentRewrite({
   selectedChapter: ProjectChapter | null;
   onApplied: (chapter: ProjectChapter) => void;
 }) {
+  const queryClient = useQueryClient();
   const orderedChapters = useMemo(() => sortChapters(chapters), [chapters]);
+  const chaptersById = useMemo(
+    () => new Map(orderedChapters.map((chapter) => [chapter.id, chapter])),
+    [orderedChapters],
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [instruction, setInstruction] = useState("");
-  const [items, setItems] = useState<ChapterRewriteItem[]>([]);
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
-  const [isRunning, setIsRunning] = useState(false);
-  const [isApplying, setIsApplying] = useState(false);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [logsByItemId, setLogsByItemId] = useState<Record<string, string>>({});
+  const [applyStateByItemId, setApplyStateByItemId] = useState<Record<string, "applying" | "failed">>({});
 
-  const resetRunState = useCallback((ids: Set<string>) => {
-    setItems(orderedChapters.filter((chapter) => ids.has(chapter.id)).map(buildItem));
-    setActiveChapterId((current) => (current && ids.has(current) ? current : [...ids][0] ?? null));
-  }, [orderedChapters]);
+  const listQuery = useQuery({
+    queryKey: chapterRewriteBatchKeys.list(projectId),
+    queryFn: () => api.getChapterRewriteBatches({ projectId }),
+    refetchInterval: (query) =>
+      query.state.data?.some((batch) => isBatchActive(batch)) ? POLL_INTERVAL_MS : false,
+  });
+
+  useEffect(() => {
+    if (activeBatchId || !listQuery.data?.length) return;
+    const candidate = listQuery.data.find(isBatchActionable);
+    if (candidate) {
+      setActiveBatchId(candidate.id);
+    }
+  }, [activeBatchId, listQuery.data]);
+
+  const detailQuery = useQuery({
+    queryKey: chapterRewriteBatchKeys.detail(activeBatchId),
+    queryFn: () => api.getChapterRewriteBatch(activeBatchId!),
+    enabled: Boolean(activeBatchId),
+    refetchInterval: (query) =>
+      query.state.data && isBatchActive(query.state.data) ? POLL_INTERVAL_MS : false,
+  });
+
+  const batch = detailQuery.data ?? null;
+  const batchItems = useMemo(() => batch?.items ?? [], [batch?.items]);
+  const isRunning = Boolean(batch && isBatchActive(batch));
+  const isApplying = Object.values(applyStateByItemId).some((state) => state === "applying");
+
+  useEffect(() => {
+    if (!batch || isOpen || isBatchActionable(batch)) return;
+    setActiveBatchId(null);
+    setPreviews({});
+    setLogsByItemId({});
+    setApplyStateByItemId({});
+  }, [batch, isOpen]);
+
+  useEffect(() => {
+    if (!batch) return;
+    setInstruction(batch.instruction);
+    setSelectedChapterIds(new Set(batchItems.map((item) => item.chapter_id)));
+    const currentId =
+      batch.current_chapter_id ||
+      batchItems.find((item) => item.status === "generated")?.chapter_id ||
+      batchItems[0]?.chapter_id ||
+      null;
+    setActiveChapterId((current) =>
+      current && batchItems.some((item) => item.chapter_id === current) ? current : currentId,
+    );
+  }, [batch, batchItems]);
+
+  useEffect(() => {
+    if (!batch) return;
+    for (const item of batchItems) {
+      if ((item.status === "generated" || item.status === "applied") && previews[item.id] === undefined) {
+        api.getChapterRewriteBatchItemArtifact(batch.id, item.id)
+          .then((artifact) => {
+            setPreviews((current) => ({ ...current, [item.id]: artifact }));
+          })
+          .catch(() => {
+            setPreviews((current) => ({ ...current, [item.id]: "" }));
+          });
+      }
+    }
+  }, [batch, batchItems, previews]);
+
+  const activeItemId = useMemo(() => {
+    if (!batch) return null;
+    const active = activeChapterId
+      ? batchItems.find((item) => item.chapter_id === activeChapterId)
+      : null;
+    return active?.id ?? batchItems[0]?.id ?? null;
+  }, [activeChapterId, batch, batchItems]);
+
+  useEffect(() => {
+    if (!batch || !activeItemId) return;
+    const item = batchItems.find((candidate) => candidate.id === activeItemId);
+    if (!item?.child_run_id) return;
+    api.getChapterRewriteBatchItemLogs(batch.id, activeItemId)
+      .then((result) => {
+        setLogsByItemId((current) => ({ ...current, [activeItemId]: result.content }));
+      })
+      .catch(() => undefined);
+  }, [activeItemId, batch, batchItems]);
+
+  const createMutation = useMutation({
+    mutationFn: (payload: { chapterIds: string[]; instruction: string }) =>
+      api.createChapterRewriteBatch({
+        project_id: projectId,
+        chapter_ids: payload.chapterIds,
+        instruction: payload.instruction,
+      }),
+    onSuccess: (created) => {
+      setActiveBatchId(created.id);
+      setIsOpen(true);
+      setPreviews({});
+      setLogsByItemId({});
+      setApplyStateByItemId({});
+      queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
+      queryClient.setQueryData(chapterRewriteBatchKeys.detail(created.id), created);
+      toast.success("章节改写任务已创建");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "创建章节改写任务失败");
+    },
+  });
 
   const openRewrite = useCallback(() => {
     if (orderedChapters.length === 0) {
       toast.message("请先导入或同步章节");
       return;
     }
+    if (batch && isBatchActionable(batch)) {
+      setIsOpen(true);
+      return;
+    }
+    if (batch && !isBatchActionable(batch)) {
+      setActiveBatchId(null);
+      setPreviews({});
+      setLogsByItemId({});
+      setApplyStateByItemId({});
+    }
     const initialIds = new Set<string>(
       selectedChapter ? [selectedChapter.id] : [orderedChapters[0].id],
     );
     setSelectedChapterIds(initialIds);
-    resetRunState(initialIds);
+    setActiveChapterId([...initialIds][0] ?? null);
     setIsOpen(true);
-  }, [orderedChapters, resetRunState, selectedChapter]);
+  }, [batch, orderedChapters, selectedChapter]);
 
   const closeRewrite = useCallback(() => {
-    if (isRunning || isApplying) return;
     setIsOpen(false);
-  }, [isApplying, isRunning]);
-
-  const setItem = useCallback((
-    chapterId: string,
-    updater: (item: ChapterRewriteItem) => ChapterRewriteItem,
-  ) => {
-    setItems((current) =>
-      current.map((item) => (item.chapter.id === chapterId ? updater(item) : item)),
-    );
   }, []);
 
   const selectChapter = useCallback((chapterId: string, checked: boolean) => {
-    if (isRunning || isApplying) return;
+    if (batch) return;
     const next = new Set(selectedChapterIds);
     if (checked) next.add(chapterId);
     else next.delete(chapterId);
     setSelectedChapterIds(next);
-    resetRunState(next);
-  }, [isApplying, isRunning, resetRunState, selectedChapterIds]);
+    setActiveChapterId((current) => (current && next.has(current) ? current : [...next][0] ?? null));
+  }, [batch, selectedChapterIds]);
 
-  const readLogs = useCallback(async (jobId: string, chapterId: string, offset: number) => {
-    const result = await api.getNovelChapterRewriteJobLogs(jobId, offset);
-    setItem(chapterId, (item) => ({
-      ...item,
-      logs: result.truncated ? result.content : item.logs + result.content,
-    }));
-    return result.next_offset;
-  }, [setItem]);
-
-  const runOne = useCallback(async (chapter: ProjectChapter, trimmedInstruction: string) => {
-    setActiveChapterId(chapter.id);
-    setItem(chapter.id, (item) => ({
-      ...item,
-      state: "running",
-      statusLabel: "提交中",
-      logs: "",
-      preview: "",
-      errorMessage: null,
-      applyErrorMessage: null,
-    }));
-    const job = await api.createNovelChapterRewriteJob({
-      project_id: projectId,
-      chapter_id: chapter.id,
-      instruction: trimmedInstruction,
-    });
-    setItem(chapter.id, (item) => ({ ...item, jobId: job.id }));
-
-    let nextOffset = 0;
-    let firstPoll = true;
-    while (true) {
-      if (firstPoll) {
-        firstPoll = false;
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-      }
-      const status = await api.getNovelChapterRewriteJobStatus(job.id);
-      setItem(chapter.id, (item) => ({
-        ...item,
-        statusLabel: status.stage ? `${status.status} / ${status.stage}` : status.status,
-      }));
-      nextOffset = await readLogs(job.id, chapter.id, nextOffset);
-      if (status.status === "succeeded") {
-        const artifact = await api.getNovelChapterRewriteJobArtifact(job.id);
-        setItem(chapter.id, (item) => ({
-          ...item,
-          state: "generated",
-          preview: artifact,
-          statusLabel: "generated",
-        }));
-        return;
-      }
-      if (status.status === "failed") {
-        throw new Error(status.error_message || "章节改写失败");
-      }
-      if (status.status === "paused") {
-        throw new Error("章节改写已暂停");
-      }
-    }
-  }, [projectId, readLogs, setItem]);
-
-  const startRewrite = useCallback(async () => {
-    if (isRunning) return;
+  const startRewrite = useCallback(() => {
+    if (createMutation.isPending || isRunning) return;
     const trimmed = instruction.trim();
     if (!trimmed) {
       toast.message("请输入改写要求");
@@ -178,100 +259,119 @@ export function useChapterEnrichmentRewrite({
       toast.message("请选择至少一个章节");
       return;
     }
-    resetRunState(selectedChapterIds);
-    setIsRunning(true);
-    let generatedCount = 0;
-    for (const chapter of selected) {
-      try {
-        await runOne(chapter, trimmed);
-        generatedCount += 1;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "章节改写失败";
-        setItem(chapter.id, (item) => ({
-          ...item,
-          state: "failed",
-          statusLabel: "failed",
-          errorMessage: message,
-        }));
-      }
-    }
-    setIsRunning(false);
-    toast[generatedCount > 0 ? "success" : "error"](
-      generatedCount > 0
-        ? `已生成 ${generatedCount}/${selected.length} 个章节预览`
-        : "章节改写失败",
-    );
-  }, [instruction, isRunning, orderedChapters, resetRunState, runOne, selectedChapterIds, setItem]);
+    createMutation.mutate({
+      chapterIds: selected.map((chapter) => chapter.id),
+      instruction: trimmed,
+    });
+  }, [createMutation, instruction, isRunning, orderedChapters, selectedChapterIds]);
 
   const applyOne = useCallback(async (chapterId: string) => {
-    const item = items.find((candidate) => candidate.chapter.id === chapterId);
-    if (!item?.jobId || !item.preview.trim() || isApplying) return null;
-    setIsApplying(true);
+    if (!batch || isBatchActive(batch) || isApplying) return null;
+    const item = batchItems.find((candidate) => candidate.chapter_id === chapterId);
+    if (!item || item.status !== "generated") return null;
+    setApplyStateByItemId((current) => ({ ...current, [item.id]: "applying" }));
     setActiveChapterId(chapterId);
-    setItem(chapterId, (current) => ({
-      ...current,
-      state: "applying",
-      applyErrorMessage: null,
-    }));
     try {
-      const result = await api.applyNovelChapterRewriteJob(item.jobId);
+      const result = await api.applyChapterRewriteBatchItem(batch.id, item.id);
       onApplied(result.chapter);
-      setItem(chapterId, (current) => ({ ...current, state: "applied" }));
+      queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.detail(batch.id) });
+      queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
+      setApplyStateByItemId((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
       toast.success("章节正文已替换");
       return result.chapter;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "应用改写失败";
-      setItem(chapterId, (current) => ({
-        ...current,
-        state: "apply_failed",
-        applyErrorMessage: message,
-      }));
-      toast.error(message);
+      setApplyStateByItemId((current) => ({ ...current, [item.id]: "failed" }));
+      toast.error(error instanceof Error ? error.message : "应用改写失败");
       return null;
-    } finally {
-      setIsApplying(false);
     }
-  }, [isApplying, items, onApplied, setItem]);
+  }, [batch, batchItems, isApplying, onApplied, projectId, queryClient]);
 
   const applyAll = useCallback(async () => {
-    if (isApplying) return;
-    const generated = items.filter((item) => item.jobId && item.preview.trim() && item.state !== "applied");
+    if (!batch || isBatchActive(batch) || isApplying) return;
+    const generated = batchItems.filter((item) => item.status === "generated");
     if (generated.length === 0) {
       toast.message("没有可应用的改写预览");
       return;
     }
-    setIsApplying(true);
-    let successCount = 0;
-    let failureCount = 0;
-    for (const item of generated) {
-      setActiveChapterId(item.chapter.id);
-      setItem(item.chapter.id, (current) => ({
-        ...current,
-        state: "applying",
-        applyErrorMessage: null,
-      }));
-      try {
-        const result = await api.applyNovelChapterRewriteJob(item.jobId!);
-        onApplied(result.chapter);
-        successCount += 1;
-        setItem(item.chapter.id, (current) => ({ ...current, state: "applied" }));
-      } catch (error) {
-        failureCount += 1;
-        const message = error instanceof Error ? error.message : "应用改写失败";
-        setItem(item.chapter.id, (current) => ({
-          ...current,
-          state: "apply_failed",
-          applyErrorMessage: message,
-        }));
+    setApplyStateByItemId((current) => ({
+      ...current,
+      ...Object.fromEntries(generated.map((item) => [item.id, "applying" as const])),
+    }));
+    try {
+      const result = await api.applyChapterRewriteBatch(batch.id);
+      for (const applied of result.applied) {
+        onApplied(applied.chapter);
       }
+      await queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.detail(batch.id) });
+      await queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
+      setApplyStateByItemId({});
+      toast.success(`批量应用完成：成功 ${result.applied.length} 章`);
+    } catch (error) {
+      setApplyStateByItemId({});
+      toast.error(error instanceof Error ? error.message : "批量应用失败");
     }
-    setIsApplying(false);
-    toast[successCount > 0 ? "success" : "error"](
-      `批量应用完成：成功 ${successCount} 章，失败 ${failureCount} 章`,
-    );
-  }, [isApplying, items, onApplied, setItem]);
+  }, [batch, batchItems, isApplying, onApplied, projectId, queryClient]);
+
+  const items = useMemo<ChapterRewriteItem[]>(() => {
+    if (!batch) {
+      return orderedChapters
+        .filter((chapter) => selectedChapterIds.has(chapter.id))
+        .map((chapter) => ({
+          id: chapter.id,
+          chapter,
+          state: "waiting",
+          jobId: null,
+          preview: "",
+          logs: "",
+          statusLabel: "等待中",
+          errorMessage: null,
+          applyErrorMessage: null,
+        }));
+    }
+    return batchItems.map((item) => {
+      const chapter = item.chapter ?? chaptersById.get(item.chapter_id);
+      const fallbackChapter: ProjectChapter = chapter ?? {
+        id: item.chapter_id,
+        project_id: batch.project_id,
+        volume_index: 0,
+        chapter_index: item.position,
+        title: item.chapter_title ?? "未知章节",
+        content: "",
+        beats_markdown: "",
+        summary: "",
+        word_count: 0,
+        memory_sync_status: null,
+        memory_sync_source: null,
+        memory_sync_scope: null,
+        memory_sync_checked_at: null,
+        memory_sync_checked_content_hash: null,
+        memory_sync_error_message: null,
+        memory_sync_proposed_characters_status: null,
+        memory_sync_proposed_state: null,
+        memory_sync_proposed_threads: null,
+        memory_sync_proposed_summary: null,
+        created_at: batch.created_at,
+        updated_at: batch.updated_at,
+      };
+      const display = buildDisplayItem(
+        item,
+        fallbackChapter,
+        previews[item.id] ?? "",
+        logsByItemId[item.id] ?? "",
+      );
+      const applyState = applyStateByItemId[item.id];
+      if (applyState === "applying") return { ...display, state: "applying" };
+      if (applyState === "failed") return { ...display, state: "apply_failed", applyErrorMessage: "应用改写失败" };
+      return display;
+    });
+  }, [applyStateByItemId, batch, batchItems, chaptersById, logsByItemId, orderedChapters, previews, selectedChapterIds]);
 
   const activeItem = items.find((item) => item.chapter.id === activeChapterId) ?? items[0] ?? null;
+  const hasTaskEntry = Boolean(batch && isBatchActionable(batch));
 
   return {
     isOpen,
@@ -284,7 +384,9 @@ export function useChapterEnrichmentRewrite({
     activeItem,
     activeChapterId,
     setActiveChapterId,
-    isRunning,
+    activeBatch: batch,
+    hasTaskEntry,
+    isRunning: isRunning || createMutation.isPending,
     isApplying,
     openRewrite,
     closeRewrite,

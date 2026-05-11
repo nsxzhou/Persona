@@ -63,6 +63,13 @@ const apiMock = vi.hoisted(() => ({
   getNovelChapterRewriteJobLogs: vi.fn(),
   getNovelChapterRewriteJobArtifact: vi.fn(),
   applyNovelChapterRewriteJob: vi.fn(),
+  createChapterRewriteBatch: vi.fn(),
+  getChapterRewriteBatches: vi.fn(),
+  getChapterRewriteBatch: vi.fn(),
+  getChapterRewriteBatchItemLogs: vi.fn(),
+  getChapterRewriteBatchItemArtifact: vi.fn(),
+  applyChapterRewriteBatchItem: vi.fn(),
+  applyChapterRewriteBatch: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -81,6 +88,13 @@ vi.mock("@/lib/api", () => ({
     getNovelChapterRewriteJobLogs: apiMock.getNovelChapterRewriteJobLogs,
     getNovelChapterRewriteJobArtifact: apiMock.getNovelChapterRewriteJobArtifact,
     applyNovelChapterRewriteJob: apiMock.applyNovelChapterRewriteJob,
+    createChapterRewriteBatch: apiMock.createChapterRewriteBatch,
+    getChapterRewriteBatches: apiMock.getChapterRewriteBatches,
+    getChapterRewriteBatch: apiMock.getChapterRewriteBatch,
+    getChapterRewriteBatchItemLogs: apiMock.getChapterRewriteBatchItemLogs,
+    getChapterRewriteBatchItemArtifact: apiMock.getChapterRewriteBatchItemArtifact,
+    applyChapterRewriteBatchItem: apiMock.applyChapterRewriteBatchItem,
+    applyChapterRewriteBatch: apiMock.applyChapterRewriteBatch,
   },
 }));
 
@@ -243,6 +257,13 @@ describe("ZenEditorView", () => {
     apiMock.getNovelChapterRewriteJobLogs.mockReset();
     apiMock.getNovelChapterRewriteJobArtifact.mockReset();
     apiMock.applyNovelChapterRewriteJob.mockReset();
+    apiMock.createChapterRewriteBatch.mockReset();
+    apiMock.getChapterRewriteBatches.mockReset();
+    apiMock.getChapterRewriteBatch.mockReset();
+    apiMock.getChapterRewriteBatchItemLogs.mockReset();
+    apiMock.getChapterRewriteBatchItemArtifact.mockReset();
+    apiMock.applyChapterRewriteBatchItem.mockReset();
+    apiMock.applyChapterRewriteBatch.mockReset();
     apiMock.getProjectChapters.mockResolvedValue(chapters);
     apiMock.syncProjectChapters.mockResolvedValue(chapters);
     apiMock.updateProjectChapter.mockImplementation(async (_projectId, chapterId, payload) => ({
@@ -287,6 +308,100 @@ describe("ZenEditorView", () => {
         content: "整章改写结果",
         word_count: "整章改写结果".length,
       },
+    });
+    apiMock.getChapterRewriteBatches.mockResolvedValue([]);
+    apiMock.createChapterRewriteBatch.mockImplementation(async () => ({
+      id: "batch-1",
+      user_id: "user-1",
+      project_id: "project-1",
+      instruction: "增强雨夜压迫感",
+      status: "succeeded",
+      stage: null,
+      error_message: null,
+      total_count: 1,
+      generated_count: 1,
+      failed_count: 0,
+      applied_count: 0,
+      current_item_id: null,
+      current_chapter_id: null,
+      current_chapter_title: null,
+      started_at: "2026-05-10T00:00:00Z",
+      completed_at: "2026-05-10T00:00:10Z",
+      created_at: "2026-05-10T00:00:00Z",
+      updated_at: "2026-05-10T00:00:10Z",
+      items: [
+        {
+          id: "batch-item-1",
+          batch_id: "batch-1",
+          chapter_id: "chapter-1",
+          child_run_id: "rewrite-job-1",
+          position: 0,
+          status: "generated",
+          stage: null,
+          error_message: null,
+          applied_at: null,
+          chapter_title: chapters[0].title,
+          chapter: chapters[0],
+          created_at: "2026-05-10T00:00:00Z",
+          updated_at: "2026-05-10T00:00:10Z",
+        },
+      ],
+    }));
+    apiMock.getChapterRewriteBatch.mockImplementation(async () => apiMock.createChapterRewriteBatch());
+    apiMock.getChapterRewriteBatchItemLogs.mockResolvedValue({
+      content: "completed",
+      next_offset: 9,
+      truncated: false,
+    });
+    apiMock.getChapterRewriteBatchItemArtifact.mockResolvedValue("整章改写结果");
+    apiMock.applyChapterRewriteBatchItem.mockResolvedValue({
+      item: {
+        id: "batch-item-1",
+        batch_id: "batch-1",
+        chapter_id: "chapter-1",
+        child_run_id: "rewrite-job-1",
+        position: 0,
+        status: "applied",
+        stage: null,
+        error_message: null,
+        applied_at: "2026-05-10T00:00:20Z",
+        chapter_title: chapters[0].title,
+        chapter: chapters[0],
+        created_at: "2026-05-10T00:00:00Z",
+        updated_at: "2026-05-10T00:00:20Z",
+      },
+      chapter: {
+        ...chapters[0],
+        content: "整章改写结果",
+        word_count: "整章改写结果".length,
+      },
+    });
+    apiMock.applyChapterRewriteBatch.mockResolvedValue({
+      applied: [
+        {
+          item: {
+            id: "batch-item-1",
+            batch_id: "batch-1",
+            chapter_id: "chapter-1",
+            child_run_id: "rewrite-job-1",
+            position: 0,
+            status: "applied",
+            stage: null,
+            error_message: null,
+            applied_at: "2026-05-10T00:00:20Z",
+            chapter_title: chapters[0].title,
+            chapter: chapters[0],
+            created_at: "2026-05-10T00:00:00Z",
+            updated_at: "2026-05-10T00:00:20Z",
+          },
+          chapter: {
+            ...chapters[0],
+            content: "整章改写结果",
+            word_count: "整章改写结果".length,
+          },
+        },
+      ],
+      failed: [],
     });
   });
 
@@ -429,6 +544,67 @@ describe("ZenEditorView", () => {
   });
 
   test("runs selected chapter enrichment rewrite and applies artifact", async () => {
+    let batchDetail = {
+      id: "batch-1",
+      user_id: "user-1",
+      project_id: "project-1",
+      instruction: "增强雨夜压迫感",
+      status: "succeeded",
+      stage: null,
+      error_message: null,
+      total_count: 1,
+      generated_count: 1,
+      failed_count: 0,
+      applied_count: 0,
+      current_item_id: null,
+      current_chapter_id: null,
+      current_chapter_title: null,
+      started_at: "2026-05-10T00:00:00Z",
+      completed_at: "2026-05-10T00:00:10Z",
+      created_at: "2026-05-10T00:00:00Z",
+      updated_at: "2026-05-10T00:00:10Z",
+      items: [
+        {
+          id: "batch-item-1",
+          batch_id: "batch-1",
+          chapter_id: "chapter-1",
+          child_run_id: "rewrite-job-1",
+          position: 0,
+          status: "generated",
+          stage: null,
+          error_message: null,
+          applied_at: null,
+          chapter_title: chapters[0].title,
+          chapter: chapters[0],
+          created_at: "2026-05-10T00:00:00Z",
+          updated_at: "2026-05-10T00:00:10Z",
+        },
+      ],
+    };
+    apiMock.createChapterRewriteBatch.mockImplementationOnce(async () => batchDetail);
+    apiMock.getChapterRewriteBatch.mockImplementation(async () => batchDetail);
+    apiMock.applyChapterRewriteBatchItem.mockImplementationOnce(async () => {
+      batchDetail = {
+        ...batchDetail,
+        applied_count: 1,
+        items: [
+          {
+            ...batchDetail.items[0],
+            status: "applied",
+            applied_at: "2026-05-10T00:00:20Z",
+          },
+        ],
+      };
+      return {
+        item: batchDetail.items[0],
+        chapter: {
+          ...chapters[0],
+          content: "整章改写结果",
+          word_count: "整章改写结果".length,
+        },
+      };
+    });
+
     renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
     await waitFor(() => {
@@ -448,9 +624,9 @@ describe("ZenEditorView", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "开始改写" }));
 
     await waitFor(() => {
-      expect(apiMock.createNovelChapterRewriteJob).toHaveBeenCalledWith({
+      expect(apiMock.createChapterRewriteBatch).toHaveBeenCalledWith({
         project_id: "project-1",
-        chapter_id: "chapter-1",
+        chapter_ids: ["chapter-1"],
         instruction: "增强雨夜压迫感",
       });
     });
@@ -459,12 +635,20 @@ describe("ZenEditorView", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "应用当前" }));
 
     await waitFor(() => {
-      expect(apiMock.applyNovelChapterRewriteJob).toHaveBeenCalledWith("rewrite-job-1");
+      expect(apiMock.applyChapterRewriteBatchItem).toHaveBeenCalledWith("batch-1", "batch-item-1");
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
     await waitFor(() => {
       expect(screen.getByRole("textbox")).toHaveValue("整章改写结果");
     });
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /改写任务/ })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /章节润色/ }));
+    const freshDialog = await screen.findByRole("dialog");
+    expect(within(freshDialog).getByLabelText("自由改写要求")).toBeInTheDocument();
+    expect(within(freshDialog).getByRole("button", { name: "开始改写" })).toBeEnabled();
   });
 
   test("imported rewrite editor hides creation controls and supports multi-chapter apply all", async () => {
@@ -473,27 +657,51 @@ describe("ZenEditorView", () => {
       style_profile_id: null,
       project_origin: "txt_import_rewrite" as const,
     };
-    apiMock.applyNovelChapterRewriteJob
-      .mockResolvedValueOnce({
-        chapter: {
-          ...chapters[0],
-          content: "整章改写结果",
-          word_count: "整章改写结果".length,
-        },
-      })
-      .mockResolvedValueOnce({
-        chapter: {
-          ...chapters[1],
-          content: "第二章改写结果",
-          word_count: "第二章改写结果".length,
-        },
-      });
-    apiMock.createNovelChapterRewriteJob
-      .mockResolvedValueOnce({ id: "rewrite-job-1" })
-      .mockResolvedValueOnce({ id: "rewrite-job-2" });
-    apiMock.getNovelChapterRewriteJobArtifact
+    apiMock.createChapterRewriteBatch.mockResolvedValueOnce({
+      id: "batch-1",
+      user_id: "user-1",
+      project_id: "project-1",
+      instruction: "增强雨夜压迫感",
+      status: "succeeded",
+      stage: null,
+      error_message: null,
+      total_count: 2,
+      generated_count: 2,
+      failed_count: 0,
+      applied_count: 0,
+      current_item_id: null,
+      current_chapter_id: null,
+      current_chapter_title: null,
+      started_at: "2026-05-10T00:00:00Z",
+      completed_at: "2026-05-10T00:00:10Z",
+      created_at: "2026-05-10T00:00:00Z",
+      updated_at: "2026-05-10T00:00:10Z",
+      items: chapters.map((chapter, index) => ({
+        id: `batch-item-${index + 1}`,
+        batch_id: "batch-1",
+        chapter_id: chapter.id,
+        child_run_id: `rewrite-job-${index + 1}`,
+        position: index,
+        status: "generated",
+        stage: null,
+        error_message: null,
+        applied_at: null,
+        chapter_title: chapter.title,
+        chapter,
+        created_at: "2026-05-10T00:00:00Z",
+        updated_at: "2026-05-10T00:00:10Z",
+      })),
+    });
+    apiMock.getChapterRewriteBatchItemArtifact
       .mockResolvedValueOnce("整章改写结果")
       .mockResolvedValueOnce("第二章改写结果");
+    apiMock.applyChapterRewriteBatch.mockResolvedValueOnce({
+      applied: [
+        { item: {}, chapter: { ...chapters[0], content: "整章改写结果", word_count: "整章改写结果".length } },
+        { item: {}, chapter: { ...chapters[1], content: "第二章改写结果", word_count: "第二章改写结果".length } },
+      ],
+      failed: [],
+    });
     apiMock.getProject.mockResolvedValue(importedProject);
 
     renderWithClient(
@@ -525,23 +733,20 @@ describe("ZenEditorView", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "开始改写" }));
 
     await waitFor(() => {
-      expect(apiMock.createNovelChapterRewriteJob).toHaveBeenNthCalledWith(1, {
+      expect(apiMock.createChapterRewriteBatch).toHaveBeenCalledWith({
         project_id: "project-1",
-        chapter_id: "chapter-1",
+        chapter_ids: ["chapter-1", "chapter-2"],
         instruction: "增强雨夜压迫感",
       });
-      expect(apiMock.createNovelChapterRewriteJob).toHaveBeenNthCalledWith(2, {
-        project_id: "project-1",
-        chapter_id: "chapter-2",
-        instruction: "增强雨夜压迫感",
-      });
+    });
+    expect(await within(dialog).findByText("整章改写结果")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(apiMock.getChapterRewriteBatchItemArtifact).toHaveBeenCalledTimes(2);
     });
 
     fireEvent.click(within(dialog).getByRole("button", { name: "应用全部预览" }));
     await waitFor(() => {
-      expect(apiMock.applyNovelChapterRewriteJob).toHaveBeenCalledTimes(2);
-      expect(apiMock.applyNovelChapterRewriteJob).toHaveBeenNthCalledWith(1, "rewrite-job-1");
-      expect(apiMock.applyNovelChapterRewriteJob).toHaveBeenNthCalledWith(2, "rewrite-job-2");
+      expect(apiMock.applyChapterRewriteBatch).toHaveBeenCalledWith("batch-1");
     });
   });
 
