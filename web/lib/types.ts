@@ -45,6 +45,15 @@ export type NovelChapterRewriteJob = OpenApiSchema<"NovelWorkflowBaseResponse">;
 export type NovelChapterRewriteJobStatus = OpenApiSchema<"NovelWorkflowStatusResponse">;
 export type NovelChapterRewriteJobLogs = OpenApiSchema<"NovelWorkflowLogsResponse">;
 export type NovelChapterRewriteJobApplyResponse = OpenApiSchema<"NovelChapterRewriteJobApplyResponse">;
+export type ChapterRewriteBatchCreatePayload =
+  components["schemas"]["ChapterRewriteBatchCreateRequest"];
+export type ChapterRewriteBatch = OpenApiSchema<"ChapterRewriteBatchResponse">;
+export type ChapterRewriteBatchListItem = OpenApiSchema<"ChapterRewriteBatchListItemResponse">;
+export type ChapterRewriteBatchItem = OpenApiSchema<"ChapterRewriteBatchItemResponse">;
+export type ChapterRewriteBatchLogs = OpenApiSchema<"NovelWorkflowLogsResponse">;
+export type ChapterRewriteBatchApplyItemResponse =
+  OpenApiSchema<"ChapterRewriteBatchApplyItemResponse">;
+export type ChapterRewriteBatchApplyResponse = OpenApiSchema<"ChapterRewriteBatchApplyResponse">;
 
 export type AnalysisMeta = OpenApiSchema<"AnalysisMeta">;
 export type AnalysisReportMarkdown = OpenApiSchema<"AnalysisReportMarkdown">;

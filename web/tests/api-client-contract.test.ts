@@ -4,6 +4,11 @@ import { createApiClient } from "@/lib/api-client";
 import { createJsonRequester } from "@/lib/api/transport";
 import { parseBeatsMarkdown } from "@/lib/novel-workflow-client";
 import type {
+  ChapterRewriteBatch,
+  ChapterRewriteBatchApplyItemResponse,
+  ChapterRewriteBatchApplyResponse,
+  ChapterRewriteBatchListItem,
+  ChapterRewriteBatchLogs,
   ConceptGeneratePayload,
   NovelChapterRewriteJob,
   NovelChapterRewriteJobApplyResponse,
@@ -258,6 +263,67 @@ describe("API contracts", () => {
           },
         } as T;
       }
+      if (path === "/api/v1/chapter-rewrite-batches") {
+        return {
+          id: "batch-1",
+          user_id: "user-1",
+          project_id: "project-1",
+          instruction: "增强压迫感",
+          status: "pending",
+          stage: null,
+          error_message: null,
+          total_count: 1,
+          generated_count: 0,
+          failed_count: 0,
+          applied_count: 0,
+          current_item_id: "item-1",
+          current_chapter_id: "chapter-1",
+          current_chapter_title: "第1章",
+          started_at: null,
+          completed_at: null,
+          created_at: "2026-05-10T00:00:00Z",
+          updated_at: "2026-05-10T00:00:00Z",
+          items: [],
+        } as T;
+      }
+      if (path === "/api/v1/chapter-rewrite-batches?project_id=project-1&offset=0&limit=50") {
+        return [] as T;
+      }
+      if (path === "/api/v1/chapter-rewrite-batches/batch-1") {
+        return {
+          id: "batch-1",
+          user_id: "user-1",
+          project_id: "project-1",
+          instruction: "增强压迫感",
+          status: "succeeded",
+          stage: null,
+          error_message: null,
+          total_count: 1,
+          generated_count: 1,
+          failed_count: 0,
+          applied_count: 0,
+          current_item_id: null,
+          current_chapter_id: null,
+          current_chapter_title: null,
+          started_at: "2026-05-10T00:00:00Z",
+          completed_at: "2026-05-10T00:00:10Z",
+          created_at: "2026-05-10T00:00:00Z",
+          updated_at: "2026-05-10T00:00:10Z",
+          items: [],
+        } as T;
+      }
+      if (path === "/api/v1/chapter-rewrite-batches/batch-1/items/item-1/logs?offset=0") {
+        return { content: "done", next_offset: 4, truncated: false } as T;
+      }
+      if (path === "/api/v1/chapter-rewrite-batches/batch-1/items/item-1/artifact") {
+        return "改写正文" as T;
+      }
+      if (path === "/api/v1/chapter-rewrite-batches/batch-1/items/item-1/apply") {
+        return { item: {}, chapter: { id: "chapter-1", content: "改写正文" } } as T;
+      }
+      if (path === "/api/v1/chapter-rewrite-batches/batch-1/apply") {
+        return { applied: [], failed: [] } as T;
+      }
       return undefined as T;
     }) as unknown as {
       <T>(path: string, init?: RequestInit): Promise<T>;
@@ -433,6 +499,23 @@ describe("API contracts", () => {
       client.getNovelChapterRewriteJobArtifact("rewrite-job-1");
     const rewriteApplyPromise: Promise<NovelChapterRewriteJobApplyResponse> =
       client.applyNovelChapterRewriteJob("rewrite-job-1");
+    const batchCreatePromise: Promise<ChapterRewriteBatch> = client.createChapterRewriteBatch({
+      project_id: "project-1",
+      chapter_ids: ["chapter-1"],
+      instruction: "增强压迫感",
+    });
+    const batchListPromise: Promise<ChapterRewriteBatchListItem[]> = client.getChapterRewriteBatches({
+      projectId: "project-1",
+    });
+    const batchDetailPromise: Promise<ChapterRewriteBatch> = client.getChapterRewriteBatch("batch-1");
+    const batchLogsPromise: Promise<ChapterRewriteBatchLogs> =
+      client.getChapterRewriteBatchItemLogs("batch-1", "item-1");
+    const batchArtifactPromise: Promise<string> =
+      client.getChapterRewriteBatchItemArtifact("batch-1", "item-1");
+    const batchApplyItemPromise: Promise<ChapterRewriteBatchApplyItemResponse> =
+      client.applyChapterRewriteBatchItem("batch-1", "item-1");
+    const batchApplyPromise: Promise<ChapterRewriteBatchApplyResponse> =
+      client.applyChapterRewriteBatch("batch-1");
 
     const payload: StyleAnalysisJobCreatePayload = {
       style_name: "冷白风",
@@ -471,6 +554,13 @@ describe("API contracts", () => {
       rewriteLogsPromise,
       rewriteArtifactPromise,
       rewriteApplyPromise,
+      batchCreatePromise,
+      batchListPromise,
+      batchDetailPromise,
+      batchLogsPromise,
+      batchArtifactPromise,
+      batchApplyItemPromise,
+      batchApplyPromise,
     ]);
     expect(request).toHaveBeenCalled();
     expect(createdPayloads).toEqual(
@@ -510,6 +600,14 @@ describe("API contracts", () => {
     );
     expect(request).toHaveBeenCalledWith(
       "/api/v1/novel-chapter-rewrite-jobs/rewrite-job-1/apply",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/chapter-rewrite-batches",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "/api/v1/chapter-rewrite-batches/batch-1/apply",
       expect.objectContaining({ method: "POST" }),
     );
   });

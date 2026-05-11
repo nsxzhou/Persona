@@ -483,6 +483,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chapter-rewrite-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Chapter Rewrite Batches */
+        get: operations["list_chapter_rewrite_batches_api_v1_chapter_rewrite_batches_get"];
+        put?: never;
+        /** Create Chapter Rewrite Batch */
+        post: operations["create_chapter_rewrite_batch_api_v1_chapter_rewrite_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chapter-rewrite-batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chapter Rewrite Batch */
+        get: operations["get_chapter_rewrite_batch_api_v1_chapter_rewrite_batches__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chapter-rewrite-batches/{batch_id}/items/{item_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chapter Rewrite Batch Item Logs */
+        get: operations["get_chapter_rewrite_batch_item_logs_api_v1_chapter_rewrite_batches__batch_id__items__item_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chapter-rewrite-batches/{batch_id}/items/{item_id}/artifact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chapter Rewrite Batch Item Artifact */
+        get: operations["get_chapter_rewrite_batch_item_artifact_api_v1_chapter_rewrite_batches__batch_id__items__item_id__artifact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chapter-rewrite-batches/{batch_id}/items/{item_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Chapter Rewrite Batch Item */
+        post: operations["apply_chapter_rewrite_batch_item_api_v1_chapter_rewrite_batches__batch_id__items__item_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chapter-rewrite-batches/{batch_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Chapter Rewrite Batch */
+        post: operations["apply_chapter_rewrite_batch_api_v1_chapter_rewrite_batches__batch_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/novel-chapter-rewrite-jobs": {
         parameters: {
             query?: never;
@@ -1207,6 +1310,165 @@ export interface components {
             rights_confirmed: boolean;
             /** File */
             file: string;
+        };
+        /** ChapterRewriteBatchApplyItemResponse */
+        ChapterRewriteBatchApplyItemResponse: {
+            item: components["schemas"]["ChapterRewriteBatchItemResponse"];
+            chapter: components["schemas"]["ProjectChapterResponse"];
+        };
+        /** ChapterRewriteBatchApplyResponse */
+        ChapterRewriteBatchApplyResponse: {
+            /** Applied */
+            applied: components["schemas"]["ChapterRewriteBatchApplyItemResponse"][];
+            /** Failed */
+            failed?: components["schemas"]["ChapterRewriteBatchItemResponse"][];
+        };
+        /** ChapterRewriteBatchCreateRequest */
+        ChapterRewriteBatchCreateRequest: {
+            /** Project Id */
+            project_id: string;
+            /** Chapter Ids */
+            chapter_ids: string[];
+            /** Instruction */
+            instruction: string;
+        };
+        /** ChapterRewriteBatchItemResponse */
+        ChapterRewriteBatchItemResponse: {
+            /** Id */
+            id: string;
+            /** Batch Id */
+            batch_id: string;
+            /** Chapter Id */
+            chapter_id: string;
+            /** Child Run Id */
+            child_run_id: string | null;
+            /** Position */
+            position: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "running" | "generated" | "failed" | "applied";
+            /** Stage */
+            stage: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Applied At */
+            applied_at: string | null;
+            /** Chapter Title */
+            chapter_title?: string | null;
+            chapter?: components["schemas"]["ProjectChapterResponse"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ChapterRewriteBatchListItemResponse */
+        ChapterRewriteBatchListItemResponse: {
+            /** Id */
+            id: string;
+            /** Project Id */
+            project_id: string;
+            /** Instruction */
+            instruction: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed";
+            /** Stage */
+            stage: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Total Count */
+            total_count: number;
+            /** Generated Count */
+            generated_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Applied Count */
+            applied_count: number;
+            /** Current Item Id */
+            current_item_id?: string | null;
+            /** Current Chapter Id */
+            current_chapter_id?: string | null;
+            /** Current Chapter Title */
+            current_chapter_title?: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ChapterRewriteBatchMarkdownArtifactResponse
+         * @description Generated chapter rewrite preview.
+         */
+        ChapterRewriteBatchMarkdownArtifactResponse: string;
+        /** ChapterRewriteBatchResponse */
+        ChapterRewriteBatchResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Instruction */
+            instruction: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed";
+            /** Stage */
+            stage: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Total Count */
+            total_count: number;
+            /** Generated Count */
+            generated_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Applied Count */
+            applied_count: number;
+            /** Current Item Id */
+            current_item_id?: string | null;
+            /** Current Chapter Id */
+            current_chapter_id?: string | null;
+            /** Current Chapter Title */
+            current_chapter_title?: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Items */
+            items?: components["schemas"]["ChapterRewriteBatchItemResponse"][];
         };
         /** ConnectionTestResponse */
         ConnectionTestResponse: {
@@ -4081,6 +4343,232 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NovelImportCommitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_chapter_rewrite_batches_api_v1_chapter_rewrite_batches_get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterRewriteBatchListItemResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_chapter_rewrite_batch_api_v1_chapter_rewrite_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterRewriteBatchCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterRewriteBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chapter_rewrite_batch_api_v1_chapter_rewrite_batches__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterRewriteBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chapter_rewrite_batch_item_logs_api_v1_chapter_rewrite_batches__batch_id__items__item_id__logs_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovelWorkflowLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chapter_rewrite_batch_item_artifact_api_v1_chapter_rewrite_batches__batch_id__items__item_id__artifact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterRewriteBatchMarkdownArtifactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_chapter_rewrite_batch_item_api_v1_chapter_rewrite_batches__batch_id__items__item_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterRewriteBatchApplyItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_chapter_rewrite_batch_api_v1_chapter_rewrite_batches__batch_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterRewriteBatchApplyResponse"];
                 };
             };
             /** @description Validation Error */
