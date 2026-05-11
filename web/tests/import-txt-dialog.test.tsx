@@ -26,7 +26,24 @@ vi.mock("sonner", () => ({
   },
 }));
 
-function renderDialog() {
+const baseProvider = {
+  id: "provider-1",
+  label: "Provider",
+  base_url: "https://api.example.test/v1",
+  api_key_hint: "****1234",
+  default_model: "gpt-4.1-mini",
+  is_enabled: true,
+  immersion_prompt_override_enabled: false,
+  immersion_system_prompt_suffix: "",
+  chat_test_system_prompt: "",
+  last_test_status: null,
+  last_test_error: null,
+  last_tested_at: null,
+  created_at: "2026-05-10T00:00:00Z",
+  updated_at: "2026-05-10T00:00:00Z",
+};
+
+function renderDialog(providers = [baseProvider]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -34,24 +51,7 @@ function renderDialog() {
     <QueryClientProvider client={queryClient}>
       <ImportTxtDialog
         open
-        providers={[
-          {
-            id: "provider-1",
-            label: "Provider",
-            base_url: "https://api.example.test/v1",
-            api_key_hint: "****1234",
-            default_model: "gpt-4.1-mini",
-            is_enabled: true,
-            immersion_prompt_override_enabled: false,
-            immersion_system_prompt_suffix: "",
-            chat_test_system_prompt: "",
-            last_test_status: null,
-            last_test_error: null,
-            last_tested_at: null,
-            created_at: "2026-05-10T00:00:00Z",
-            updated_at: "2026-05-10T00:00:00Z",
-          },
-        ]}
+        providers={providers}
         styleProfiles={[]}
         plotProfiles={[]}
         onOpenChange={vi.fn()}
@@ -93,6 +93,49 @@ describe("ImportTxtDialog", () => {
       expires_at: "2026-05-11T00:00:00Z",
     }));
     apiMock.commitNovelImport.mockResolvedValue({ project_id: "project-1" });
+  });
+
+  test("resets the draft model when provider selection changes", async () => {
+    renderDialog([
+      baseProvider,
+      {
+        ...baseProvider,
+        id: "provider-2",
+        label: "Second Provider",
+        default_model: "claude-3-5-sonnet",
+      },
+    ]);
+
+    fireEvent.change(screen.getByLabelText("项目名称"), {
+      target: { value: "导入项目" },
+    });
+    fireEvent.change(screen.getByLabelText("TXT 文件"), {
+      target: {
+        files: [new File(["正文"], "novel.txt", { type: "text/plain" })],
+      },
+    });
+    fireEvent.click(screen.getByText("我确认拥有处理该 TXT 内容并创建改写项目的权利。"));
+    fireEvent.click(screen.getByRole("button", { name: /解析预览/ }));
+
+    await screen.findByText("未识别标准章节标题，已作为单章导入");
+    fireEvent.change(screen.getByLabelText("模型"), {
+      target: { value: "stale-provider-1-model" },
+    });
+    fireEvent.click(screen.getByLabelText("Provider"));
+    fireEvent.click(await screen.findByRole("option", { name: "Second Provider" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+
+    await waitFor(() => {
+      expect(apiMock.updateNovelImport).toHaveBeenCalledWith(
+        "draft-1",
+        expect.objectContaining({
+          project: expect.objectContaining({
+            default_provider_id: "provider-2",
+            default_model: "claude-3-5-sonnet",
+          }),
+        }),
+      );
+    });
   });
 
   test("previews warnings, updates edited chapter, and commits", async () => {

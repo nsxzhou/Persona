@@ -67,6 +67,7 @@ export function ImportTxtDialog({
   const [preview, setPreview] = useState<NovelImportPreview | null>(null);
 
   const selectedProvider = enabledProviders.find((provider) => provider.id === providerId);
+  const resolvedDefaultModel = defaultModel.trim() || selectedProvider?.default_model || "";
 
   useEffect(() => {
     if (!open || providerId || enabledProviders.length === 0) return;
@@ -91,7 +92,7 @@ export function ImportTxtDialog({
       return api.previewNovelImport({
         project_name: projectName.trim(),
         default_provider_id: providerId,
-        default_model: defaultModel.trim() || selectedProvider?.default_model || "",
+        default_model: resolvedDefaultModel,
         style_profile_id: styleProfileId === "none" ? undefined : styleProfileId,
         plot_profile_id: plotProfileId === "none" ? undefined : plotProfileId,
         rights_confirmed: rightsConfirmed,
@@ -115,7 +116,14 @@ export function ImportTxtDialog({
       if (!preview) throw new Error("缺少导入草稿");
       return api.updateNovelImport(preview.draft_id, payload);
     },
-    onSuccess: setPreview,
+    onSuccess: (data) => {
+      setPreview(data);
+      setProjectName(data.project.project_name);
+      setProviderId(data.project.default_provider_id);
+      setDefaultModel(data.project.default_model ?? "");
+      setStyleProfileId(data.project.style_profile_id ?? "none");
+      setPlotProfileId(data.project.plot_profile_id ?? "none");
+    },
     onError: (error) => toast.error(error instanceof Error ? error.message : "草稿更新失败"),
   });
 
@@ -164,7 +172,7 @@ export function ImportTxtDialog({
         ...preview.project,
         project_name: projectName.trim() || preview.project.project_name,
         default_provider_id: providerId || preview.project.default_provider_id,
-        default_model: defaultModel.trim() || preview.project.default_model,
+        default_model: resolvedDefaultModel,
         style_profile_id: styleProfileId === "none" ? null : styleProfileId,
         plot_profile_id: plotProfileId === "none" ? null : plotProfileId,
       },
@@ -195,7 +203,7 @@ export function ImportTxtDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Provider</Label>
+              <Label htmlFor="txt-provider">Provider</Label>
               <Select
                 value={providerId}
                 onValueChange={(value) => {
@@ -205,7 +213,7 @@ export function ImportTxtDialog({
                 }}
                 disabled={isBusy}
               >
-                <SelectTrigger>
+                <SelectTrigger id="txt-provider">
                   <SelectValue placeholder="选择 Provider" />
                 </SelectTrigger>
                 <SelectContent>
@@ -230,9 +238,9 @@ export function ImportTxtDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>风格档案</Label>
+              <Label htmlFor="txt-style-profile">风格档案</Label>
               <Select value={styleProfileId} onValueChange={setStyleProfileId} disabled={isBusy}>
-                <SelectTrigger>
+                <SelectTrigger id="txt-style-profile">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -247,9 +255,9 @@ export function ImportTxtDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>剧情档案</Label>
+              <Label htmlFor="txt-plot-profile">剧情档案</Label>
               <Select value={plotProfileId} onValueChange={setPlotProfileId} disabled={isBusy}>
-                <SelectTrigger>
+                <SelectTrigger id="txt-plot-profile">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

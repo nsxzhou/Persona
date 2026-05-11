@@ -121,6 +121,71 @@ async def test_novel_import_no_heading_returns_single_chapter_warning(
 
 
 @pytest.mark.asyncio
+async def test_novel_import_preview_defaults_blank_model_to_provider_default(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    response = await initialized_client.post(
+        "/api/v1/novel-imports/preview",
+        data={
+            "project_name": "默认模型导入",
+            "default_provider_id": initialized_provider["id"],
+            "default_model": "   ",
+            "rights_confirmed": "true",
+        },
+        files={"file": ("novel.txt", TXT_WITH_HEADINGS.encode("utf-8"), "text/plain")},
+    )
+
+    assert response.status_code == 201
+    preview = response.json()
+    assert preview["project"]["default_model"] == initialized_provider["default_model"]
+
+
+@pytest.mark.asyncio
+async def test_novel_import_update_provider_change_resets_model_to_new_provider_default(
+    initialized_client: AsyncClient,
+    initialized_provider: dict[str, object],
+) -> None:
+    second_provider_response = await initialized_client.post(
+        "/api/v1/provider-configs",
+        json={
+            "label": "Second Provider",
+            "base_url": "https://second.example.test/v1",
+            "api_key": "sk-second-1234",
+            "default_model": "second-default-model",
+            "is_enabled": True,
+        },
+    )
+    assert second_provider_response.status_code == 201
+    second_provider = second_provider_response.json()
+
+    preview_response = await initialized_client.post(
+        "/api/v1/novel-imports/preview",
+        data={
+            "project_name": "切换模型导入",
+            "default_provider_id": initialized_provider["id"],
+            "default_model": "old-provider-model",
+            "rights_confirmed": "true",
+        },
+        files={"file": ("novel.txt", TXT_WITH_HEADINGS.encode("utf-8"), "text/plain")},
+    )
+    assert preview_response.status_code == 201
+    preview = preview_response.json()
+
+    preview["project"]["default_provider_id"] = second_provider["id"]
+    preview["project"]["default_model"] = "old-provider-model"
+    update_response = await initialized_client.patch(
+        f"/api/v1/novel-imports/{preview['draft_id']}",
+        json={"project": preview["project"], "chapters": preview["chapters"]},
+    )
+
+    assert update_response.status_code == 200
+    updated_preview = update_response.json()
+    assert updated_preview["project"]["default_provider_id"] == second_provider["id"]
+    assert updated_preview["project"]["default_model"] == "second-default-model"
+
+
+@pytest.mark.asyncio
 async def test_novel_import_rejects_invalid_upload_cases(
     initialized_client: AsyncClient,
     initialized_provider: dict[str, object],
@@ -236,6 +301,7 @@ async def test_novel_import_update_commit_creates_project_chapters_and_export(
     project_response = await initialized_client.get(f"/api/v1/projects/{project_id}")
     assert project_response.status_code == 200
     assert project_response.json()["project_origin"] == "txt_import_rewrite"
+    assert project_response.json()["default_model"] == initialized_provider["default_model"]
 
     bible_response = await initialized_client.get(f"/api/v1/projects/{project_id}/bible")
     assert bible_response.status_code == 200

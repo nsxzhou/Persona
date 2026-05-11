@@ -66,13 +66,13 @@ class NovelImportService:
         if not rights_confirmed:
             raise UnprocessableEntityError("请先确认你拥有处理该 TXT 内容的权利")
         self._ensure_txt_upload(upload_file)
-        await self._validate_metadata(session, project, user_id=user_id)
+        normalized_project = await self._normalize_metadata(session, project, user_id=user_id)
         text = await self._read_clean_text(upload_file)
         chapters, warnings = self.parse_txt_chapters(text)
         document = NovelImportDraftDocument(
             draft_id=str(uuid.uuid4()),
             user_id=user_id,
-            project=project,
+            project=normalized_project,
             chapters=chapters,
             warnings=warnings,
             created_at=datetime.now(UTC),
@@ -90,9 +90,17 @@ class NovelImportService:
         user_id: str,
     ) -> NovelImportDraftPreview:
         document = await self._read_draft_or_404(draft_id, user_id=user_id)
-        await self._validate_metadata(session, payload.project, user_id=user_id)
+        provider_changed = (
+            payload.project.default_provider_id != document.project.default_provider_id
+        )
+        normalized_project = await self._normalize_metadata(
+            session,
+            payload.project,
+            user_id=user_id,
+            reset_model=provider_changed,
+        )
         chapters = self._normalize_chapters(payload.chapters)
-        document.project = payload.project
+        document.project = normalized_project
         document.chapters = chapters
         await self._write_draft(document)
         return self._to_preview(document)
@@ -105,18 +113,24 @@ class NovelImportService:
         user_id: str,
     ) -> NovelImportCommitResponse:
         document = await self._read_draft_or_404(draft_id, user_id=user_id)
+        normalized_project = await self._normalize_metadata(
+            session,
+            document.project,
+            user_id=user_id,
+        )
+        document.project = normalized_project
         chapters = self._normalize_chapters(document.chapters)
         project = await self.project_service.create(
             session,
             ProjectCreate(
-                name=document.project.project_name,
+                name=normalized_project.project_name,
                 description="",
                 status="draft",
-                default_provider_id=document.project.default_provider_id,
-                default_model=document.project.default_model,
-                style_profile_id=document.project.style_profile_id,
-                plot_profile_id=document.project.plot_profile_id,
-                generation_profile=document.project.generation_profile,
+                default_provider_id=normalized_project.default_provider_id,
+                default_model=normalized_project.default_model,
+                style_profile_id=normalized_project.style_profile_id,
+                plot_profile_id=normalized_project.plot_profile_id,
+                generation_profile=normalized_project.generation_profile,
                 project_origin="txt_import_rewrite",
             ),
             user_id=user_id,
@@ -177,14 +191,15 @@ class NovelImportService:
             )
         return chapters, []
 
-    async def _validate_metadata(
+    async def _normalize_metadata(
         self,
         session: AsyncSession,
         project: NovelImportProjectMetadata,
         *,
         user_id: str,
-    ) -> None:
-        await self.project_service.provider_service.ensure_enabled(
+        reset_model: bool = False,
+    ) -> NovelImportProjectMetadata:
+        provider = await self.project_service.provider_service.ensure_enabled(
             session,
             project.default_provider_id,
             user_id=user_id,
@@ -201,6 +216,22 @@ class NovelImportService:
                 project.plot_profile_id,
                 user_id=user_id,
             )
+        requested_model = project.default_model.strip() if project.default_model else ""
+        try:
+            return NovelImportProjectMetadata.model_validate(
+                project.model_dump()
+                | {
+                    "project_name": project.project_name.strip(),
+                    "default_provider_id": provider.id,
+                    "default_model": (
+                        provider.default_model
+                        if reset_model
+                        else requested_model or provider.default_model
+                    ),
+                }
+            )
+        except ValidationError as exc:
+            raise UnprocessableEntityError("导入项目元数据不完整或格式错误") from exc
 
     def _ensure_txt_upload(self, upload_file: UploadFile) -> None:
         filename = (upload_file.filename or "").strip().lower()
@@ -387,4 +418,3 @@ def _strip_chapter_heading_prefix(title: str, index: int) -> str:
         title,
     ).strip()
     return stripped or title.strip()
-
