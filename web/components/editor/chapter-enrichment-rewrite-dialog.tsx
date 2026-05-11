@@ -8,8 +8,10 @@ import {
   CheckCircle2,
   CircleDot,
   GitCompareArrows,
+  LockKeyhole,
   Loader2,
   ListChecks,
+  Play,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -115,6 +117,10 @@ export function ChapterEnrichmentRewriteDialog({
   const itemByChapterId = new Map(items.map((item) => [item.chapter.id, item]));
   const generatedCount = items.filter((item) => item.preview.trim() && item.state !== "applied").length;
   const selectedCount = selectedChapterIds.size;
+  const selectedWordCount = chapters.reduce(
+    (sum, chapter) => (selectedChapterIds.has(chapter.id) ? sum + chapter.word_count : sum),
+    0,
+  );
   const appliedCount = items.filter((item) => item.state === "applied").length;
   const failedCount = items.filter((item) => item.state === "failed" || item.state === "apply_failed").length;
   const runningItem = items.find((item) => item.state === "running") ?? null;
@@ -206,8 +212,13 @@ export function ChapterEnrichmentRewriteDialog({
             <div className="grid min-h-0 w-full gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
               <aside className="flex min-h-0 flex-col overflow-hidden rounded-md border bg-background">
                 <div className="flex items-center justify-between border-b px-3.5 py-3">
-                  <Label>选择章节</Label>
-                  <span className="text-xs text-muted-foreground">{selectedCount}/{chapters.length}</span>
+                  <div className="space-y-0.5">
+                    <Label>选择章节</Label>
+                    <p className="text-xs text-muted-foreground">
+                      已选 {selectedCount} 章 · {selectedWordCount.toLocaleString()} 字
+                    </p>
+                  </div>
+                  <StatusPill label="总数" value={chapters.length} />
                 </div>
                 <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
                   <ChapterQueue
@@ -225,47 +236,74 @@ export function ChapterEnrichmentRewriteDialog({
               </aside>
 
               <div className="flex min-h-0 flex-col rounded-md border bg-background">
-                <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="chapter-enrichment-instruction" className="text-base font-semibold">
-                      自由改写要求
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      写清本次批量改写的目标、保留边界和禁止事项。
-                    </p>
+                <div className="border-b px-5 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="chapter-enrichment-instruction" className="text-base font-semibold">
+                        自由改写要求
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        目标、保留边界和禁止事项会应用到本次选中的章节。
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <StatusPill label="已选" value={selectedCount} />
+                      <StatusPill label="扩写" value={expansionRatioPercent} suffix="%" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-muted-foreground">
+                        <LockKeyhole className="h-3.5 w-3.5" />
+                        运行后锁定配置
+                      </span>
+                    </div>
                   </div>
+                </div>
+
+                <div className="grid min-h-0 flex-1 gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_220px]">
                   <Textarea
                     id="chapter-enrichment-instruction"
                     value={instruction}
                     onChange={(event) => onInstructionChange(event.target.value)}
                     placeholder="例如：增强情绪张力和动作细节，保留剧情事实，不要续写下一章。"
                     disabled={busy}
-                    className="min-h-[360px] flex-1 resize-none text-base leading-7 shadow-none"
+                    className="min-h-[420px] resize-none text-base leading-7 shadow-none xl:min-h-0"
                   />
-                  <div className="grid gap-2 sm:max-w-48">
-                    <Label htmlFor="chapter-rewrite-expansion-ratio">扩写比例</Label>
-                    <div className="relative">
-                      <Input
-                        id="chapter-rewrite-expansion-ratio"
-                        type="number"
-                        min={1}
-                        max={100}
-                        step={1}
-                        value={expansionRatioPercent}
-                        onChange={(event) =>
-                          onExpansionRatioPercentChange(Number(event.target.value))
-                        }
-                        disabled={busy}
-                        className="pr-8"
-                      />
-                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
-                        %
-                      </span>
+
+                  <div className="space-y-4">
+                    <div className="rounded-md border bg-muted/20 p-3">
+                      <div className="grid gap-2">
+                        <Label htmlFor="chapter-rewrite-expansion-ratio">扩写比例</Label>
+                        <div className="relative">
+                          <Input
+                            id="chapter-rewrite-expansion-ratio"
+                            type="number"
+                            min={1}
+                            max={100}
+                            step={1}
+                            value={expansionRatioPercent}
+                            onChange={(event) =>
+                              onExpansionRatioPercentChange(Number(event.target.value))
+                            }
+                            disabled={busy}
+                            className="pr-8"
+                          />
+                          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                            %
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-md border bg-background p-3">
+                        <p className="text-xs text-muted-foreground">章节</p>
+                        <p className="mt-1 font-semibold tabular-nums">{selectedCount}</p>
+                      </div>
+                      <div className="rounded-md border bg-background p-3">
+                        <p className="text-xs text-muted-foreground">字数</p>
+                        <p className="mt-1 font-semibold tabular-nums">
+                          {selectedWordCount.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    运行期间会锁定改写要求与章节选择，生成完成后自动进入差异审核。
-                  </p>
                 </div>
               </div>
             </div>
@@ -471,14 +509,17 @@ export function ChapterEnrichmentRewriteDialog({
             </Button>
           ) : null}
           {phase === "setup" ? (
-            <Button variant="outline" onClick={onStart} disabled={busy || !instruction.trim() || selectedChapterIds.size === 0 || Boolean(batch)}>
+            <Button onClick={onStart} disabled={busy || !instruction.trim() || selectedChapterIds.size === 0 || Boolean(batch)}>
               {isRunning ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   运行中
                 </>
               ) : (
-                "开始改写"
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  开始改写
+                </>
               )}
             </Button>
           ) : null}
@@ -492,9 +533,11 @@ export function ChapterEnrichmentRewriteDialog({
               审核结果
             </Button>
           ) : null}
-          <Button onClick={onApplyAll} disabled={busy || !batchComplete || generatedCount === 0}>
-            {isApplying ? "应用中..." : "应用全部预览"}
-          </Button>
+          {phase !== "setup" ? (
+            <Button onClick={onApplyAll} disabled={busy || !batchComplete || generatedCount === 0}>
+              {isApplying ? "应用中..." : "应用全部预览"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
