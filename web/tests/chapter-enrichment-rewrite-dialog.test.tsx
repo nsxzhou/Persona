@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { ChapterEnrichmentRewriteDialog } from "@/components/editor/chapter-enrichment-rewrite-dialog";
 import type { ChapterRewriteItem } from "@/hooks/use-chapter-enrichment-rewrite";
-import type { ProjectChapter } from "@/lib/types";
+import type { ChapterRewriteBatch, ProjectChapter } from "@/lib/types";
 
 function buildChapter(overrides: Partial<ProjectChapter> = {}): ProjectChapter {
   return {
@@ -26,6 +26,7 @@ function buildChapter(overrides: Partial<ProjectChapter> = {}): ProjectChapter {
 function buildItem(overrides: Partial<ChapterRewriteItem> = {}): ChapterRewriteItem {
   const chapter = buildChapter(overrides.chapter);
   return {
+    id: "item-1",
     chapter,
     state: "generated",
     jobId: "job-1",
@@ -35,6 +36,31 @@ function buildItem(overrides: Partial<ChapterRewriteItem> = {}): ChapterRewriteI
     errorMessage: null,
     applyErrorMessage: null,
     ...overrides,
+  };
+}
+
+function buildBatch(chapter: ProjectChapter): ChapterRewriteBatch {
+  return {
+    id: "batch-1",
+    user_id: "user-1",
+    project_id: chapter.project_id,
+    instruction: "增强情绪张力",
+    expansion_ratio_percent: 20,
+    status: "succeeded",
+    stage: null,
+    error_message: null,
+    total_count: 1,
+    generated_count: 1,
+    failed_count: 0,
+    applied_count: 0,
+    current_item_id: null,
+    current_chapter_id: null,
+    current_chapter_title: null,
+    started_at: "2026-05-10T00:00:00Z",
+    completed_at: "2026-05-10T00:00:10Z",
+    created_at: "2026-05-10T00:00:00Z",
+    updated_at: "2026-05-10T00:00:10Z",
+    items: [],
   };
 }
 
@@ -51,9 +77,12 @@ function renderDialog(item = buildItem(), overrides: Partial<ComponentProps<type
       activeItem={item}
       activeChapterId={item.chapter.id}
       instruction="增强情绪张力"
+      expansionRatioPercent={20}
+      batch={null}
       isRunning={false}
       isApplying={false}
       onInstructionChange={vi.fn()}
+      onExpansionRatioPercentChange={vi.fn()}
       onSelectChapter={vi.fn()}
       onActiveChapterChange={vi.fn()}
       onStart={vi.fn()}
@@ -72,11 +101,25 @@ describe("ChapterEnrichmentRewriteDialog", () => {
     renderDialog(buildItem({ state: "waiting", preview: "", statusLabel: "等待中" }));
 
     expect(screen.getByLabelText("自由改写要求")).toBeInTheDocument();
+    expect(screen.getByLabelText("扩写比例")).toHaveValue(20);
     expect(screen.getByText("选择章节")).toBeInTheDocument();
     expect(screen.queryByText("未选择")).toBeNull();
     expect(screen.getByText("未选")).toBeInTheDocument();
     expect(screen.queryByText("当前正文")).toBeNull();
     expect(screen.queryByRole("button", { name: "应用当前" })).toBeNull();
+  });
+
+  test("exposes expansion ratio input with default value", () => {
+    const onExpansionRatioPercentChange = vi.fn();
+    renderDialog(buildItem({ state: "waiting", preview: "", statusLabel: "等待中" }), {
+      onExpansionRatioPercentChange,
+    });
+
+    const input = screen.getByLabelText("扩写比例");
+    expect(input).toHaveValue(20);
+    fireEvent.change(input, { target: { value: "35" } });
+
+    expect(onExpansionRatioPercentChange).toHaveBeenCalledWith(35);
   });
 
   test("renders a read-only side-by-side diff for the active chapter", () => {
@@ -104,7 +147,7 @@ describe("ChapterEnrichmentRewriteDialog", () => {
 
   test("applies the active generated chapter", () => {
     const item = buildItem();
-    const { onApplyOne } = renderDialog(item);
+    const { onApplyOne } = renderDialog(item, { batch: buildBatch(item.chapter) });
 
     fireEvent.click(screen.getByRole("button", { name: "应用当前" }));
 

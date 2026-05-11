@@ -1331,6 +1331,11 @@ export interface components {
             chapter_ids: string[];
             /** Instruction */
             instruction: string;
+            /**
+             * Expansion Ratio Percent
+             * @default 20
+             */
+            expansion_ratio_percent: number;
         };
         /** ChapterRewriteBatchItemResponse */
         ChapterRewriteBatchItemResponse: {
@@ -1377,6 +1382,8 @@ export interface components {
             project_id: string;
             /** Instruction */
             instruction: string;
+            /** Expansion Ratio Percent */
+            expansion_ratio_percent: number;
             /**
              * Status
              * @enum {string}
@@ -1430,6 +1437,8 @@ export interface components {
             project_id: string;
             /** Instruction */
             instruction: string;
+            /** Expansion Ratio Percent */
+            expansion_ratio_percent: number;
             /**
              * Status
              * @enum {string}
@@ -1534,6 +1543,11 @@ export interface components {
             chapter_id: string;
             /** Instruction */
             instruction: string;
+            /**
+             * Expansion Ratio Percent
+             * @default 20
+             */
+            expansion_ratio_percent: number;
         };
         /** NovelImportChapterDraft */
         NovelImportChapterDraft: {
@@ -1716,6 +1730,11 @@ export interface components {
              * @default 0
              */
             total_content_length: number;
+            /**
+             * Expansion Ratio Percent
+             * @default 20
+             */
+            expansion_ratio_percent: number;
             /** Beat */
             beat?: string | null;
             /** Beats */

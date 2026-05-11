@@ -300,6 +300,8 @@ export function EditorContentArea({
     isOpen: isChapterRewriteOpen,
     instruction: chapterRewriteInstruction,
     setInstruction: setChapterRewriteInstruction,
+    expansionRatioPercent: chapterRewriteExpansionRatioPercent,
+    setExpansionRatioPercent: setChapterRewriteExpansionRatioPercent,
     orderedChapters: chapterRewriteChapters,
     selectedChapterIds,
     selectChapter: selectChapterForRewrite,
@@ -894,10 +896,12 @@ export function EditorContentArea({
         activeItem={activeChapterRewriteItem}
         activeChapterId={activeChapterRewriteId}
         instruction={chapterRewriteInstruction}
+        expansionRatioPercent={chapterRewriteExpansionRatioPercent}
         batch={activeChapterRewriteBatch}
         isRunning={isChapterRewriteRunning}
         isApplying={isChapterRewriteApplying}
         onInstructionChange={setChapterRewriteInstruction}
+        onExpansionRatioPercentChange={setChapterRewriteExpansionRatioPercent}
         onSelectChapter={selectChapterForRewrite}
         onActiveChapterChange={setActiveChapterRewriteId}
         onStart={handleStartChapterRewrite}

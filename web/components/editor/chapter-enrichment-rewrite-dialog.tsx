@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,10 +45,12 @@ type ChapterEnrichmentRewriteDialogProps = {
   activeItem: ChapterRewriteItem | null;
   activeChapterId: string | null;
   instruction: string;
+  expansionRatioPercent: number;
   batch: ChapterRewriteBatch | null;
   isRunning: boolean;
   isApplying: boolean;
   onInstructionChange: (value: string) => void;
+  onExpansionRatioPercentChange: (value: number) => void;
   onSelectChapter: (chapterId: string, checked: boolean) => void;
   onActiveChapterChange: (chapterId: string) => void;
   onStart: () => void;
@@ -84,10 +87,12 @@ export function ChapterEnrichmentRewriteDialog({
   activeItem,
   activeChapterId,
   instruction,
+  expansionRatioPercent,
   batch,
   isRunning,
   isApplying,
   onInstructionChange,
+  onExpansionRatioPercentChange,
   onSelectChapter,
   onActiveChapterChange,
   onStart,
@@ -237,6 +242,27 @@ export function ChapterEnrichmentRewriteDialog({
                     disabled={busy}
                     className="min-h-[360px] flex-1 resize-none text-base leading-7 shadow-none"
                   />
+                  <div className="grid gap-2 sm:max-w-48">
+                    <Label htmlFor="chapter-rewrite-expansion-ratio">扩写比例</Label>
+                    <div className="relative">
+                      <Input
+                        id="chapter-rewrite-expansion-ratio"
+                        type="number"
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={expansionRatioPercent}
+                        onChange={(event) =>
+                          onExpansionRatioPercentChange(Number(event.target.value))
+                        }
+                        disabled={busy}
+                        className="pr-8"
+                      />
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                        %
+                      </span>
+                    </div>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     运行期间会锁定改写要求与章节选择，生成完成后自动进入差异审核。
                   </p>

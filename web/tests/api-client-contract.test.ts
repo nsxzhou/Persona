@@ -490,6 +490,7 @@ describe("API contracts", () => {
       project_id: "project-1",
       chapter_id: "chapter-1",
       instruction: "增强压迫感",
+      expansion_ratio_percent: 20,
     });
     const rewriteStatusPromise: Promise<NovelChapterRewriteJobStatus> =
       client.getNovelChapterRewriteJobStatus("rewrite-job-1");
@@ -503,6 +504,7 @@ describe("API contracts", () => {
       project_id: "project-1",
       chapter_ids: ["chapter-1"],
       instruction: "增强压迫感",
+      expansion_ratio_percent: 20,
     });
     const batchListPromise: Promise<ChapterRewriteBatchListItem[]> = client.getChapterRewriteBatches({
       projectId: "project-1",

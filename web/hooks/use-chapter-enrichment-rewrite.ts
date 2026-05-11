@@ -101,6 +101,7 @@ export function useChapterEnrichmentRewrite({
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
+  const [expansionRatioPercent, setExpansionRatioPercent] = useState(20);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [logsByItemId, setLogsByItemId] = useState<Record<string, string>>({});
   const [applyStateByItemId, setApplyStateByItemId] = useState<Record<string, "applying" | "failed">>({});
@@ -144,6 +145,7 @@ export function useChapterEnrichmentRewrite({
   useEffect(() => {
     if (!batch) return;
     setInstruction(batch.instruction);
+    setExpansionRatioPercent(batch.expansion_ratio_percent);
     setSelectedChapterIds(new Set(batchItems.map((item) => item.chapter_id)));
     const currentId =
       batch.current_chapter_id ||
@@ -190,11 +192,12 @@ export function useChapterEnrichmentRewrite({
   }, [activeItemId, batch, batchItems]);
 
   const createMutation = useMutation({
-    mutationFn: (payload: { chapterIds: string[]; instruction: string }) =>
+    mutationFn: (payload: { chapterIds: string[]; instruction: string; expansionRatioPercent: number }) =>
       api.createChapterRewriteBatch({
         project_id: projectId,
         chapter_ids: payload.chapterIds,
         instruction: payload.instruction,
+        expansion_ratio_percent: payload.expansionRatioPercent,
       }),
     onSuccess: (created) => {
       setActiveBatchId(created.id);
@@ -231,6 +234,7 @@ export function useChapterEnrichmentRewrite({
     );
     setSelectedChapterIds(initialIds);
     setActiveChapterId([...initialIds][0] ?? null);
+    setExpansionRatioPercent(20);
     setIsOpen(true);
   }, [batch, orderedChapters, selectedChapter]);
 
@@ -259,11 +263,17 @@ export function useChapterEnrichmentRewrite({
       toast.message("请选择至少一个章节");
       return;
     }
+    const normalizedRatio = Math.trunc(expansionRatioPercent);
+    if (normalizedRatio < 1 || normalizedRatio > 100) {
+      toast.message("扩写比例需在 1% 到 100% 之间");
+      return;
+    }
     createMutation.mutate({
       chapterIds: selected.map((chapter) => chapter.id),
       instruction: trimmed,
+      expansionRatioPercent: normalizedRatio,
     });
-  }, [createMutation, instruction, isRunning, orderedChapters, selectedChapterIds]);
+  }, [createMutation, expansionRatioPercent, instruction, isRunning, orderedChapters, selectedChapterIds]);
 
   const applyOne = useCallback(async (chapterId: string) => {
     if (!batch || isBatchActive(batch) || isApplying) return null;
@@ -377,6 +387,8 @@ export function useChapterEnrichmentRewrite({
     isOpen,
     instruction,
     setInstruction,
+    expansionRatioPercent,
+    setExpansionRatioPercent,
     orderedChapters,
     selectedChapterIds,
     selectChapter,

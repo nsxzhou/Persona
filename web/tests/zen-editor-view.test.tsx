@@ -315,6 +315,7 @@ describe("ZenEditorView", () => {
       user_id: "user-1",
       project_id: "project-1",
       instruction: "增强雨夜压迫感",
+      expansion_ratio_percent: 20,
       status: "succeeded",
       stage: null,
       error_message: null,
@@ -544,11 +545,12 @@ describe("ZenEditorView", () => {
   });
 
   test("runs selected chapter enrichment rewrite and applies artifact", async () => {
-    let batchDetail = {
+    let batchDetail: import("@/lib/types").ChapterRewriteBatch = {
       id: "batch-1",
       user_id: "user-1",
       project_id: "project-1",
       instruction: "增强雨夜压迫感",
+      expansion_ratio_percent: 20,
       status: "succeeded",
       stage: null,
       error_message: null,
@@ -584,19 +586,21 @@ describe("ZenEditorView", () => {
     apiMock.createChapterRewriteBatch.mockImplementationOnce(async () => batchDetail);
     apiMock.getChapterRewriteBatch.mockImplementation(async () => batchDetail);
     apiMock.applyChapterRewriteBatchItem.mockImplementationOnce(async () => {
+      const existingItem = batchDetail.items?.[0];
+      if (!existingItem) throw new Error("missing rewrite batch item");
       batchDetail = {
         ...batchDetail,
         applied_count: 1,
         items: [
           {
-            ...batchDetail.items[0],
+            ...existingItem,
             status: "applied",
             applied_at: "2026-05-10T00:00:20Z",
           },
         ],
       };
       return {
-        item: batchDetail.items[0],
+        item: batchDetail.items?.[0] ?? existingItem,
         chapter: {
           ...chapters[0],
           content: "整章改写结果",
@@ -628,6 +632,7 @@ describe("ZenEditorView", () => {
         project_id: "project-1",
         chapter_ids: ["chapter-1"],
         instruction: "增强雨夜压迫感",
+        expansion_ratio_percent: 20,
       });
     });
     expect(await within(dialog).findByText("整章改写结果")).toBeInTheDocument();
@@ -662,6 +667,7 @@ describe("ZenEditorView", () => {
       user_id: "user-1",
       project_id: "project-1",
       instruction: "增强雨夜压迫感",
+      expansion_ratio_percent: 35,
       status: "succeeded",
       stage: null,
       error_message: null,
@@ -730,6 +736,9 @@ describe("ZenEditorView", () => {
     fireEvent.change(within(dialog).getByLabelText("自由改写要求"), {
       target: { value: "增强雨夜压迫感" },
     });
+    fireEvent.change(within(dialog).getByLabelText("扩写比例"), {
+      target: { value: "35" },
+    });
     fireEvent.click(within(dialog).getByRole("button", { name: "开始改写" }));
 
     await waitFor(() => {
@@ -737,6 +746,7 @@ describe("ZenEditorView", () => {
         project_id: "project-1",
         chapter_ids: ["chapter-1", "chapter-2"],
         instruction: "增强雨夜压迫感",
+        expansion_ratio_percent: 35,
       });
     });
     expect(await within(dialog).findByText("整章改写结果")).toBeInTheDocument();

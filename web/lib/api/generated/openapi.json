@@ -4287,6 +4287,13 @@
             "maxLength": 4000,
             "minLength": 1,
             "title": "Instruction"
+          },
+          "expansion_ratio_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Expansion Ratio Percent",
+            "default": 20
           }
         },
         "type": "object",
@@ -4433,6 +4440,10 @@
             "type": "string",
             "title": "Instruction"
           },
+          "expansion_ratio_percent": {
+            "type": "integer",
+            "title": "Expansion Ratio Percent"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -4554,6 +4565,7 @@
           "id",
           "project_id",
           "instruction",
+          "expansion_ratio_percent",
           "status",
           "stage",
           "error_message",
@@ -4591,6 +4603,10 @@
           "instruction": {
             "type": "string",
             "title": "Instruction"
+          },
+          "expansion_ratio_percent": {
+            "type": "integer",
+            "title": "Expansion Ratio Percent"
           },
           "status": {
             "type": "string",
@@ -4721,6 +4737,7 @@
           "user_id",
           "project_id",
           "instruction",
+          "expansion_ratio_percent",
           "status",
           "stage",
           "error_message",
@@ -4879,6 +4896,13 @@
             "maxLength": 4000,
             "minLength": 1,
             "title": "Instruction"
+          },
+          "expansion_ratio_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Expansion Ratio Percent",
+            "default": 20
           }
         },
         "type": "object",
@@ -5451,6 +5475,13 @@
             "minimum": 0.0,
             "title": "Total Content Length",
             "default": 0
+          },
+          "expansion_ratio_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Expansion Ratio Percent",
+            "default": 20
           },
           "beat": {
             "anyOf": [
