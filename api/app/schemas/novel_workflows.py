@@ -84,6 +84,7 @@ class NovelWorkflowCreateRequest(BaseModel):
     imported_previous_chapter: dict[str, str] | None = None
     imported_next_chapter: dict[str, str] | None = None
     total_content_length: int = Field(default=0, ge=0)
+    expansion_ratio_percent: int = Field(default=20, ge=1, le=100)
     beat: str | None = None
     beats: list[str] = Field(default_factory=list)
     beat_index: int | None = Field(default=None, ge=0)

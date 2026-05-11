@@ -57,6 +57,7 @@ async def test_chapter_rewrite_job_artifact_and_apply_updates_export(
         async def run(self, *, run_id: str, initial_state: dict[str, object]):
             assert initial_state["intent_type"] == "chapter_enrichment_rewrite"
             assert initial_state["chapter_snapshot"]["content"] == "旧正文"
+            assert initial_state["expansion_ratio_percent"] == 35
             await storage.write_stage_markdown_artifact(
                 run_id,
                 name=CHAPTER_REWRITE_ARTIFACT,
@@ -78,6 +79,7 @@ async def test_chapter_rewrite_job_artifact_and_apply_updates_export(
             "project_id": project["id"],
             "chapter_id": chapter["id"],
             "instruction": "增强雨夜压迫感",
+            "expansion_ratio_percent": 35,
         },
     )
     assert create_response.status_code == 201
@@ -160,6 +162,7 @@ async def test_imported_chapter_rewrite_job_uses_imported_full_rewrite_intent(
         async def run(self, *, run_id: str, initial_state: dict[str, object]):
             assert initial_state["intent_type"] == "imported_chapter_full_rewrite"
             assert initial_state["chapter_snapshot"]["content"] == "当前章正文需要改写。"
+            assert initial_state["expansion_ratio_percent"] == 20
             assert initial_state["imported_previous_chapter"]["title"] == "第 1 章 雨夜归来"
             assert "上一章正文结尾" in initial_state["imported_previous_chapter"]["excerpt"]
             assert initial_state["imported_next_chapter"]["title"] == "第 3 章 新线索"

@@ -82,6 +82,7 @@ class NovelChapterRewriteJobService:
                 imported_next_chapter=next_context,
                 model_overrides=NovelWorkflowModelOverrides(enable_editor_pass=False),
                 total_content_length=chapter.word_count,
+                expansion_ratio_percent=payload.expansion_ratio_percent,
             ),
             user_id=user_id,
         )

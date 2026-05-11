@@ -279,12 +279,24 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
 
     get_settings.cache_clear()
-    rewritten = (
-        "沈砚推开窗，雨声压低了屋里的呼吸。"
-        "他把旧卷宗合上，记住最后一行墨迹。"
-        "门外的脚步停住时，他没有继续往前追。"
-    )
-    llm = StubLLMWithKwargs(['["沈砚"]', rewritten])
+    original = "沈砚推开窗，雨落进来。他合上卷宗，停在门前。"
+    rewritten = "沈砚推开窗，冷雨压低了呼吸。他合上卷宗，停在门前。"
+    patches_markdown = f"""# Chapter Rewrite Patches
+
+## Patch 1
+Operation: replace
+
+Anchor:
+```text
+{original}
+```
+
+New Text:
+```text
+{rewritten}
+```
+"""
+    llm = StubLLMWithKwargs(['["沈砚"]', patches_markdown])
     storage = NovelWorkflowStorageService()
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
@@ -300,8 +312,9 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
             "style_prompt": "短句、冷雨、低声对白。",
             "plot_prompt": "SHOULD_NOT_APPEAR_PLOT_GUIDE",
             "current_chapter_context": "第2章 旧卷宗",
-            "selected_text": "沈砚推开窗，雨落进来。他合上卷宗，停在门前。",
+            "selected_text": original,
             "rewrite_instruction": "增强压迫感，不要改变结尾。",
+            "expansion_ratio_percent": 14,
             "imported_previous_chapter": {
                 "title": "第1章 雨夜归来",
                 "summary": "沈砚回城。",
@@ -314,7 +327,7 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
             },
             "chapter_snapshot": {
                 "title": "第2章 旧卷宗",
-                "content": "沈砚推开窗，雨落进来。他合上卷宗，停在门前。",
+                "content": original,
                 "summary": "",
             },
             "current_bible": {
@@ -334,6 +347,7 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
     )
 
     assert result.persist_payload["markdown"] == rewritten
+    assert result.persist_payload["patches_markdown"] == patches_markdown.strip()
     assert [call["mode"] for call in llm.calls] == ["analysis", "immersion"]
     active_call = llm.calls[0]
     assert "沈砚推开窗" in active_call["user_context"]
@@ -349,7 +363,9 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
     assert "下一章开头" in prose_call["user_context"]
     assert "增强压迫感" in prose_call["user_context"]
     assert "不要输出章节标题" in prose_call["user_context"]
-    assert "只输出改写后的当前章节正文" in prose_call["system_prompt"]
+    assert "只输出 Markdown 补丁" in prose_call["system_prompt"]
+    assert "不得输出改写后的完整章节" in prose_call["system_prompt"]
+    assert "Operation 只能是 `insert_after` 或 `replace`" in prose_call["system_prompt"]
     assert "Plot Writing Guide disabled" in prose_call["system_prompt"]
     assert "短句、冷雨、低声对白。" in prose_call["system_prompt"]
     assert "查案者" in prose_call["system_prompt"]
@@ -387,6 +403,11 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
         name="chapter_rewrite_markdown",
     )
     assert stored == rewritten
+    raw_patches = await storage.read_stage_markdown_artifact(
+        "run-imported-rewrite-context",
+        name="chapter_rewrite_patches_markdown",
+    )
+    assert raw_patches == patches_markdown.strip()
 
 
 @pytest.mark.asyncio
@@ -401,7 +422,26 @@ async def test_imported_chapter_full_rewrite_omits_active_character_block_when_n
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
 
     get_settings.cache_clear()
-    llm = StubLLMWithKwargs(["[]", "改写后的正文仍停在原结尾。"])
+    llm = StubLLMWithKwargs(
+        [
+            "[]",
+            """# Chapter Rewrite Patches
+
+## Patch 1
+Operation: replace
+
+Anchor:
+```text
+原正文停在门前。
+```
+
+New Text:
+```text
+原正文仍停在门前。
+```
+""",
+        ]
+    )
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
         storage_service=NovelWorkflowStorageService(),
@@ -414,6 +454,7 @@ async def test_imported_chapter_full_rewrite_omits_active_character_block_when_n
             "intent_type": "imported_chapter_full_rewrite",
             "selected_text": "原正文停在门前。",
             "chapter_snapshot": {"title": "第2章", "content": "原正文停在门前。"},
+            "expansion_ratio_percent": 12,
             "current_bible": {
                 "characters_blueprint": "## 沈砚\n- 查案者",
                 "characters_status": "## 沈砚\n- 当前状态",
@@ -430,6 +471,112 @@ async def test_imported_chapter_full_rewrite_omits_active_character_block_when_n
     assert prose_call["prompt_stack_manifest"]["imported_rewrite_context"][
         "active_character_material_char_count"
     ] == 0
+
+
+@pytest.mark.asyncio
+async def test_chapter_enrichment_rewrite_stores_synthesized_and_raw_patch_artifacts(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    original = "第一段落写完了。\n\n第二段落收束。"
+    raw_patches = """# Chapter Rewrite Patches
+
+## Patch 1
+Operation: insert_after
+
+Anchor:
+```text
+第一段落写完了。
+```
+
+New Text:
+```text
+新增气氛。
+```
+"""
+    llm = StubLLM(['["沈砚"]', raw_patches])
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-enrichment-patches",
+        initial_state={
+            "intent_type": "chapter_enrichment_rewrite",
+            "selected_text": original,
+            "text_before_cursor": original,
+            "rewrite_instruction": "增加气氛",
+            "expansion_ratio_percent": 40,
+            "chapter_snapshot": {
+                "title": "第1章",
+                "content": original,
+            },
+            "current_bible": {},
+        },
+    )
+
+    synthesized = "第一段落写完了。\n\n新增气氛。\n\n第二段落收束。"
+    assert result.persist_payload["markdown"] == synthesized
+    assert result.persist_payload["patches_markdown"] == raw_patches.strip()
+    assert result.latest_artifacts == [
+        "chapter_rewrite_markdown",
+        "chapter_rewrite_patches_markdown",
+    ]
+    assert (
+        await storage.read_stage_markdown_artifact(
+            "run-chapter-enrichment-patches",
+            name="chapter_rewrite_markdown",
+        )
+        == synthesized
+    )
+    assert (
+        await storage.read_stage_markdown_artifact(
+            "run-chapter-enrichment-patches",
+            name="chapter_rewrite_patches_markdown",
+        )
+        == raw_patches.strip()
+    )
+
+
+@pytest.mark.asyncio
+async def test_chapter_rewrite_no_patches_fails_workflow(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    llm = StubLLM(['[]', "# Chapter Rewrite Patches\n\nNo patches."])
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=NovelWorkflowStorageService(),
+        checkpointer=InMemorySaver(),
+    )
+
+    with pytest.raises(ValueError, match="未返回任何可用补丁"):
+        await pipeline.run(
+            run_id="run-chapter-rewrite-no-patches",
+            initial_state={
+                "intent_type": "chapter_enrichment_rewrite",
+                "selected_text": "第一段。",
+                "chapter_snapshot": {"title": "第1章", "content": "第一段。"},
+                "current_bible": {},
+            },
+        )
 
 
 @pytest.mark.asyncio

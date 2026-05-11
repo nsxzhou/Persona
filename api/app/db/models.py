@@ -465,6 +465,12 @@ class ChapterRewriteBatch(TimestampMixin, Base):
         ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
     instruction: Mapped[str] = mapped_column(Text, nullable=False)
+    expansion_ratio_percent: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=20,
+        server_default="20",
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", index=True)
     stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

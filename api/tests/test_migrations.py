@@ -300,7 +300,13 @@ def test_chapter_rewrite_batch_migration_adds_batch_tables(
 
     assert "chapter_rewrite_batches" in tables
     assert "chapter_rewrite_batch_items" in tables
-    assert {"instruction", "status", "generated_count", "failed_count"}.issubset(batch_columns)
+    assert {
+        "instruction",
+        "expansion_ratio_percent",
+        "status",
+        "generated_count",
+        "failed_count",
+    }.issubset(batch_columns)
     assert {"batch_id", "chapter_id", "child_run_id", "position", "status"}.issubset(item_columns)
 
 

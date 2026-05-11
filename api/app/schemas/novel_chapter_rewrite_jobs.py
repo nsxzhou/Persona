@@ -15,6 +15,7 @@ class NovelChapterRewriteJobCreateRequest(BaseModel):
     project_id: str
     chapter_id: str
     instruction: str = Field(min_length=1, max_length=4000)
+    expansion_ratio_percent: int = Field(default=20, ge=1, le=100)
 
 
 class NovelChapterRewriteJobArtifactResponse(RootModel[str]):

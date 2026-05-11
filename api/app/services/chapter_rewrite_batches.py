@@ -84,6 +84,7 @@ class ChapterRewriteBatchService:
             user_id=user_id,
             project_id=payload.project_id,
             instruction=instruction,
+            expansion_ratio_percent=payload.expansion_ratio_percent,
             chapter_ids=[chapter.id for chapter in ordered_chapters],
             pending_status=CHAPTER_REWRITE_BATCH_STATUS_PENDING,
             item_waiting_status=CHAPTER_REWRITE_BATCH_ITEM_STATUS_WAITING,
@@ -382,6 +383,7 @@ class ChapterRewriteBatchService:
                 project_id=item.batch.project_id,
                 chapter_id=item.chapter_id,
                 instruction=item.batch.instruction,
+                expansion_ratio_percent=item.batch.expansion_ratio_percent,
             ),
             user_id=user_id,
         )

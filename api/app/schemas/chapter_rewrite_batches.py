@@ -34,6 +34,7 @@ class ChapterRewriteBatchCreateRequest(BaseModel):
     project_id: str
     chapter_ids: list[str] = Field(min_length=1)
     instruction: str = Field(min_length=1, max_length=4000)
+    expansion_ratio_percent: int = Field(default=20, ge=1, le=100)
 
 
 class ChapterRewriteBatchItemResponse(BaseModel):
@@ -61,6 +62,7 @@ class ChapterRewriteBatchResponse(BaseModel):
     user_id: str
     project_id: str
     instruction: str
+    expansion_ratio_percent: int
     status: ChapterRewriteBatchStatus
     stage: str | None
     error_message: str | None
@@ -84,6 +86,7 @@ class ChapterRewriteBatchListItemResponse(BaseModel):
     id: str
     project_id: str
     instruction: str
+    expansion_ratio_percent: int
     status: ChapterRewriteBatchStatus
     stage: str | None
     error_message: str | None

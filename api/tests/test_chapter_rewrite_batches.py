@@ -83,6 +83,7 @@ async def test_chapter_rewrite_batch_create_list_detail_logs_artifact_and_apply(
         async def run(self, *, run_id: str, initial_state: dict[str, object]):
             chapter = initial_state["chapter_snapshot"]
             assert isinstance(chapter, dict)
+            assert initial_state["expansion_ratio_percent"] == 45
             seen_chapters.append(str(chapter["title"]))
             markdown = f"改写后：{chapter['title']}"
             await storage.append_job_log(run_id, f"生成 {chapter['title']}")
@@ -107,11 +108,13 @@ async def test_chapter_rewrite_batch_create_list_detail_logs_artifact_and_apply(
             "project_id": project["id"],
             "chapter_ids": [chapters[1]["id"], chapters[0]["id"]],
             "instruction": "增强场景张力",
+            "expansion_ratio_percent": 45,
         },
     )
     assert create_response.status_code == 201
     batch = create_response.json()
     assert batch["status"] == "pending"
+    assert batch["expansion_ratio_percent"] == 45
     assert [item["chapter_id"] for item in batch["items"]] == [
         chapters[0]["id"],
         chapters[1]["id"],
@@ -122,6 +125,7 @@ async def test_chapter_rewrite_batch_create_list_detail_logs_artifact_and_apply(
     )
     assert list_response.status_code == 200
     assert list_response.json()[0]["id"] == batch["id"]
+    assert list_response.json()[0]["expansion_ratio_percent"] == 45
 
     assert await ChapterRewriteBatchWorkerService().process_next_pending(
         app_with_db.state.session_factory

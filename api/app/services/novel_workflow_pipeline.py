@@ -49,6 +49,10 @@ from app.services.context_assembly import (
 )
 from app.services.prompt_stack import PromptStackSelection
 from app.services.beat_parser import parse_beats_markdown
+from app.services.chapter_rewrite_patches import (
+    apply_chapter_rewrite_patches,
+    parse_chapter_rewrite_patches,
+)
 from app.services.prose_validation import validate_limited_third_prose
 from app.services.novel_workflow_agents import (
     ActiveCharactersAgent,
@@ -72,6 +76,8 @@ StageCallback = Callable[[str | None], Awaitable[None]]
 
 _TOP_LEVEL_HEADING_RE = re.compile(r"^#(?!#)\s+.+$")
 _IMPORTED_ACTIVE_CHARACTER_SAMPLE_CHARS = 2_000
+CHAPTER_REWRITE_ARTIFACT = "chapter_rewrite_markdown"
+CHAPTER_REWRITE_PATCHES_ARTIFACT = "chapter_rewrite_patches_markdown"
 
 
 def _format_project_book_title(project_name: str | None) -> str:
@@ -143,6 +149,7 @@ class NovelWorkflowState(TypedDict):
     total_beats: NotRequired[int | None]
     preceding_beats_prose: NotRequired[str]
     enable_editor_pass: NotRequired[bool]
+    expansion_ratio_percent: NotRequired[int]
 
     outline_master: NotRequired[str]
     world_building: NotRequired[str]
@@ -511,24 +518,42 @@ class NovelWorkflowPipeline:
         }
 
     async def _handle_chapter_enrichment_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
-        artifact_name = "chapter_rewrite_markdown"
-        markdown = await self._generate_chapter_enrichment_rewrite(state)
+        original = self._chapter_enrichment_rewrite_source_text(state)
+        patches_markdown = await self._generate_chapter_enrichment_rewrite(state)
+        markdown = self._synthesize_chapter_rewrite(
+            original=original,
+            patches_markdown=patches_markdown,
+            expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
+        )
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
-            name=artifact_name,
+            name=CHAPTER_REWRITE_PATCHES_ARTIFACT,
+            markdown=patches_markdown,
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=CHAPTER_REWRITE_ARTIFACT,
             markdown=markdown,
         )
         return {
-            "latest_artifacts": [artifact_name],
-            "persist_payload": {"markdown": markdown},
+            "latest_artifacts": [CHAPTER_REWRITE_ARTIFACT, CHAPTER_REWRITE_PATCHES_ARTIFACT],
+            "persist_payload": {
+                "markdown": markdown,
+                "patches_markdown": patches_markdown,
+            },
         }
 
     async def _handle_imported_chapter_full_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
-        artifact_name = "chapter_rewrite_markdown"
-        markdown = await self._generate_imported_chapter_full_rewrite(state)
+        original = state_chapter_content(state)
+        patches_markdown = await self._generate_imported_chapter_full_rewrite(state)
+        markdown = self._synthesize_chapter_rewrite(
+            original=original,
+            patches_markdown=patches_markdown,
+            expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
+        )
         validation_warnings = validate_imported_chapter_rewrite_output(
             output=markdown,
-            original=state_chapter_content(state),
+            original=original,
             target_title=state_chapter_title(state),
             next_chapter=state_imported_chapter(state, "imported_next_chapter"),
             user_instruction=state.get("rewrite_instruction", ""),
@@ -541,12 +566,20 @@ class NovelWorkflowPipeline:
             )
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
-            name=artifact_name,
+            name=CHAPTER_REWRITE_PATCHES_ARTIFACT,
+            markdown=patches_markdown,
+        )
+        await self.storage_service.write_stage_markdown_artifact(
+            state["run_id"],
+            name=CHAPTER_REWRITE_ARTIFACT,
             markdown=markdown,
         )
         return {
-            "latest_artifacts": [artifact_name],
-            "persist_payload": {"markdown": markdown},
+            "latest_artifacts": [CHAPTER_REWRITE_ARTIFACT, CHAPTER_REWRITE_PATCHES_ARTIFACT],
+            "persist_payload": {
+                "markdown": markdown,
+                "patches_markdown": patches_markdown,
+            },
             "warnings": warnings,
         }
 
@@ -792,11 +825,7 @@ class NovelWorkflowPipeline:
         )
 
     async def _generate_chapter_enrichment_rewrite(self, state: NovelWorkflowState) -> str:
-        chapter_content = (
-            state.get("chapter_snapshot", {}).get("content", "")
-            if isinstance(state.get("chapter_snapshot"), dict)
-            else ""
-        ) or state.get("selected_text", "")
+        chapter_content = self._chapter_enrichment_rewrite_source_text(state)
         if not chapter_content.strip():
             raise ValueError("当前章节正文为空，无法改写")
         if len(chapter_content) > 80_000:
@@ -843,11 +872,9 @@ class NovelWorkflowPipeline:
                 length_preset=state.get("length_preset", "long"),
                 content_length=len(chapter_content),
             )
-            + "\n\n## 章节全文改写硬规则\n"
-            "- 你只输出改写后的小说正文。\n"
-            "- 不输出分析、标题、说明、代码围栏、Markdown 包装或修改清单。\n"
-            "- 用户自由指令是本次改写的主要创作目标；在不冲突时保留原章节的核心事实、视角连续性与剧情顺序。\n"
-            "- 可以增强叙事密度、情绪、动作、环境和人物反应，但不得续写到下一章。"
+            + self._chapter_rewrite_patch_contract(
+                expansion_ratio_percent=state.get("expansion_ratio_percent", 20)
+            )
         )
         parts = []
         if state.get("previous_chapter_context", "").strip():
@@ -858,7 +885,7 @@ class NovelWorkflowPipeline:
         parts.append(
             "## 用户自由改写指令\n\n"
             f"{state.get('rewrite_instruction', '').strip()}\n\n"
-            "按上述指令改写整个章节。只输出改写后的小说正文。"
+            "按上述指令改写整个章节，但输出必须是 Markdown 补丁，不得输出改写后的完整章节。"
         )
         return await self._call_prompt(
             system_prompt=system_prompt,
@@ -884,6 +911,7 @@ class NovelWorkflowPipeline:
         system_prompt = build_imported_chapter_rewrite_system_prompt(
             voice_profile_markdown=state.get("style_prompt", ""),
             active_character_focus=active_character_focus,
+            expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
         )
         previous_chapter = state_imported_chapter(state, "imported_previous_chapter")
         next_chapter = state_imported_chapter(state, "imported_next_chapter")
@@ -893,6 +921,7 @@ class NovelWorkflowPipeline:
             previous_chapter=previous_chapter,
             next_chapter=next_chapter,
             rewrite_instruction=state.get("rewrite_instruction", ""),
+            expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
         )
         return await self._call_prompt(
             system_prompt=system_prompt,
@@ -910,6 +939,53 @@ class NovelWorkflowPipeline:
                     active_character_names=selected_context.active_character_names,
                 ),
             ),
+        )
+
+    @staticmethod
+    def _chapter_enrichment_rewrite_source_text(state: NovelWorkflowState) -> str:
+        chapter_snapshot = state.get("chapter_snapshot")
+        if isinstance(chapter_snapshot, dict):
+            content = chapter_snapshot.get("content", "")
+            if isinstance(content, str) and content.strip():
+                return content
+        return state.get("selected_text", "")
+
+    @staticmethod
+    def _chapter_rewrite_patch_contract(*, expansion_ratio_percent: int) -> str:
+        return (
+            "\n\n## 章节改写 Patch 输出硬规则\n"
+            "- 你必须只输出 Markdown 补丁，不得输出改写后的完整章节。\n"
+            "- 不输出分析、标题以外的说明、解释、修改总结、JSON 或额外 Markdown 包装。\n"
+            "- 顶层标题必须是 `# Chapter Rewrite Patches`。\n"
+            "- 每个补丁小节使用 `## Patch 1`、`## Patch 2` 等标题。\n"
+            "- Operation 只能是 `insert_after` 或 `replace`。\n"
+            "- Anchor 必须是原章节中一个完整自然段的逐字精确文本，且只出现一次。\n"
+            "- New Text 必须放在 ```text 代码块中，可以包含一个或多个新自然段。\n"
+            "- insert_after 表示把 New Text 插入到 Anchor 段落后；replace 表示只替换 Anchor 这一个自然段。\n"
+            "- 不得重复使用 Anchor，不得使用互相重叠或包含的 Anchor。\n"
+            f"- 合成后的净增长目标是原文字数的 {expansion_ratio_percent}%，允许上下 20% 浮动。\n"
+            "- 如果没有可用补丁，只能输出 `# Chapter Rewrite Patches` 后接 `No patches.`，这会被视为失败。\n"
+            "\n"
+            "格式示例：\n"
+            "# Chapter Rewrite Patches\n\n"
+            "## Patch 1\n"
+            "Operation: insert_after\n\n"
+            "Anchor:\n```text\n<one exact full original paragraph>\n```\n\n"
+            "New Text:\n```text\n<one or more new paragraphs>\n```\n"
+        )
+
+    @staticmethod
+    def _synthesize_chapter_rewrite(
+        *,
+        original: str,
+        patches_markdown: str,
+        expansion_ratio_percent: int,
+    ) -> str:
+        patches = parse_chapter_rewrite_patches(patches_markdown)
+        return apply_chapter_rewrite_patches(
+            original,
+            patches,
+            expansion_ratio_percent=expansion_ratio_percent,
         )
 
     async def _write_chapter_from_beats(
