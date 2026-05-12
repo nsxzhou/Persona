@@ -486,7 +486,8 @@ class LLMProviderService:
                 )
                 await asyncio.sleep(_EMPTY_RESPONSE_BACKOFF_SECONDS[attempt - 1])
 
-        assert last_diagnostics is not None
+        if last_diagnostics is None:
+            raise RuntimeError("LLM diagnostics missing after completion attempts")
         message = self._build_empty_response_error_message(
             attempt=total_attempts,
             total_attempts=total_attempts,
