@@ -123,23 +123,39 @@ class NovelWorkflowSimpleIntentHandlers:
         beats = [beat.strip() for beat in state.get("beats", []) if beat.strip()]
         if not beats:
             beats = parse_beats_markdown(state.get("beats_markdown", ""))
-        markdown = await self.pipeline.beat_agent.expand_chapter(
-            state=state,
-            current_bible=focused_bible,
-            generation_profile=generation_profile,
-            beats=beats,
-            previous_output=state.get("previous_output"),
-            user_feedback=state.get("feedback"),
-            regenerating=bool(state.get("previous_output") or state.get("feedback")),
-            prompt_stack_manifest=state_prompt_stack_manifest(state),
-            prompt_asset_layers=state_prompt_asset_layers(state),
-        )
+        prose_parts: list[str] = []
+        prompt_stack_manifest = state_prompt_stack_manifest(state)
+        prompt_asset_layers = state_prompt_asset_layers(state)
+        previous_output = state.get("previous_output")
+        user_feedback = state.get("feedback")
+        regenerating = bool(previous_output or user_feedback)
+        for index, beat in enumerate(beats):
+            markdown_part = await self.pipeline.beat_agent.expand(
+                state=state,
+                current_bible=focused_bible,
+                generation_profile=generation_profile,
+                beat=beat,
+                beat_index=index,
+                total_beats=len(beats),
+                preceding_beats_prose="\n\n".join(prose_parts),
+                previous_output=previous_output,
+                user_feedback=user_feedback,
+                regenerating=regenerating,
+                prompt_stack_manifest=prompt_stack_manifest,
+                prompt_asset_layers=prompt_asset_layers,
+            )
+            prose_parts.append(markdown_part)
+            previous_output = None
+            user_feedback = None
+            regenerating = False
+        markdown = "\n\n".join(prose_parts)
         try:
             review_raw = await self.pipeline.beat_agent.review_chapter_expansion(
                 beats=beats,
                 prose_markdown=markdown,
             )
         except Exception:
+            # Review is a best-effort quality pass; prose delivery must continue.
             review_raw = json.dumps(
                 {"issues": ["章节审校未完成：审校调用失败，已保留生成正文"]},
                 ensure_ascii=False,

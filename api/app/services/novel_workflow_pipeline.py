@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any, NotRequired, TypedDict
 
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
 
 from app.prompts.imported_chapter_rewrite import state_chapter_title
 from app.schemas.novel_workflows import (
@@ -16,8 +15,6 @@ from app.schemas.novel_workflows import (
     NOVEL_WORKFLOW_STAGE_WAITING_DECISION,
 )
 from app.services.prompt_stack import PromptStackSelection
-from app.services.beat_parser import parse_beats_markdown
-from app.services.prose_validation import validate_limited_third_prose
 from app.services.novel_workflow_agents import (
     ActiveCharactersAgent,
     BeatAgent,
@@ -29,9 +26,9 @@ from app.services.novel_workflow_agents import (
 )
 from app.services.novel_workflow_simple_handlers import (
     NovelWorkflowSimpleIntentHandlers,
-    _state_prompt_asset_layers,
-    _state_prompt_stack_manifest,
 )
+from app.services.novel_workflow_chapter_writer import NovelWorkflowChapterWriteOrchestrator
+from app.services.novel_workflow_graph import build_novel_workflow_graph
 from app.services.novel_workflow_storage import NovelWorkflowStorageService
 from app.services.writing_context_selection import (
     SelectedWritingContext,
@@ -152,7 +149,12 @@ class NovelWorkflowPipeline:
         self.editor_agent = EditorAgent(agent_llm)
         self.memory_sync_agent = MemorySyncAgent(agent_llm)
         self.simple_intent_handlers = NovelWorkflowSimpleIntentHandlers(self)
-        self.graph = self._build_graph()
+        self.chapter_write_orchestrator = NovelWorkflowChapterWriteOrchestrator(self)
+        self.graph = build_novel_workflow_graph(
+            state_type=NovelWorkflowState,
+            pipeline=self,
+            checkpointer=self.checkpointer,
+        )
 
     async def run(
         self,
@@ -172,36 +174,6 @@ class NovelWorkflowPipeline:
             warnings=final_state.get("warnings", []),
             checkpoint_kind=final_state.get("checkpoint_kind"),
         )
-
-    def _build_graph(self):
-        builder = StateGraph(NovelWorkflowState)
-        builder.add_node("prepare_input", self._prepare_input)
-        builder.add_node("route_intent", self._route_intent)
-        builder.add_node("run_chapter_write", self._run_chapter_write)
-        builder.add_node("review_beats", self._review_beats)
-        builder.add_node("finalize_chapter_write", self._finalize_chapter_write)
-        builder.add_node("run_concept_bootstrap", self._run_concept_bootstrap)
-        builder.add_node("run_simple_intent", self._run_simple_intent)
-
-        builder.add_edge(START, "prepare_input")
-        builder.add_edge("prepare_input", "route_intent")
-        builder.add_conditional_edges(
-            "route_intent",
-            self._select_intent_node,
-            [
-                "run_chapter_write",
-                "run_concept_bootstrap",
-                "run_simple_intent",
-            ],
-        )
-
-        builder.add_edge("run_chapter_write", "review_beats")
-        builder.add_edge("review_beats", "finalize_chapter_write")
-        builder.add_edge("finalize_chapter_write", END)
-
-        builder.add_edge("run_concept_bootstrap", END)
-        builder.add_edge("run_simple_intent", END)
-        return builder.compile(checkpointer=self.checkpointer)
 
     async def _prepare_input(self, state: NovelWorkflowState) -> dict[str, Any]:
         await self._set_stage(NOVEL_WORKFLOW_STAGE_PREPARING)
@@ -252,19 +224,8 @@ class NovelWorkflowPipeline:
 
     async def _finalize_chapter_write(self, state: NovelWorkflowState) -> dict[str, Any]:
         await self._set_stage(NOVEL_WORKFLOW_STAGE_GENERATING)
-        prose_markdown, warnings = await self._write_chapter_from_beats(state)
-        if validate_limited_third_prose(prose_markdown):
-            warnings.append("limited_third_pov_retry")
-            prose_markdown, retry_warnings = await self._write_chapter_from_beats(
-                {
-                    **state,
-                    "previous_output": prose_markdown,
-                    "feedback": "请严格保持限制性第三人称视角，不要使用括号式内心独白或第一人称内心句式。",
-                }
-            )
-            warnings.extend(retry_warnings)
-            if validate_limited_third_prose(prose_markdown):
-                raise ValueError("限制性第三人称视角校验失败")
+        result = await self.chapter_write_orchestrator.finalize(state)
+        prose_markdown = result["prose_markdown"]
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
             name="prose_markdown",
@@ -273,14 +234,8 @@ class NovelWorkflowPipeline:
         await self._set_stage(NOVEL_WORKFLOW_STAGE_PERSISTING)
         return {
             "latest_artifacts": ["beats_markdown", "prose_markdown"],
-            "warnings": warnings,
-            "persist_payload": {
-                "chapter": {
-                    "content": prose_markdown,
-                    "beats_markdown": state.get("beats_markdown", ""),
-                },
-                "markdown": prose_markdown,
-            },
+            "warnings": result["warnings"],
+            "persist_payload": result["persist_payload"],
         }
 
     async def _run_concept_bootstrap(self, state: NovelWorkflowState) -> dict[str, Any]:
@@ -330,47 +285,7 @@ class NovelWorkflowPipeline:
         self,
         state: NovelWorkflowState,
     ) -> tuple[str, list[str]]:
-        current_bible = state.get("current_bible", {})
-        selected_context = await self._select_writing_context(state, current_bible)
-        focused_bible = selected_context.as_bible()
-        beats = parse_beats_markdown(state.get("beats_markdown", ""))
-        warnings = list(state.get("warnings", []))
-        prose_parts: list[str] = []
-
-        for index, beat in enumerate(beats):
-            accepted = ""
-            for attempt in range(3):
-                prose_candidate = await self.beat_agent.expand(
-                    state=state,
-                    current_bible=focused_bible,
-                    generation_profile=self._generation_profile_obj(state),
-                    beat=beat,
-                    beat_index=index,
-                    total_beats=len(beats),
-                    preceding_beats_prose="".join(prose_parts),
-                    previous_output=accepted or None,
-                    user_feedback=state.get("feedback"),
-                    regenerating=attempt > 0,
-                    prompt_stack_manifest=_state_prompt_stack_manifest(state),
-                    prompt_asset_layers=_state_prompt_asset_layers(state),
-                )
-                continuity = await self.continuity_agent.review(
-                    prose_markdown=prose_candidate,
-                    current_bible=focused_bible,
-                    current_chapter_context=state.get("current_chapter_context", ""),
-                    previous_chapter_context=state.get("previous_chapter_context", ""),
-                    beat=beat,
-                )
-                verdict = self.continuity_agent.extract_verdict(continuity)
-                if verdict == "pass":
-                    accepted = prose_candidate
-                    break
-                if attempt == 2:
-                    warnings.append(f"beat_{index}_continuity_warning")
-                    accepted = prose_candidate
-            prose_parts.append(accepted)
-
-        return "".join(prose_parts), warnings
+        return await self.chapter_write_orchestrator.write_from_beats(state)
 
     async def _select_writing_context(
         self,
