@@ -37,6 +37,19 @@ Components default to React Server Components. Add `'use client'` only when a co
 - Do not put deeply nested ternaries inside `cn()`.
 - Reuse shadcn/ui primitives instead of rebuilding base inputs, buttons, dialogs, or similar controls.
 
+### Motion System
+
+- Use the global motion utilities from `web/app/globals.css` for interactive transitions and entry animation:
+  - `.motion-button` for buttons, icon buttons, and compact clickable controls.
+  - `.motion-input` for form controls and focusable field wrappers.
+  - `.motion-surface` for cards or panels that can hover/lift, with `data-interactive="true"` only when the whole surface is clickable.
+  - `.motion-panel` for non-clickable panels, badges, popovers, and compact status surfaces.
+  - `.motion-row` for table, list, chapter tree, and queue rows.
+  - `.animate-fade-in`, `.animate-slide-up`, and `.animate-scale-in` for restrained entry states.
+- Prefer these utilities over ad hoc `transition-*`, `duration-*`, and `ease-*` classes when adding or touching UI motion.
+- Do not apply transform-writing entry animations such as `.animate-slide-up` or `.animate-scale-in` to elements whose positioning depends on Tailwind transform utilities, for example fixed centered Radix dialog content using `translate-x-[-50%] translate-y-[-50%]`. Use `.animate-fade-in` there so positioning transforms are preserved.
+- Keep production/editor surfaces restrained: apply motion to rows, panels, width changes, and button feedback, not large page-level effects that distract from repeated writing workflows.
+
 ---
 
 ## Accessibility

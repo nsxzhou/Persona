@@ -46,6 +46,14 @@
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
   --radius: 0px;
+  --motion-fast: 160ms;
+  --motion-base: 260ms;
+  --motion-slow: 420ms;
+  --motion-slower: 720ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-lift: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-lightbox-duration: 360ms;
   
   color-scheme: light;
   --font-ui: "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
@@ -90,6 +98,37 @@ html, body {
   }
 }
 
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @layer utilities {
   /* Override default shadow utilities to solid offset shadows or none */
   .shadow-sm {
@@ -103,5 +142,197 @@ html, body {
   }
   .shadow-lg {
     box-shadow: 6px 6px 0px #000000 !important;
+  }
+
+  .motion-page {
+    animation: none;
+  }
+
+  .animate-fade-in {
+    animation: fade-in var(--motion-slow) var(--ease-soft) both;
+    animation-delay: var(--motion-delay, 0ms);
+  }
+
+  .animate-slide-up {
+    animation: slide-up var(--motion-slow) var(--ease-soft) both;
+    animation-delay: var(--motion-delay, 0ms);
+  }
+
+  .animate-scale-in {
+    animation: scale-in var(--motion-slow) var(--ease-soft) both;
+    animation-delay: var(--motion-delay, 0ms);
+  }
+
+  .motion-delay-1 {
+    --motion-delay: 80ms;
+  }
+
+  .motion-delay-2 {
+    --motion-delay: 140ms;
+  }
+
+  .motion-delay-3 {
+    --motion-delay: 200ms;
+  }
+
+  .motion-delay-4 {
+    --motion-delay: 280ms;
+  }
+
+  .motion-nav {
+    transition:
+      background-color var(--motion-base) var(--ease-soft),
+      border-color var(--motion-base) var(--ease-soft),
+      box-shadow var(--motion-base) var(--ease-soft),
+      transform var(--motion-base) var(--ease-lift),
+      opacity var(--motion-base) var(--ease-soft);
+  }
+
+  .motion-surface,
+  .motion-panel {
+    transition:
+      background-color var(--motion-base) var(--ease-soft),
+      border-color var(--motion-base) var(--ease-soft),
+      box-shadow var(--motion-base) var(--ease-soft),
+      opacity var(--motion-base) var(--ease-soft),
+      transform var(--motion-base) var(--ease-lift);
+  }
+
+  .motion-surface[data-interactive="true"] {
+    cursor: pointer;
+    will-change: transform;
+  }
+
+  .motion-button {
+    transition:
+      background-color var(--motion-base) var(--ease-soft),
+      border-color var(--motion-base) var(--ease-soft),
+      color var(--motion-base) var(--ease-soft),
+      box-shadow var(--motion-base) var(--ease-soft),
+      opacity var(--motion-base) var(--ease-soft),
+      transform var(--motion-fast) var(--ease-lift);
+    will-change: transform;
+  }
+
+  .motion-button:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: translateY(0) scale(0.985);
+  }
+
+  .motion-button:disabled,
+  .motion-button[aria-disabled="true"] {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .motion-input {
+    transition:
+      background-color var(--motion-base) var(--ease-soft),
+      border-color var(--motion-base) var(--ease-soft),
+      box-shadow var(--motion-base) var(--ease-soft),
+      opacity var(--motion-base) var(--ease-soft);
+  }
+
+  .motion-row {
+    transition:
+      background-color var(--motion-base) var(--ease-soft),
+      border-color var(--motion-base) var(--ease-soft),
+      box-shadow var(--motion-base) var(--ease-soft),
+      opacity var(--motion-base) var(--ease-soft);
+  }
+
+  .motion-image-zoom {
+    transition:
+      opacity var(--motion-base) var(--ease-soft),
+      transform var(--motion-slower) var(--ease-soft);
+    will-change: transform;
+  }
+
+  .motion-lightbox-overlay {
+    transition: opacity var(--motion-lightbox-duration) var(--ease-soft);
+    will-change: opacity;
+  }
+
+  .motion-lightbox-image {
+    transition:
+      opacity var(--motion-lightbox-duration) var(--ease-soft),
+      transform var(--motion-lightbox-duration) var(--ease-soft);
+    will-change: opacity, transform;
+  }
+
+  .motion-lightbox-overlay-enter {
+    opacity: 1;
+  }
+
+  .motion-lightbox-overlay-exit {
+    opacity: 0;
+  }
+
+  .motion-lightbox-image-enter {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .motion-lightbox-image-exit {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .motion-surface[data-interactive="true"]:hover {
+      transform: translateY(-2px);
+      box-shadow: 4px 4px 0px #000000;
+    }
+
+    .motion-button:hover:not(:disabled):not([aria-disabled="true"]) {
+      transform: translateY(-1px);
+    }
+
+    .motion-row:hover {
+      background-color: color-mix(in oklab, var(--muted) 55%, transparent);
+    }
+
+    .group:hover .motion-image-zoom {
+      transform: scale(1.025);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .motion-surface,
+  .motion-button,
+  .motion-row,
+  .motion-panel,
+  .motion-page,
+  .motion-nav,
+  .motion-image-zoom,
+  .motion-lightbox-image,
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-scale-in,
+  .motion-surface:hover,
+  .motion-surface[data-interactive="true"]:hover,
+  .motion-button:hover,
+  .motion-button:active,
+  .group:hover .motion-image-zoom {
+    transform: none !important;
+  }
+
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-scale-in,
+  .motion-lightbox-overlay,
+  .motion-lightbox-image {
+    animation: none !important;
   }
 }
