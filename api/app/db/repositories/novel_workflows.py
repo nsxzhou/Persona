@@ -385,28 +385,75 @@ class NovelWorkflowRepository:
         pending_status: str,
         now: datetime,
     ) -> None:
-        stale_ids = await session.scalars(
-            select(NovelWorkflowRun.id).where(
+        await session.execute(
+            update(NovelWorkflowRun)
+            .where(
                 NovelWorkflowRun.status == running_status,
+                NovelWorkflowRun.pause_requested_at.is_not(None),
                 func.coalesce(
                     NovelWorkflowRun.last_heartbeat_at,
                     NovelWorkflowRun.started_at,
                 )
                 < cutoff,
             )
-        )
-        for run_id in list(stale_ids):
-            await self.reconcile_stale_run(
-                session,
-                run_id,
-                cutoff=cutoff,
-                max_attempts=max_attempts,
-                running_status=running_status,
-                paused_status=paused_status,
-                failed_status=failed_status,
-                pending_status=pending_status,
-                now=now,
+            .values(
+                status=paused_status,
+                paused_at=now,
+                pause_requested_at=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+                attempt_count=case(
+                    (NovelWorkflowRun.attempt_count > 0, NovelWorkflowRun.attempt_count - 1),
+                    else_=0,
+                ),
             )
+        )
+        await session.execute(
+            update(NovelWorkflowRun)
+            .where(
+                NovelWorkflowRun.status == running_status,
+                NovelWorkflowRun.pause_requested_at.is_(None),
+                NovelWorkflowRun.attempt_count >= max_attempts,
+                func.coalesce(
+                    NovelWorkflowRun.last_heartbeat_at,
+                    NovelWorkflowRun.started_at,
+                )
+                < cutoff,
+            )
+            .values(
+                status=failed_status,
+                error_message="工作流重试次数已用尽，请重新提交",
+                completed_at=now,
+                stage=None,
+                checkpoint_kind=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+            )
+        )
+        await session.execute(
+            update(NovelWorkflowRun)
+            .where(
+                NovelWorkflowRun.status == running_status,
+                NovelWorkflowRun.pause_requested_at.is_(None),
+                NovelWorkflowRun.attempt_count < max_attempts,
+                func.coalesce(
+                    NovelWorkflowRun.last_heartbeat_at,
+                    NovelWorkflowRun.started_at,
+                )
+                < cutoff,
+            )
+            .values(
+                status=pending_status,
+                stage=None,
+                checkpoint_kind=None,
+                error_message=None,
+                locked_by=None,
+                locked_at=None,
+                last_heartbeat_at=None,
+            )
+        )
 
     async def flush(self, session: AsyncSession) -> None:
         await session.flush()
