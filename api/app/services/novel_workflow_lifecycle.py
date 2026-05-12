@@ -76,6 +76,21 @@ class NovelWorkflowLifecycleService:
             now=datetime.now(UTC),
         )
 
+    async def heartbeat_job(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        stage: str | None,
+        checkpoint_kind: str | None = None,
+    ) -> datetime | None:
+        return await self.heartbeat_run(
+            session,
+            job_id,
+            stage=stage,
+            checkpoint_kind=checkpoint_kind,
+        )
+
     async def heartbeat_run(
         self,
         session: AsyncSession,
@@ -106,6 +121,21 @@ class NovelWorkflowLifecycleService:
             run_id,
             paused_status=NOVEL_WORKFLOW_STATUS_PAUSED,
             now=datetime.now(UTC),
+            stage=stage,
+            checkpoint_kind=checkpoint_kind,
+        )
+
+    async def mark_job_paused(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        stage: str | None,
+        checkpoint_kind: str | None = None,
+    ) -> None:
+        await self.mark_run_paused(
+            session,
+            job_id,
             stage=stage,
             checkpoint_kind=checkpoint_kind,
         )
@@ -159,6 +189,23 @@ class NovelWorkflowLifecycleService:
         await session.flush()
         return is_terminal
 
+    async def mark_job_failed(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        error_message: str,
+        max_attempts: int,
+        force_terminal: bool = False,
+    ) -> bool:
+        return await self.mark_run_failed(
+            session,
+            job_id,
+            error_message=error_message,
+            max_attempts=max_attempts,
+            force_terminal=force_terminal,
+        )
+
     async def recover_stale_runs(
         self,
         session: AsyncSession,
@@ -175,4 +222,17 @@ class NovelWorkflowLifecycleService:
             failed_status=NOVEL_WORKFLOW_STATUS_FAILED,
             pending_status=NOVEL_WORKFLOW_STATUS_PENDING,
             now=datetime.now(UTC),
+        )
+
+    async def recover_stale_jobs(
+        self,
+        session: AsyncSession,
+        *,
+        stale_after_seconds: int,
+        max_attempts: int,
+    ) -> None:
+        await self.recover_stale_runs(
+            session,
+            stale_after_seconds=stale_after_seconds,
+            max_attempts=max_attempts,
         )

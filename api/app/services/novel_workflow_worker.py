@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -11,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.core.domain_errors import NotFoundError
 from app.db.models import ProviderConfig
-from app.schemas.novel_workflows import NOVEL_WORKFLOW_STAGE_PREPARING
 from app.schemas.project_chapters import ProjectChapterUpdate
 from app.schemas.projects import ProjectBibleUpdate, ProjectPromptAssetResponse
 from openai import (
@@ -20,7 +18,11 @@ from openai import (
     NotFoundError as OpenAINotFoundError,
     UnprocessableEntityError as OpenAIUnprocessableEntityError,
 )
-from app.services.analysis_worker_lifecycle import run_analysis_worker_poll_loop
+from app.services.analysis_worker_lifecycle import (
+    BaseAnalysisJobExecutor,
+    ShouldPause,
+    StageCallback,
+)
 from app.services.novel_workflow_pipeline import (
     NovelWorkflowAwaitingHuman,
     NovelWorkflowPipeline,
@@ -63,10 +65,17 @@ class NovelWorkflowRunContext:
     initial_state: dict[str, object]
 
 
-class NovelWorkflowJobExecutor:
+class NovelWorkflowJobExecutor(BaseAnalysisJobExecutor):
+    initial_stage = "preparing"
+    pause_exceptions = (NovelWorkflowAwaitingHuman,)
+    failure_log_message = "novel workflow run failed"
+    heartbeat_failure_log_message = "Failed to send periodic novel workflow heartbeat"
+    cleanup_successful_job_artifacts = False
+    logger = logger
+
     def __init__(self, service_graph: NovelWorkflowServiceGraph | None = None) -> None:
         graph = service_graph or build_novel_workflow_service_graph()
-        self.job_service = graph.workflow_service
+        self.workflow_service = graph.workflow_service
         self.lifecycle_service = graph.workflow_lifecycle_service
         self.checkpointer_factory = graph.checkpointer_factory
         self.storage_service = graph.storage_service
@@ -76,144 +85,118 @@ class NovelWorkflowJobExecutor:
         self.style_profile_service = graph.style_profile_service
         self.plot_profile_service = graph.plot_profile_service
         self.llm_service = graph.llm_service
-        self._pause_events: dict[str, asyncio.Event] = {}
-        self._worker_id = f"novel-workflow-worker-{uuid.uuid4()}"
-
-    async def aclose(self) -> None:
-        await self.checkpointer_factory.aclose()
-
-    async def process_next_pending(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-    ) -> bool:
-        worker_id = self._worker_id
-        run_id = await self._claim_next_pending_run(session_factory, worker_id=worker_id)
-        if run_id is None:
-            return False
-        await self._run_claimed_job(session_factory, run_id)
-        return True
+        super().__init__(
+            job_service=self.lifecycle_service,
+            checkpointer_factory=self.checkpointer_factory,
+            storage_service=self.storage_service,
+            worker_id_prefix="novel-workflow-worker",
+        )
 
     async def process_run_by_id(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         run_id: str,
     ) -> bool:
-        async with session_factory.begin() as session:
-            claimed = await self.lifecycle_service.claim_job_by_id_for_worker(
-                session,
-                run_id,
-                worker_id=self._worker_id,
-            )
-        if not claimed:
-            return False
-        await self._run_claimed_job(session_factory, run_id)
-        return True
+        return await self.process_job_by_id(session_factory, run_id)
 
-    async def _claim_next_pending_run(
+    def _max_attempts(self) -> int:
+        return get_settings().novel_workflow_max_attempts
+
+    def _stale_timeout_seconds(self) -> int:
+        return get_settings().novel_workflow_stale_timeout_seconds
+
+    def _is_terminal_error(self, exc: Exception) -> bool:
+        return _is_non_retryable_error(exc)
+
+    async def _claim_pending_job_by_id(
         self,
         session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
         *,
         worker_id: str,
-    ) -> str | None:
-        settings = get_settings()
+    ) -> bool:
         async with session_factory.begin() as session:
-            return await self.lifecycle_service.claim_job_for_worker(
+            return await self.lifecycle_service.claim_job_by_id_for_worker(
                 session,
+                job_id,
                 worker_id=worker_id,
-                max_attempts=settings.novel_workflow_max_attempts,
             )
 
-    async def _run_claimed_job(
+    async def _run_job_to_success(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         run_id: str,
+        *,
+        stage_callback: StageCallback,
+        should_pause: ShouldPause,
+        checkpoint_kind_callback: Callable[[str | None], Awaitable[None]] | None = None,
     ) -> None:
-        current_stage: str | None = NOVEL_WORKFLOW_STAGE_PREPARING
-        current_checkpoint_kind: str | None = None
-        pause_event = asyncio.Event()
-        self._pause_events[run_id] = pause_event
-        stop_heartbeat = asyncio.Event()
-        heartbeat_task = asyncio.create_task(
-            self._run_stage_heartbeat_loop(
-                session_factory,
-                run_id,
-                get_stage=lambda: current_stage,
-                get_checkpoint_kind=lambda: current_checkpoint_kind,
-                stop_event=stop_heartbeat,
-                interval_seconds=self._heartbeat_interval_seconds(),
-            )
+        context = await self._load_run_context(session_factory, run_id)
+        await self.storage_service.append_job_log(
+            run_id,
+            f"[Workflow] starting {context.initial_state['intent_type']}",
+        )
+        pipeline = await self._build_pipeline(
+            run_id=run_id,
+            intent_type=str(context.initial_state["intent_type"]),
+            provider=context.provider,
+            model_name=context.model_name,
+            stage_getter=lambda: None,
+            stage_callback=stage_callback,
+            should_pause=should_pause,
+            decision_loader=lambda _target_run_id: context.initial_state.get("decision_payload"),
+        )
+        result = await pipeline.run(
+            run_id=run_id,
+            initial_state=context.initial_state,
+        )
+        if checkpoint_kind_callback is not None:
+            await checkpoint_kind_callback(result.checkpoint_kind)
+        await self._persist_pipeline_result(
+            session_factory,
+            run_id,
+            result=result,
+        )
+        await self.storage_service.append_job_log(run_id, "[Workflow] completed successfully")
+        await self.checkpointer_factory.delete_thread(run_id)
+
+    async def _mark_job_failed(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        error_message: str,
+        force_terminal: bool = False,
+    ) -> bool:
+        await self.storage_service.append_job_log(
+            job_id,
+            f"[Workflow] failed: {error_message}",
+        )
+        return await super()._mark_job_failed(
+            session_factory,
+            job_id,
+            error_message=error_message,
+            force_terminal=force_terminal,
         )
 
-        async def stage_callback(stage: str | None) -> None:
-            nonlocal current_stage
-            current_stage = stage
-            await self._touch_run_stage(
-                session_factory,
-                run_id,
-                stage=current_stage,
-                checkpoint_kind=current_checkpoint_kind,
-            )
-
-        try:
-            context = await self._load_run_context(session_factory, run_id)
-            await self.storage_service.append_job_log(
-                run_id,
-                f"[Workflow] starting {context.initial_state['intent_type']}",
-            )
-            pipeline = await self._build_pipeline(
-                run_id=run_id,
-                intent_type=str(context.initial_state["intent_type"]),
-                provider=context.provider,
-                model_name=context.model_name,
-                stage_getter=lambda: current_stage,
-                stage_callback=stage_callback,
-                should_pause=pause_event.is_set,
-                decision_loader=lambda _target_run_id: context.initial_state.get("decision_payload"),
-            )
-            result = await pipeline.run(
-                run_id=run_id,
-                initial_state=context.initial_state,
-            )
-            current_checkpoint_kind = result.checkpoint_kind
-            await self._persist_pipeline_result(
-                session_factory,
-                run_id,
-                result=result,
-            )
-            await self.storage_service.append_job_log(run_id, "[Workflow] completed successfully")
-            await self.checkpointer_factory.delete_thread(run_id)
-        except NovelWorkflowAwaitingHuman as exc:
-            current_checkpoint_kind = exc.checkpoint_kind
-            await self.storage_service.append_job_log(
-                run_id,
-                f"[Workflow] waiting for human decision at {current_checkpoint_kind}",
-            )
-            await self._mark_run_paused(
-                session_factory,
-                run_id,
-                stage=current_stage,
-                checkpoint_kind=current_checkpoint_kind,
-            )
-        except Exception as exc:
-            logger.exception("novel workflow run failed", extra={"run_id": run_id})
-            await self.storage_service.append_job_log(
-                run_id,
-                f"[Workflow] failed: {exc}",
-            )
-            await self._mark_run_failed(
-                session_factory,
-                run_id,
-                error_message=str(exc),
-                force_terminal=_is_non_retryable_error(exc),
-            )
-        finally:
-            stop_heartbeat.set()
-            await heartbeat_task
-            self._pause_events.pop(run_id, None)
-
-    def _heartbeat_interval_seconds(self) -> float:
-        stale_timeout_seconds = max(1, get_settings().novel_workflow_stale_timeout_seconds)
-        return max(0.2, min(30.0, stale_timeout_seconds / 3))
+    async def _mark_job_paused(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        stage: str | None,
+        checkpoint_kind: str | None = None,
+    ) -> None:
+        await self.storage_service.append_job_log(
+            job_id,
+            f"[Workflow] waiting for human decision at {checkpoint_kind}",
+        )
+        await super()._mark_job_paused(
+            session_factory,
+            job_id,
+            stage=stage,
+            checkpoint_kind=checkpoint_kind,
+        )
 
     async def _run_stage_heartbeat_loop(
         self,
@@ -225,26 +208,14 @@ class NovelWorkflowJobExecutor:
         stop_event: asyncio.Event,
         interval_seconds: float,
     ) -> None:
-        while not stop_event.is_set():
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
-                break
-            except TimeoutError:
-                stage = get_stage()
-                if stage is None:
-                    continue
-                try:
-                    await self._touch_run_stage(
-                        session_factory,
-                        run_id,
-                        stage=stage,
-                        checkpoint_kind=get_checkpoint_kind(),
-                    )
-                except Exception:
-                    logger.exception(
-                        "Failed to send periodic novel workflow heartbeat",
-                        extra={"run_id": run_id, "stage": stage},
-                    )
+        await super()._run_stage_heartbeat_loop(
+            session_factory,
+            run_id,
+            get_stage=get_stage,
+            get_checkpoint_kind=get_checkpoint_kind,
+            stop_event=stop_event,
+            interval_seconds=interval_seconds,
+        )
 
     async def _build_pipeline(
         self,
@@ -330,34 +301,13 @@ class NovelWorkflowJobExecutor:
             should_pause=should_pause,
         )
 
-    async def _touch_run_stage(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        run_id: str,
-        *,
-        stage: str | None,
-        checkpoint_kind: str | None,
-    ) -> None:
-        async with session_factory() as session:
-            pause_requested_at = await self.lifecycle_service.heartbeat_run(
-                session,
-                run_id,
-                stage=stage,
-                checkpoint_kind=checkpoint_kind,
-            )
-            await session.commit()
-            if pause_requested_at is not None:
-                pause_event = self._pause_events.get(run_id)
-                if pause_event is not None:
-                    pause_event.set()
-
     async def _load_run_context(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         run_id: str,
     ) -> NovelWorkflowRunContext:
         async with session_factory() as session:
-            run = await self.job_service.repository.get_by_id(session, run_id)
+            run = await self.workflow_service.repository.get_by_id(session, run_id)
             if run is None:
                 raise NotFoundError(f"工作流任务不存在: run_id={run_id}")
             request_payload = dict(run.request_payload or {})
@@ -501,7 +451,7 @@ class NovelWorkflowJobExecutor:
         result: NovelWorkflowPipelineResult,
     ) -> None:
         async with session_factory.begin() as session:
-            run = await self.job_service.repository.get_by_id(session, run_id)
+            run = await self.workflow_service.repository.get_by_id(session, run_id)
             if run is None:
                 raise NotFoundError(f"工作流任务不存在: run_id={run_id}")
             payload = result.persist_payload
@@ -526,72 +476,6 @@ class NovelWorkflowJobExecutor:
                 latest_artifacts=result.latest_artifacts,
                 warnings=result.warnings,
             )
-
-    async def _mark_run_paused(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        run_id: str,
-        *,
-        stage: str | None,
-        checkpoint_kind: str | None,
-    ) -> None:
-        async with session_factory.begin() as session:
-            await self.lifecycle_service.mark_run_paused(
-                session,
-                run_id,
-                stage=stage,
-                checkpoint_kind=checkpoint_kind,
-            )
-
-    async def _mark_run_failed(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        run_id: str,
-        *,
-        error_message: str,
-        force_terminal: bool = False,
-    ) -> bool:
-        async with session_factory.begin() as session:
-            return await self.lifecycle_service.mark_run_failed(
-                session,
-                run_id,
-                error_message=error_message,
-                max_attempts=get_settings().novel_workflow_max_attempts,
-                force_terminal=force_terminal,
-            )
-
-    async def fail_stale_running_jobs(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        stale_after_seconds: int,
-    ) -> None:
-        async with session_factory.begin() as session:
-            await self.lifecycle_service.recover_stale_runs(
-                session,
-                stale_after_seconds=stale_after_seconds,
-                max_attempts=get_settings().novel_workflow_max_attempts,
-            )
-
-    async def run_worker(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        poll_interval_seconds: float,
-        max_poll_interval_seconds: float | None = None,
-    ) -> None:
-        settings = get_settings()
-        await run_analysis_worker_poll_loop(
-            poll_interval_seconds=poll_interval_seconds,
-            max_poll_interval_seconds=max_poll_interval_seconds,
-            stale_timeout_seconds=settings.novel_workflow_stale_timeout_seconds,
-            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
-                session_factory,
-                stale_after_seconds=stale_after_seconds,
-            ),
-            process_next_pending=lambda: self.process_next_pending(session_factory),
-        )
-
 
 def _sample_text_for_imported_rewrite(text: str) -> str:
     stripped = text.strip()
