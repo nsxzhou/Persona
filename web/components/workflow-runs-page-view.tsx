@@ -67,6 +67,12 @@ export function WorkflowRunsPageView() {
         offset: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
       }),
+    refetchInterval: (query) =>
+      query.state.data?.some(
+        (run) => run.status === "pending" || run.status === "running",
+      )
+        ? 1000
+        : false,
   });
 
   const projectsQuery = useQuery({

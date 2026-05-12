@@ -39,6 +39,8 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
   const runQuery = useQuery({
     queryKey: ["novel-workflow", runId],
     queryFn: () => api.getNovelWorkflow(runId),
+    refetchInterval: (query) =>
+      query.state.data?.status === "pending" || query.state.data?.status === "running" ? 1000 : false,
   });
 
   const traceQuery = useQuery({
@@ -137,6 +139,13 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
         <SummaryCard label="模型" value={run.model_name || "-"} description={run.provider_label || run.provider_id || ""} />
         <SummaryCard label="时间" value={formatWorkflowDate(run.created_at)} description={`完成：${formatWorkflowDate(run.completed_at)}`} />
       </div>
+
+      {run.status === "failed" && run.error_message ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3">
+          <p className="text-sm font-medium text-destructive">错误信息</p>
+          <p className="mt-1 text-sm text-destructive/80">{run.error_message}</p>
+        </div>
+      ) : null}
 
       <Tabs defaultValue="trace" className="space-y-4">
         <TabsList>
