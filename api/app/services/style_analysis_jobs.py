@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,12 +21,9 @@ from app.schemas.style_analysis_jobs import (
     StyleAnalysisJobStatusResponse,
 )
 from app.services.analysis_jobs import (
+    BaseAnalysisJobService,
     cleanup_analysis_job_external_resources,
-    mark_analysis_job_failed,
-    reconcile_stale_running_job,
-    reconcile_unacknowledged_pause_request,
     resolve_analysis_payload_result_or_409,
-    reset_analysis_job_to_pending,
     sanitize_analysis_error_message,
 )
 from app.services.analysis_uploads import clean_txt_upload_stream, ensure_txt_upload_filename
@@ -45,22 +42,20 @@ def sanitize_style_analysis_error_message(error_message: str | None) -> str:
     )
 
 
-def _reset_job_to_pending(
-    job: StyleAnalysisJob,
-    *,
-    target_status: str = STYLE_ANALYSIS_JOB_STATUS_PENDING,
-    reset_attempts: bool = False,
-    paused_at: datetime | None = None,
-) -> None:
-    reset_analysis_job_to_pending(
-        job,
-        target_status=target_status,
-        reset_attempts=reset_attempts,
-        paused_at=paused_at,
-    )
+class StyleAnalysisJobService(BaseAnalysisJobService):
+    job_not_found_message = "分析任务不存在: job_id={job_id}"
+    status_response_type = StyleAnalysisJobStatusResponse
+    job_logs_response_type = StyleAnalysisJobLogsResponse
+    preparing_stage = STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT
+    pending_status = STYLE_ANALYSIS_JOB_STATUS_PENDING
+    running_status = STYLE_ANALYSIS_JOB_STATUS_RUNNING
+    paused_status = STYLE_ANALYSIS_JOB_STATUS_PAUSED
+    failed_status = STYLE_ANALYSIS_JOB_STATUS_FAILED
+    succeeded_status = STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED
+    stale_timeout_setting_name = "style_analysis_stale_timeout_seconds"
+    max_attempts_setting_name = "style_analysis_max_attempts"
+    sanitize_error_message = staticmethod(sanitize_style_analysis_error_message)
 
-
-class StyleAnalysisJobService:
     def __init__(
         self,
         repository: StyleAnalysisJobRepository | None = None,
@@ -72,41 +67,6 @@ class StyleAnalysisJobService:
         self.provider_service = provider_service or ProviderConfigService()
         self.storage_service = storage_service or StyleAnalysisStorageService()
         self.checkpointer_factory = checkpointer_factory or StyleAnalysisCheckpointerFactory()
-
-    async def list(
-        self,
-        session: AsyncSession,
-        *,
-        user_id: str | None = None,
-        offset: int = 0,
-        limit: int = 50,
-    ) -> list[StyleAnalysisJob]:
-        limit = min(max(limit, 1), 100)
-        return await self.repository.list(
-            session,
-            user_id=user_id,
-            offset=offset,
-            limit=limit,
-            include_payloads=False,
-        )
-
-    async def get_or_404(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-        include_payloads: bool = True,
-    ) -> StyleAnalysisJob:
-        job = await self.repository.get_by_id(
-            session,
-            job_id,
-            user_id=user_id,
-            include_payloads=include_payloads,
-        )
-        if job is None:
-            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
-        return job
 
     async def get_detail_or_404(
         self,
@@ -133,168 +93,6 @@ class StyleAnalysisJobService:
         if job is None:
             raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         return job
-
-    async def get_status_or_404(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> StyleAnalysisJobStatusResponse:
-        job = await self.get_or_404(
-            session,
-            job_id,
-            user_id=user_id,
-            include_payloads=False,
-        )
-        if await self._reconcile_pause_request_if_unacknowledged(session, job):
-            job = await self.get_or_404(
-                session,
-                job_id,
-                user_id=user_id,
-                include_payloads=False,
-            )
-        if await self._reconcile_stale_job_if_needed(session, job):
-            job = await self.get_or_404(
-                session,
-                job_id,
-                user_id=user_id,
-                include_payloads=False,
-            )
-        return StyleAnalysisJobStatusResponse(
-            id=job.id,
-            status=job.status,
-            stage=job.stage,
-            error_message=job.error_message,
-            updated_at=job.updated_at,
-            pause_requested_at=job.pause_requested_at,
-        )
-
-    async def get_job_logs_or_404(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-        offset: int = 0,
-    ) -> StyleAnalysisJobLogsResponse:
-        await self.get_or_404(
-            session,
-            job_id,
-            user_id=user_id,
-            include_payloads=False,
-        )
-        content, next_offset, truncated = await self.storage_service.read_job_logs_incremental(
-            job_id,
-            offset=offset,
-        )
-        return StyleAnalysisJobLogsResponse(
-            content=content,
-            next_offset=next_offset,
-            truncated=truncated,
-        )
-
-    async def resume(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> StyleAnalysisJobStatusResponse:
-        job = await self.get_or_404(
-            session,
-            job_id,
-            user_id=user_id,
-            include_payloads=False,
-        )
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_RUNNING and job.locked_by:
-            raise ConflictError("分析任务正在运行，无法恢复")
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED:
-            raise ConflictError("分析任务已成功完成，无需恢复")
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_PAUSED:
-            _reset_job_to_pending(job)
-            await session.flush()
-            return await self.get_status_or_404(session, job_id, user_id=user_id)
-        _reset_job_to_pending(job, reset_attempts=True)
-        await session.flush()
-        return await self.get_status_or_404(session, job_id, user_id=user_id)
-
-    async def pause(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        user_id: str | None = None,
-    ) -> StyleAnalysisJobStatusResponse:
-        job = await self.get_or_404(
-            session,
-            job_id,
-            user_id=user_id,
-            include_payloads=False,
-        )
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED:
-            raise ConflictError("分析任务已成功完成，无法暂停")
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_FAILED:
-            raise ConflictError("分析任务已失败，无法暂停")
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_PAUSED:
-            return await self.get_status_or_404(session, job_id, user_id=user_id)
-        if job.status == STYLE_ANALYSIS_JOB_STATUS_PENDING:
-            _reset_job_to_pending(
-                job,
-                target_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
-                paused_at=datetime.now(UTC),
-            )
-            await session.flush()
-            return await self.get_status_or_404(session, job_id, user_id=user_id)
-        await self.repository.request_pause(
-            session,
-            job_id,
-            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
-            now=datetime.now(UTC),
-        )
-        await session.flush()
-        refreshed = await self.get_or_404(
-            session,
-            job_id,
-            user_id=user_id,
-            include_payloads=False,
-        )
-        await self._reconcile_pause_request_if_unacknowledged(session, refreshed)
-        await self._reconcile_stale_job_if_needed(session, refreshed)
-        return await self.get_status_or_404(session, job_id, user_id=user_id)
-
-    async def _reconcile_pause_request_if_unacknowledged(
-        self,
-        session: AsyncSession,
-        job: StyleAnalysisJob,
-    ) -> bool:
-        settings = get_settings()
-        return await reconcile_unacknowledged_pause_request(
-            session,
-            job,
-            repository=self.repository,
-            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
-            paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
-            pause_confirm_timeout_seconds=settings.analysis_pause_confirm_timeout_seconds,
-        )
-
-    async def _reconcile_stale_job_if_needed(
-        self,
-        session: AsyncSession,
-        job: StyleAnalysisJob,
-    ) -> bool:
-        settings = get_settings()
-        return await reconcile_stale_running_job(
-            session,
-            job,
-            repository=self.repository,
-            stale_timeout_seconds=settings.style_analysis_stale_timeout_seconds,
-            max_attempts=settings.style_analysis_max_attempts,
-            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
-            paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
-            failed_status=STYLE_ANALYSIS_JOB_STATUS_FAILED,
-            pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
-        )
 
     async def _get_payload_or_409(
         self,
@@ -375,53 +173,6 @@ class StyleAnalysisJobService:
             not_ready_detail="分析任务尚未完成，暂无法读取 Voice Profile",
         )
 
-    async def claim_job_for_worker(
-        self,
-        session: AsyncSession,
-        *,
-        worker_id: str,
-        max_attempts: int,
-    ) -> str | None:
-        return await self.repository.claim_pending_job(
-            session,
-            worker_id=worker_id,
-            max_attempts=max_attempts,
-            preparing_stage=STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
-            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
-            pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
-            now=datetime.now(UTC),
-        )
-
-    async def heartbeat_job(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        stage: str | None,
-    ) -> datetime | None:
-        return await self.repository.heartbeat(
-            session,
-            job_id,
-            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
-            stage=stage,
-            now=datetime.now(UTC),
-        )
-
-    async def mark_job_paused(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        stage: str | None,
-    ) -> None:
-        await self.repository.mark_paused(
-            session,
-            job_id,
-            paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
-            now=datetime.now(UTC),
-            stage=stage,
-        )
-
     async def mark_job_succeeded(
         self,
         session: AsyncSession,
@@ -442,42 +193,6 @@ class StyleAnalysisJobService:
         job.locked_by = None
         job.locked_at = None
         job.last_heartbeat_at = None
-
-    async def mark_job_failed(
-        self,
-        session: AsyncSession,
-        job_id: str,
-        *,
-        error_message: str,
-        max_attempts: int,
-    ) -> bool:
-        job = await self.get_or_404(session, job_id)
-        return mark_analysis_job_failed(
-            job,
-            pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
-            failed_status=STYLE_ANALYSIS_JOB_STATUS_FAILED,
-            error_message=error_message,
-            max_attempts=max_attempts,
-            sanitize_error_message=sanitize_style_analysis_error_message,
-        )
-
-    async def recover_stale_jobs(
-        self,
-        session: AsyncSession,
-        *,
-        stale_after_seconds: int,
-        max_attempts: int,
-    ) -> None:
-        await self.repository.recover_stale_jobs(
-            session,
-            cutoff=datetime.now(UTC) - timedelta(seconds=stale_after_seconds),
-            max_attempts=max_attempts,
-            running_status=STYLE_ANALYSIS_JOB_STATUS_RUNNING,
-            paused_status=STYLE_ANALYSIS_JOB_STATUS_PAUSED,
-            failed_status=STYLE_ANALYSIS_JOB_STATUS_FAILED,
-            pending_status=STYLE_ANALYSIS_JOB_STATUS_PENDING,
-            now=datetime.now(UTC),
-        )
 
     async def create(
         self,

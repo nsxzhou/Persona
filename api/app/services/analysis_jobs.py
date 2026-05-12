@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.core.config import get_settings
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.core.redaction import redact_sensitive_text
 
@@ -155,6 +156,304 @@ def mark_analysis_job_failed(
     return not retryable
 
 
+class BaseAnalysisJobService:
+    repository: Any
+    storage_service: Any
+    job_not_found_message = "分析任务不存在: job_id={job_id}"
+    status_response_type: Any
+    preparing_stage: str
+    pending_status: str
+    running_status: str
+    paused_status: str
+    failed_status: str
+    succeeded_status: str
+    stale_timeout_setting_name: str
+    max_attempts_setting_name: str
+    sanitize_error_message: Callable[[str | None], str]
+
+    async def list(
+        self,
+        session,
+        *,
+        user_id: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[Any]:
+        limit = min(max(limit, 1), 100)
+        return await self.repository.list(
+            session,
+            user_id=user_id,
+            offset=offset,
+            limit=limit,
+            include_payloads=False,
+        )
+
+    async def get_or_404(
+        self,
+        session,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+        include_payloads: bool = True,
+    ):
+        job = await self.repository.get_by_id(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=include_payloads,
+        )
+        if job is None:
+            raise NotFoundError(self.job_not_found_message.format(job_id=job_id))
+        return job
+
+    async def get_status_or_404(
+        self,
+        session,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ):
+        job = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        if await self._reconcile_pause_request_if_unacknowledged(session, job):
+            job = await self.get_or_404(
+                session,
+                job_id,
+                user_id=user_id,
+                include_payloads=False,
+            )
+        if await self._reconcile_stale_job_if_needed(session, job):
+            job = await self.get_or_404(
+                session,
+                job_id,
+                user_id=user_id,
+                include_payloads=False,
+            )
+        return self.status_response_type(
+            id=job.id,
+            status=job.status,
+            stage=job.stage,
+            error_message=job.error_message,
+            updated_at=job.updated_at,
+            pause_requested_at=job.pause_requested_at,
+        )
+
+    async def get_job_logs_or_404(
+        self,
+        session,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+        offset: int = 0,
+    ):
+        await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        content, next_offset, truncated = await self.storage_service.read_job_logs_incremental(
+            job_id,
+            offset=offset,
+        )
+        return self.job_logs_response_type(
+            content=content,
+            next_offset=next_offset,
+            truncated=truncated,
+        )
+
+    async def resume(
+        self,
+        session,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ):
+        job = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        if job.status == self.running_status and job.locked_by:
+            raise ConflictError("分析任务正在运行，无法恢复")
+        if job.status == self.succeeded_status:
+            raise ConflictError("分析任务已成功完成，无需恢复")
+        if job.status == self.paused_status:
+            reset_analysis_job_to_pending(job, target_status=self.pending_status)
+            await session.flush()
+            return await self.get_status_or_404(session, job_id, user_id=user_id)
+        reset_analysis_job_to_pending(
+            job,
+            target_status=self.pending_status,
+            reset_attempts=True,
+        )
+        await session.flush()
+        return await self.get_status_or_404(session, job_id, user_id=user_id)
+
+    async def pause(
+        self,
+        session,
+        job_id: str,
+        *,
+        user_id: str | None = None,
+    ):
+        job = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        if job.status == self.succeeded_status:
+            raise ConflictError("分析任务已成功完成，无法暂停")
+        if job.status == self.failed_status:
+            raise ConflictError("分析任务已失败，无法暂停")
+        if job.status == self.paused_status:
+            return await self.get_status_or_404(session, job_id, user_id=user_id)
+        if job.status == self.pending_status:
+            reset_analysis_job_to_pending(
+                job,
+                target_status=self.paused_status,
+                paused_at=datetime.now(UTC),
+            )
+            await session.flush()
+            return await self.get_status_or_404(session, job_id, user_id=user_id)
+        await self.repository.request_pause(
+            session,
+            job_id,
+            running_status=self.running_status,
+            now=datetime.now(UTC),
+        )
+        await session.flush()
+        refreshed = await self.get_or_404(
+            session,
+            job_id,
+            user_id=user_id,
+            include_payloads=False,
+        )
+        await self._reconcile_pause_request_if_unacknowledged(session, refreshed)
+        await self._reconcile_stale_job_if_needed(session, refreshed)
+        return await self.get_status_or_404(session, job_id, user_id=user_id)
+
+    async def _reconcile_pause_request_if_unacknowledged(self, session, job) -> bool:
+        settings = get_settings()
+        return await reconcile_unacknowledged_pause_request(
+            session,
+            job,
+            repository=self.repository,
+            running_status=self.running_status,
+            paused_status=self.paused_status,
+            pause_confirm_timeout_seconds=settings.analysis_pause_confirm_timeout_seconds,
+        )
+
+    async def _reconcile_stale_job_if_needed(self, session, job) -> bool:
+        settings = get_settings()
+        return await reconcile_stale_running_job(
+            session,
+            job,
+            repository=self.repository,
+            stale_timeout_seconds=getattr(settings, self.stale_timeout_setting_name),
+            max_attempts=getattr(settings, self.max_attempts_setting_name),
+            running_status=self.running_status,
+            paused_status=self.paused_status,
+            failed_status=self.failed_status,
+            pending_status=self.pending_status,
+        )
+
+    async def claim_job_for_worker(
+        self,
+        session,
+        *,
+        worker_id: str,
+        max_attempts: int,
+    ) -> str | None:
+        return await self.repository.claim_pending_job(
+            session,
+            worker_id=worker_id,
+            max_attempts=max_attempts,
+            preparing_stage=self.preparing_stage,
+            running_status=self.running_status,
+            pending_status=self.pending_status,
+            now=datetime.now(UTC),
+        )
+
+    async def heartbeat_job(
+        self,
+        session,
+        job_id: str,
+        *,
+        stage: str | None,
+        checkpoint_kind: str | None = None,
+    ) -> datetime | None:
+        del checkpoint_kind
+        return await self.repository.heartbeat(
+            session,
+            job_id,
+            running_status=self.running_status,
+            stage=stage,
+            now=datetime.now(UTC),
+        )
+
+    async def mark_job_paused(
+        self,
+        session,
+        job_id: str,
+        *,
+        stage: str | None,
+        checkpoint_kind: str | None = None,
+    ) -> None:
+        del checkpoint_kind
+        await self.repository.mark_paused(
+            session,
+            job_id,
+            paused_status=self.paused_status,
+            now=datetime.now(UTC),
+            stage=stage,
+        )
+
+    async def mark_job_failed(
+        self,
+        session,
+        job_id: str,
+        *,
+        error_message: str,
+        max_attempts: int,
+        force_terminal: bool = False,
+    ) -> bool:
+        del force_terminal
+        job = await self.get_or_404(session, job_id)
+        return mark_analysis_job_failed(
+            job,
+            pending_status=self.pending_status,
+            failed_status=self.failed_status,
+            error_message=error_message,
+            max_attempts=max_attempts,
+            sanitize_error_message=self.sanitize_error_message,
+        )
+
+    async def recover_stale_jobs(
+        self,
+        session,
+        *,
+        stale_after_seconds: int,
+        max_attempts: int,
+    ) -> None:
+        await self.repository.recover_stale_jobs(
+            session,
+            cutoff=datetime.now(UTC) - timedelta(seconds=stale_after_seconds),
+            max_attempts=max_attempts,
+            running_status=self.running_status,
+            paused_status=self.paused_status,
+            failed_status=self.failed_status,
+            pending_status=self.pending_status,
+            now=datetime.now(UTC),
+        )
+
+
 async def cleanup_analysis_job_external_resources(
     *,
     job_id: str,
@@ -180,6 +479,8 @@ async def cleanup_analysis_job_external_resources(
     try:
         await checkpointer_factory.delete_thread(job_id)
     except Exception:
+        # Checkpointer backends can raise driver-specific errors; deletion is
+        # best-effort after the DB row is gone, so do not fail user deletion.
         logger.exception(checkpoint_cleanup_error_message, extra={"job_id": job_id})
 
 
@@ -192,9 +493,10 @@ async def run_analysis_stage_heartbeat_loop(
     *,
     job_id: str,
     get_stage: Callable[[], str | None],
+    get_checkpoint_kind: Callable[[], str | None] | None = None,
     stop_event: asyncio.Event,
     interval_seconds: float,
-    touch_stage: Callable[[str | None], Awaitable[None]],
+    touch_stage: Callable[[str | None, str | None], Awaitable[None]],
     logger: logging.Logger,
     failure_log_message: str,
 ) -> None:
@@ -207,8 +509,11 @@ async def run_analysis_stage_heartbeat_loop(
             if stage is None:
                 continue
             try:
-                await touch_stage(stage)
+                checkpoint_kind = get_checkpoint_kind() if get_checkpoint_kind is not None else None
+                await touch_stage(stage, checkpoint_kind)
             except Exception:
+                # Heartbeat failures are logged and retried by the next loop;
+                # the worker execution path owns terminal job failure semantics.
                 logger.exception(
                     failure_log_message,
                     extra={"job_id": job_id, "stage": stage},
