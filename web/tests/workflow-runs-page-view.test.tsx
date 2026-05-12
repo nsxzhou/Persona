@@ -3,7 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { WorkflowRunsPageView } from "@/components/workflow-runs-page-view";
+import { projectsQueryKeys } from "@/lib/projects-query-keys";
 import type { NovelWorkflowListItem, ProjectSummary } from "@/lib/types";
+import {
+  WORKFLOW_RUNS_ALL_FILTER,
+  workflowRunsQueryKeys,
+} from "@/lib/workflow-runs-query-keys";
 
 const apiMock = vi.hoisted(() => ({
   listNovelWorkflows: vi.fn(),
@@ -24,12 +29,15 @@ vi.mock("sonner", () => ({
   toast: toastMock,
 }));
 
-function renderWithClient(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
+function createTestQueryClient() {
+  return new QueryClient({
     defaultOptions: {
       queries: { retry: false },
     },
   });
+}
+
+function renderWithClient(ui: React.ReactElement, queryClient = createTestQueryClient()) {
   return render(
     <QueryClientProvider client={queryClient}>
       {ui}
@@ -111,6 +119,26 @@ describe("WorkflowRunsPageView", () => {
         expect.objectContaining({ status: "succeeded" }),
       );
     });
+  });
+
+  test("renders hydrated first page without initial loading state", () => {
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(
+      workflowRunsQueryKeys.list(
+        WORKFLOW_RUNS_ALL_FILTER,
+        WORKFLOW_RUNS_ALL_FILTER,
+        WORKFLOW_RUNS_ALL_FILTER,
+        1,
+      ),
+      [run],
+    );
+    queryClient.setQueryData(projectsQueryKeys.workflowFilter(), [project]);
+
+    renderWithClient(<WorkflowRunsPageView />, queryClient);
+
+    expect(screen.queryByText("正在加载运行历史...")).not.toBeInTheDocument();
+    expect(screen.getByText("局部改写")).toBeInTheDocument();
+    expect(apiMock.listNovelWorkflows).not.toHaveBeenCalled();
   });
 
   test("labels imported chapter full rewrite runs", async () => {
