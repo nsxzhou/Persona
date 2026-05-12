@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
-import type { ChapterRewriteBatch, ChapterRewriteBatchItem, ProjectChapter } from "@/lib/types";
+import type {
+  ChapterRewriteBatch,
+  ChapterRewriteBatchItem,
+  ChapterRewriteBatchListItem,
+  ProjectChapter,
+} from "@/lib/types";
 
 const POLL_INTERVAL_MS = 1000;
 
@@ -79,6 +84,31 @@ function buildDisplayItem(
   };
 }
 
+type BatchApplyCacheShape = {
+  applied_count: number;
+  total_count: number;
+  items?: ChapterRewriteBatchItem[];
+};
+
+function markBatchItemsApplied<T extends BatchApplyCacheShape>(batch: T, itemIds: Set<string>): T {
+  if (!batch.items) {
+    return {
+      ...batch,
+      applied_count: Math.min(batch.total_count, batch.applied_count + itemIds.size),
+    };
+  }
+  const items = (batch.items ?? []).map((item) =>
+    itemIds.has(item.id)
+      ? { ...item, status: "applied" as const }
+      : item,
+  );
+  return {
+    ...batch,
+    items,
+    applied_count: items.filter((item) => item.status === "applied").length,
+  } as T;
+}
+
 export function useChapterEnrichmentRewrite({
   projectId,
   chapters,
@@ -105,6 +135,7 @@ export function useChapterEnrichmentRewrite({
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [logsByItemId, setLogsByItemId] = useState<Record<string, string>>({});
   const [applyStateByItemId, setApplyStateByItemId] = useState<Record<string, "applying" | "failed">>({});
+  const requestedPreviewIdsRef = useRef<Set<string>>(new Set());
 
   const listQuery = useQuery({
     queryKey: chapterRewriteBatchKeys.list(projectId),
@@ -138,6 +169,7 @@ export function useChapterEnrichmentRewrite({
     if (!batch || isOpen || isBatchActionable(batch)) return;
     setActiveBatchId(null);
     setPreviews({});
+    requestedPreviewIdsRef.current.clear();
     setLogsByItemId({});
     setApplyStateByItemId({});
   }, [batch, isOpen]);
@@ -164,18 +196,32 @@ export function useChapterEnrichmentRewrite({
 
   useEffect(() => {
     if (!batch) return;
+    let cancelled = false;
+    const currentItemIds = new Set(batchItems.map((item) => item.id));
+    requestedPreviewIdsRef.current = new Set(
+      [...requestedPreviewIdsRef.current].filter((itemId) => currentItemIds.has(itemId)),
+    );
     for (const item of batchItems) {
-      if ((item.status === "generated" || item.status === "applied") && previews[item.id] === undefined) {
+      if (
+        (item.status === "generated" || item.status === "applied") &&
+        !requestedPreviewIdsRef.current.has(item.id)
+      ) {
+        requestedPreviewIdsRef.current.add(item.id);
         api.getChapterRewriteBatchItemArtifact(batch.id, item.id)
           .then((artifact) => {
+            if (cancelled) return;
             setPreviews((current) => ({ ...current, [item.id]: artifact }));
           })
           .catch(() => {
+            if (cancelled) return;
             setPreviews((current) => ({ ...current, [item.id]: "" }));
           });
       }
     }
-  }, [batch, batchItems, previews]);
+    return () => {
+      cancelled = true;
+    };
+  }, [batch, batchItems]);
 
   const activeItemId = useMemo(() => {
     if (!batch) return null;
@@ -208,6 +254,7 @@ export function useChapterEnrichmentRewrite({
       setActiveBatchId(created.id);
       setIsOpen(true);
       setPreviews({});
+      requestedPreviewIdsRef.current.clear();
       setLogsByItemId({});
       setApplyStateByItemId({});
       queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
@@ -219,7 +266,10 @@ export function useChapterEnrichmentRewrite({
     },
   });
 
-  const openRewrite = useCallback(() => {
+  const openRewrite = useCallback((options?: {
+    selectCurrentChapter?: boolean;
+    preserveInstruction?: boolean;
+  }) => {
     if (orderedChapters.length === 0) {
       toast.message("请先导入或同步章节");
       return;
@@ -242,12 +292,20 @@ export function useChapterEnrichmentRewrite({
     if (batch && !isBatchActionable(batch)) {
       setActiveBatchId(null);
       setPreviews({});
+      requestedPreviewIdsRef.current.clear();
       setLogsByItemId({});
       setApplyStateByItemId({});
     }
     const defaultChapterId = selectedChapter?.id ?? orderedChapters[0]?.id ?? null;
-    setSelectedChapterIds(defaultChapterId ? new Set([defaultChapterId]) : new Set());
+    setSelectedChapterIds(
+      options?.selectCurrentChapter && defaultChapterId
+        ? new Set([defaultChapterId])
+        : new Set(),
+    );
     setActiveChapterId(defaultChapterId);
+    if (!options?.preserveInstruction) {
+      setInstruction("");
+    }
     setExpansionRatioPercent(20);
     setIsOpen(true);
   }, [batch, batchItems, orderedChapters, selectedChapter]);
@@ -312,11 +370,26 @@ export function useChapterEnrichmentRewrite({
     try {
       const result = await api.applyChapterRewriteBatchItem(batch.id, item.id);
       onApplied(result.chapter);
+      const appliedIds = new Set([item.id]);
+      queryClient.setQueryData<ChapterRewriteBatch>(
+        chapterRewriteBatchKeys.detail(batch.id),
+        (current) => current ? markBatchItemsApplied(current, appliedIds) : current,
+      );
+      queryClient.setQueryData<ChapterRewriteBatchListItem[]>(
+        chapterRewriteBatchKeys.list(projectId),
+        (current) =>
+          current?.map((candidate) =>
+            candidate.id === batch.id
+              ? markBatchItemsApplied(candidate, appliedIds)
+              : candidate,
+          ),
+      );
       queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.detail(batch.id) });
       queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
       if (batch.total_count === batch.applied_count + 1) {
         setActiveBatchId(null);
         setPreviews({});
+        requestedPreviewIdsRef.current.clear();
         setLogsByItemId({});
       }
       setApplyStateByItemId((current) => {
@@ -349,10 +422,25 @@ export function useChapterEnrichmentRewrite({
       for (const applied of result.applied) {
         onApplied(applied.chapter);
       }
+      const appliedIds = new Set(generated.map((item) => item.id));
+      queryClient.setQueryData<ChapterRewriteBatch>(
+        chapterRewriteBatchKeys.detail(batch.id),
+        (current) => current ? markBatchItemsApplied(current, appliedIds) : current,
+      );
+      queryClient.setQueryData<ChapterRewriteBatchListItem[]>(
+        chapterRewriteBatchKeys.list(projectId),
+        (current) =>
+          current?.map((candidate) =>
+            candidate.id === batch.id
+              ? markBatchItemsApplied(candidate, appliedIds)
+              : candidate,
+          ),
+      );
       await queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.detail(batch.id) });
       await queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
       setActiveBatchId(null);
       setPreviews({});
+      requestedPreviewIdsRef.current.clear();
       setLogsByItemId({});
       setApplyStateByItemId({});
       toast.success(`批量应用完成：成功 ${result.applied.length} 章`);

@@ -237,6 +237,13 @@ export function EditorContentArea({
     },
   });
 
+  const handleOpenSelectedChapterRewrite = useCallback(() => {
+    handleOpenChapterRewrite({
+      selectCurrentChapter: true,
+      preserveInstruction: true,
+    });
+  }, [handleOpenChapterRewrite]);
+
   const beatExpandCompletedRef = useRef<(beatsProse: string) => Promise<void> | void>(() => {});
 
   const {
@@ -532,7 +539,8 @@ export function EditorContentArea({
             onManualMemorySync={handleManualMemorySync}
             onForceMemorySync={handleForceMemorySync}
             onOpenRewrite={handleOpenRewrite}
-            onOpenChapterRewrite={handleOpenChapterRewrite}
+            onOpenChapterRewrite={handleOpenSelectedChapterRewrite}
+            onOpenChapterRewriteTask={handleOpenChapterRewrite}
             hasChapterRewriteTaskEntry={hasChapterRewriteTaskEntry}
             activeChapterRewriteBatch={activeChapterRewriteBatch}
           />

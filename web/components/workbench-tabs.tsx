@@ -178,6 +178,14 @@ export function WorkbenchTabs({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [generatingSection, handleStopGeneration]);
 
+  useEffect(
+    () => () => {
+      generationReaderRef.current?.cancel();
+      generationReaderRef.current = null;
+    },
+    [],
+  );
+
   // ---- Auto-save ----
   const debouncedSave = useDebounceSave(async (field: string, value: string) => {
     try {

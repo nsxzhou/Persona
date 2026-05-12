@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -459,7 +459,7 @@ function EmptyVolumesState({
   );
 }
 
-function VolumeCard({
+const VolumeCard = memo(function VolumeCard({
   outline,
   value,
   projectId,
@@ -578,9 +578,9 @@ function VolumeCard({
       ) : null}
     </div>
   );
-}
+});
 
-function VolumeChapterList({
+const VolumeChapterList = memo(function VolumeChapterList({
   outline,
   chapters,
   projectId,
@@ -645,7 +645,7 @@ function VolumeChapterList({
       )}
     </div>
   );
-}
+});
 
 function getVolumeTitle(title: string) {
   return title.trim() || "未分卷章节";

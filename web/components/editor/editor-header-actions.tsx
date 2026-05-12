@@ -105,6 +105,7 @@ export function EditorHeaderActions({
   onForceMemorySync,
   onOpenRewrite,
   onOpenChapterRewrite,
+  onOpenChapterRewriteTask,
   hasChapterRewriteTaskEntry,
   activeChapterRewriteBatch,
 }: {
@@ -122,6 +123,7 @@ export function EditorHeaderActions({
   onForceMemorySync: () => void;
   onOpenRewrite: () => void;
   onOpenChapterRewrite: () => void;
+  onOpenChapterRewriteTask: () => void;
   hasChapterRewriteTaskEntry: boolean;
   activeChapterRewriteBatch: {
     generated_count: number;
@@ -167,7 +169,7 @@ export function EditorHeaderActions({
         <Button
           variant="secondary"
           size="sm"
-          onClick={onOpenChapterRewrite}
+          onClick={onOpenChapterRewriteTask}
           className="gap-2"
         >
           <GitCompareArrows className="h-4 w-4" />
