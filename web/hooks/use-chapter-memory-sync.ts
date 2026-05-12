@@ -325,7 +325,7 @@ export function useChapterMemorySync({
           errorMessage: "更新运行时状态失败",
         },
       );
-      const snapshotUpdate: any = {
+      const snapshotUpdate: ProjectChapterUpdate = {
         memory_sync_status: "synced",
         memory_sync_source: selectedChapter.memory_sync_source ?? "manual",
         memory_sync_scope: selectedChapter.memory_sync_scope ?? "chapter_full",

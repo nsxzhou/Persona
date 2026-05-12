@@ -245,9 +245,9 @@ export function useChapterEnrichmentRewrite({
       setLogsByItemId({});
       setApplyStateByItemId({});
     }
-    setSelectedChapterIds(new Set());
-    setActiveChapterId(selectedChapter?.id ?? orderedChapters[0]?.id ?? null);
-    setInstruction("");
+    const defaultChapterId = selectedChapter?.id ?? orderedChapters[0]?.id ?? null;
+    setSelectedChapterIds(defaultChapterId ? new Set([defaultChapterId]) : new Set());
+    setActiveChapterId(defaultChapterId);
     setExpansionRatioPercent(20);
     setIsOpen(true);
   }, [batch, batchItems, orderedChapters, selectedChapter]);
@@ -314,6 +314,11 @@ export function useChapterEnrichmentRewrite({
       onApplied(result.chapter);
       queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.detail(batch.id) });
       queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
+      if (batch.total_count === batch.applied_count + 1) {
+        setActiveBatchId(null);
+        setPreviews({});
+        setLogsByItemId({});
+      }
       setApplyStateByItemId((current) => {
         const next = { ...current };
         delete next[item.id];
@@ -346,6 +351,9 @@ export function useChapterEnrichmentRewrite({
       }
       await queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.detail(batch.id) });
       await queryClient.invalidateQueries({ queryKey: chapterRewriteBatchKeys.list(projectId) });
+      setActiveBatchId(null);
+      setPreviews({});
+      setLogsByItemId({});
       setApplyStateByItemId({});
       toast.success(`批量应用完成：成功 ${result.applied.length} 章`);
     } catch (error) {
