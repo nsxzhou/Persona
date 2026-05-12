@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-# asyncio：用于异步并发、任务调度、事件通知（Event）和超时等待等
-import asyncio
 import logging
-import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import ClassVar
 from typing import cast
 
 # SQLAlchemy 异步会话：用于数据库读写（claim/heartbeat/写回结果等）
@@ -27,15 +25,10 @@ from app.services.style_analysis_pipeline import (
     StyleAnalysisPauseRequested,
     StyleAnalysisPipelineResult,
 )
-from app.services.analysis_jobs import (
-    get_analysis_heartbeat_interval_seconds,
-    run_analysis_stage_heartbeat_loop,
-)
 from app.services.analysis_worker_lifecycle import (
-    claim_next_pending_analysis_job,
-    recover_stale_analysis_jobs,
-    run_analysis_worker_poll_loop,
-    start_analysis_worker_job_lifecycle,
+    BaseAnalysisJobExecutor,
+    ShouldPause,
+    StageCallback,
 )
 # StorageService：样本文本流式读取、chunk/分析产物落盘、任务结束后清理
 from app.services.style_analysis_storage import StyleAnalysisStorageService
@@ -64,170 +57,73 @@ class StyleAnalysisRunContext:
     classification: InputClassification
 
 
-class StyleAnalysisJobExecutor:
+class StyleAnalysisJobExecutor(BaseAnalysisJobExecutor):
+    job_service: StyleAnalysisJobService
+    checkpointer_factory: StyleAnalysisCheckpointerFactory
+    storage_service: StyleAnalysisStorageService
+    initial_stage: ClassVar[str | None] = STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT
+    pause_exceptions: ClassVar[tuple[type[BaseException], ...]] = (
+        StyleAnalysisPauseRequested,
+    )
+    failure_log_message: ClassVar[str] = "style analysis job failed"
+    heartbeat_failure_log_message: ClassVar[str] = (
+        "Failed to send periodic style analysis heartbeat"
+    )
+    logger: ClassVar[logging.Logger] = logger
+
     def __init__(self) -> None:
-        self.job_service = StyleAnalysisJobService()
-        self.checkpointer_factory = StyleAnalysisCheckpointerFactory()
-        self.storage_service = StyleAnalysisStorageService()
-        self._pause_events: dict[str, asyncio.Event] = {}
-        self._worker_id = f"style-worker-{uuid.uuid4()}"
-
-    # 关闭 worker 持有的外部资源（主要是 checkpointer 的连接/上下文）
-    async def aclose(self) -> None:
-        await self.checkpointer_factory.aclose()
-
-    async def process_next_pending(
-        self, session_factory: async_sessionmaker[AsyncSession]
-    ) -> bool:
-        worker_id = self._worker_id
-        job_id = await self._claim_next_pending_job(session_factory, worker_id=worker_id)
-        if job_id is None:
-            return False
-
-        await self._run_claimed_job(session_factory, job_id)
-        return True
-
-    # 从数据库领取一个 pending job：
-    # - 使用事务提交将“锁定/租约”落库，确保多个 worker 并发时不会重复处理同一个 job
-    async def _claim_next_pending_job(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        worker_id: str,
-    ) -> str | None:
-        settings = get_settings()
-        return await claim_next_pending_analysis_job(
-            session_factory,
-            claim_job=lambda session: self.job_service.claim_job_for_worker(
-                session,
-                worker_id=worker_id,
-                max_attempts=settings.style_analysis_max_attempts,
-            ),
+        job_service = StyleAnalysisJobService()
+        checkpointer_factory = StyleAnalysisCheckpointerFactory()
+        storage_service = StyleAnalysisStorageService()
+        super().__init__(
+            job_service=job_service,
+            checkpointer_factory=checkpointer_factory,
+            storage_service=storage_service,
+            worker_id_prefix="style-worker",
         )
+        self.job_service = job_service
+        self.checkpointer_factory = checkpointer_factory
+        self.storage_service = storage_service
 
-    # 执行已领取的任务（claim 之后的主执行逻辑）：
-    # - 启动阶段心跳：定期写回 job.stage，避免任务被判定为 stale
-    # - 构建运行上下文：读取样本文件并切块，同时推断输入分类信息
-    # - 执行 pipeline：生成 report/summary/prompt pack 等结构化产物
-    # - 成功/失败写回数据库，并在必要时清理落盘产物与 checkpointer thread
-    async def _run_claimed_job(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-    ) -> None:
-        # should_cleanup 表示是否应在任务结束后清理落盘的临时产物
-        should_cleanup = False
-        lifecycle = start_analysis_worker_job_lifecycle(
-            job_id=job_id,
-            initial_stage=STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
-            pause_events=self._pause_events,
-            run_heartbeat_loop=lambda get_stage, stop_event: self._run_stage_heartbeat_loop(
-                session_factory,
-                job_id,
-                get_stage=get_stage,
-                stop_event=stop_event,
-                interval_seconds=self._heartbeat_interval_seconds(),
-            ),
-        )
+    def _max_attempts(self) -> int:
+        return get_settings().style_analysis_max_attempts
 
-        # stage_callback：由 pipeline 在阶段切换时回调，更新 current_stage 并立即写回数据库
-        async def stage_callback(stage: str | None) -> None:
-            await lifecycle.update_stage(
-                stage,
-                touch_stage=lambda next_stage: self._touch_job_stage(
-                    session_factory,
-                    job_id,
-                    stage=next_stage,
-                ),
-            )
+    def _stale_timeout_seconds(self) -> int:
+        return get_settings().style_analysis_stale_timeout_seconds
 
-        try:
-            # 读取 job + 样本文本，并把文本切块落盘，得到 pipeline 运行所需上下文
-            context = await self._load_run_context(session_factory, job_id)
-            # 基于 provider/model/style/source 构造 pipeline（含 checkpointer 与阶段回调）
-            pipeline = await self._build_pipeline(
-                provider=context.provider,
-                model_name=context.model_name,
-                style_name=context.style_name,
-                source_filename=context.source_filename,
-                stage_callback=stage_callback,
-                should_pause=lifecycle.pause_event.is_set,
-            )
-            # 任务并发度：用于控制 chunk 分析阶段的并发上限（避免过高并发打爆模型/网络）
-            max_concurrency = max(
-                1,
-                min(get_settings().style_analysis_chunk_max_concurrency, 32),
-            )
-            # 运行主流程，产出结构化结果（analysis_meta/report/voice_profile）
-            result = await pipeline.run(
-                job_id=job_id,
-                chunk_count=context.chunk_count,
-                classification=context.classification,
-                max_concurrency=max_concurrency,
-            )
-            # 成功写回：更新 payload、状态、清理锁与完成时间
-            await self._mark_job_succeeded(session_factory, job_id, result=result)
-            should_cleanup = True
-        except StyleAnalysisPauseRequested:
-            await self._mark_job_paused(
-                session_factory,
-                job_id,
-                stage=lifecycle.current_stage,
-            )
-        except Exception as exc:
-            logger.exception(
-                "style analysis job failed",
-                extra={"job_id": job_id},
-            )
-            # 失败写回：根据 attempt_count 决定是否需要重试，以及是否清理产物
-            await self._mark_job_failed(
-                session_factory,
-                job_id,
-                error_message=str(exc),
-            )
-        finally:
-            # 无论成功或失败，都要停止心跳协程，确保后台任务退出
-            await lifecycle.stop()
-            if should_cleanup:
-                # 任务完全结束后清理落盘的 chunks 与中间分析产物，避免占用 storage
-                await self.storage_service.cleanup_job_artifacts(job_id)
-                # 同时清理 checkpointer 的 thread state，避免残留断点占用存储
-                await self._delete_checkpointer_thread(job_id)
-
-    # 心跳发送间隔：
-    # - 取 stale_timeout_seconds 的 1/3，确保在 stale 判定前至少写回几次
-    # - 同时限制在 [0.2s, 30s] 范围内，避免过于频繁或过于稀疏
-    def _heartbeat_interval_seconds(self) -> float:
-        return get_analysis_heartbeat_interval_seconds(
-            get_settings().style_analysis_stale_timeout_seconds,
-        )
-
-    # 心跳循环：在 stop_event 未被设置前，周期性写回当前 stage
-    # 设计要点：
-    # - 通过 asyncio.wait_for(stop_event.wait(), timeout=interval) 实现“可中断的 sleep”
-    # - 当 stage 为 None 时跳过写回（表示 pipeline 已结束或暂不展示阶段）
-    async def _run_stage_heartbeat_loop(
+    async def _run_job_to_success(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         job_id: str,
         *,
-        get_stage: Callable[[], str | None],
-        stop_event: asyncio.Event,
-        interval_seconds: float,
+        stage_callback: StageCallback,
+        should_pause: ShouldPause,
     ) -> None:
-        await run_analysis_stage_heartbeat_loop(
-            job_id=job_id,
-            get_stage=get_stage,
-            stop_event=stop_event,
-            interval_seconds=interval_seconds,
-            touch_stage=lambda stage: self._touch_job_stage(
-                session_factory,
-                job_id,
-                stage=stage,
-            ),
-            logger=logger,
-            failure_log_message="Failed to send periodic style analysis heartbeat",
+        # 读取 job + 样本文本，并把文本切块落盘，得到 pipeline 运行所需上下文
+        context = await self._load_run_context(session_factory, job_id)
+        # 基于 provider/model/style/source 构造 pipeline（含 checkpointer 与阶段回调）
+        pipeline = await self._build_pipeline(
+            provider=context.provider,
+            model_name=context.model_name,
+            style_name=context.style_name,
+            source_filename=context.source_filename,
+            stage_callback=stage_callback,
+            should_pause=should_pause,
         )
+        # 任务并发度：用于控制 chunk 分析阶段的并发上限（避免过高并发打爆模型/网络）
+        max_concurrency = max(
+            1,
+            min(get_settings().style_analysis_chunk_max_concurrency, 32),
+        )
+        # 运行主流程，产出结构化结果（analysis_meta/report/voice_profile）
+        result = await pipeline.run(
+            job_id=job_id,
+            chunk_count=context.chunk_count,
+            classification=context.classification,
+            max_concurrency=max_concurrency,
+        )
+        # 成功写回：更新 payload、状态、清理锁与完成时间
+        await self._mark_job_succeeded(session_factory, job_id, result=result)
 
     # 加载运行上下文：
     # - 读取 job 信息（包含 sample_file、provider 等关联数据）
@@ -323,8 +219,8 @@ class StyleAnalysisJobExecutor:
         model_name: str,
         style_name: str,
         source_filename: str,
-        stage_callback,
-        should_pause=None,
+        stage_callback: Callable[[str | None], Awaitable[None]],
+        should_pause: Callable[[], bool] | None = None,
     ) -> StyleAnalysisPipeline:
         return StyleAnalysisPipeline(
             provider=provider,
@@ -335,24 +231,6 @@ class StyleAnalysisJobExecutor:
             stage_callback=stage_callback,
             should_pause=should_pause,
         )
-
-    # 写回任务阶段（heartbeat 或 pipeline 阶段切换时调用）
-    async def _touch_job_stage(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-        *,
-        stage: str | None,
-    ) -> None:
-        async with session_factory() as session:
-            pause_requested_at = await self.job_service.heartbeat_job(
-                session, job_id, stage=stage
-            )
-            await session.commit()
-            if pause_requested_at is not None:
-                pause_event = self._pause_events.get(job_id)
-                if pause_event is not None:
-                    pause_event.set()
 
     # 标记任务成功：写入结构化结果 payload，并更新状态/完成时间等字段
     async def _mark_job_succeeded(
@@ -371,74 +249,6 @@ class StyleAnalysisJobExecutor:
                 voice_profile_payload=result.voice_profile_markdown,
             )
             await session.commit()
-
-    # 标记任务失败：写入失败信息，并根据重试策略决定是否需要重试
-    # 返回值含义：是否为“终态失败”（True 表示不再重试，允许清理产物）
-    async def _mark_job_failed(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-        *,
-        error_message: str,
-    ) -> bool:
-        async with session_factory() as session:
-            is_terminal = await self.job_service.mark_job_failed(
-                session,
-                job_id,
-                error_message=error_message,
-                max_attempts=get_settings().style_analysis_max_attempts,
-            )
-            await session.commit()
-            return is_terminal
-
-    async def _mark_job_paused(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-        *,
-        stage: str | None,
-    ) -> None:
-        async with session_factory() as session:
-            await self.job_service.mark_job_paused(session, job_id, stage=stage)
-            await session.commit()
-
-    # 任务结束后，清理 checkpointer thread
-    async def _delete_checkpointer_thread(self, job_id: str) -> None:
-        await self.checkpointer_factory.delete_thread(job_id)
-
-    async def fail_stale_running_jobs(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        stale_after_seconds: int,
-    ) -> None:
-        await recover_stale_analysis_jobs(
-            session_factory,
-            recover_jobs=lambda session: self.job_service.recover_stale_jobs(
-                session,
-                stale_after_seconds=stale_after_seconds,
-                max_attempts=get_settings().style_analysis_max_attempts,
-            ),
-        )
-
-    async def run_worker(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        poll_interval_seconds: float,
-        max_poll_interval_seconds: float | None = None,
-    ) -> None:
-        settings = get_settings()
-        await run_analysis_worker_poll_loop(
-            poll_interval_seconds=poll_interval_seconds,
-            max_poll_interval_seconds=max_poll_interval_seconds,
-            stale_timeout_seconds=settings.style_analysis_stale_timeout_seconds,
-            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
-                session_factory,
-                stale_after_seconds=stale_after_seconds,
-            ),
-            process_next_pending=lambda: self.process_next_pending(session_factory),
-        )
 
 
 # Public alias — preserves historical import path.

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import cast
+from typing import ClassVar, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -20,15 +18,10 @@ from app.services.plot_analysis_pipeline import (
     PlotAnalysisPipeline,
     PlotAnalysisPipelineResult,
 )
-from app.services.analysis_jobs import (
-    get_analysis_heartbeat_interval_seconds,
-    run_analysis_stage_heartbeat_loop,
-)
 from app.services.analysis_worker_lifecycle import (
-    claim_next_pending_analysis_job,
-    recover_stale_analysis_jobs,
-    run_analysis_worker_poll_loop,
-    start_analysis_worker_job_lifecycle,
+    BaseAnalysisJobExecutor,
+    ShouldPause,
+    StageCallback,
 )
 from app.core.text_processing import InputClassification
 from app.services.llm_provider import LLMProviderService
@@ -48,144 +41,68 @@ class PlotAnalysisRunContext:
     classification: InputClassification
 
 
-class PlotAnalysisJobExecutor:
+class PlotAnalysisJobExecutor(BaseAnalysisJobExecutor):
+    job_service: PlotAnalysisJobService
+    checkpointer_factory: PlotAnalysisCheckpointerFactory
+    storage_service: PlotAnalysisStorageService
+    initial_stage: ClassVar[str | None] = PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT
+    pause_exceptions: ClassVar[tuple[type[BaseException], ...]] = (
+        PlotAnalysisPauseRequested,
+    )
+    failure_log_message: ClassVar[str] = "plot analysis job failed"
+    heartbeat_failure_log_message: ClassVar[str] = (
+        "Failed to send periodic plot analysis heartbeat"
+    )
+    logger: ClassVar[logging.Logger] = logger
+
     def __init__(self) -> None:
-        self.job_service = PlotAnalysisJobService()
-        self.checkpointer_factory = PlotAnalysisCheckpointerFactory()
-        self.storage_service = PlotAnalysisStorageService()
-        self._pause_events: dict[str, asyncio.Event] = {}
-        self._worker_id = f"plot-worker-{uuid.uuid4()}"
-
-    async def aclose(self) -> None:
-        await self.checkpointer_factory.aclose()
-
-    async def process_next_pending(
-        self, session_factory: async_sessionmaker[AsyncSession]
-    ) -> bool:
-        worker_id = self._worker_id
-        job_id = await self._claim_next_pending_job(session_factory, worker_id=worker_id)
-        if job_id is None:
-            return False
-
-        await self._run_claimed_job(session_factory, job_id)
-        return True
-
-    async def _claim_next_pending_job(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        worker_id: str,
-    ) -> str | None:
-        settings = get_settings()
-        return await claim_next_pending_analysis_job(
-            session_factory,
-            claim_job=lambda session: self.job_service.claim_job_for_worker(
-                session,
-                worker_id=worker_id,
-                max_attempts=settings.plot_analysis_max_attempts,
-            ),
+        job_service = PlotAnalysisJobService()
+        checkpointer_factory = PlotAnalysisCheckpointerFactory()
+        storage_service = PlotAnalysisStorageService()
+        super().__init__(
+            job_service=job_service,
+            checkpointer_factory=checkpointer_factory,
+            storage_service=storage_service,
+            worker_id_prefix="plot-worker",
         )
+        self.job_service = job_service
+        self.checkpointer_factory = checkpointer_factory
+        self.storage_service = storage_service
 
-    async def _run_claimed_job(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-    ) -> None:
-        should_cleanup = False
-        lifecycle = start_analysis_worker_job_lifecycle(
-            job_id=job_id,
-            initial_stage=PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
-            pause_events=self._pause_events,
-            run_heartbeat_loop=lambda get_stage, stop_event: self._run_stage_heartbeat_loop(
-                session_factory,
-                job_id,
-                get_stage=get_stage,
-                stop_event=stop_event,
-                interval_seconds=self._heartbeat_interval_seconds(),
-            ),
-        )
+    def _max_attempts(self) -> int:
+        return get_settings().plot_analysis_max_attempts
 
-        async def stage_callback(stage: str | None) -> None:
-            await lifecycle.update_stage(
-                stage,
-                touch_stage=lambda next_stage: self._touch_job_stage(
-                    session_factory,
-                    job_id,
-                    stage=next_stage,
-                ),
-            )
+    def _stale_timeout_seconds(self) -> int:
+        return get_settings().plot_analysis_stale_timeout_seconds
 
-        try:
-            context = await self._load_run_context(session_factory, job_id)
-            pipeline = await self._build_pipeline(
-                provider=context.provider,
-                model_name=context.model_name,
-                plot_name=context.plot_name,
-                source_filename=context.source_filename,
-                stage_callback=stage_callback,
-                should_pause=lifecycle.pause_event.is_set,
-            )
-            max_concurrency = max(
-                1,
-                min(get_settings().plot_analysis_chunk_max_concurrency, 32),
-            )
-            result = await pipeline.run(
-                job_id=job_id,
-                chunk_count=context.chunk_count,
-                classification=context.classification,
-                max_concurrency=max_concurrency,
-            )
-            await self._mark_job_succeeded(session_factory, job_id, result=result)
-            should_cleanup = True
-        except PlotAnalysisPauseRequested:
-            await self._mark_job_paused(
-                session_factory,
-                job_id,
-                stage=lifecycle.current_stage,
-            )
-        except Exception as exc:
-            logger.exception(
-                "plot analysis job failed",
-                extra={"job_id": job_id},
-            )
-            await self._mark_job_failed(
-                session_factory,
-                job_id,
-                error_message=str(exc),
-            )
-        finally:
-            await lifecycle.stop()
-            if should_cleanup:
-                await self.storage_service.cleanup_job_artifacts(job_id)
-                await self._delete_checkpointer_thread(job_id)
-
-    def _heartbeat_interval_seconds(self) -> float:
-        return get_analysis_heartbeat_interval_seconds(
-            get_settings().plot_analysis_stale_timeout_seconds,
-        )
-
-    async def _run_stage_heartbeat_loop(
+    async def _run_job_to_success(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         job_id: str,
         *,
-        get_stage: Callable[[], str | None],
-        stop_event: asyncio.Event,
-        interval_seconds: float,
+        stage_callback: StageCallback,
+        should_pause: ShouldPause,
     ) -> None:
-        await run_analysis_stage_heartbeat_loop(
-            job_id=job_id,
-            get_stage=get_stage,
-            stop_event=stop_event,
-            interval_seconds=interval_seconds,
-            touch_stage=lambda stage: self._touch_job_stage(
-                session_factory,
-                job_id,
-                stage=stage,
-            ),
-            logger=logger,
-            failure_log_message="Failed to send periodic plot analysis heartbeat",
+        context = await self._load_run_context(session_factory, job_id)
+        pipeline = await self._build_pipeline(
+            provider=context.provider,
+            model_name=context.model_name,
+            plot_name=context.plot_name,
+            source_filename=context.source_filename,
+            stage_callback=stage_callback,
+            should_pause=should_pause,
         )
+        max_concurrency = max(
+            1,
+            min(get_settings().plot_analysis_chunk_max_concurrency, 32),
+        )
+        result = await pipeline.run(
+            job_id=job_id,
+            chunk_count=context.chunk_count,
+            classification=context.classification,
+            max_concurrency=max_concurrency,
+        )
+        await self._mark_job_succeeded(session_factory, job_id, result=result)
 
     async def _load_run_context(
         self,
@@ -332,23 +249,6 @@ class PlotAnalysisJobExecutor:
             should_pause=should_pause,
         )
 
-    async def _touch_job_stage(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-        *,
-        stage: str | None,
-    ) -> None:
-        async with session_factory() as session:
-            pause_requested_at = await self.job_service.heartbeat_job(
-                session, job_id, stage=stage
-            )
-            await session.commit()
-            if pause_requested_at is not None:
-                pause_event = self._pause_events.get(job_id)
-                if pause_event is not None:
-                    pause_event.set()
-
     async def _mark_job_succeeded(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -366,71 +266,5 @@ class PlotAnalysisJobExecutor:
                 plot_skeleton_payload=result.plot_skeleton_markdown,
             )
             await session.commit()
-
-    async def _mark_job_failed(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-        *,
-        error_message: str,
-    ) -> bool:
-        async with session_factory() as session:
-            is_terminal = await self.job_service.mark_job_failed(
-                session,
-                job_id,
-                error_message=error_message,
-                max_attempts=get_settings().plot_analysis_max_attempts,
-            )
-            await session.commit()
-            return is_terminal
-
-    async def _mark_job_paused(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        job_id: str,
-        *,
-        stage: str | None,
-    ) -> None:
-        async with session_factory() as session:
-            await self.job_service.mark_job_paused(session, job_id, stage=stage)
-            await session.commit()
-
-    async def _delete_checkpointer_thread(self, job_id: str) -> None:
-        await self.checkpointer_factory.delete_thread(job_id)
-
-    async def fail_stale_running_jobs(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        stale_after_seconds: int,
-    ) -> None:
-        await recover_stale_analysis_jobs(
-            session_factory,
-            recover_jobs=lambda session: self.job_service.recover_stale_jobs(
-                session,
-                stale_after_seconds=stale_after_seconds,
-                max_attempts=get_settings().plot_analysis_max_attempts,
-            ),
-        )
-
-    async def run_worker(
-        self,
-        session_factory: async_sessionmaker[AsyncSession],
-        *,
-        poll_interval_seconds: float,
-        max_poll_interval_seconds: float | None = None,
-    ) -> None:
-        settings = get_settings()
-        await run_analysis_worker_poll_loop(
-            poll_interval_seconds=poll_interval_seconds,
-            max_poll_interval_seconds=max_poll_interval_seconds,
-            stale_timeout_seconds=settings.plot_analysis_stale_timeout_seconds,
-            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
-                session_factory,
-                stale_after_seconds=stale_after_seconds,
-            ),
-            process_next_pending=lambda: self.process_next_pending(session_factory),
-        )
-
 
 PlotAnalysisWorkerService = PlotAnalysisJobExecutor

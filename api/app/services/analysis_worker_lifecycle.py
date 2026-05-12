@@ -1,16 +1,81 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
+import uuid
+from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
+from typing import ClassVar, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.services.analysis_jobs import (
+    get_analysis_heartbeat_interval_seconds,
+    run_analysis_stage_heartbeat_loop,
+)
 
 
 StageGetter = Callable[[], str | None]
 TouchStage = Callable[[str | None], Awaitable[None]]
 RunHeartbeatLoop = Callable[[StageGetter, asyncio.Event], Awaitable[None]]
+StageCallback = Callable[[str | None], Awaitable[None]]
+ShouldPause = Callable[[], bool]
+
+
+class AnalysisWorkerJobService(Protocol):
+    async def claim_job_for_worker(
+        self,
+        session: AsyncSession,
+        *,
+        worker_id: str,
+        max_attempts: int,
+    ) -> str | None: ...
+
+    async def heartbeat_job(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        stage: str | None,
+    ) -> datetime | None: ...
+
+    async def mark_job_failed(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        error_message: str,
+        max_attempts: int,
+    ) -> bool: ...
+
+    async def mark_job_paused(
+        self,
+        session: AsyncSession,
+        job_id: str,
+        *,
+        stage: str | None,
+    ) -> None: ...
+
+    async def recover_stale_jobs(
+        self,
+        session: AsyncSession,
+        *,
+        stale_after_seconds: int,
+        max_attempts: int,
+    ) -> None: ...
+
+
+class AnalysisWorkerStorageService(Protocol):
+    async def cleanup_job_artifacts(self, job_id: str) -> None: ...
+
+
+class AnalysisWorkerCheckpointerFactory(Protocol):
+    async def aclose(self) -> None: ...
+
+    async def delete_thread(self, thread_id: str) -> None: ...
 
 
 @dataclass
@@ -106,3 +171,242 @@ async def run_analysis_worker_poll_loop(
             continue
         await asyncio.sleep(current_interval)
         current_interval = min(max_poll_interval_seconds, current_interval * 2)
+
+
+class BaseAnalysisJobExecutor(ABC):
+    initial_stage: ClassVar[str | None]
+    pause_exceptions: ClassVar[tuple[type[BaseException], ...]]
+    failure_log_message: ClassVar[str]
+    heartbeat_failure_log_message: ClassVar[str]
+    logger: ClassVar[logging.Logger]
+
+    def __init__(
+        self,
+        *,
+        job_service: AnalysisWorkerJobService,
+        checkpointer_factory: AnalysisWorkerCheckpointerFactory,
+        storage_service: AnalysisWorkerStorageService,
+        worker_id_prefix: str,
+    ) -> None:
+        self.job_service = job_service
+        self.checkpointer_factory = checkpointer_factory
+        self.storage_service = storage_service
+        self._pause_events: dict[str, asyncio.Event] = {}
+        self._worker_id = f"{worker_id_prefix}-{uuid.uuid4()}"
+        self._logger = self.logger
+
+    async def aclose(self) -> None:
+        await self.checkpointer_factory.aclose()
+
+    async def process_next_pending(
+        self, session_factory: async_sessionmaker[AsyncSession]
+    ) -> bool:
+        job_id = await self._claim_next_pending_job(
+            session_factory,
+            worker_id=self._worker_id,
+        )
+        if job_id is None:
+            return False
+
+        await self._run_claimed_job(session_factory, job_id)
+        return True
+
+    async def _claim_next_pending_job(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        worker_id: str,
+    ) -> str | None:
+        return await claim_next_pending_analysis_job(
+            session_factory,
+            claim_job=lambda session: self.job_service.claim_job_for_worker(
+                session,
+                worker_id=worker_id,
+                max_attempts=self._max_attempts(),
+            ),
+        )
+
+    async def _run_claimed_job(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+    ) -> None:
+        should_cleanup = False
+        lifecycle = start_analysis_worker_job_lifecycle(
+            job_id=job_id,
+            initial_stage=self.initial_stage,
+            pause_events=self._pause_events,
+            run_heartbeat_loop=lambda get_stage, stop_event: self._run_stage_heartbeat_loop(
+                session_factory,
+                job_id,
+                get_stage=get_stage,
+                stop_event=stop_event,
+                interval_seconds=self._heartbeat_interval_seconds(),
+            ),
+        )
+
+        async def stage_callback(stage: str | None) -> None:
+            await lifecycle.update_stage(
+                stage,
+                touch_stage=lambda next_stage: self._touch_job_stage(
+                    session_factory,
+                    job_id,
+                    stage=next_stage,
+                ),
+            )
+
+        try:
+            await self._run_job_to_success(
+                session_factory,
+                job_id,
+                stage_callback=stage_callback,
+                should_pause=lifecycle.pause_event.is_set,
+            )
+            should_cleanup = True
+        except self.pause_exceptions:
+            await self._mark_job_paused(
+                session_factory,
+                job_id,
+                stage=lifecycle.current_stage,
+            )
+        except Exception as exc:
+            self._logger.exception(
+                self.failure_log_message,
+                extra={"job_id": job_id},
+            )
+            await self._mark_job_failed(
+                session_factory,
+                job_id,
+                error_message=str(exc),
+            )
+        finally:
+            await lifecycle.stop()
+            if should_cleanup:
+                await self.storage_service.cleanup_job_artifacts(job_id)
+                await self._delete_checkpointer_thread(job_id)
+
+    def _heartbeat_interval_seconds(self) -> float:
+        return get_analysis_heartbeat_interval_seconds(self._stale_timeout_seconds())
+
+    async def _run_stage_heartbeat_loop(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        get_stage: Callable[[], str | None],
+        stop_event: asyncio.Event,
+        interval_seconds: float,
+    ) -> None:
+        await run_analysis_stage_heartbeat_loop(
+            job_id=job_id,
+            get_stage=get_stage,
+            stop_event=stop_event,
+            interval_seconds=interval_seconds,
+            touch_stage=lambda stage: self._touch_job_stage(
+                session_factory,
+                job_id,
+                stage=stage,
+            ),
+            logger=self._logger,
+            failure_log_message=self.heartbeat_failure_log_message,
+        )
+
+    async def _touch_job_stage(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        stage: str | None,
+    ) -> None:
+        async with session_factory() as session:
+            pause_requested_at = await self.job_service.heartbeat_job(
+                session, job_id, stage=stage
+            )
+            await session.commit()
+            if pause_requested_at is not None:
+                pause_event = self._pause_events.get(job_id)
+                if pause_event is not None:
+                    pause_event.set()
+
+    async def _mark_job_failed(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        error_message: str,
+    ) -> bool:
+        async with session_factory() as session:
+            is_terminal = await self.job_service.mark_job_failed(
+                session,
+                job_id,
+                error_message=error_message,
+                max_attempts=self._max_attempts(),
+            )
+            await session.commit()
+            return is_terminal
+
+    async def _mark_job_paused(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        stage: str | None,
+    ) -> None:
+        async with session_factory() as session:
+            await self.job_service.mark_job_paused(session, job_id, stage=stage)
+            await session.commit()
+
+    async def _delete_checkpointer_thread(self, job_id: str) -> None:
+        await self.checkpointer_factory.delete_thread(job_id)
+
+    async def fail_stale_running_jobs(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        stale_after_seconds: int,
+    ) -> None:
+        await recover_stale_analysis_jobs(
+            session_factory,
+            recover_jobs=lambda session: self.job_service.recover_stale_jobs(
+                session,
+                stale_after_seconds=stale_after_seconds,
+                max_attempts=self._max_attempts(),
+            ),
+        )
+
+    async def run_worker(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        poll_interval_seconds: float,
+        max_poll_interval_seconds: float | None = None,
+    ) -> None:
+        await run_analysis_worker_poll_loop(
+            poll_interval_seconds=poll_interval_seconds,
+            max_poll_interval_seconds=max_poll_interval_seconds,
+            stale_timeout_seconds=self._stale_timeout_seconds(),
+            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
+                session_factory,
+                stale_after_seconds=stale_after_seconds,
+            ),
+            process_next_pending=lambda: self.process_next_pending(session_factory),
+        )
+
+    @abstractmethod
+    def _max_attempts(self) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _stale_timeout_seconds(self) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _run_job_to_success(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        stage_callback: StageCallback,
+        should_pause: ShouldPause,
+    ) -> None:
+        raise NotImplementedError
