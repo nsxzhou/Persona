@@ -281,7 +281,7 @@ class PlotAnalysisJobService:
             job,
             repository=self.repository,
             stale_timeout_seconds=settings.style_analysis_stale_timeout_seconds,
-            max_attempts=settings.style_analysis_max_attempts,
+            max_attempts=settings.plot_analysis_max_attempts,
             running_status=PLOT_ANALYSIS_JOB_STATUS_RUNNING,
             paused_status=PLOT_ANALYSIS_JOB_STATUS_PAUSED,
             failed_status=PLOT_ANALYSIS_JOB_STATUS_FAILED,

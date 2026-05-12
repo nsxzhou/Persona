@@ -3,7 +3,6 @@ from __future__ import annotations
 # asyncio：用于异步并发、任务调度、事件通知（Event）和超时等待等
 import asyncio
 import logging
-import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,6 +30,12 @@ from app.services.style_analysis_pipeline import (
 from app.services.analysis_jobs import (
     get_analysis_heartbeat_interval_seconds,
     run_analysis_stage_heartbeat_loop,
+)
+from app.services.analysis_worker_lifecycle import (
+    claim_next_pending_analysis_job,
+    recover_stale_analysis_jobs,
+    run_analysis_worker_poll_loop,
+    start_analysis_worker_job_lifecycle,
 )
 # StorageService：样本文本流式读取、chunk/分析产物落盘、任务结束后清理
 from app.services.style_analysis_storage import StyleAnalysisStorageService
@@ -91,13 +96,14 @@ class StyleAnalysisJobExecutor:
         worker_id: str,
     ) -> str | None:
         settings = get_settings()
-        async with session_factory.begin() as session:
-            candidate_id = await self.job_service.claim_job_for_worker(
+        return await claim_next_pending_analysis_job(
+            session_factory,
+            claim_job=lambda session: self.job_service.claim_job_for_worker(
                 session,
                 worker_id=worker_id,
                 max_attempts=settings.style_analysis_max_attempts,
-            )
-            return candidate_id
+            ),
+        )
 
     # 执行已领取的任务（claim 之后的主执行逻辑）：
     # - 启动阶段心跳：定期写回 job.stage，避免任务被判定为 stale
@@ -111,31 +117,28 @@ class StyleAnalysisJobExecutor:
     ) -> None:
         # should_cleanup 表示是否应在任务结束后清理落盘的临时产物
         should_cleanup = False
-        # current_stage 用于对外暴露当前阶段（heartbeat + 任务状态展示）
-        current_stage: str | None = STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT
-        pause_event = asyncio.Event()
-        self._pause_events[job_id] = pause_event
-        # stop_heartbeat 用于通知心跳协程退出（任务结束或异常时触发）
-        stop_heartbeat = asyncio.Event()
-        # 后台心跳任务：周期性写回当前阶段，防止 job 被系统判定为“卡死”
-        heartbeat_task = asyncio.create_task(
-            self._run_stage_heartbeat_loop(
+        lifecycle = start_analysis_worker_job_lifecycle(
+            job_id=job_id,
+            initial_stage=STYLE_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
+            pause_events=self._pause_events,
+            run_heartbeat_loop=lambda get_stage, stop_event: self._run_stage_heartbeat_loop(
                 session_factory,
                 job_id,
-                get_stage=lambda: current_stage,
-                stop_event=stop_heartbeat,
+                get_stage=get_stage,
+                stop_event=stop_event,
                 interval_seconds=self._heartbeat_interval_seconds(),
-            )
+            ),
         )
 
         # stage_callback：由 pipeline 在阶段切换时回调，更新 current_stage 并立即写回数据库
         async def stage_callback(stage: str | None) -> None:
-            nonlocal current_stage
-            current_stage = stage
-            await self._touch_job_stage(
-                session_factory,
-                job_id,
-                stage=stage,
+            await lifecycle.update_stage(
+                stage,
+                touch_stage=lambda next_stage: self._touch_job_stage(
+                    session_factory,
+                    job_id,
+                    stage=next_stage,
+                ),
             )
 
         try:
@@ -148,7 +151,7 @@ class StyleAnalysisJobExecutor:
                 style_name=context.style_name,
                 source_filename=context.source_filename,
                 stage_callback=stage_callback,
-                should_pause=pause_event.is_set,
+                should_pause=lifecycle.pause_event.is_set,
             )
             # 任务并发度：用于控制 chunk 分析阶段的并发上限（避免过高并发打爆模型/网络）
             max_concurrency = max(
@@ -169,7 +172,7 @@ class StyleAnalysisJobExecutor:
             await self._mark_job_paused(
                 session_factory,
                 job_id,
-                stage=current_stage,
+                stage=lifecycle.current_stage,
             )
         except Exception as exc:
             logger.exception(
@@ -184,9 +187,7 @@ class StyleAnalysisJobExecutor:
             )
         finally:
             # 无论成功或失败，都要停止心跳协程，确保后台任务退出
-            stop_heartbeat.set()
-            await heartbeat_task
-            self._pause_events.pop(job_id, None)
+            await lifecycle.stop()
             if should_cleanup:
                 # 任务完全结束后清理落盘的 chunks 与中间分析产物，避免占用 storage
                 await self.storage_service.cleanup_job_artifacts(job_id)
@@ -411,13 +412,14 @@ class StyleAnalysisJobExecutor:
         *,
         stale_after_seconds: int,
     ) -> None:
-        async with session_factory() as session:
-            await self.job_service.recover_stale_jobs(
+        await recover_stale_analysis_jobs(
+            session_factory,
+            recover_jobs=lambda session: self.job_service.recover_stale_jobs(
                 session,
                 stale_after_seconds=stale_after_seconds,
                 max_attempts=get_settings().style_analysis_max_attempts,
-            )
-            await session.commit()
+            ),
+        )
 
     async def run_worker(
         self,
@@ -426,40 +428,17 @@ class StyleAnalysisJobExecutor:
         poll_interval_seconds: float,
         max_poll_interval_seconds: float | None = None,
     ) -> None:
-        """Poll for pending jobs with exponential backoff when idle.
-
-        Periodically scans for stale ``running`` jobs and requeues / fails
-        them based on ``attempt_count``.
-        """
-        if poll_interval_seconds <= 0:
-            raise ValueError("poll_interval_seconds must be greater than 0")
-        if max_poll_interval_seconds is not None and max_poll_interval_seconds <= 0:
-            raise ValueError("max_poll_interval_seconds must be greater than 0")
-        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
-        if max_poll_interval_seconds < poll_interval_seconds:
-            max_poll_interval_seconds = poll_interval_seconds
-
         settings = get_settings()
-        last_stale_check = 0.0
-        stale_check_interval = max(
-            5.0,
-            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
+        await run_analysis_worker_poll_loop(
+            poll_interval_seconds=poll_interval_seconds,
+            max_poll_interval_seconds=max_poll_interval_seconds,
+            stale_timeout_seconds=settings.style_analysis_stale_timeout_seconds,
+            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
+                session_factory,
+                stale_after_seconds=stale_after_seconds,
+            ),
+            process_next_pending=lambda: self.process_next_pending(session_factory),
         )
-        current_interval = poll_interval_seconds
-        while True:
-            now = time.monotonic()
-            if now - last_stale_check >= stale_check_interval:
-                await self.fail_stale_running_jobs(
-                    session_factory,
-                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
-                )
-                last_stale_check = now
-            processed = await self.process_next_pending(session_factory)
-            if processed:
-                current_interval = poll_interval_seconds
-                continue
-            await asyncio.sleep(current_interval)
-            current_interval = min(max_poll_interval_seconds, current_interval * 2)
 
 
 # Public alias — preserves historical import path.

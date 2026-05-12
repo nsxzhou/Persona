@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -24,6 +23,12 @@ from app.services.plot_analysis_pipeline import (
 from app.services.analysis_jobs import (
     get_analysis_heartbeat_interval_seconds,
     run_analysis_stage_heartbeat_loop,
+)
+from app.services.analysis_worker_lifecycle import (
+    claim_next_pending_analysis_job,
+    recover_stale_analysis_jobs,
+    run_analysis_worker_poll_loop,
+    start_analysis_worker_job_lifecycle,
 )
 from app.core.text_processing import InputClassification
 from app.services.llm_provider import LLMProviderService
@@ -72,13 +77,14 @@ class PlotAnalysisJobExecutor:
         worker_id: str,
     ) -> str | None:
         settings = get_settings()
-        async with session_factory.begin() as session:
-            candidate_id = await self.job_service.claim_job_for_worker(
+        return await claim_next_pending_analysis_job(
+            session_factory,
+            claim_job=lambda session: self.job_service.claim_job_for_worker(
                 session,
                 worker_id=worker_id,
-                max_attempts=settings.style_analysis_max_attempts,
-            )
-            return candidate_id
+                max_attempts=settings.plot_analysis_max_attempts,
+            ),
+        )
 
     async def _run_claimed_job(
         self,
@@ -86,27 +92,27 @@ class PlotAnalysisJobExecutor:
         job_id: str,
     ) -> None:
         should_cleanup = False
-        current_stage: str | None = PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT
-        pause_event = asyncio.Event()
-        self._pause_events[job_id] = pause_event
-        stop_heartbeat = asyncio.Event()
-        heartbeat_task = asyncio.create_task(
-            self._run_stage_heartbeat_loop(
+        lifecycle = start_analysis_worker_job_lifecycle(
+            job_id=job_id,
+            initial_stage=PLOT_ANALYSIS_JOB_STAGE_PREPARING_INPUT,
+            pause_events=self._pause_events,
+            run_heartbeat_loop=lambda get_stage, stop_event: self._run_stage_heartbeat_loop(
                 session_factory,
                 job_id,
-                get_stage=lambda: current_stage,
-                stop_event=stop_heartbeat,
+                get_stage=get_stage,
+                stop_event=stop_event,
                 interval_seconds=self._heartbeat_interval_seconds(),
-            )
+            ),
         )
 
         async def stage_callback(stage: str | None) -> None:
-            nonlocal current_stage
-            current_stage = stage
-            await self._touch_job_stage(
-                session_factory,
-                job_id,
-                stage=stage,
+            await lifecycle.update_stage(
+                stage,
+                touch_stage=lambda next_stage: self._touch_job_stage(
+                    session_factory,
+                    job_id,
+                    stage=next_stage,
+                ),
             )
 
         try:
@@ -117,11 +123,11 @@ class PlotAnalysisJobExecutor:
                 plot_name=context.plot_name,
                 source_filename=context.source_filename,
                 stage_callback=stage_callback,
-                should_pause=pause_event.is_set,
+                should_pause=lifecycle.pause_event.is_set,
             )
             max_concurrency = max(
                 1,
-                min(get_settings().style_analysis_chunk_max_concurrency, 32),
+                min(get_settings().plot_analysis_chunk_max_concurrency, 32),
             )
             result = await pipeline.run(
                 job_id=job_id,
@@ -135,7 +141,7 @@ class PlotAnalysisJobExecutor:
             await self._mark_job_paused(
                 session_factory,
                 job_id,
-                stage=current_stage,
+                stage=lifecycle.current_stage,
             )
         except Exception as exc:
             logger.exception(
@@ -148,16 +154,14 @@ class PlotAnalysisJobExecutor:
                 error_message=str(exc),
             )
         finally:
-            stop_heartbeat.set()
-            await heartbeat_task
-            self._pause_events.pop(job_id, None)
+            await lifecycle.stop()
             if should_cleanup:
                 await self.storage_service.cleanup_job_artifacts(job_id)
                 await self._delete_checkpointer_thread(job_id)
 
     def _heartbeat_interval_seconds(self) -> float:
         return get_analysis_heartbeat_interval_seconds(
-            get_settings().style_analysis_stale_timeout_seconds,
+            get_settings().plot_analysis_stale_timeout_seconds,
         )
 
     async def _run_stage_heartbeat_loop(
@@ -375,7 +379,7 @@ class PlotAnalysisJobExecutor:
                 session,
                 job_id,
                 error_message=error_message,
-                max_attempts=get_settings().style_analysis_max_attempts,
+                max_attempts=get_settings().plot_analysis_max_attempts,
             )
             await session.commit()
             return is_terminal
@@ -400,13 +404,14 @@ class PlotAnalysisJobExecutor:
         *,
         stale_after_seconds: int,
     ) -> None:
-        async with session_factory() as session:
-            await self.job_service.recover_stale_jobs(
+        await recover_stale_analysis_jobs(
+            session_factory,
+            recover_jobs=lambda session: self.job_service.recover_stale_jobs(
                 session,
                 stale_after_seconds=stale_after_seconds,
-                max_attempts=get_settings().style_analysis_max_attempts,
-            )
-            await session.commit()
+                max_attempts=get_settings().plot_analysis_max_attempts,
+            ),
+        )
 
     async def run_worker(
         self,
@@ -415,35 +420,17 @@ class PlotAnalysisJobExecutor:
         poll_interval_seconds: float,
         max_poll_interval_seconds: float | None = None,
     ) -> None:
-        if poll_interval_seconds <= 0:
-            raise ValueError("poll_interval_seconds must be greater than 0")
-        if max_poll_interval_seconds is not None and max_poll_interval_seconds <= 0:
-            raise ValueError("max_poll_interval_seconds must be greater than 0")
-        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
-        if max_poll_interval_seconds < poll_interval_seconds:
-            max_poll_interval_seconds = poll_interval_seconds
-
         settings = get_settings()
-        last_stale_check = 0.0
-        stale_check_interval = max(
-            5.0,
-            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
+        await run_analysis_worker_poll_loop(
+            poll_interval_seconds=poll_interval_seconds,
+            max_poll_interval_seconds=max_poll_interval_seconds,
+            stale_timeout_seconds=settings.plot_analysis_stale_timeout_seconds,
+            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
+                session_factory,
+                stale_after_seconds=stale_after_seconds,
+            ),
+            process_next_pending=lambda: self.process_next_pending(session_factory),
         )
-        current_interval = poll_interval_seconds
-        while True:
-            now = time.monotonic()
-            if now - last_stale_check >= stale_check_interval:
-                await self.fail_stale_running_jobs(
-                    session_factory,
-                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
-                )
-                last_stale_check = now
-            processed = await self.process_next_pending(session_factory)
-            if processed:
-                current_interval = poll_interval_seconds
-                continue
-            await asyncio.sleep(current_interval)
-            current_interval = min(max_poll_interval_seconds, current_interval * 2)
 
 
 PlotAnalysisWorkerService = PlotAnalysisJobExecutor

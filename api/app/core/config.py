@@ -5,7 +5,7 @@ from functools import lru_cache
 
 # 导入Pydantic库组件
 # Pydantic是Python最流行的数据验证库，FastAPI内置了对它的完整支持
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 
 # BaseSettings: 专门用于处理配置设置的基类，能自动从环境变量读取配置
 # SettingsConfigDict: 配置类的配置选项
@@ -110,6 +110,15 @@ class Settings(BaseSettings):
         default=3, alias="PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS"
     )
 
+    # Plot Lab 最大尝试次数；未设置时沿用旧的 Style Lab 环境变量，保持历史部署兼容
+    plot_analysis_max_attempts: int = Field(
+        default=3,
+        validation_alias=AliasChoices(
+            "PERSONA_PLOT_ANALYSIS_MAX_ATTEMPTS",
+            "PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS",
+        ),
+    )
+
     plot_analysis_boundary_model: str | None = Field(
         default=None, alias="PERSONA_PLOT_ANALYSIS_BOUNDARY_MODEL"
     )
@@ -137,6 +146,26 @@ class Settings(BaseSettings):
         ge=0.0,
         le=0.5,
         alias="PERSONA_PLOT_ANALYSIS_CHUNK_OVERLAP_RATIO",
+    )
+
+    # Plot Lab 运行中任务的陈旧判定阈值（秒）；未设置时沿用 Style Lab 环境变量
+    plot_analysis_stale_timeout_seconds: int = Field(
+        default=300,
+        validation_alias=AliasChoices(
+            "PERSONA_PLOT_ANALYSIS_STALE_TIMEOUT_SECONDS",
+            "PERSONA_STYLE_ANALYSIS_STALE_TIMEOUT_SECONDS",
+        ),
+    )
+
+    # Plot Lab chunk 并发上限；未设置时沿用 Style Lab 环境变量
+    plot_analysis_chunk_max_concurrency: int = Field(
+        default=5,
+        ge=1,
+        le=32,
+        validation_alias=AliasChoices(
+            "PERSONA_PLOT_ANALYSIS_CHUNK_MAX_CONCURRENCY",
+            "PERSONA_STYLE_ANALYSIS_CHUNK_MAX_CONCURRENCY",
+        ),
     )
 
     # Style Lab LangGraph checkpoint 连接串，可覆盖数据库推导逻辑

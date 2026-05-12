@@ -255,7 +255,7 @@ def run_live_plot_analysis_job(
         job = create_response.json()
         service = PlotAnalysisWorkerService()
         settings = get_settings()
-        attempts = max(1, int(settings.style_analysis_max_attempts))
+        attempts = max(1, int(settings.plot_analysis_max_attempts))
         detail = None
         for _ in range(attempts):
             processed = await service.process_next_pending(app_with_db.state.session_factory)
