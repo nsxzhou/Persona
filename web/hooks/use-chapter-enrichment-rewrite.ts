@@ -147,7 +147,12 @@ export function useChapterEnrichmentRewrite({
     setInstruction(batch.instruction);
     setExpansionRatioPercent(batch.expansion_ratio_percent);
     setSelectedChapterIds(new Set(batchItems.map((item) => item.chapter_id)));
+    const selectedChapterInBatch =
+      selectedChapter && batchItems.some((item) => item.chapter_id === selectedChapter.id)
+        ? selectedChapter.id
+        : null;
     const currentId =
+      selectedChapterInBatch ||
       batch.current_chapter_id ||
       batchItems.find((item) => item.status === "generated")?.chapter_id ||
       batchItems[0]?.chapter_id ||
@@ -155,7 +160,7 @@ export function useChapterEnrichmentRewrite({
     setActiveChapterId((current) =>
       current && batchItems.some((item) => item.chapter_id === current) ? current : currentId,
     );
-  }, [batch, batchItems]);
+  }, [batch, batchItems, selectedChapter]);
 
   useEffect(() => {
     if (!batch) return;
@@ -220,6 +225,17 @@ export function useChapterEnrichmentRewrite({
       return;
     }
     if (batch && isBatchActionable(batch)) {
+      const selectedChapterInBatch =
+        selectedChapter && batchItems.some((item) => item.chapter_id === selectedChapter.id)
+          ? selectedChapter.id
+          : null;
+      setActiveChapterId(
+        selectedChapterInBatch ||
+        batch.current_chapter_id ||
+        batchItems.find((item) => item.status === "generated")?.chapter_id ||
+        batchItems[0]?.chapter_id ||
+        null,
+      );
       setIsOpen(true);
       return;
     }
@@ -229,14 +245,12 @@ export function useChapterEnrichmentRewrite({
       setLogsByItemId({});
       setApplyStateByItemId({});
     }
-    const initialIds = new Set<string>(
-      selectedChapter ? [selectedChapter.id] : [orderedChapters[0].id],
-    );
-    setSelectedChapterIds(initialIds);
-    setActiveChapterId([...initialIds][0] ?? null);
+    setSelectedChapterIds(new Set());
+    setActiveChapterId(selectedChapter?.id ?? orderedChapters[0]?.id ?? null);
+    setInstruction("");
     setExpansionRatioPercent(20);
     setIsOpen(true);
-  }, [batch, orderedChapters, selectedChapter]);
+  }, [batch, batchItems, orderedChapters, selectedChapter]);
 
   const closeRewrite = useCallback(() => {
     setIsOpen(false);
@@ -248,8 +262,22 @@ export function useChapterEnrichmentRewrite({
     if (checked) next.add(chapterId);
     else next.delete(chapterId);
     setSelectedChapterIds(next);
-    setActiveChapterId((current) => (current && next.has(current) ? current : [...next][0] ?? null));
   }, [batch, selectedChapterIds]);
+
+  const selectCurrentChapter = useCallback(() => {
+    if (batch || !activeChapterId) return;
+    setSelectedChapterIds(new Set([activeChapterId]));
+  }, [activeChapterId, batch]);
+
+  const selectAllChapters = useCallback(() => {
+    if (batch) return;
+    setSelectedChapterIds(new Set(orderedChapters.map((chapter) => chapter.id)));
+  }, [batch, orderedChapters]);
+
+  const clearSelectedChapters = useCallback(() => {
+    if (batch) return;
+    setSelectedChapterIds(new Set());
+  }, [batch]);
 
   const startRewrite = useCallback(() => {
     if (createMutation.isPending || isRunning) return;
@@ -392,6 +420,9 @@ export function useChapterEnrichmentRewrite({
     orderedChapters,
     selectedChapterIds,
     selectChapter,
+    selectCurrentChapter,
+    selectAllChapters,
+    clearSelectedChapters,
     items,
     activeItem,
     activeChapterId,

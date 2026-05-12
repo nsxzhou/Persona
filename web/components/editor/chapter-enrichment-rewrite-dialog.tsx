@@ -54,6 +54,9 @@ type ChapterEnrichmentRewriteDialogProps = {
   onInstructionChange: (value: string) => void;
   onExpansionRatioPercentChange: (value: number) => void;
   onSelectChapter: (chapterId: string, checked: boolean) => void;
+  onSelectCurrentChapter: () => void;
+  onSelectAllChapters: () => void;
+  onClearSelectedChapters: () => void;
   onActiveChapterChange: (chapterId: string) => void;
   onStart: () => void;
   onApplyOne: (chapterId: string) => void;
@@ -96,6 +99,9 @@ export function ChapterEnrichmentRewriteDialog({
   onInstructionChange,
   onExpansionRatioPercentChange,
   onSelectChapter,
+  onSelectCurrentChapter,
+  onSelectAllChapters,
+  onClearSelectedChapters,
   onActiveChapterChange,
   onStart,
   onApplyOne,
@@ -190,8 +196,8 @@ export function ChapterEnrichmentRewriteDialog({
                 {phase === "setup"
                   ? "先填写改写要求并选择章节，生成后进入差异审核。"
                   : phase === "progress"
-                    ? "任务在后台顺序改写章节，关闭窗口不会中断。"
-                  : "逐章检查左右差异，确认后再替换正文。"}
+                    ? "任务在后台顺序改写章节，生成的是暂存预览，关闭窗口不会中断。"
+                  : "改写结果是暂存预览，逐章检查左右差异，确认后再替换正文。"}
               </DialogDescription>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
@@ -220,6 +226,34 @@ export function ChapterEnrichmentRewriteDialog({
                   </div>
                   <StatusPill label="总数" value={chapters.length} />
                 </div>
+                <div className="flex flex-wrap gap-2 border-b px-3.5 py-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onSelectCurrentChapter}
+                    disabled={busy || !activeChapterId}
+                  >
+                    选择当前章
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={onSelectAllChapters} disabled={busy}>
+                    全选
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClearSelectedChapters}
+                    disabled={busy || selectedCount === 0}
+                  >
+                    清空
+                  </Button>
+                </div>
+                {selectedCount === 0 ? (
+                  <div className="border-b bg-amber-50 px-3.5 py-2 text-xs text-amber-900">
+                    尚未选择章节。点击复选框、选择当前章或全选后才能开始改写。
+                  </div>
+                ) : null}
                 <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
                   <ChapterQueue
                     chapters={chapters}
@@ -453,7 +487,7 @@ export function ChapterEnrichmentRewriteDialog({
                 emptyText={activeItem ? "当前章节正文为空。" : "请选择章节后查看当前正文。"}
               />
               <DiffColumn
-                title="AI 改写预览"
+                title="AI 暂存预览"
                 blocks={rightBlocks}
                 side="right"
                 empty={!activeItem || previewContent === ""}
@@ -461,8 +495,8 @@ export function ChapterEnrichmentRewriteDialog({
                   activeItem
                     ? activeItem.state === "running"
                       ? "正在生成改写预览。"
-                      : "任务成功后在这里显示 AI 改写正文。"
-                    : "请选择章节后查看改写预览。"
+                      : "任务成功后在这里显示 AI 暂存预览。"
+                    : "请选择章节后查看暂存预览。"
                 }
               />
             </div>
@@ -479,7 +513,7 @@ export function ChapterEnrichmentRewriteDialog({
                   </button>
                   <span className="inline-flex items-center gap-1 text-amber-800">
                     <AlertCircle className="h-3.5 w-3.5" />
-                    应用会直接替换正文，不保留旧版本。
+                    暂存预览不会自动替换正文，只有点击应用才会写入。
                   </span>
                 </div>
                 <Button
