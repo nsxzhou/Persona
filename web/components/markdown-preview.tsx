@@ -1,12 +1,18 @@
 "use client";
 
-import UiwMarkdownPreview from "@uiw/react-markdown-preview";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import { lazy, Suspense } from "react";
 
 interface MarkdownPreviewProps {
   content: string;
   className?: string;
 }
+
+const MarkdownPreviewRenderer = lazy(
+  () =>
+    import("@/components/markdown-preview-renderer").then(
+      (module) => ({ default: module.MarkdownPreviewRenderer }),
+    ),
+);
 
 export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
   if (!content.trim()) {
@@ -14,24 +20,21 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
   }
 
   return (
-    <div className={className}>
-      <UiwMarkdownPreview
-        source={content}
-        rehypePlugins={[
-          [
-            rehypeSanitize,
-            {
-              ...defaultSchema,
-              attributes: {
-                ...defaultSchema.attributes,
-                "*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
-              },
-            },
-          ],
-        ]}
-        style={{ backgroundColor: "transparent" }}
-        wrapperElement={{ "data-color-mode": "light" }}
-      />
+    <div className={className} style={{ minHeight: 96 }}>
+      <Suspense fallback={<MarkdownPreviewFallback />}>
+        <MarkdownPreviewRenderer content={content} />
+      </Suspense>
+    </div>
+  );
+}
+
+function MarkdownPreviewFallback() {
+  return (
+    <div
+      className="rounded-md border border-dashed p-4 text-sm text-muted-foreground"
+      style={{ minHeight: 96 }}
+    >
+      正在载入预览...
     </div>
   );
 }
