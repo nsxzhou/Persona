@@ -194,6 +194,7 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 - `insert_after` inserts `New Text` after the anchor paragraph; `replace` replaces only that one anchor paragraph.
 - `No patches.` is a workflow failure, not a successful unchanged rewrite.
 - The backend must parse and validate patches before writing artifacts. Never partially apply valid patches when any patch fails.
+- Patch parsing/application `ValueError` failures may be retried up to 3 total generation attempts. Retry prompts must include the previous invalid patch output and exact validation error, and artifacts may only be written for the successful regenerated patch output.
 - `chapter_rewrite_markdown` remains the only artifact used by existing preview/apply mutation paths. `chapter_rewrite_patches_markdown` is for trace/debug/review.
 - Net synthesized growth should reach at least 80% of `expansion_ratio_percent`; growth above the requested budget is allowed and must not fail the workflow.
 
