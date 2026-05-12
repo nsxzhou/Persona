@@ -5,8 +5,6 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
-  CircleDot,
   GitCompareArrows,
   LockKeyhole,
   Loader2,
@@ -15,7 +13,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -28,13 +25,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ChapterQueue } from "@/components/editor/chapter-enrichment-rewrite-dialog/chapter-queue";
+import { DiffColumn } from "@/components/editor/chapter-enrichment-rewrite-dialog/diff-column";
+import { STATE_LABEL, StatusPill, StateBadge } from "@/components/editor/chapter-enrichment-rewrite-dialog/status";
 import type { ChapterRewriteItem } from "@/hooks/use-chapter-enrichment-rewrite";
 import type { ChapterRewriteBatch } from "@/lib/types";
 import {
   computeLineDiff,
   groupDiffBlocks,
   summarizeDiff,
-  type DiffBlock,
 } from "@/lib/diff-utils";
 import type { ProjectChapter } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -62,26 +61,6 @@ type ChapterEnrichmentRewriteDialogProps = {
   onApplyOne: (chapterId: string) => void;
   onApplyAll: () => void;
   onOpenChange: (open: boolean) => void;
-};
-
-const STATE_LABEL: Record<ChapterRewriteItem["state"], string> = {
-  waiting: "等待",
-  running: "运行中",
-  generated: "已生成",
-  failed: "失败",
-  applying: "应用中",
-  applied: "已应用",
-  apply_failed: "应用失败",
-};
-
-const STATE_TONE: Record<ChapterRewriteItem["state"], string> = {
-  waiting: "border-border bg-muted/30 text-muted-foreground",
-  running: "border-blue-200 bg-blue-50 text-blue-800",
-  generated: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  failed: "border-red-200 bg-red-50 text-red-800",
-  applying: "border-blue-200 bg-blue-50 text-blue-800",
-  applied: "border-slate-200 bg-slate-50 text-slate-600",
-  apply_failed: "border-red-200 bg-red-50 text-red-800",
 };
 
 export function ChapterEnrichmentRewriteDialog({
@@ -575,205 +554,5 @@ export function ChapterEnrichmentRewriteDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function StatusPill({
-  label,
-  value,
-  suffix,
-  tone = "neutral",
-}: {
-  label: string;
-  value: number;
-  suffix?: string;
-  tone?: "neutral" | "success" | "danger";
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1",
-        tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-800",
-        tone === "danger" && "border-red-200 bg-red-50 text-red-800",
-        tone === "neutral" && "border-border bg-muted/40 text-muted-foreground",
-      )}
-    >
-      <span>{label}</span>
-      <span className="font-semibold tabular-nums text-foreground">{value}{suffix}</span>
-    </span>
-  );
-}
-
-function ChapterQueue({
-  chapters,
-  itemByChapterId,
-  selectedChapterIds,
-  activeChapterId,
-  busy,
-  onSelectChapter,
-  onActiveChapterChange,
-  compact,
-  simplifyUnselected = false,
-}: {
-  chapters: ProjectChapter[];
-  itemByChapterId: Map<string, ChapterRewriteItem>;
-  selectedChapterIds: Set<string>;
-  activeChapterId: string | null;
-  busy: boolean;
-  onSelectChapter: (chapterId: string, checked: boolean) => void;
-  onActiveChapterChange: (chapterId: string) => void;
-  compact: boolean;
-  simplifyUnselected?: boolean;
-}) {
-  return (
-    <div className={cn("space-y-1", compact && "grid gap-1 sm:grid-cols-2 xl:grid-cols-3")}>
-      {chapters.map((chapter) => {
-        const item = itemByChapterId.get(chapter.id);
-        const checked = selectedChapterIds.has(chapter.id);
-        const active = activeChapterId === chapter.id;
-        const state = item?.state ?? (checked ? "waiting" : null);
-        const statusLabel = item?.statusLabel ?? (checked ? "等待生成" : null);
-        const checkboxId = `chapter-rewrite-${compact ? "compact" : "setup"}-${chapter.id}`;
-        return (
-          <div
-            key={chapter.id}
-            className={cn(
-              "rounded-md border px-2.5 py-2 text-sm transition-colors",
-              active ? "border-primary/40 bg-primary/10" : "border-transparent hover:bg-muted/60",
-            )}
-          >
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id={checkboxId}
-                checked={checked}
-                onCheckedChange={(value) => onSelectChapter(chapter.id, value === true)}
-                disabled={busy}
-                className="mt-0.5"
-              />
-              <div className="min-w-0 flex-1">
-                <button
-                  type="button"
-                  className="block min-h-10 w-full text-left"
-                  onClick={() => onActiveChapterChange(chapter.id)}
-                >
-                  <span className="block truncate font-medium">{chapter.title}</span>
-                  {statusLabel || !simplifyUnselected ? (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {statusLabel ?? "未选择"}
-                    </span>
-                  ) : null}
-                </button>
-                <Label htmlFor={checkboxId} className="sr-only">
-                  选择 {chapter.title}
-                </Label>
-              </div>
-              {state ? <StateBadge state={state} /> : <span className="text-xs text-muted-foreground">未选</span>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function StateBadge({ state }: { state: ChapterRewriteItem["state"] }) {
-  const Icon =
-    state === "generated" || state === "applied"
-      ? CheckCircle2
-      : state === "failed" || state === "apply_failed"
-        ? AlertCircle
-        : state === "running" || state === "applying"
-          ? Loader2
-          : CircleDot;
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-        STATE_TONE[state],
-      )}
-    >
-      <Icon
-        className={cn(
-          "h-3 w-3",
-          (state === "running" || state === "applying") && "animate-spin",
-        )}
-      />
-      {STATE_LABEL[state]}
-    </span>
-  );
-}
-
-function DiffColumn({
-  title,
-  blocks,
-  side,
-  empty,
-  emptyText,
-}: {
-  title: string;
-  blocks: DiffBlock[];
-  side: "left" | "right";
-  empty: boolean;
-  emptyText: string;
-}) {
-  return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-md border bg-background">
-      <div className="border-b px-3 py-2">
-        <span className="text-xs font-medium text-muted-foreground">{title}</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-3 font-mono text-sm leading-relaxed">
-        {empty ? (
-          <span className="text-muted-foreground italic">{emptyText}</span>
-        ) : (
-          <DiffBlocks blocks={blocks} side={side} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DiffBlocks({ blocks, side }: { blocks: DiffBlock[]; side: "left" | "right" }) {
-  return (
-    <div className="whitespace-pre-wrap break-words">
-      {blocks.map((block, index) =>
-        block.lines.map((line, lineIndex) => (
-          <DiffLineRow
-            key={`${index}-${lineIndex}`}
-            type={line.type}
-            text={line.text}
-            hideAdded={side === "left"}
-            hideRemoved={side === "right"}
-          />
-        )),
-      )}
-    </div>
-  );
-}
-
-function DiffLineRow({
-  type,
-  text,
-  hideAdded,
-  hideRemoved,
-}: {
-  type: "added" | "removed" | "unchanged";
-  text: string;
-  hideAdded?: boolean;
-  hideRemoved?: boolean;
-}) {
-  if (type === "added" && hideAdded) return null;
-  if (type === "removed" && hideRemoved) return null;
-  const marker = type === "added" ? "+" : type === "removed" ? "-" : " ";
-  return (
-    <div
-      className={cn(
-        "flex gap-2 px-1",
-        type === "added" && "bg-emerald-500/15 text-emerald-800",
-        type === "removed" && "bg-red-500/15 text-red-800 line-through",
-      )}
-    >
-      <span className="select-none text-muted-foreground">{marker}</span>
-      <span className="flex-1">{text || " "}</span>
-    </div>
   );
 }
