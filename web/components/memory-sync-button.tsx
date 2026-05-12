@@ -167,7 +167,7 @@ export function MemorySyncButton({
         {pill && (
           <span
             className={cn(
-              "rounded-sm px-2 py-0.5 text-[10px] font-medium",
+              "motion-panel rounded-sm px-2 py-0.5 text-[10px] font-medium",
               pill.className,
               pill.pulse && "animate-pulse",
             )}

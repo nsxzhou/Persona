@@ -129,9 +129,9 @@ export function EditorSidePanel({
     : true;
 
   return (
-    <aside className="w-[260px] border-r border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
+    <aside className="motion-panel w-[260px] border-r border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+      <div className="motion-nav flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <span className="text-sm font-semibold">
           {mode === "navigation" ? "创作导航" : "创作设定"}
         </span>
@@ -153,7 +153,7 @@ export function EditorSidePanel({
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${progressBarColor}`}
+              className={`motion-panel h-full rounded-full ${progressBarColor}`}
               style={{ width: `${Math.min(progress.percentage, 100)}%` }}
             />
           </div>
@@ -212,7 +212,7 @@ export function EditorSidePanel({
                 <button
                   type="button"
                   onClick={() => toggleField(key)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs hover:bg-muted/50 transition-colors"
+                  className="motion-row flex w-full items-center gap-2 px-4 py-2 text-left text-xs hover:bg-muted/50"
                 >
                   {isOpen ? (
                     <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -227,7 +227,7 @@ export function EditorSidePanel({
                   )}
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-2">
+                  <div className="animate-fade-in px-4 pb-2">
                     <textarea
                       value={text}
                       onFocus={() => { isFocusedRef.current[key] = true; }}

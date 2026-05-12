@@ -260,8 +260,8 @@ export function ProviderConfigsPageView({
   onDelete?: (id: string) => void;
 }) {
   return (
-    <section className="space-y-6">
-      <div className="flex items-center justify-between">
+    <section className="motion-page space-y-6">
+      <div className="animate-slide-up flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">全局 Provider 配置</h1>
           <p className="mt-1 text-sm text-muted-foreground">统一维护 OpenAI-compatible 网关配置。</p>
@@ -272,8 +272,13 @@ export function ProviderConfigsPageView({
         </Button>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        {providers.map((provider) => (
-          <div key={provider.id} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer">
+        {providers.map((provider, index) => (
+          <div
+            key={provider.id}
+            className="motion-surface animate-scale-in rounded-xl border border-border bg-card text-card-foreground shadow-sm hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer"
+            data-interactive="true"
+            style={{ "--motion-delay": `${index * 45}ms` } as React.CSSProperties}
+          >
             <div className="flex flex-col space-y-1.5 p-6 pb-4">
               <div className="flex items-center justify-between">
                 <div>

@@ -31,10 +31,15 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
 function MarkdownPreviewFallback() {
   return (
     <div
-      className="rounded-md border border-dashed p-4 text-sm text-muted-foreground"
+      className="motion-panel space-y-3 rounded-md border border-dashed p-4"
       style={{ minHeight: 96 }}
+      aria-busy="true"
+      aria-live="polite"
     >
-      正在载入预览...
+      <div className="h-3 w-1/2 animate-pulse rounded-sm bg-muted" />
+      <div className="h-3 w-full animate-pulse rounded-sm bg-muted motion-delay-1" />
+      <div className="h-3 w-4/5 animate-pulse rounded-sm bg-muted motion-delay-2" />
+      <span className="sr-only">正在载入预览...</span>
     </div>
   );
 }

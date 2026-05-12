@@ -228,7 +228,7 @@ export function LabNewTaskDialog<TPayload>({
                 render={({ field }) => (
                   <div className="space-y-2">
                     {!field.value ? (
-                      <div className="relative group flex flex-col items-center justify-center w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-all hover:bg-muted/40 hover:border-primary/50 cursor-pointer overflow-hidden">
+                      <div className="motion-surface relative group flex flex-col items-center justify-center w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 hover:bg-muted/40 hover:border-primary/50 cursor-pointer overflow-hidden" data-interactive="true">
                         <input
                           id={`${inputIdPrefix}-sample-file`}
                           type="file"
@@ -237,7 +237,7 @@ export function LabNewTaskDialog<TPayload>({
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
                         <div className="flex flex-col items-center justify-center space-y-2 text-center px-4">
-                          <div className="p-2 bg-background/50 rounded-full shadow-sm border border-border group-hover:scale-105 group-hover:text-primary transition-all duration-200">
+                          <div className="motion-panel p-2 bg-background/50 rounded-full shadow-sm border border-border group-hover:scale-105 group-hover:text-primary">
                             <UploadCloud className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
                           </div>
                           <div className="text-sm font-medium">
@@ -247,7 +247,7 @@ export function LabNewTaskDialog<TPayload>({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30 shadow-sm transition-all">
+                      <div className="motion-panel flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30 shadow-sm">
                         <div className="flex items-center space-x-3 overflow-hidden">
                           <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
                             <FileText className="w-5 h-5" />
@@ -260,7 +260,7 @@ export function LabNewTaskDialog<TPayload>({
                         <button
                           type="button"
                           onClick={() => field.onChange(null)}
-                          className="p-2 text-muted-foreground hover:text-destructive transition-colors shrink-0 rounded-md hover:bg-muted"
+                          className="motion-button p-2 text-muted-foreground hover:text-destructive shrink-0 rounded-md hover:bg-muted"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

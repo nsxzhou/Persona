@@ -62,9 +62,9 @@ export function SetupPageView({
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-muted/30">
+    <div className="motion-page flex min-h-screen w-full bg-muted/30">
       {/* 左侧插画区 */}
-      <div className="hidden w-1/2 flex-col justify-center bg-primary p-12 text-primary-foreground lg:flex">
+      <div className="hidden w-1/2 animate-fade-in flex-col justify-center bg-primary p-12 text-primary-foreground lg:flex">
         <div className="mx-auto max-w-md space-y-8">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
             <Sparkles className="h-8 w-8 text-white" />
@@ -94,7 +94,7 @@ export function SetupPageView({
 
       {/* 右侧表单区 */}
       <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-12 lg:px-24">
-        <div className="mx-auto w-full max-w-md space-y-8">
+        <div className="mx-auto w-full max-w-md animate-slide-up space-y-8">
           <div className="space-y-2 lg:hidden">
             <h1 className="text-3xl font-bold">初始化 Persona</h1>
             <p className="text-muted-foreground">创建管理员账号，并接入首个 Provider。</p>
@@ -118,7 +118,7 @@ export function SetupPageView({
                 }}
               >
                 {step === 1 && (
-                  <div className="grid gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid gap-4 animate-slide-up">
                     <div className="grid gap-2">
                       <Label htmlFor="username">管理员账号</Label>
                       <div className="relative">
@@ -144,7 +144,7 @@ export function SetupPageView({
                 )}
 
                 {step === 2 && (
-                  <div className="grid gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid gap-4 animate-slide-up">
                     <ProviderFormFields
                       ids={{
                         label: "provider-label",

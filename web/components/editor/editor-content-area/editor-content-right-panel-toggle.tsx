@@ -26,7 +26,7 @@ export function EditorContentRightPanelToggle({
       type="button"
       onClick={onToggle}
       disabled={!hasSelectedChapter}
-      className="w-12 shrink-0 border-l border-border bg-background flex flex-col items-center pt-3 gap-2 hover:bg-muted/30 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+      className="motion-button w-12 shrink-0 border-l border-border bg-background flex flex-col items-center pt-3 gap-2 hover:bg-muted/30 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       title="展开节拍写作 (⌘⇧J)"
     >
       <ListOrdered className="h-[18px] w-[18px] text-muted-foreground" />

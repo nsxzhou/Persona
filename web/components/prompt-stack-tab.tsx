@@ -56,7 +56,7 @@ export function PromptStackTab({ projectId, chapters }: PromptStackTabProps) {
   } = usePromptStackAssets(projectId);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="motion-page mx-auto max-w-6xl space-y-5">
       <PromptStackSummary
         assetCount={assets.length}
         enabledCount={stats.enabled}

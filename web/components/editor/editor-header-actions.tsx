@@ -38,7 +38,7 @@ export function EditorQuickActions({
           <Button
             variant="default"
             size="icon"
-            className="w-8 h-8 rounded-none mb-3 hover:opacity-90 transition-opacity"
+            className="w-8 h-8 rounded-none mb-3 hover:opacity-90"
             title="快速导航"
           >
             <span className="font-black text-sm">P</span>
@@ -53,7 +53,7 @@ export function EditorQuickActions({
         variant="ghost"
         size="icon"
         onClick={toggleLeft}
-        className={`w-9 h-9 rounded-none transition-colors ${
+        className={`w-9 h-9 rounded-none ${
           isLeftExpanded && leftPanelMode === "navigation" ? "bg-white/15" : "hover:bg-white/10"
         }`}
         title="创作导航 (⌘B)"
@@ -66,7 +66,7 @@ export function EditorQuickActions({
           variant="ghost"
           size="icon"
           onClick={openSettings}
-          className={`w-9 h-9 rounded-none transition-colors ${
+          className={`w-9 h-9 rounded-none ${
             isLeftExpanded && leftPanelMode === "settings" ? "bg-white/15" : "opacity-50 hover:opacity-80"
           }`}
           title="创作设定"
@@ -81,7 +81,7 @@ export function EditorQuickActions({
         variant="ghost"
         size="icon"
         onClick={() => router.push(`/projects/${projectId}`)}
-        className="w-9 h-9 rounded-none opacity-50 hover:opacity-80 transition-opacity mb-3"
+        className="w-9 h-9 rounded-none opacity-50 hover:opacity-80 mb-3"
         title="返回项目工作台"
       >
         <ArrowLeft className="h-[18px] w-[18px] text-white" />

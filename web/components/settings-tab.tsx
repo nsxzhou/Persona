@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Save, Wand2, Bot, BookTemplate } from "lucide-react";
 import { toast } from "sonner";
-import { AnimatePresence, motion } from "framer-motion";
 
 import { updateProjectAction } from "@/app/(workspace)/projects/actions";
 import { Button } from "@/components/ui/button";
@@ -171,9 +170,9 @@ export function SettingsTab({
   };
 
   return (
-    <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 pb-24">
+    <div className="motion-page max-w-5xl mx-auto flex flex-col md:flex-row gap-8 pb-24">
       {/* Sidebar Navigation */}
-      <aside className="md:w-64 shrink-0 space-y-1">
+      <aside className="animate-slide-up md:w-64 shrink-0 space-y-1">
         <nav className="flex flex-col gap-1">
           <Button
             variant="ghost"
@@ -214,7 +213,7 @@ export function SettingsTab({
       {/* Main Content Area */}
       <div className="flex-1 space-y-6">
         {activeSidebarTab === "generation" && (
-          <Card>
+          <Card className="animate-scale-in">
             <CardHeader>
               <CardTitle>生成策略 (Generation Profile)</CardTitle>
               <CardDescription>配置 AI 生成内容的风格、节奏和偏好。</CardDescription>
@@ -362,7 +361,7 @@ export function SettingsTab({
         )}
 
         {activeSidebarTab === "provider" && (
-          <Card>
+          <Card className="animate-scale-in">
             <CardHeader>
               <CardTitle>AI 引擎配置</CardTitle>
               <CardDescription>配置项目默认使用的 AI Provider 和模型。</CardDescription>
@@ -401,7 +400,7 @@ export function SettingsTab({
         )}
 
         {activeSidebarTab === "profiles" && (
-          <Card>
+          <Card className="animate-scale-in">
             <CardHeader>
               <CardTitle>档案挂载</CardTitle>
               <CardDescription>选择项目应用的风格档案和情节档案。</CardDescription>
@@ -456,40 +455,33 @@ export function SettingsTab({
       </div>
 
       {/* Floating Action Bar */}
-      <AnimatePresence>
-        {isDirty && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 rounded-full border bg-background px-6 py-3 shadow-lg"
-          >
-            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-              您有未保存的更改
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleReset}
-                disabled={saveMutation.isPending}
-                className="rounded-full"
-              >
-                取消
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={saveMutation.isPending}
-                className="rounded-full gap-2"
-              >
-                <Save className="h-4 w-4" />
-                保存更改
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isDirty && (
+        <div className="motion-panel animate-fade-in fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 rounded-full border bg-background px-6 py-3 shadow-lg">
+          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+            您有未保存的更改
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={saveMutation.isPending}
+              className="rounded-full"
+            >
+              取消
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="rounded-full gap-2"
+            >
+              <Save className="h-4 w-4" />
+              保存更改
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

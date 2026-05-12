@@ -39,13 +39,13 @@ export function LoginPageView({
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-6 md:p-24">
+    <div className="motion-page flex min-h-screen flex-col items-center justify-center bg-muted/30 p-6 md:p-24">
       <div className="flex w-full max-w-md flex-col items-center gap-6">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+        <div className="animate-scale-in flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
           <Sparkles className="h-8 w-8" />
         </div>
         
-        <Card className="w-full shadow-lg border-muted">
+        <Card className="w-full animate-slide-up motion-delay-1 shadow-lg border-muted">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">欢迎回来</CardTitle>
             <CardDescription className="text-muted-foreground">

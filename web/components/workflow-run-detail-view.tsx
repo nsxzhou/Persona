@@ -114,8 +114,8 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="flex items-center gap-4">
+    <section className="motion-page space-y-6">
+      <div className="animate-slide-up flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/workflow-runs" aria-label="返回运行历史">
             <ArrowLeft className="h-4 w-4" />
@@ -141,13 +141,13 @@ export function WorkflowRunDetailView({ runId }: { runId: string }) {
       </div>
 
       {run.status === "failed" && run.error_message ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3">
+        <div className="motion-panel animate-scale-in rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3">
           <p className="text-sm font-medium text-destructive">错误信息</p>
           <p className="mt-1 text-sm text-destructive/80">{run.error_message}</p>
         </div>
       ) : null}
 
-      <Tabs defaultValue="trace" className="space-y-4">
+      <Tabs defaultValue="trace" className="animate-fade-in motion-delay-1 space-y-4">
         <TabsList>
           <TabsTrigger value="trace">Prompt Trace</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -303,7 +303,7 @@ function TraceSummary({ parsedTrace }: { parsedTrace: PromptTraceParseResult }) 
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
 
   return (
-    <div className="rounded-lg border bg-background px-4 py-3">
+    <div className="motion-panel rounded-lg border bg-background px-4 py-3">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-semibold">Trace Summary</h2>
@@ -316,7 +316,7 @@ function TraceSummary({ parsedTrace }: { parsedTrace: PromptTraceParseResult }) 
         </div>
       </div>
 
-      <details className="group mt-3 rounded-md border bg-muted/20 px-3 py-2">
+      <details className="motion-panel group mt-3 rounded-md border bg-muted/20 px-3 py-2">
         <summary className="cursor-pointer list-none text-xs text-muted-foreground">
           <span className="group-open:hidden">展开完整 summary 数据</span>
           <span className="hidden group-open:inline">收起完整 summary 数据</span>
@@ -333,7 +333,7 @@ function TraceSummary({ parsedTrace }: { parsedTrace: PromptTraceParseResult }) 
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[120px] rounded-md border bg-muted/30 px-3 py-2">
+    <div className="motion-panel min-w-[120px] rounded-md border bg-muted/30 px-3 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 truncate font-mono text-sm" title={value}>
         {value}
@@ -350,7 +350,7 @@ function PromptTraceCallCard({ call }: { call: PromptTraceCall }) {
   const hasTruncation = call.metadata["Contains truncation marker"];
 
   return (
-    <details className="group rounded-lg border bg-background p-4" open>
+    <details className="motion-surface group rounded-lg border bg-background p-4" open>
       <summary className="cursor-pointer list-none">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1">
@@ -381,7 +381,7 @@ function PromptTraceCallCard({ call }: { call: PromptTraceCall }) {
             <PromptTraceSegmentPanel key={segment.id} segment={segment} callIndex={call.index} />
           ))}
         </div>
-        <details className="group rounded-md border bg-muted/20 px-3 py-2">
+        <details className="motion-panel group rounded-md border bg-muted/20 px-3 py-2">
           <summary className="cursor-pointer list-none text-xs text-muted-foreground">
             <span className="group-open:hidden">展开精确数据</span>
             <span className="hidden group-open:inline">收起精确数据</span>
@@ -405,7 +405,7 @@ function MetadataGrid({ metadata, className = "" }: { metadata: PromptTraceTable
 
 function MetadataItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-md bg-muted/40 px-3 py-2">
+    <div className="motion-panel min-w-0 rounded-md bg-muted/40 px-3 py-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className="truncate font-mono text-xs" title={value}>
         {value}
@@ -427,7 +427,7 @@ function PromptTraceSegmentPanel({
   };
 
   return (
-    <details className="group rounded-md border bg-muted/20">
+    <details className="motion-panel group rounded-md border bg-muted/20">
       <summary className="cursor-pointer list-none px-3 py-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -487,7 +487,7 @@ function SummaryCard({
   children?: ReactNode;
 }) {
   return (
-    <Card>
+    <Card className="animate-scale-in">
       <CardHeader className="space-y-2">
         <CardDescription>{label}</CardDescription>
         {children ?? <CardTitle className="truncate text-base">{value}</CardTitle>}

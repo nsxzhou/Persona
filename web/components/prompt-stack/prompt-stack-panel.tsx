@@ -22,11 +22,11 @@ export function PromptStackCollapsiblePanel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border-2 bg-card">
+    <section className="motion-surface rounded-lg border-2 bg-card">
       <div className="flex items-center justify-between gap-4 p-4">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+          className="motion-button flex min-w-0 flex-1 items-start gap-3 text-left"
           onClick={() => onOpenChange(!open)}
         >
           <div className="mt-0.5">{icon}</div>
@@ -39,7 +39,7 @@ export function PromptStackCollapsiblePanel({
           {rightSlot}
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-md border-2 hover:bg-accent"
+            className="motion-button flex h-9 w-9 items-center justify-center rounded-md border-2 hover:bg-accent"
             onClick={() => onOpenChange(!open)}
             aria-label={open ? `收起${title}` : `展开${title}`}
           >
@@ -47,7 +47,7 @@ export function PromptStackCollapsiblePanel({
           </button>
         </div>
       </div>
-      {open ? <div className="border-t-2 p-4">{children}</div> : null}
+      {open ? <div className="animate-fade-in border-t-2 p-4">{children}</div> : null}
     </section>
   );
 }
@@ -62,7 +62,7 @@ export function PromptStackEmptyPanel({
   description: string;
 }) {
   return (
-    <div className="rounded-lg border-2 border-dashed p-4 text-sm text-muted-foreground">
+    <div className="motion-panel rounded-lg border-2 border-dashed p-4 text-sm text-muted-foreground">
       <div className="flex items-center gap-2 font-medium text-foreground">
         {icon}
         {title}
@@ -91,7 +91,7 @@ export function PromptStackSwitchField({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-11 items-center gap-2 text-sm">
+    <label className="motion-row flex min-h-11 items-center gap-2 text-sm">
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
       <span>{label}</span>
     </label>

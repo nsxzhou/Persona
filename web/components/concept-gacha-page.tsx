@@ -126,17 +126,17 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="motion-page max-w-4xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
+      <div className="animate-slide-up flex items-center gap-3">
+        <Link href="/projects" className="motion-button text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <h1 className="text-lg font-semibold">新建小说</h1>
       </div>
 
       {/* Provider + Model + Profiles */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="animate-fade-in motion-delay-1 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="grid gap-2">
           <Label>目标市场</Label>
           <Select value={targetMarket} onValueChange={(val) => setTargetMarket(val as "mainstream" | "nsfw")}>
@@ -215,7 +215,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
           value={inspiration}
           onChange={(e) => setInspiration(e.target.value)}
           placeholder='在这里描述你的小说灵感、题材方向、主角处境、想写的冲突和核心看点，AI 会据此生成标题 + 几百字长简介。&#10;&#10;例："一个失忆的少年在末世废墟中醒来，发现自己手臂上刻着倒计时..."'
-          className="w-full min-h-[120px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="motion-input w-full min-h-[120px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div className="flex justify-end">
           <Button
@@ -242,7 +242,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="animate-pulse rounded-xl border border-border p-5 space-y-3"
+              className="motion-panel animate-pulse rounded-xl border border-border p-5 space-y-3"
             >
               <div className="h-5 w-2/3 rounded bg-muted" />
               <div className="space-y-2">
@@ -271,11 +271,12 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
                 key={i}
                 type="button"
                 onClick={() => setSelectedIndex(i)}
-                className={`relative rounded-xl border-2 p-5 text-left transition-all ${
+                className={`motion-surface animate-scale-in relative rounded-xl border-2 p-5 text-left ${
                   selectedIndex === i
                     ? "border-primary bg-primary/5 ring-1 ring-primary"
                     : "border-border hover:border-muted-foreground/30"
                 }`}
+                style={{ "--motion-delay": `${i * 45}ms` } as React.CSSProperties}
               >
                 {selectedIndex === i && (
                   <span className="absolute -top-2 left-3 rounded bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
@@ -301,7 +302,7 @@ export function ConceptGachaPage({ providers, styleProfiles, plotProfiles }: Con
                       key={key}
                       type="button"
                       onClick={() => setLengthPreset(key)}
-                      className={`rounded-lg border-2 p-4 text-left transition-all ${
+                      className={`motion-surface rounded-lg border-2 p-4 text-left ${
                         lengthPreset === key
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-muted-foreground/30"

@@ -133,8 +133,8 @@ export function WorkflowRunsPageView() {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <section className="motion-page space-y-6">
+      <div className="animate-slide-up flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">运行历史</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -239,7 +239,7 @@ export function WorkflowRunsPageView() {
         </div>
       </div>
 
-      <Card>
+      <Card className="animate-scale-in motion-delay-1">
         <CardHeader>
           <CardTitle className="text-lg">Workflow Runs</CardTitle>
           <CardDescription>Prompt Trace 保存在每条 run 的 artifact 中。</CardDescription>
@@ -264,7 +264,7 @@ export function WorkflowRunsPageView() {
                 </thead>
                 <tbody className="divide-y">
                   {runsQuery.data.map((run) => (
-                    <tr key={run.id} className="align-top">
+                    <tr key={run.id} className="motion-row align-top">
                       <td className="py-4 pr-4">
                         <div className="font-medium text-foreground">
                           {WORKFLOW_INTENT_LABELS[run.intent_type]}
@@ -310,7 +310,7 @@ export function WorkflowRunsPageView() {
         </CardContent>
       </Card>
 
-      <Pagination className="justify-end">
+      <Pagination className="justify-end animate-fade-in motion-delay-2">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious

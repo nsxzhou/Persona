@@ -95,7 +95,7 @@ export function ChapterTree({
               <button
                 type="button"
                 onClick={() => toggleVolume(vi)}
-                className="flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs hover:bg-muted/50 transition-colors h-[36px]"
+                className="motion-row flex w-full items-center gap-1.5 px-4 py-2 text-left text-xs hover:bg-muted/50 h-[36px]"
               >
                 {collapsedVolumes.has(vi) ? (
                   <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -117,7 +117,7 @@ export function ChapterTree({
                   <button
                     type="button"
                     onClick={() => onGoGenerateVolume(vi)}
-                    className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                    className="motion-button inline-flex items-center rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                   >
                     去生成本卷章节细纲
                   </button>
@@ -130,7 +130,7 @@ export function ChapterTree({
                 type="button"
                 onClick={() => onSelectChapter(vi, item.ci)}
                 aria-label={item.ch.title}
-                className={`flex w-full items-center gap-2 pl-8 pr-4 py-1.5 text-left text-xs transition-colors h-[28px] ${
+                className={`motion-row flex w-full items-center gap-2 pl-8 pr-4 py-1.5 text-left text-xs h-[28px] ${
                   currentChapter?.volumeIndex === vi && currentChapter?.chapterIndex === item.ci
                     ? "border-l-2 border-primary bg-primary/15 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.18)]"
                     : "hover:bg-muted/30"
@@ -158,7 +158,7 @@ export function ChapterTree({
             )}
 
             {item.type === "chapter-details" && (
-              <div className="pl-12 pr-4 py-1.5 space-y-0.5">
+              <div className="animate-fade-in pl-12 pr-4 py-1.5 space-y-0.5">
                 {item.ch.coreEvent && (
                   <div className="text-[11px] text-muted-foreground truncate">
                     <span className="text-violet-400">事件：</span>

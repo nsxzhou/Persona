@@ -88,8 +88,8 @@ export function BeatPanel({
   };
 
   return (
-    <aside className="w-full border-l border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+    <aside className="motion-panel w-full border-l border-border bg-background flex flex-col shrink-0 h-full overflow-hidden">
+      <div className="motion-nav flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <span className="text-sm font-semibold">节拍写作</span>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
           <ChevronRight className="h-4 w-4" />
@@ -108,7 +108,7 @@ export function BeatPanel({
         {beats.map((beat, i) => (
           <div
             key={i}
-            className={`flex items-start gap-2 rounded-md p-2 text-sm transition-colors ${
+            className={`motion-row flex items-start gap-2 rounded-md p-2 text-sm ${
               i === currentBeatIndex && isExpandingBeat
                 ? "bg-primary/10 ring-1 ring-primary"
                 : i < currentBeatIndex && currentBeatIndex >= 0
@@ -131,7 +131,7 @@ export function BeatPanel({
                   type="button"
                   onClick={() => moveBeat(i, -1)}
                   disabled={i === 0}
-                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  className="motion-button text-muted-foreground hover:text-foreground disabled:opacity-30"
                 >
                   <ArrowUp className="h-3 w-3" />
                 </button>
@@ -139,14 +139,14 @@ export function BeatPanel({
                   type="button"
                   onClick={() => moveBeat(i, 1)}
                   disabled={i === beats.length - 1}
-                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  className="motion-button text-muted-foreground hover:text-foreground disabled:opacity-30"
                 >
                   <ArrowDown className="h-3 w-3" />
                 </button>
                 <button
                   type="button"
                   onClick={() => removeBeat(i)}
-                  className="text-muted-foreground hover:text-destructive"
+                  className="motion-button text-muted-foreground hover:text-destructive"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

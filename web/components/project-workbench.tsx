@@ -78,10 +78,10 @@ function ProjectWorkbenchInner({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="motion-page space-y-6 max-w-5xl mx-auto">
       {/* Breadcrumb */}
-      <div className="flex items-center text-sm text-muted-foreground">
-        <Link href="/projects" className="hover:text-foreground transition-colors">
+      <div className="animate-fade-in flex items-center text-sm text-muted-foreground">
+        <Link href="/projects" className="motion-button hover:text-foreground">
           项目管理
         </Link>
         <Breadcrumb className="h-4 w-4 mx-1" />
@@ -89,18 +89,18 @@ function ProjectWorkbenchInner({
       </div>
 
       {/* Title bar */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="animate-slide-up flex items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
           <input
             type="text"
             value={displayName}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="未命名项目..."
-            className="text-3xl font-bold tracking-tight bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-muted-foreground/30 w-full transition-colors"
+            className="motion-input text-3xl font-bold tracking-tight bg-transparent border-none outline-none focus:ring-0 p-0 placeholder:text-muted-foreground/30 w-full"
           />
           <div className="flex items-center gap-3">
             <Select value={status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="h-7 w-fit gap-2 bg-muted/50 border-dashed hover:bg-muted transition-colors text-xs font-medium">
+              <SelectTrigger className="h-7 w-fit gap-2 bg-muted/50 border-dashed hover:bg-muted text-xs font-medium">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

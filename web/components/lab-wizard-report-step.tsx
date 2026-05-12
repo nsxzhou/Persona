@@ -59,7 +59,7 @@ export const LabWizardReportStep = React.memo(function LabWizardReportStep({
   }, [logs]);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-slide-up">
       {status === "pending" || status === "running" ? (
         <Card className="border-dashed border-2 bg-muted/30 overflow-hidden flex flex-col h-[500px]">
           <CardHeader className="border-b bg-muted/50 pb-4">

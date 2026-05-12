@@ -20,7 +20,7 @@ export function PromptStackSummary({
   keywordTriggeredCount: number;
 }) {
   return (
-    <section className="rounded-lg border-2 bg-card p-5">
+    <section className="motion-surface animate-scale-in rounded-lg border-2 bg-card p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2">
@@ -52,7 +52,7 @@ export function EmptyPromptStackState({
   onCreateAsset: () => void;
 }) {
   return (
-    <section className="rounded-lg border-2 border-dashed bg-background p-6">
+    <section className="motion-panel animate-scale-in rounded-lg border-2 border-dashed bg-background p-6">
       <div className="mx-auto max-w-2xl text-center">
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border-2 bg-card">
           <WandSparkles className="h-5 w-5 text-primary" />
@@ -94,7 +94,7 @@ export function PromptAssetTable({
   onEditAsset: (assetId: string) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border-2 bg-card">
+    <section className="motion-surface animate-scale-in overflow-hidden rounded-lg border-2 bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 p-4">
         <div>
           <h3 className="text-base font-semibold">资产管理</h3>
@@ -134,7 +134,7 @@ export function PromptAssetTable({
                 <tr
                   key={asset.id}
                   className={cn(
-                    "border-t-2 transition-colors",
+                    "motion-row border-t-2",
                     selectedId === asset.id ? "bg-primary/5" : "hover:bg-muted/30",
                   )}
                 >
@@ -234,7 +234,7 @@ function Metric({
   detail: string;
 }) {
   return (
-    <div className="rounded-md border-2 bg-background p-3">
+    <div className="motion-panel rounded-md border-2 bg-background p-3">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1 text-2xl font-semibold leading-none">{value}</div>
       <div className="mt-2 text-xs text-muted-foreground">{detail}</div>

@@ -159,8 +159,8 @@ function LabDashboardPageView<TJob extends LabJobBase>({
   }
 
   return (
-    <section className="space-y-6">
-      <div className="flex items-center justify-between">
+    <section className="motion-page space-y-6">
+      <div className="animate-slide-up flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{config.title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{config.description}</p>
@@ -169,7 +169,7 @@ function LabDashboardPageView<TJob extends LabJobBase>({
       </div>
 
       {jobs.length === 0 && page === 1 ? (
-        <Card>
+        <Card className="animate-scale-in">
           <CardHeader>
             <CardTitle>{config.emptyTitle}</CardTitle>
             <CardDescription>{config.emptyDescription}</CardDescription>
@@ -178,10 +178,12 @@ function LabDashboardPageView<TJob extends LabJobBase>({
       ) : (
         <>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {jobs.map((job) => (
+            {jobs.map((job, index) => (
               <Card
                 key={job.id}
-                className="flex flex-col transition-all hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer overflow-hidden"
+                className="animate-scale-in flex flex-col hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer overflow-hidden"
+                data-interactive="true"
+                style={{ "--motion-delay": `${index * 45}ms` } as React.CSSProperties}
               >
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between gap-4">
@@ -267,7 +269,7 @@ function LabDashboardPageView<TJob extends LabJobBase>({
           </div>
 
           {jobs.length > 0 || page > 1 ? (
-            <Pagination className="mt-8 justify-end">
+            <Pagination className="mt-8 justify-end animate-fade-in motion-delay-2">
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious

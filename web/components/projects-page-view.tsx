@@ -181,8 +181,8 @@ export function ProjectsPageView({
   plotProfiles?: PlotProfileListItem[];
 }) {
   return (
-    <section className="space-y-6">
-      <div className="flex items-center justify-between">
+    <section className="motion-page space-y-6">
+      <div className="animate-slide-up flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">项目管理</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -220,17 +220,22 @@ export function ProjectsPageView({
         onOpenChange={onImportOpenChange}
       />
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 animate-fade-in motion-delay-1">
         {projects.length === 0 ? (
-          <Card>
+          <Card className="animate-scale-in">
             <CardHeader>
               <CardTitle>还没有项目</CardTitle>
               <CardDescription>先创建一个写作项目，后续再接入 Style Profile 和编辑器。</CardDescription>
             </CardHeader>
           </Card>
         ) : null}
-        {projects.map((project) => (
-          <div key={project.id} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer">
+        {projects.map((project, index) => (
+          <div
+            key={project.id}
+            className="motion-surface animate-scale-in rounded-xl border border-border bg-card text-card-foreground shadow-sm hover:ring-2 hover:ring-primary hover:border-transparent cursor-pointer"
+            data-interactive="true"
+            style={{ "--motion-delay": `${index * 45}ms` } as React.CSSProperties}
+          >
             <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center justify-between">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -309,7 +314,7 @@ export function ProjectsPageView({
 
       {/* Pagination (Standard) */}
       {projects.length > 0 || page > 1 ? (
-        <Pagination className="mt-8 justify-end">
+        <Pagination className="mt-8 justify-end animate-fade-in motion-delay-2">
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious 
