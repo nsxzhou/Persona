@@ -105,7 +105,7 @@ class StyleAnalysisJobService:
             include_payloads=include_payloads,
         )
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         return job
 
     async def get_detail_or_404(
@@ -131,7 +131,7 @@ class StyleAnalysisJobService:
                 include_style_profile_payloads=True,
             )
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         return job
 
     async def get_status_or_404(
@@ -321,6 +321,7 @@ class StyleAnalysisJobService:
             )
         return resolve_analysis_payload_result_or_409(
             result,
+            job_id=job_id,
             succeeded_status=STYLE_ANALYSIS_JOB_STATUS_SUCCEEDED,
             parser=parser,
             not_ready_detail=not_ready_detail,
@@ -558,7 +559,7 @@ class StyleAnalysisJobService:
     ) -> None:
         job = await self.repository.get_for_delete(session, job_id, user_id=user_id)
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         if job.style_profile is not None and job.style_profile.projects:
             raise ConflictError("该分析任务的风格档案正被项目引用，无法删除")
 

@@ -87,7 +87,7 @@ class ProviderConfigService:
     ) -> ProviderConfig:
         provider = await self.repository.get_by_id(session, provider_id, user_id=user_id)
         if provider is None:
-            raise NotFoundError("Provider 不存在")
+            raise NotFoundError(f"Provider 不存在: provider_id={provider_id}")
         return provider
 
     async def update(
@@ -215,7 +215,7 @@ class ProviderConfigService:
     ) -> None:
         provider = await self.repository.get_with_projects(session, provider_id, user_id=user_id)
         if provider is None:
-            raise NotFoundError("Provider 不存在")
+            raise NotFoundError(f"Provider 不存在: provider_id={provider_id}")
 
         has_active_project = any(project.archived_at is None for project in provider.projects)
         if has_active_project:

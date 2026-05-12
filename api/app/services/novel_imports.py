@@ -321,18 +321,18 @@ class NovelImportService:
     ) -> NovelImportDraftDocument:
         path = self._draft_path(draft_id)
         if not path.exists():
-            raise NotFoundError("导入草稿不存在或已过期")
+            raise NotFoundError(f"导入草稿不存在或已过期: draft_id={draft_id}")
         try:
             async with aiofiles.open(path, "r", encoding="utf-8") as handle:
                 payload = json.loads(await handle.read())
             document = NovelImportDraftDocument.model_validate(payload)
         except (json.JSONDecodeError, ValidationError) as exc:
-            raise NotFoundError("导入草稿不存在或已过期") from exc
+            raise NotFoundError(f"导入草稿不存在或已过期: draft_id={draft_id}") from exc
         if document.user_id != user_id:
-            raise NotFoundError("导入草稿不存在或已过期")
+            raise NotFoundError(f"导入草稿不存在或已过期: draft_id={draft_id}")
         if document.expires_at < datetime.now(UTC):
             await self._delete_draft(draft_id)
-            raise NotFoundError("导入草稿不存在或已过期")
+            raise NotFoundError(f"导入草稿不存在或已过期: draft_id={draft_id}")
         return document
 
     async def _write_draft(self, document: NovelImportDraftDocument) -> None:
@@ -350,7 +350,7 @@ class NovelImportService:
         try:
             normalized_draft_id = str(uuid.UUID(draft_id))
         except ValueError as exc:
-            raise NotFoundError("导入草稿不存在或已过期") from exc
+            raise NotFoundError(f"导入草稿不存在或已过期: draft_id={draft_id}") from exc
         return (
             Path(get_settings().storage_dir).expanduser()
             / "novel-import-drafts"

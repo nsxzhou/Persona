@@ -206,7 +206,7 @@ async def test_provider_chat_test_returns_not_found_for_missing_provider(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Provider 不存在"
+    assert response.json()["detail"] == "Provider 不存在: provider_id=missing-provider"
 
 
 @pytest.mark.asyncio

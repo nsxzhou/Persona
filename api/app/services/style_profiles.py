@@ -38,7 +38,7 @@ class StyleProfileService(BaseProfileService[StyleProfile]):
             user_id=user_id,
         )
         if project is None:
-            raise NotFoundError("项目不存在")
+            raise NotFoundError(f"项目不存在: project_id={project_id}")
 
     async def _check_delete_constraints(self, session: AsyncSession, profile: StyleProfile) -> None:
         if profile.projects:
@@ -63,7 +63,7 @@ class StyleProfileService(BaseProfileService[StyleProfile]):
             user_id=user_id,
         )
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={payload.job_id}")
 
         analysis_report = job.analysis_report_payload
         if job.status != "succeeded" or analysis_report is None:

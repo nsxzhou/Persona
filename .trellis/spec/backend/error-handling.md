@@ -25,6 +25,9 @@ Business errors should be raised through the project's custom domain/HTTP except
 - Do not catch a domain error in a Router only to re-raise `HTTPException`.
 - Repository methods should not translate database or domain outcomes into HTTP responses.
 - Rollback is handled by the request/session unit of work when exceptions propagate.
+- `NotFoundError` messages for looked-up resources should include the stable lookup id
+  used by that service, such as `project_id`, `job_id`, `run_id`, `provider_id`,
+  or `asset_id`. For composite lookups, include each relevant id.
 
 ---
 
@@ -41,3 +44,5 @@ Business errors should be raised through the project's custom domain/HTTP except
 - Returning `500` for expected not-found or ownership failures.
 - Duplicating exception translation in every Router.
 - Logging or returning raw provider errors that may contain credentials.
+- Raising vague resource lookup failures such as `"项目不存在"` from service methods when
+  the service has the resource id available.

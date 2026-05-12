@@ -275,7 +275,9 @@ class NovelWorkflowService:
     ) -> str:
         await self.get_or_404(session, run_id, user_id=user_id)
         if not self.storage_service.stage_markdown_artifact_exists(run_id, name=artifact_name):
-            raise NotFoundError("工作流产物不存在")
+            raise NotFoundError(
+                f"工作流产物不存在: run_id={run_id}, artifact_name={artifact_name}"
+            )
         return await self.storage_service.read_stage_markdown_artifact(
             run_id,
             name=artifact_name,

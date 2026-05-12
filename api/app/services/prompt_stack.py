@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.domain_errors import UnprocessableEntityError
+from app.core.domain_errors import NotFoundError, UnprocessableEntityError
 from app.db.models import ProjectPromptAsset
 from app.db.repositories.project_prompt_assets import ProjectPromptAssetRepository
 from app.schemas.projects import (
@@ -97,11 +97,12 @@ class PromptStackService:
         user_id: str,
     ) -> ProjectPromptAsset:
         await self.project_service.get_or_404(session, project_id, user_id=user_id)
-        from app.core.domain_errors import NotFoundError
 
         asset = await self.repository.get_by_id(session, asset_id, project_id=project_id)
         if asset is None:
-            raise NotFoundError("Prompt 资产不存在")
+            raise NotFoundError(
+                f"Prompt 资产不存在: project_id={project_id}, asset_id={asset_id}"
+            )
         return asset
 
     async def create_asset(

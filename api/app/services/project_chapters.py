@@ -103,7 +103,7 @@ class ProjectChapterService:
             session, chapter_id, project_id=project_id,
         )
         if chapter is None:
-            raise NotFoundError("章节不存在")
+            raise NotFoundError(f"章节不存在: project_id={project_id}, chapter_id={chapter_id}")
         return chapter
 
     async def update(

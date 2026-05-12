@@ -52,7 +52,7 @@ class ProjectService:
     ) -> Project:
         project = await self.repository.get_by_id(session, project_id, user_id=user_id)
         if project is None:
-            raise NotFoundError("项目不存在")
+            raise NotFoundError(f"项目不存在: project_id={project_id}")
         return project
 
     async def create(
@@ -184,7 +184,7 @@ class ProjectService:
         await self.get_or_404(session, project_id, user_id=user_id)
         bible = await self.repository.get_bible_by_project_id(session, project_id)
         if bible is None:
-            raise NotFoundError("项目 Bible 不存在")
+            raise NotFoundError(f"项目 Bible 不存在: project_id={project_id}")
         return bible
 
     async def update_bible(

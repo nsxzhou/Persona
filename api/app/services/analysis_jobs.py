@@ -121,12 +121,13 @@ async def reconcile_stale_running_job(
 def resolve_analysis_payload_result_or_409(
     result,
     *,
+    job_id: str,
     succeeded_status: str,
     parser: Callable[[Any], Any],
     not_ready_detail: str,
 ):
     if result is None:
-        raise NotFoundError("分析任务不存在")
+        raise NotFoundError(f"分析任务不存在: job_id={job_id}")
     job_status, payload = result
     if job_status != succeeded_status or payload is None:
         raise ConflictError(not_ready_detail)

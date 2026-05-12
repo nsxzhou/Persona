@@ -91,7 +91,11 @@ class ChapterRewriteBatchService:
             if chapter.id in requested
         ]
         if len(ordered_chapters) != len(requested):
-            raise NotFoundError("章节不存在")
+            found = {chapter.id for chapter in ordered_chapters}
+            missing = sorted(requested - found)
+            raise NotFoundError(
+                f"章节不存在: project_id={payload.project_id}, chapter_ids={','.join(missing)}"
+            )
         batch = await self.repository.create(
             session,
             user_id=user_id,
@@ -132,7 +136,7 @@ class ChapterRewriteBatchService:
     ) -> ChapterRewriteBatch:
         batch = await self.repository.get_by_id(session, batch_id, user_id=user_id)
         if batch is None:
-            raise NotFoundError("章节改写批次不存在")
+            raise NotFoundError(f"章节改写批次不存在: batch_id={batch_id}")
         return batch
 
     async def get_item_or_404(
@@ -150,7 +154,9 @@ class ChapterRewriteBatchService:
             user_id=user_id,
         )
         if item is None:
-            raise NotFoundError("章节改写条目不存在")
+            raise NotFoundError(
+                f"章节改写条目不存在: batch_id={batch_id}, item_id={item_id}"
+            )
         return item
 
     async def get_item_logs_or_404(
@@ -164,7 +170,9 @@ class ChapterRewriteBatchService:
     ):
         item = await self.get_item_or_404(session, batch_id, item_id, user_id=user_id)
         if item.child_run_id is None:
-            raise NotFoundError("章节改写条目尚未开始")
+            raise NotFoundError(
+                f"章节改写条目尚未开始: batch_id={batch_id}, item_id={item_id}"
+            )
         return await self.workflow_service.get_job_logs_or_404(
             session,
             item.child_run_id,
@@ -187,7 +195,9 @@ class ChapterRewriteBatchService:
         }:
             raise ConflictError("章节改写条目尚未生成，无法查看产物")
         if item.child_run_id is None:
-            raise NotFoundError("章节改写产物不存在")
+            raise NotFoundError(
+                f"章节改写产物不存在: batch_id={batch_id}, item_id={item_id}"
+            )
         return await self.workflow_service.get_artifact_or_404(
             session,
             item.child_run_id,
@@ -211,7 +221,9 @@ class ChapterRewriteBatchService:
             raise ConflictError("批量改写尚未完成，无法应用")
         item = next((candidate for candidate in batch.items if candidate.id == item_id), None)
         if item is None:
-            raise NotFoundError("章节改写条目不存在")
+            raise NotFoundError(
+                f"章节改写条目不存在: batch_id={batch_id}, item_id={item_id}"
+            )
         if item.status == CHAPTER_REWRITE_BATCH_ITEM_STATUS_APPLIED:
             raise ConflictError("章节改写条目已应用")
         if item.status != CHAPTER_REWRITE_BATCH_ITEM_STATUS_GENERATED:

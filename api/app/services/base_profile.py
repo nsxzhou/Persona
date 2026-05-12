@@ -33,7 +33,7 @@ class BaseProfileService(Generic[T]):
     ) -> T:
         profile = await self.repository.get_by_id(session, profile_id, user_id=user_id)
         if profile is None:
-            raise NotFoundError(f"{self.profile_name}不存在")
+            raise NotFoundError(f"{self.profile_name}不存在: profile_id={profile_id}")
         return profile
 
     async def _check_delete_constraints(self, session: AsyncSession, profile: T) -> None:
@@ -52,6 +52,6 @@ class BaseProfileService(Generic[T]):
             user_id=user_id,
         )
         if profile is None:
-            raise NotFoundError(f"{self.profile_name}不存在")
+            raise NotFoundError(f"{self.profile_name}不存在: profile_id={profile_id}")
         await self._check_delete_constraints(session, profile)
         await self.repository.delete(session, profile)

@@ -417,27 +417,6 @@ class LLMProviderService:
                     continue
                 raise
             except (AttributeError, TypeError, KeyError) as exc:
-                if attempt < total_attempts and _is_retryable_malformed_response_error(exc):
-                    last_diagnostics = {
-                        "finish_reason": "malformed_response",
-                        "completion_tokens": None,
-                        "additional_keys": [],
-                        "response_metadata_keys": [],
-                        "error_type": type(exc).__name__,
-                    }
-                    logger.warning(
-                        "LLM gateway returned malformed response; retrying",
-                        extra={
-                            "attempt": attempt,
-                            "total_attempts": total_attempts,
-                            "provider_base_url": provider_base_url,
-                            "model_name": model_name,
-                            "error_type": type(exc).__name__,
-                            "error": str(exc),
-                        },
-                    )
-                    await asyncio.sleep(_EMPTY_RESPONSE_BACKOFF_SECONDS[attempt - 1])
-                    continue
                 if _is_retryable_malformed_response_error(exc):
                     last_diagnostics = {
                         "finish_reason": "malformed_response",
@@ -446,6 +425,20 @@ class LLMProviderService:
                         "response_metadata_keys": [],
                         "error_type": type(exc).__name__,
                     }
+                    if attempt < total_attempts:
+                        logger.warning(
+                            "LLM gateway returned malformed response; retrying",
+                            extra={
+                                "attempt": attempt,
+                                "total_attempts": total_attempts,
+                                "provider_base_url": provider_base_url,
+                                "model_name": model_name,
+                                "error_type": type(exc).__name__,
+                                "error": str(exc),
+                            },
+                        )
+                        await asyncio.sleep(_EMPTY_RESPONSE_BACKOFF_SECONDS[attempt - 1])
+                        continue
                     break
                 raise
             text, source, diagnostics = self._extract_markdown_text(result)

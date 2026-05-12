@@ -105,7 +105,7 @@ class PlotAnalysisJobService:
             include_payloads=include_payloads,
         )
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         return job
 
     async def get_detail_or_404(
@@ -123,7 +123,7 @@ class PlotAnalysisJobService:
             include_plot_profile_payloads=True,
         )
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         return job
 
     async def get_status_or_404(
@@ -291,12 +291,14 @@ class PlotAnalysisJobService:
     async def _resolve_payload_result_or_409(
         self,
         *,
+        job_id: str,
         result,
         parser,
         not_ready_detail: str,
     ):
         return resolve_analysis_payload_result_or_409(
             result,
+            job_id=job_id,
             succeeded_status=PLOT_ANALYSIS_JOB_STATUS_SUCCEEDED,
             parser=parser,
             not_ready_detail=not_ready_detail,
@@ -315,6 +317,7 @@ class PlotAnalysisJobService:
             user_id=user_id,
         )
         return await self._resolve_payload_result_or_409(
+            job_id=job_id,
             result=result,
             parser=PlotAnalysisMeta.model_validate,
             not_ready_detail="分析任务尚未完成，暂无法读取元数据",
@@ -333,6 +336,7 @@ class PlotAnalysisJobService:
             user_id=user_id,
         )
         return await self._resolve_payload_result_or_409(
+            job_id=job_id,
             result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取分析报告",
@@ -351,6 +355,7 @@ class PlotAnalysisJobService:
             user_id=user_id,
         )
         return await self._resolve_payload_result_or_409(
+            job_id=job_id,
             result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取全书骨架",
@@ -369,6 +374,7 @@ class PlotAnalysisJobService:
             user_id=user_id,
         )
         return await self._resolve_payload_result_or_409(
+            job_id=job_id,
             result=result,
             parser=str,
             not_ready_detail="分析任务尚未完成，暂无法读取 Plot Writing Guide",
@@ -560,7 +566,7 @@ class PlotAnalysisJobService:
     ) -> None:
         job = await self.repository.get_for_delete(session, job_id, user_id=user_id)
         if job is None:
-            raise NotFoundError("分析任务不存在")
+            raise NotFoundError(f"分析任务不存在: job_id={job_id}")
         if job.plot_profile is not None and job.plot_profile.projects:
             raise ConflictError("该分析任务的情节档案正被项目引用，无法删除")
 
