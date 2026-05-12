@@ -1,31 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from "react";
-import { useEditorContext, useEditorStore } from "./editor-context";
-import type { EditorState } from "./editor-store";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
+import { Loader2, Sparkles } from "lucide-react";
+
+import { BeatPanel } from "@/components/beat-panel";
+import { EditorSidePanel } from "@/components/editor-side-panel";
+import { EditorLayout } from "./editor-layout";
+import { EditorHeaderActions, EditorQuickActions } from "./editor-header-actions";
 import { useEditorAutosave } from "@/hooks/use-editor-autosave";
-import { useSelectionRewrite } from "@/hooks/use-selection-rewrite";
 import { useBeatGeneration } from "@/hooks/use-beat-generation";
 import { useChapterEnrichmentRewrite } from "@/hooks/use-chapter-enrichment-rewrite";
 import { useChapterMemorySync } from "@/hooks/use-chapter-memory-sync";
-import { parseOutline } from "@/lib/outline-parser";
-import { useProjectQuery, useProjectBibleQuery } from "@/hooks/use-project-query";
 import { useChaptersQuery } from "@/hooks/use-chapters-query";
-import { useQueryClient } from "@tanstack/react-query";
-import { EditorLayout } from "./editor-layout";
-import { BibleDiffDialog } from "@/components/bible-diff-dialog";
-import { BeatPanel } from "@/components/beat-panel";
-import { Sparkles, Loader2, ListOrdered } from "lucide-react";
-import { EditorSidePanel } from "@/components/editor-side-panel";
-import { SelectionRewriteDialog } from "@/components/editor/selection-rewrite-dialog";
-import { ChapterEnrichmentRewriteDialog } from "@/components/editor/chapter-enrichment-rewrite-dialog";
-import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useProjectBibleQuery, useProjectQuery } from "@/hooks/use-project-query";
+import { useSelectionRewrite } from "@/hooks/use-selection-rewrite";
+import { parseOutline } from "@/lib/outline-parser";
 import type { ProjectBible } from "@/lib/types";
+
 import { DEFAULT_BIBLE } from "./editor-defaults";
-import { EditorHeaderActions, EditorQuickActions } from "./editor-header-actions";
+import { useEditorContext, useEditorStore } from "./editor-context";
+import type { EditorState } from "./editor-store";
 import { useEditorPersistence } from "./editor-persistence";
-import { EditorTextarea } from "./editor-textarea";
+import { getEditorContentMaxWidth } from "./editor-content-area/editor-content-utils";
+import { EditorContentBanner } from "./editor-content-area/editor-content-banner";
+import { EditorContentDialogs } from "./editor-content-area/editor-content-dialogs";
+import { EditorContentRightPanelToggle } from "./editor-content-area/editor-content-right-panel-toggle";
+import { EditorContentTextarea } from "./editor-content-area/editor-content-textarea";
 import { useEditorChapterState } from "./use-editor-chapter-state";
 import { useEditorMemoryActions } from "./use-editor-memory-actions";
 
@@ -315,28 +317,7 @@ export function EditorContentArea({
     [isImportedRewriteProject, project.id, router],
   );
 
-  const chapterBannerAction = missingOutlineStatus && selectedVolumeIndex !== null && !isImportedRewriteProject ? (
-    <Button variant="outline" size="sm" onClick={() => handleGoGenerateVolume(selectedVolumeIndex)}>
-      去生成本卷章节细纲
-    </Button>
-  ) : currentChapter && selectedChapterRecord && !isImportedRewriteProject ? (
-    <div className="flex flex-wrap justify-end gap-2">
-      <Button variant="outline" className="gap-2" size="sm" onClick={handleGenerateBeatsForChapter}>
-        <Sparkles className="h-4 w-4" />
-        生成节拍
-      </Button>
-    </div>
-  ) : (
-    <Button variant="outline" size="sm" onClick={toggleLeft}>
-      打开创作导航
-    </Button>
-  );
-
-  const editorMaxWidth = isLeftExpanded && isRightExpanded
-    ? "max-w-[600px]"
-    : isLeftExpanded || isRightExpanded
-      ? "max-w-[680px]"
-      : "max-w-[720px]";
+  const editorMaxWidth = getEditorContentMaxWidth(isLeftExpanded, isRightExpanded);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
@@ -435,38 +416,19 @@ export function EditorContentArea({
           />
         }
         chapterBanner={
-          <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/30 px-4 py-3 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                当前章节
-              </p>
-              {missingOutlineStatus ? (
-                <>
-                  <p className="text-sm font-medium text-foreground">当前分卷尚未生成章节细纲</p>
-                  <p className="text-xs text-muted-foreground">
-                    请先回到「分卷与章节细纲」页为该分卷生成章节细纲
-                  </p>
-                </>
-              ) : currentChapterTitle ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span>{currentVolumeTitle}</span>
-                    <span>/</span>
-                    <span className="font-medium text-foreground">{currentChapterTitle}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{currentChapterStatus}</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-medium text-foreground">未选择章节</p>
-                  <p className="text-xs text-muted-foreground">{currentChapterStatus}</p>
-                </>
-              )}
-            </div>
-            <div className="flex shrink-0 flex-col gap-2 md:items-end">
-              <div>{chapterBannerAction}</div>
-            </div>
-          </div>
+          <EditorContentBanner
+            missingOutlineStatus={missingOutlineStatus}
+            selectedVolumeIndex={selectedVolumeIndex}
+            isImportedRewriteProject={isImportedRewriteProject}
+            hasCurrentChapter={Boolean(currentChapter)}
+            hasSelectedChapterRecord={Boolean(selectedChapterRecord)}
+            currentVolumeTitle={currentVolumeTitle}
+            currentChapterTitle={currentChapterTitle}
+            currentChapterStatus={currentChapterStatus}
+            onGoGenerateVolume={handleGoGenerateVolume}
+            onToggleLeft={toggleLeft}
+            onGenerateBeatsForChapter={handleGenerateBeatsForChapter}
+          />
         }
         rightPanel={
           isImportedRewriteProject ? null : (
@@ -497,98 +459,81 @@ export function EditorContentArea({
           )
         }
         rightPanelToggle={
-          isImportedRewriteProject ? null : (
-            <button
-              type="button"
-              onClick={toggleRight}
-              disabled={!Boolean(selectedChapterRecord)}
-              className="w-12 shrink-0 border-l border-border bg-background flex flex-col items-center pt-3 gap-2 hover:bg-muted/30 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              title="展开节拍写作 (⌘⇧J)"
-            >
-              <ListOrdered className="h-[18px] w-[18px] text-muted-foreground" />
-              <span
-                className="text-[10px] text-muted-foreground tracking-widest mt-2"
-                style={{ writingMode: "vertical-rl" }}
-              >
-                节拍写作
-              </span>
-              <div className="flex-1" />
-              {beatList.length > 0 && (
-                <span className="text-[10px] text-primary font-semibold mb-3">
-                  {Math.max(activeBeatIndex + 1, 1)}/{beatList.length}
-                </span>
-              )}
-            </button>
-          )
+          <EditorContentRightPanelToggle
+            isImportedRewriteProject={isImportedRewriteProject}
+            hasSelectedChapter={Boolean(selectedChapterRecord)}
+            beatCount={beatList.length}
+            activeBeatIndex={activeBeatIndex}
+            onToggle={toggleRight}
+          />
         }
       >
-        <EditorTextarea
-          ref={textareaRef}
+        <EditorContentTextarea
+          textareaRef={textareaRef}
           handleKeyDown={handleKeyDown}
           disabled={!selectedChapterRecord || isRewritingSelection || isExpandingBeatProse || isChapterRewriteRunning || isChapterRewriteApplying}
           placeholder={selectedChapterRecord ? (isImportedRewriteProject ? "编辑导入章节正文..." : "开始创作... 选中文本后按 ⌘J 局部改写") : "请先选择章节..."}
-          className={`w-full ${editorMaxWidth} h-full p-8 md:p-12 resize-none bg-transparent outline-none text-lg leading-relaxed shadow-none border-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed`}
+          editorMaxWidth={editorMaxWidth}
         />
       </EditorLayout>
 
-      {!isImportedRewriteProject ? (
-        <SelectionRewriteDialog
-          open={isRewriteOpen}
-          selectedText={rewriteSelection?.selectedText ?? ""}
-          instruction={rewriteInstruction}
-          preview={rewritePreview}
-          isGenerating={isRewritingSelection}
-          onInstructionChange={setRewriteInstruction}
-          onGenerate={handleGenerateRewritePreview}
-          onApply={handleApplyRewritePreview}
-          onOpenChange={(open) => {
+      <EditorContentDialogs
+        isImportedRewriteProject={isImportedRewriteProject}
+        selectionRewrite={{
+          open: isRewriteOpen,
+          selectedText: rewriteSelection?.selectedText ?? "",
+          instruction: rewriteInstruction,
+          preview: rewritePreview,
+          isGenerating: isRewritingSelection,
+          onInstructionChange: setRewriteInstruction,
+          onGenerate: handleGenerateRewritePreview,
+          onApply: handleApplyRewritePreview,
+          onOpenChange: (open) => {
             if (!open) handleCloseRewrite();
-          }}
-        />
-      ) : null}
-
-      <ChapterEnrichmentRewriteDialog
-        open={isChapterRewriteOpen}
-        chapters={chapterRewriteChapters}
-        selectedChapterIds={selectedChapterIds}
-        items={chapterRewriteItems}
-        activeItem={activeChapterRewriteItem}
-        activeChapterId={activeChapterRewriteId}
-        instruction={chapterRewriteInstruction}
-        expansionRatioPercent={chapterRewriteExpansionRatioPercent}
-        batch={activeChapterRewriteBatch}
-        isRunning={isChapterRewriteRunning}
-        isApplying={isChapterRewriteApplying}
-        onInstructionChange={setChapterRewriteInstruction}
-        onExpansionRatioPercentChange={setChapterRewriteExpansionRatioPercent}
-        onSelectChapter={selectChapterForRewrite}
-        onSelectCurrentChapter={selectCurrentChapterForRewrite}
-        onSelectAllChapters={selectAllChaptersForRewrite}
-        onClearSelectedChapters={clearSelectedChaptersForRewrite}
-        onActiveChapterChange={setActiveChapterRewriteId}
-        onStart={handleStartChapterRewrite}
-        onApplyOne={handleApplyChapterRewrite}
-        onApplyAll={handleApplyAllChapterRewrites}
-        onOpenChange={(open) => {
-          if (!open) handleCloseChapterRewrite();
+          },
+        }}
+        chapterRewrite={{
+          open: isChapterRewriteOpen,
+          chapters: chapterRewriteChapters,
+          selectedChapterIds,
+          items: chapterRewriteItems,
+          activeItem: activeChapterRewriteItem,
+          activeChapterId: activeChapterRewriteId,
+          instruction: chapterRewriteInstruction,
+          expansionRatioPercent: chapterRewriteExpansionRatioPercent,
+          batch: activeChapterRewriteBatch,
+          isRunning: isChapterRewriteRunning,
+          isApplying: isChapterRewriteApplying,
+          onInstructionChange: setChapterRewriteInstruction,
+          onExpansionRatioPercentChange: setChapterRewriteExpansionRatioPercent,
+          onSelectChapter: selectChapterForRewrite,
+          onSelectCurrentChapter: selectCurrentChapterForRewrite,
+          onSelectAllChapters: selectAllChaptersForRewrite,
+          onClearSelectedChapters: clearSelectedChaptersForRewrite,
+          onActiveChapterChange: setActiveChapterRewriteId,
+          onStart: handleStartChapterRewrite,
+          onApplyOne: handleApplyChapterRewrite,
+          onApplyAll: handleApplyAllChapterRewrites,
+          onOpenChange: (open) => {
+            if (!open) handleCloseChapterRewrite();
+          },
+        }}
+        bibleDiff={{
+          open: bibleDiff.open,
+          currentCharactersStatus: bibleDiff.currentCharactersStatus,
+          proposedCharactersStatus: bibleDiff.proposedCharactersStatus,
+          currentState: bibleDiff.currentState,
+          proposedState: bibleDiff.proposedState,
+          currentThreads: bibleDiff.currentThreads,
+          proposedThreads: bibleDiff.proposedThreads,
+          proposedSummary: bibleDiff.proposedSummary,
+          chapterTitle: selectedChapterRecord?.title ?? currentChapterTitle ?? null,
+          source: chapterSyncSnapshot?.source ?? null,
+          onAccept: acceptRuntimeUpdate,
+          onRetry: handleRetryMemoryProposal,
+          onDismiss: dismissRuntimeUpdate,
         }}
       />
-
-      <BibleDiffDialog
-          open={bibleDiff.open}
-          currentCharactersStatus={bibleDiff.currentCharactersStatus}
-          proposedCharactersStatus={bibleDiff.proposedCharactersStatus}
-          currentState={bibleDiff.currentState}
-          proposedState={bibleDiff.proposedState}
-          currentThreads={bibleDiff.currentThreads}
-          proposedThreads={bibleDiff.proposedThreads}
-          proposedSummary={bibleDiff.proposedSummary}
-          chapterTitle={selectedChapterRecord?.title ?? currentChapterTitle ?? null}
-          source={chapterSyncSnapshot?.source ?? null}
-          onAccept={acceptRuntimeUpdate}
-          onRetry={handleRetryMemoryProposal}
-          onDismiss={dismissRuntimeUpdate}
-        />
     </>
   );
 }

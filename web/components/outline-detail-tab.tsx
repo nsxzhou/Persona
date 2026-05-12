@@ -1,16 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  ClipboardList,
-  Eye,
-  FileText,
   Loader2,
   Sparkles,
-  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,10 +26,11 @@ import { RegenerateDialog } from "@/components/regenerate-dialog";
 import { api } from "@/lib/api";
 import type { RegenerateOptions } from "@/lib/api-client";
 import { hasStandardChapterHeadings, parseOutline, replaceVolumeChapters, type ParsedOutline } from "@/lib/outline-parser";
-import { consumeTextEventStream } from "@/lib/sse";
 import { BIBLE_TEMPLATES } from "@/lib/bible-templates";
 import { cn } from "@/lib/utils";
 import type { ProjectChapter } from "@/lib/types";
+import { OutlineDetailToolbar } from "@/components/outline-detail-tab/outline-detail-toolbar";
+import { useOutlineGenerationStream } from "@/components/outline-detail-tab/use-outline-generation-stream";
 
 type OutlineDetailMode = "edit" | "preview" | "generate";
 
@@ -61,7 +58,7 @@ export function OutlineDetailTab({
   const [regenVolumesOpen, setRegenVolumesOpen] = useState(false);
   const [templateConfirmOpen, setTemplateConfirmOpen] = useState(false);
   const [isRawMode, setIsRawMode] = useState(false);
-  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+  const { streamSSE, stopGenerationStream } = useOutlineGenerationStream();
 
   const parsed = useMemo(() => parseOutline(value), [value]);
   const hasVolumes = parsed.volumes.length > 0;
@@ -81,33 +78,10 @@ export function OutlineDetailTab({
     setMode("generate");
   }, [highlightedVolumeIndex]);
 
-  const streamSSE = useCallback(
-    async (
-      fetchResponse: () => Promise<Response>,
-      onChunk: (generated: string) => void,
-    ) => {
-      const response = await fetchResponse();
-      if (!response.body) throw new Error("No response body");
-
-      const reader = response.body.getReader();
-      readerRef.current = reader;
-      const generated = await consumeTextEventStream(reader, {
-        onData: (_chunk, fullText) => {
-          onChunk(fullText);
-        },
-      });
-
-      readerRef.current = null;
-      return generated;
-    },
-    [],
-  );
-
   const handleStopGeneration = useCallback(() => {
-    readerRef.current?.cancel();
-    readerRef.current = null;
+    stopGenerationStream();
     setGeneratingVolumeIndex(null);
-  }, []);
+  }, [stopGenerationStream]);
 
   const handleGenerateVolumes = useCallback(
     async (options?: RegenerateOptions) => {
@@ -230,74 +204,18 @@ export function OutlineDetailTab({
   );
 
   const toolbar = (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-          分卷与章节细纲
-        </span>
-        <span className="text-xs text-muted-foreground/50">
-          · {parsed.volumes.length} 卷 · {totalChapters} 章
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-md border border-border">
-          <button
-            type="button"
-            onClick={() => setMode("edit")}
-            className={`px-3 py-1 text-xs transition-colors ${
-              mode !== "preview"
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            编辑
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("preview")}
-            className={`px-3 py-1 text-xs transition-colors ${
-              mode === "preview"
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            预览
-          </button>
-        </div>
-
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleInsertTemplate}>
-          <ClipboardList className="h-3.5 w-3.5" />
-          模板
-        </Button>
-
-        {generatingVolumeIndex !== null ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs text-destructive border-destructive/30"
-            onClick={handleStopGeneration}
-          >
-            <Square className="h-3.5 w-3.5" />
-            停止
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs border-green-600/30 text-green-600 hover:bg-green-600/10"
-            onClick={handleGenerateVolumesWithConfirm}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            AI 生成
-          </Button>
-        )}
-
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={() => setIsRawMode((r) => !r)}>
-          {isRawMode ? <Eye className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-          {isRawMode ? "返回结构化视图" : "编辑原始 Markdown"}
-        </Button>
-      </div>
-    </div>
+    <OutlineDetailToolbar
+      mode={mode}
+      volumeCount={parsed.volumes.length}
+      totalChapters={totalChapters}
+      isGenerating={generatingVolumeIndex !== null}
+      isRawMode={isRawMode}
+      onModeChange={setMode}
+      onInsertTemplate={handleInsertTemplate}
+      onStopGeneration={handleStopGeneration}
+      onGenerateVolumes={handleGenerateVolumesWithConfirm}
+      onToggleRawMode={() => setIsRawMode((current) => !current)}
+    />
   );
 
   if (isRawMode) {
