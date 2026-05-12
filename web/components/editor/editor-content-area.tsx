@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import React from "react";
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useEditorContext, useEditorStore } from "./editor-context";
 import type { EditorState } from "./editor-store";
 import { useShallow } from "zustand/react/shallow";
@@ -9,72 +8,25 @@ import { useBeatGeneration } from "@/hooks/use-beat-generation";
 import { useChapterEnrichmentRewrite } from "@/hooks/use-chapter-enrichment-rewrite";
 import { useChapterMemorySync } from "@/hooks/use-chapter-memory-sync";
 import { parseOutline } from "@/lib/outline-parser";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
-import { useProjectQuery, useProjectBibleQuery, useUpdateProject, useUpdateProjectBible } from "@/hooks/use-project-query";
-import { useChaptersQuery, useSyncChapters, queryKeys } from "@/hooks/use-chapters-query";
+import { useProjectQuery, useProjectBibleQuery } from "@/hooks/use-project-query";
+import { useChaptersQuery, useSyncChapters } from "@/hooks/use-chapters-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { EditorLayout } from "./editor-layout";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
-import { MemorySyncButton } from "@/components/memory-sync-button";
 import { BeatPanel } from "@/components/beat-panel";
-import { ArrowLeft, BookOpen, Settings, Sparkles, Loader2, ListOrdered, GitCompareArrows } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { EditorNovelMenu } from "@/components/editor-novel-menu";
+import { Sparkles, Loader2, ListOrdered } from "lucide-react";
 import { EditorSidePanel } from "@/components/editor-side-panel";
 import { SelectionRewriteDialog } from "@/components/editor/selection-rewrite-dialog";
 import { ChapterEnrichmentRewriteDialog } from "@/components/editor/chapter-enrichment-rewrite-dialog";
-import { ExportProjectDialog } from "@/components/export-project-dialog";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import type { ProjectChapter, ProjectBible } from "@/lib/types";
-
-type EditorTextareaProps = {
-  disabled: boolean; 
-  placeholder: string; 
-  className: string; 
-  handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void; 
-};
-
-const EditorTextarea = React.memo(React.forwardRef<HTMLTextAreaElement, EditorTextareaProps>(({ 
-  disabled, 
-  placeholder, 
-  className, 
-  handleKeyDown 
-}, ref) => {
-  const content = useEditorStore(s => s.content);
-  const setContent = useEditorStore(s => s.setContent);
-
-  return (
-    <textarea
-      ref={ref}
-      value={content}
-      onChange={(e) => setContent(e.target.value)}
-      onKeyDown={handleKeyDown}
-      disabled={disabled}
-      placeholder={placeholder}
-      className={className}
-      style={{ fontFamily: "var(--font-serif), serif" }}
-    />
-  );
-}));
-EditorTextarea.displayName = "EditorTextarea";
-
-const DEFAULT_BIBLE = {
-  id: "",
-  project_id: "",
-  inspiration: "",
-  world_building: "",
-  characters_blueprint: "",
-  outline_master: "",
-  outline_detail: "",
-  characters_status: "",
-  runtime_state: "",
-  runtime_threads: "",
-  story_summary: "",
-  created_at: "",
-  updated_at: "",
-} satisfies ProjectBible;
+import { toast } from "sonner";
+import type { ProjectBible } from "@/lib/types";
+import { DEFAULT_BIBLE } from "./editor-defaults";
+import { EditorHeaderActions, EditorQuickActions } from "./editor-header-actions";
+import { useEditorPersistence } from "./editor-persistence";
+import { EditorTextarea } from "./editor-textarea";
+import { useEditorMemoryActions } from "./use-editor-memory-actions";
 
 export function EditorContentArea({ 
   activeProfileName, 
@@ -122,13 +74,12 @@ export function EditorContentArea({
   const { data: projectBible } = useProjectBibleQuery(initialProject.id, initialProjectBible);
   const isImportedRewriteProject = project.project_origin === "txt_import_rewrite";
   
-  const updateProjectMutation = useUpdateProject();
-  const updateProjectBibleMutation = useUpdateProjectBible();
-
   const parsedOutline = useMemo(
     () => parseOutline(projectBible?.outline_detail ?? ""),
     [projectBible?.outline_detail],
   );
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedChapterRecord = useMemo(() => {
     if (!currentChapter) return null;
@@ -174,7 +125,7 @@ export function EditorContentArea({
         if (chapter.volume_index > currentChapter.volumeIndex) return false;
         return chapter.chapter_index < currentChapter.chapterIndex;
       })
-      .slice(-3); // 仅取最近 3 章
+      .slice(-3);
 
     return previousChapters
       .filter((chapter) => chapter.content.trim())
@@ -185,64 +136,18 @@ export function EditorContentArea({
       .join("\n\n---\n\n");
   }, [chapters, currentChapter]);
 
-  const syncPersistedChapter = useCallback(
-    (updatedChapter: ProjectChapter) => {
-      queryClient.setQueryData(queryKeys.chapters(project.id), (prev: ProjectChapter[] | undefined) => {
-        if (!prev) return [updatedChapter];
-        return prev.map((chapter) =>
-          chapter.id === updatedChapter.id ? { ...chapter, ...updatedChapter } : chapter,
-        );
-      });
-      if (selectedChapterRecord?.id === updatedChapter.id) {
-        store.getState().setSavedChapterContent(updatedChapter.content);
-      }
-      return updatedChapter;
-    },
-    [project.id, queryClient, selectedChapterRecord?.id, store],
-  );
-
-  const persistChapterUpdate = useCallback(
-    async (chapterId: string, payload: Parameters<typeof api.updateProjectChapter>[2]) => {
-      const updated = await api.updateProjectChapter(project.id, chapterId, payload);
-      return syncPersistedChapter(updated);
-    },
-    [project.id, syncPersistedChapter],
-  );
-
-  const persistProjectUpdate = useCallback(
-    async (payload: Parameters<typeof api.updateProject>[1], options: { successMessage?: string; errorMessage?: string } = {}) => {
-      try {
-        await updateProjectMutation.mutateAsync({ id: project.id, payload });
-        if (options.successMessage) toast.success(options.successMessage);
-      } catch {
-        if (options.errorMessage) toast.error(options.errorMessage);
-      }
-    },
-    [project.id, updateProjectMutation]
-  );
-
-  const persistProjectBibleUpdate = useCallback(
-    async (payload: Parameters<typeof api.updateProjectBible>[1], options: { successMessage?: string; errorMessage?: string } = {}) => {
-      try {
-        await updateProjectBibleMutation.mutateAsync({ id: project.id, payload });
-        if (options.successMessage) toast.success(options.successMessage);
-      } catch {
-        if (options.errorMessage) toast.error(options.errorMessage);
-      }
-    },
-    [project.id, updateProjectBibleMutation]
-  );
-
-  const persistProjectField = useCallback(
-    async (field: string, value: string) => {
-      if (field === "description") {
-        await persistProjectUpdate({ [field]: value }, { errorMessage: "保存失败" });
-      } else {
-        await persistProjectBibleUpdate({ [field]: value }, { errorMessage: "保存失败" });
-      }
-    },
-    [persistProjectUpdate, persistProjectBibleUpdate],
-  );
+  const {
+    syncPersistedChapter,
+    persistChapterUpdate,
+    persistProjectUpdate,
+    persistProjectBibleUpdate,
+    persistProjectField,
+  } = useEditorPersistence({
+    projectId: project.id,
+    queryClient,
+    selectedChapterId: selectedChapterRecord?.id ?? null,
+    store,
+  });
 
   const {
     bibleDiff,
@@ -262,8 +167,6 @@ export function EditorContentArea({
     persistProjectBibleUpdate,
     persistChapterUpdate,
   });
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleToggleAutoSyncMemory = useCallback(
     async (nextValue: boolean) => {
@@ -378,83 +281,20 @@ export function EditorContentArea({
     };
   }, [handleAutoChapterSync, project.auto_sync_memory, saveNow, store]);
 
-  const saveCurrentChapterForSync = useCallback(async () => {
-    const content = store.getState().content;
-    const savedChapterContent = store.getState().savedChapterContent;
-    const hasUnsavedChanges = content !== savedChapterContent;
-    if (!hasUnsavedChanges) {
-      return content;
-    }
-    try {
-      const savedChapter = await saveNow(content);
-      return savedChapter.content;
-    } catch {
-      await markSyncFailed(content, "manual", "chapter_full", "保存失败，无法同步记忆");
-      return null;
-    }
-  }, [markSyncFailed, saveNow]);
-
-  const handleManualMemorySync = useCallback(async () => {
-    if (!selectedChapterRecord) return;
-    const content = store.getState().content;
-    const savedChapterContent = store.getState().savedChapterContent;
-
-    const hasUnsavedChanges = content !== savedChapterContent;
-    if (
-      !hasUnsavedChanges &&
-      selectedChapterRecord.memory_sync_status === "pending_review" &&
-      (selectedChapterRecord.memory_sync_proposed_state !== null ||
-        selectedChapterRecord.memory_sync_proposed_threads !== null)
-    ) {
-      openStoredDiff();
-      return;
-    }
-
-    if (
-      !hasUnsavedChanges &&
-      (selectedChapterRecord.memory_sync_status === "synced" ||
-        selectedChapterRecord.memory_sync_status === "no_change")
-    ) {
-      toast.message("当前保存内容已检查，可使用“强制重跑”重新分析");
-      return;
-    }
-
-    const checkedContent = await saveCurrentChapterForSync();
-    if (checkedContent === null) return;
-    await handleManualSync(checkedContent);
-  }, [
+  const {
+    memorySyncButtonSnapshot,
+    handleManualMemorySync,
+    handleForceMemorySync,
+    handleRetryMemoryProposal,
+  } = useEditorMemoryActions({
+    store,
+    selectedChapter: selectedChapterRecord,
+    chapterSyncSnapshot,
+    saveNow,
     handleManualSync,
+    markSyncFailed,
     openStoredDiff,
-    saveCurrentChapterForSync,
-    selectedChapterRecord,
-  ]);
-
-  const handleForceMemorySync = useCallback(async () => {
-    if (!selectedChapterRecord) return;
-    const checkedContent = await saveCurrentChapterForSync();
-    if (checkedContent === null) return;
-    await handleManualSync(checkedContent);
-  }, [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord]);
-
-  const handleRetryMemoryProposal = useCallback(
-    async (feedback: string) => {
-      if (!selectedChapterRecord) return;
-      const checkedContent = await saveCurrentChapterForSync();
-      if (checkedContent === null) return;
-      const previousOutput = selectedChapterRecord.memory_sync_proposed_state
-        || selectedChapterRecord.memory_sync_proposed_threads
-        ? JSON.stringify({
-            runtime_state: selectedChapterRecord.memory_sync_proposed_state ?? "",
-            runtime_threads: selectedChapterRecord.memory_sync_proposed_threads ?? "",
-          })
-        : undefined;
-      await handleManualSync(checkedContent, {
-        previousOutput,
-        userFeedback: feedback || undefined,
-      });
-    },
-    [handleManualSync, saveCurrentChapterForSync, selectedChapterRecord],
-  );
+  });
 
   const { mutateAsync: syncChapters } = useSyncChapters();
 
@@ -602,7 +442,7 @@ export function EditorContentArea({
       ? "max-w-[680px]"
       : "max-w-[720px]";
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
       e.preventDefault();
       toggleLeft();
@@ -625,61 +465,16 @@ export function EditorContentArea({
         isLeftExpanded={isLeftExpanded}
         isRightExpanded={isRightExpanded}
         quickActions={
-          <>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="default"
-                  size="icon"
-                  className="w-8 h-8 rounded-none mb-3 hover:opacity-90 transition-opacity"
-                  title="快速导航"
-                >
-                  <span className="font-black text-sm">P</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="right" align="start" className="w-64 p-0">
-                <EditorNovelMenu projectId={project.id} projectName={project.name} />
-              </PopoverContent>
-            </Popover>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleLeft}
-              className={`w-9 h-9 rounded-none transition-colors ${
-                isLeftExpanded && leftPanelMode === "navigation" ? "bg-white/15" : "hover:bg-white/10"
-              }`}
-              title="创作导航 (⌘B)"
-            >
-              <BookOpen className="h-[18px] w-[18px] text-white" />
-            </Button>
-
-            {!isImportedRewriteProject ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={openSettings}
-                className={`w-9 h-9 rounded-none transition-colors ${
-                  isLeftExpanded && leftPanelMode === "settings" ? "bg-white/15" : "opacity-50 hover:opacity-80"
-                }`}
-                title="创作设定"
-              >
-                <Settings className="h-[18px] w-[18px] text-white" />
-              </Button>
-            ) : null}
-
-            <div className="flex-1" />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push(`/projects/${project.id}`)}
-              className="w-9 h-9 rounded-none opacity-50 hover:opacity-80 transition-opacity mb-3"
-              title="返回项目工作台"
-            >
-              <ArrowLeft className="h-[18px] w-[18px] text-white" />
-            </Button>
-          </>
+          <EditorQuickActions
+            projectId={project.id}
+            projectName={project.name}
+            router={router}
+            isImportedRewriteProject={isImportedRewriteProject}
+            isLeftExpanded={isLeftExpanded}
+            leftPanelMode={leftPanelMode}
+            toggleLeft={toggleLeft}
+            openSettings={openSettings}
+          />
         }
         leftPanel={
           <EditorSidePanel
@@ -723,60 +518,24 @@ export function EditorContentArea({
           </>
         }
         headerRight={
-          <>
-            <ExportProjectDialog projectId={project.id} projectName={project.name} />
-            {!isImportedRewriteProject ? (
-              <>
-                <MemorySyncButton
-                  snapshot={
-                    chapterSyncSnapshot
-                      ? {
-                          status: chapterSyncSnapshot.status ?? null,
-                          source: chapterSyncSnapshot.source ?? null,
-                          checkedAt: chapterSyncSnapshot.checkedAt ?? null,
-                          errorMessage: chapterSyncSnapshot.errorMessage ?? null,
-                        }
-                      : null
-                  }
-                  isChecking={isCheckingMemorySync}
-                  disabled={!selectedChapterRecord}
-                  onClick={handleManualMemorySync}
-                  onForceRerun={handleForceMemorySync}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenRewrite}
-                  disabled={!Boolean(project.style_profile_id && selectedChapterRecord) || isRewritingSelection || isChapterRewriteRunning}
-                  className="gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  局部改写 (⌘J)
-                </Button>
-              </>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenChapterRewrite}
-              disabled={chapters.length === 0}
-              className="gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              {isImportedRewriteProject ? "改写章节" : "章节润色"}
-            </Button>
-            {hasChapterRewriteTaskEntry && activeChapterRewriteBatch ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleOpenChapterRewrite}
-                className="gap-2"
-              >
-                <GitCompareArrows className="h-4 w-4" />
-                改写任务 {activeChapterRewriteBatch.generated_count + activeChapterRewriteBatch.failed_count}/{activeChapterRewriteBatch.total_count}
-              </Button>
-            ) : null}
-          </>
+          <EditorHeaderActions
+            projectId={project.id}
+            projectName={project.name}
+            isImportedRewriteProject={isImportedRewriteProject}
+            selectedChapter={selectedChapterRecord}
+            memorySyncSnapshot={memorySyncButtonSnapshot}
+            isCheckingMemorySync={isCheckingMemorySync}
+            isRewritingSelection={isRewritingSelection}
+            isChapterRewriteRunning={isChapterRewriteRunning}
+            chaptersCount={chapters.length}
+            hasStyleProfile={Boolean(project.style_profile_id)}
+            onManualMemorySync={handleManualMemorySync}
+            onForceMemorySync={handleForceMemorySync}
+            onOpenRewrite={handleOpenRewrite}
+            onOpenChapterRewrite={handleOpenChapterRewrite}
+            hasChapterRewriteTaskEntry={hasChapterRewriteTaskEntry}
+            activeChapterRewriteBatch={activeChapterRewriteBatch}
+          />
         }
         chapterBanner={
           <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/30 px-4 py-3 md:flex-row md:items-center md:justify-between">
