@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from collections.abc import Callable
+from typing import Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -33,10 +35,19 @@ from app.services.novel_chapter_rewrite_jobs import (
     CHAPTER_REWRITE_ARTIFACT,
     NovelChapterRewriteJobService,
 )
-from app.services.novel_workflow_worker import NovelWorkflowWorkerService
 from app.services.novel_workflows import NovelWorkflowService
 from app.services.project_chapters import ProjectChapterService
 from app.services.projects import ProjectService
+
+
+class ChapterRewriteRunProcessor(Protocol):
+    async def process_run_by_id(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        run_id: str,
+    ) -> bool: ...
+
+    async def aclose(self) -> None: ...
 
 
 class ChapterRewriteBatchService:
@@ -49,6 +60,7 @@ class ChapterRewriteBatchService:
         chapter_repository: ProjectChapterRepository | None = None,
         rewrite_job_service: NovelChapterRewriteJobService | None = None,
         workflow_service: NovelWorkflowService | None = None,
+        run_processor_factory: Callable[[], ChapterRewriteRunProcessor] | None = None,
     ) -> None:
         self.repository = repository or ChapterRewriteBatchRepository()
         self.project_service = project_service or ProjectService()
@@ -59,6 +71,7 @@ class ChapterRewriteBatchService:
             workflow_service=self.workflow_service,
             chapter_service=self.chapter_service,
         )
+        self.run_processor_factory = run_processor_factory
 
     async def create(
         self,
@@ -308,7 +321,12 @@ class ChapterRewriteBatchService:
             user_id = batch.user_id
             items = list(batch.items)
 
-        worker = NovelWorkflowWorkerService()
+        if self.run_processor_factory is None:
+            from app.services.novel_workflow_worker import NovelWorkflowWorkerService
+
+            worker = NovelWorkflowWorkerService()
+        else:
+            worker = self.run_processor_factory()
         try:
             for item in items:
                 run_id: str | None = None

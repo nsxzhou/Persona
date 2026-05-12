@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -15,27 +14,23 @@ from app.db.models import ProviderConfig
 from app.schemas.novel_workflows import NOVEL_WORKFLOW_STAGE_PREPARING
 from app.schemas.project_chapters import ProjectChapterUpdate
 from app.schemas.projects import ProjectBibleUpdate, ProjectPromptAssetResponse
-from app.services.llm_provider import LLMProviderService
 from openai import (
     AuthenticationError as OpenAIAuthenticationError,
     BadRequestError as OpenAIBadRequestError,
     NotFoundError as OpenAINotFoundError,
     UnprocessableEntityError as OpenAIUnprocessableEntityError,
 )
-from app.services.novel_workflow_checkpointer import NovelWorkflowCheckpointerFactory
+from app.services.analysis_worker_lifecycle import run_analysis_worker_poll_loop
 from app.services.novel_workflow_pipeline import (
     NovelWorkflowAwaitingHuman,
     NovelWorkflowPipeline,
     NovelWorkflowPipelineResult,
 )
-from app.services.novel_workflow_storage import NovelWorkflowStorageService
-from app.services.novel_workflows import NovelWorkflowService
-from app.services.plot_profiles import PlotProfileService
-from app.services.prompt_stack import PromptStackService
 from app.services.prompt_trace import PromptTraceMessage, PromptTraceRecorder
-from app.services.project_chapters import ProjectChapterService
-from app.services.projects import ProjectService
-from app.services.style_profiles import StyleProfileService
+from app.services.service_graph import (
+    NovelWorkflowServiceGraph,
+    build_novel_workflow_service_graph,
+)
 
 logger = logging.getLogger(__name__)
 _IMPORTED_REWRITE_ACTIVATION_SAMPLE_CHARS = 12_000
@@ -69,15 +64,18 @@ class NovelWorkflowRunContext:
 
 
 class NovelWorkflowJobExecutor:
-    def __init__(self) -> None:
-        self.job_service = NovelWorkflowService()
-        self.checkpointer_factory = NovelWorkflowCheckpointerFactory()
-        self.storage_service = NovelWorkflowStorageService()
-        self.project_service = ProjectService()
-        self.project_chapter_service = ProjectChapterService()
-        self.style_profile_service = StyleProfileService()
-        self.plot_profile_service = PlotProfileService()
-        self.llm_service = LLMProviderService()
+    def __init__(self, service_graph: NovelWorkflowServiceGraph | None = None) -> None:
+        graph = service_graph or build_novel_workflow_service_graph()
+        self.job_service = graph.workflow_service
+        self.lifecycle_service = graph.workflow_lifecycle_service
+        self.checkpointer_factory = graph.checkpointer_factory
+        self.storage_service = graph.storage_service
+        self.project_service = graph.project_service
+        self.project_chapter_service = graph.project_chapter_service
+        self.prompt_stack_service = graph.prompt_stack_service
+        self.style_profile_service = graph.style_profile_service
+        self.plot_profile_service = graph.plot_profile_service
+        self.llm_service = graph.llm_service
         self._pause_events: dict[str, asyncio.Event] = {}
         self._worker_id = f"novel-workflow-worker-{uuid.uuid4()}"
 
@@ -101,7 +99,7 @@ class NovelWorkflowJobExecutor:
         run_id: str,
     ) -> bool:
         async with session_factory.begin() as session:
-            claimed = await self.job_service.claim_job_by_id_for_worker(
+            claimed = await self.lifecycle_service.claim_job_by_id_for_worker(
                 session,
                 run_id,
                 worker_id=self._worker_id,
@@ -119,10 +117,10 @@ class NovelWorkflowJobExecutor:
     ) -> str | None:
         settings = get_settings()
         async with session_factory.begin() as session:
-            return await self.job_service.claim_job_for_worker(
+            return await self.lifecycle_service.claim_job_for_worker(
                 session,
                 worker_id=worker_id,
-                max_attempts=settings.style_analysis_max_attempts,
+                max_attempts=settings.novel_workflow_max_attempts,
             )
 
     async def _run_claimed_job(
@@ -214,7 +212,7 @@ class NovelWorkflowJobExecutor:
             self._pause_events.pop(run_id, None)
 
     def _heartbeat_interval_seconds(self) -> float:
-        stale_timeout_seconds = max(1, get_settings().style_analysis_stale_timeout_seconds)
+        stale_timeout_seconds = max(1, get_settings().novel_workflow_stale_timeout_seconds)
         return max(0.2, min(30.0, stale_timeout_seconds / 3))
 
     async def _run_stage_heartbeat_loop(
@@ -341,7 +339,7 @@ class NovelWorkflowJobExecutor:
         checkpoint_kind: str | None,
     ) -> None:
         async with session_factory() as session:
-            pause_requested_at = await self.job_service.heartbeat_run(
+            pause_requested_at = await self.lifecycle_service.heartbeat_run(
                 session,
                 run_id,
                 stage=stage,
@@ -361,7 +359,7 @@ class NovelWorkflowJobExecutor:
         async with session_factory() as session:
             run = await self.job_service.repository.get_by_id(session, run_id)
             if run is None:
-                raise NotFoundError("工作流任务不存在")
+                raise NotFoundError(f"工作流任务不存在: run_id={run_id}")
             request_payload = dict(run.request_payload or {})
             project = run.project
             bible = None
@@ -398,10 +396,7 @@ class NovelWorkflowJobExecutor:
             prompt_stack = None
             prompt_assets: list[ProjectPromptAssetResponse] = []
             if project is not None:
-                raw_prompt_assets = await PromptStackService(
-                    project_service=self.project_service,
-                    chapter_service=self.project_chapter_service,
-                ).list_assets(
+                raw_prompt_assets = await self.prompt_stack_service.list_assets(
                     session,
                     project.id,
                     user_id=run.user_id,
@@ -433,10 +428,7 @@ class NovelWorkflowJobExecutor:
                         )
                         if part
                     )
-                prompt_stack = await PromptStackService(
-                    project_service=self.project_service,
-                    chapter_service=self.project_chapter_service,
-                ).select_for_runtime(
+                prompt_stack = await self.prompt_stack_service.select_for_runtime(
                     session,
                     project.id,
                     user_id=run.user_id,
@@ -511,7 +503,7 @@ class NovelWorkflowJobExecutor:
         async with session_factory.begin() as session:
             run = await self.job_service.repository.get_by_id(session, run_id)
             if run is None:
-                raise NotFoundError("工作流任务不存在")
+                raise NotFoundError(f"工作流任务不存在: run_id={run_id}")
             payload = result.persist_payload
             if run.project_id and "project_bible" in payload:
                 await self.project_service.update_bible(
@@ -528,7 +520,7 @@ class NovelWorkflowJobExecutor:
                     ProjectChapterUpdate(**payload["chapter"]),
                     user_id=run.user_id,
                 )
-            await self.job_service.mark_run_succeeded(
+            await self.lifecycle_service.mark_run_succeeded(
                 session,
                 run_id,
                 latest_artifacts=result.latest_artifacts,
@@ -544,7 +536,7 @@ class NovelWorkflowJobExecutor:
         checkpoint_kind: str | None,
     ) -> None:
         async with session_factory.begin() as session:
-            await self.job_service.mark_run_paused(
+            await self.lifecycle_service.mark_run_paused(
                 session,
                 run_id,
                 stage=stage,
@@ -560,11 +552,11 @@ class NovelWorkflowJobExecutor:
         force_terminal: bool = False,
     ) -> bool:
         async with session_factory.begin() as session:
-            return await self.job_service.mark_run_failed(
+            return await self.lifecycle_service.mark_run_failed(
                 session,
                 run_id,
                 error_message=error_message,
-                max_attempts=get_settings().style_analysis_max_attempts,
+                max_attempts=get_settings().novel_workflow_max_attempts,
                 force_terminal=force_terminal,
             )
 
@@ -575,10 +567,10 @@ class NovelWorkflowJobExecutor:
         stale_after_seconds: int,
     ) -> None:
         async with session_factory.begin() as session:
-            await self.job_service.recover_stale_runs(
+            await self.lifecycle_service.recover_stale_runs(
                 session,
                 stale_after_seconds=stale_after_seconds,
-                max_attempts=get_settings().style_analysis_max_attempts,
+                max_attempts=get_settings().novel_workflow_max_attempts,
             )
 
     async def run_worker(
@@ -588,32 +580,17 @@ class NovelWorkflowJobExecutor:
         poll_interval_seconds: float,
         max_poll_interval_seconds: float | None = None,
     ) -> None:
-        if poll_interval_seconds <= 0:
-            raise ValueError("poll_interval_seconds must be greater than 0")
-        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
-        if max_poll_interval_seconds < poll_interval_seconds:
-            max_poll_interval_seconds = poll_interval_seconds
         settings = get_settings()
-        last_stale_check = 0.0
-        stale_check_interval = max(
-            5.0,
-            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
+        await run_analysis_worker_poll_loop(
+            poll_interval_seconds=poll_interval_seconds,
+            max_poll_interval_seconds=max_poll_interval_seconds,
+            stale_timeout_seconds=settings.novel_workflow_stale_timeout_seconds,
+            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_jobs(
+                session_factory,
+                stale_after_seconds=stale_after_seconds,
+            ),
+            process_next_pending=lambda: self.process_next_pending(session_factory),
         )
-        current_interval = poll_interval_seconds
-        while True:
-            now = time.monotonic()
-            if now - last_stale_check >= stale_check_interval:
-                await self.fail_stale_running_jobs(
-                    session_factory,
-                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
-                )
-                last_stale_check = now
-            processed = await self.process_next_pending(session_factory)
-            if processed:
-                current_interval = poll_interval_seconds
-                continue
-            await asyncio.sleep(current_interval)
-            current_interval = min(max_poll_interval_seconds, current_interval * 2)
 
 
 def _sample_text_for_imported_rewrite(text: str) -> str:

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import logging
-import time
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.services.chapter_rewrite_batches import ChapterRewriteBatchService
+from app.services.analysis_worker_lifecycle import run_analysis_worker_poll_loop
 
 logger = logging.getLogger(__name__)
 
@@ -58,29 +57,14 @@ class ChapterRewriteBatchWorkerService:
         poll_interval_seconds: float,
         max_poll_interval_seconds: float | None = None,
     ) -> None:
-        if poll_interval_seconds <= 0:
-            raise ValueError("poll_interval_seconds must be greater than 0")
-        max_poll_interval_seconds = max_poll_interval_seconds or poll_interval_seconds
-        if max_poll_interval_seconds < poll_interval_seconds:
-            max_poll_interval_seconds = poll_interval_seconds
         settings = get_settings()
-        last_stale_check = 0.0
-        stale_check_interval = max(
-            5.0,
-            float(settings.style_analysis_stale_timeout_seconds) / 3.0,
+        await run_analysis_worker_poll_loop(
+            poll_interval_seconds=poll_interval_seconds,
+            max_poll_interval_seconds=max_poll_interval_seconds,
+            stale_timeout_seconds=settings.novel_workflow_stale_timeout_seconds,
+            fail_stale_running_jobs=lambda stale_after_seconds: self.fail_stale_running_batches(
+                session_factory,
+                stale_after_seconds=stale_after_seconds,
+            ),
+            process_next_pending=lambda: self.process_next_pending(session_factory),
         )
-        current_interval = poll_interval_seconds
-        while True:
-            now = time.monotonic()
-            if now - last_stale_check >= stale_check_interval:
-                await self.fail_stale_running_batches(
-                    session_factory,
-                    stale_after_seconds=settings.style_analysis_stale_timeout_seconds,
-                )
-                last_stale_check = now
-            processed = await self.process_next_pending(session_factory)
-            if processed:
-                current_interval = poll_interval_seconds
-                continue
-            await asyncio.sleep(current_interval)
-            current_interval = min(max_poll_interval_seconds, current_interval * 2)

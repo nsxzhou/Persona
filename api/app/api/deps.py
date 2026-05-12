@@ -24,6 +24,11 @@ from app.services.prompt_stack import PromptStackService
 from app.services.projects import ProjectService
 from app.services.provider_configs import ProviderConfigService
 from app.services.setup import SetupService
+from app.services.service_graph import (
+    build_novel_chapter_rewrite_job_service,
+    build_novel_workflow_service_graph,
+    build_project_service_graph,
+)
 from app.services.style_analysis_checkpointer import StyleAnalysisCheckpointerFactory
 from app.services.style_analysis_jobs import StyleAnalysisJobService
 from app.services.style_analysis_storage import StyleAnalysisStorageService
@@ -80,7 +85,8 @@ ProviderConfigServiceDep = Annotated[
 def get_project_service(
     provider_service: ProviderConfigServiceDep,
 ) -> ProjectService:
-    return ProjectService(provider_service=provider_service)
+    graph = build_project_service_graph(provider_service=provider_service)
+    return graph.project_service
 
 
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
@@ -89,7 +95,10 @@ ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 def get_project_chapter_service(
     project_service: ProjectServiceDep,
 ) -> ProjectChapterService:
-    return ProjectChapterService(project_service=project_service)
+    graph = build_project_service_graph(
+        project_service=project_service,
+    )
+    return graph.project_chapter_service
 
 
 ProjectChapterServiceDep = Annotated[
@@ -102,10 +111,11 @@ def get_prompt_stack_service(
     project_service: ProjectServiceDep,
     project_chapter_service: ProjectChapterServiceDep,
 ) -> PromptStackService:
-    return PromptStackService(
+    graph = build_project_service_graph(
         project_service=project_service,
-        chapter_service=project_chapter_service,
+        project_chapter_service=project_chapter_service,
     )
+    return graph.prompt_stack_service
 
 
 PromptStackServiceDep = Annotated[
@@ -200,11 +210,11 @@ def get_novel_workflow_service(
     project_chapter_service: ProjectChapterServiceDep,
     provider_service: ProviderConfigServiceDep,
 ) -> NovelWorkflowService:
-    return NovelWorkflowService(
+    return build_novel_workflow_service_graph(
+        provider_service=provider_service,
         project_service=project_service,
         project_chapter_service=project_chapter_service,
-        provider_service=provider_service,
-    )
+    ).workflow_service
 
 
 NovelWorkflowServiceDep = Annotated[
@@ -233,7 +243,7 @@ def get_novel_chapter_rewrite_job_service(
     novel_workflow_service: NovelWorkflowServiceDep,
     project_chapter_service: ProjectChapterServiceDep,
 ) -> NovelChapterRewriteJobService:
-    return NovelChapterRewriteJobService(
+    return build_novel_chapter_rewrite_job_service(
         workflow_service=novel_workflow_service,
         chapter_service=project_chapter_service,
     )
