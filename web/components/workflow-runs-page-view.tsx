@@ -39,13 +39,18 @@ import {
 import { api } from "@/lib/api";
 import type { NovelWorkflowCreatePayload, NovelWorkflowListItem } from "@/lib/types";
 import {
+  WORKFLOW_RUNS_ALL_FILTER,
+  WORKFLOW_RUNS_PAGE_SIZE,
+  workflowRunsQueryKeys,
+  type WorkflowRunsIntentFilter,
+  type WorkflowRunsStatusFilter,
+} from "@/lib/workflow-runs-query-keys";
+import { projectsQueryKeys } from "@/lib/projects-query-keys";
+import {
   formatWorkflowDate,
   WORKFLOW_INTENT_LABELS,
   WORKFLOW_STATUS_LABELS,
 } from "@/lib/workflow-run-labels";
-
-const PAGE_SIZE = 20;
-const ALL = "__all__";
 
 type IntentType = NovelWorkflowCreatePayload["intent_type"];
 type StatusType = NovelWorkflowListItem["status"];
@@ -53,19 +58,19 @@ type StatusType = NovelWorkflowListItem["status"];
 export function WorkflowRunsPageView() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [projectId, setProjectId] = useState(ALL);
-  const [intentType, setIntentType] = useState<IntentType | typeof ALL>(ALL);
-  const [status, setStatus] = useState<StatusType | typeof ALL>(ALL);
+  const [projectId, setProjectId] = useState(WORKFLOW_RUNS_ALL_FILTER);
+  const [intentType, setIntentType] = useState<WorkflowRunsIntentFilter>(WORKFLOW_RUNS_ALL_FILTER);
+  const [status, setStatus] = useState<WorkflowRunsStatusFilter>(WORKFLOW_RUNS_ALL_FILTER);
 
   const runsQuery = useQuery({
-    queryKey: ["novel-workflows", projectId, intentType, status, page],
+    queryKey: workflowRunsQueryKeys.list(projectId, intentType, status, page),
     queryFn: () =>
       api.listNovelWorkflows({
-        projectId: projectId === ALL ? null : projectId,
-        intentType: intentType === ALL ? null : intentType,
-        status: status === ALL ? null : status,
-        offset: (page - 1) * PAGE_SIZE,
-        limit: PAGE_SIZE,
+        projectId: projectId === WORKFLOW_RUNS_ALL_FILTER ? null : projectId,
+        intentType: intentType === WORKFLOW_RUNS_ALL_FILTER ? null : intentType,
+        status: status === WORKFLOW_RUNS_ALL_FILTER ? null : status,
+        offset: (page - 1) * WORKFLOW_RUNS_PAGE_SIZE,
+        limit: WORKFLOW_RUNS_PAGE_SIZE,
       }),
     refetchInterval: (query) =>
       query.state.data?.some(
@@ -73,11 +78,13 @@ export function WorkflowRunsPageView() {
       )
         ? 1000
         : false,
+    staleTime: 30_000,
   });
 
   const projectsQuery = useQuery({
-    queryKey: ["projects", "workflow-filter"],
+    queryKey: projectsQueryKeys.workflowFilter(),
     queryFn: () => api.getProjects({ includeArchived: true, offset: 0, limit: 100 }),
+    staleTime: 30_000,
   });
 
   const clearHistoryMutation = useMutation({
@@ -95,7 +102,7 @@ export function WorkflowRunsPageView() {
     },
   });
 
-  const hasNextPage = (runsQuery.data?.length ?? 0) === PAGE_SIZE;
+  const hasNextPage = (runsQuery.data?.length ?? 0) === WORKFLOW_RUNS_PAGE_SIZE;
   const intents = useMemo(
     () => Object.keys(WORKFLOW_INTENT_LABELS) as IntentType[],
     [],
@@ -119,9 +126,9 @@ export function WorkflowRunsPageView() {
   }
 
   const resetFilters = () => {
-    setProjectId(ALL);
-    setIntentType(ALL);
-    setStatus(ALL);
+    setProjectId(WORKFLOW_RUNS_ALL_FILTER);
+    setIntentType(WORKFLOW_RUNS_ALL_FILTER);
+    setStatus(WORKFLOW_RUNS_ALL_FILTER);
     setPage(1);
   };
 
@@ -146,7 +153,7 @@ export function WorkflowRunsPageView() {
               <SelectValue placeholder="全部项目" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>全部项目</SelectItem>
+              <SelectItem value={WORKFLOW_RUNS_ALL_FILTER}>全部项目</SelectItem>
               {(projectsQuery.data ?? []).map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.name}
@@ -158,7 +165,7 @@ export function WorkflowRunsPageView() {
           <Select
             value={intentType}
             onValueChange={(value) => {
-              setIntentType(value as IntentType | typeof ALL);
+              setIntentType(value as WorkflowRunsIntentFilter);
               setPage(1);
             }}
           >
@@ -166,7 +173,7 @@ export function WorkflowRunsPageView() {
               <SelectValue placeholder="全部类型" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>全部类型</SelectItem>
+              <SelectItem value={WORKFLOW_RUNS_ALL_FILTER}>全部类型</SelectItem>
               {intents.map((intent) => (
                 <SelectItem key={intent} value={intent}>
                   {WORKFLOW_INTENT_LABELS[intent]}
@@ -178,7 +185,7 @@ export function WorkflowRunsPageView() {
           <Select
             value={status}
             onValueChange={(value) => {
-              setStatus(value as StatusType | typeof ALL);
+              setStatus(value as WorkflowRunsStatusFilter);
               setPage(1);
             }}
           >
@@ -186,7 +193,7 @@ export function WorkflowRunsPageView() {
               <SelectValue placeholder="全部状态" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>全部状态</SelectItem>
+              <SelectItem value={WORKFLOW_RUNS_ALL_FILTER}>全部状态</SelectItem>
               {statuses.map((item) => (
                 <SelectItem key={item} value={item}>
                   {WORKFLOW_STATUS_LABELS[item]}

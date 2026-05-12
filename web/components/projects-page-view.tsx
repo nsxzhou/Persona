@@ -32,16 +32,14 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { api } from "@/lib/api";
+import { PROJECTS_PAGE_SIZE, projectsQueryKeys } from "@/lib/projects-query-keys";
 import type { PlotProfileListItem, ProjectSummary, ProviderConfig, StyleProfileListItem } from "@/lib/types";
 import { ExportProjectDialog } from "./export-project-dialog";
 import { ImportTxtDialog } from "@/components/import-txt-dialog";
 
-const PAGE_SIZE = 10;
-
 export function ProjectsPageClient() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [page, setPage] = useState(1);
-  const [mounted, setMounted] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -54,7 +52,6 @@ export function ProjectsPageClient() {
         // ignore
       }
     }
-    setMounted(true);
   }, []);
 
   const handleIncludeArchivedChange = (checked: boolean) => {
@@ -64,28 +61,29 @@ export function ProjectsPageClient() {
   };
   
   const projectsQuery = useQuery({
-    queryKey: ["projects", includeArchived, page],
-    queryFn: () => api.getProjects({ 
-      includeArchived, 
-      offset: (page - 1) * PAGE_SIZE, 
-      limit: PAGE_SIZE 
+    queryKey: projectsQueryKeys.list(includeArchived, page),
+    queryFn: () => api.getProjects({
+      includeArchived,
+      offset: (page - 1) * PROJECTS_PAGE_SIZE,
+      limit: PROJECTS_PAGE_SIZE,
     }),
-    enabled: mounted,
+    placeholderData: (previousData) => previousData,
+    staleTime: 30_000,
   });
   const providersQuery = useQuery({
-    queryKey: ["provider-configs"],
+    queryKey: projectsQueryKeys.importProviders(),
     queryFn: () => api.getProviderConfigs(),
-    enabled: mounted && isImportOpen,
+    enabled: isImportOpen,
   });
   const styleProfilesQuery = useQuery({
-    queryKey: ["style-profiles", "import-txt"],
+    queryKey: projectsQueryKeys.importStyleProfiles(),
     queryFn: () => api.getStyleProfiles({ limit: 100 }),
-    enabled: mounted && isImportOpen,
+    enabled: isImportOpen,
   });
   const plotProfilesQuery = useQuery({
-    queryKey: ["plot-profiles", "import-txt"],
+    queryKey: projectsQueryKeys.importPlotProfiles(),
     queryFn: () => api.getPlotProfiles({ limit: 100 }),
-    enabled: mounted && isImportOpen,
+    enabled: isImportOpen,
   });
 
   const archiveMutation = useMutation({
@@ -133,7 +131,7 @@ export function ProjectsPageClient() {
       includeArchived={includeArchived}
       projects={projectsQuery.data}
       page={page}
-      hasNextPage={projectsQuery.data.length === PAGE_SIZE}
+      hasNextPage={projectsQuery.data.length === PROJECTS_PAGE_SIZE}
       onPageChange={setPage}
       onArchive={(projectId) => archiveMutation.mutate(projectId)}
       onIncludeArchivedChange={handleIncludeArchivedChange}

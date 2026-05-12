@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AppProviders } from "@/components/app-providers";
 import { Toaster } from "@/components/ui/sonner";
+import { WebVitals } from "@/components/web-vitals";
 
 import "./globals.css";
 
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="font-sans">
         <AppProviders>
+          <WebVitals />
           {children}
           <Toaster position="top-center" />
         </AppProviders>

@@ -85,6 +85,7 @@ function LabDashboardPageView<TJob extends LabJobBase>({
   const providersQuery = useQuery({
     queryKey: providerQueryKeys.lists(),
     queryFn: api.getProviderConfigs,
+    staleTime: 30_000,
   });
 
   const jobsQuery = useQuery({
@@ -94,6 +95,7 @@ function LabDashboardPageView<TJob extends LabJobBase>({
         offset: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
       }),
+    staleTime: 30_000,
   });
 
   const deleteJobMutation = useMutation({
