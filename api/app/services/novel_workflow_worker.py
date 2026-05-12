@@ -45,6 +45,7 @@ _NON_RETRYABLE_ERRORS = (
     OpenAIAuthenticationError,
     OpenAIBadRequestError,
     OpenAIUnprocessableEntityError,
+    ValueError,
 )
 
 
