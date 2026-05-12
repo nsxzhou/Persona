@@ -1,9 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
-import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { profileQueryKeys } from "@/lib/profile-query-keys";
@@ -17,7 +15,15 @@ import {
   type PlotAnalysisJobStatusSnapshot,
 } from "@/lib/types";
 import { useAnalysisJobLogsQuery } from "@/hooks/use-analysis-job-logs";
-import { makeDetailResource } from "@/lib/wizard-utils";
+import {
+  isAnalysisJobProcessingStatus,
+  makeAnalysisArtifactResource,
+  mergeAnalysisStatusIntoJob,
+  useAnalysisJobCommandMutation,
+  useAnalysisJobQueries,
+  useAnalysisProfileSaveMutation,
+  useRefreshAnalysisJobDetailWhenSucceeded,
+} from "@/hooks/use-analysis-wizard-primitives";
 
 type WizardStep = 1 | 2 | 3;
 
@@ -44,36 +50,7 @@ const IMMUTABLE_ARTIFACT_QUERY = {
 } as const;
 
 export function isProcessingStatus(status: PlotAnalysisJob["status"] | undefined) {
-  return status === "pending" || status === "running";
-}
-
-function mergeStatusIntoJob(
-  job: PlotAnalysisJob | null,
-  statusSnapshot: PlotAnalysisJobStatusSnapshot | null,
-) {
-  if (!job || !statusSnapshot) return job;
-  return {
-    ...job,
-    status: statusSnapshot.status,
-    stage: statusSnapshot.stage,
-    error_message: statusSnapshot.error_message,
-    updated_at: statusSnapshot.updated_at,
-  };
-}
-
-function usePlotLabJobStatusQuery(jobId: string) {
-  return useQuery({
-    queryKey: plotLabQueryKeys.jobs.status(jobId),
-    queryFn: () => api.getPlotAnalysisJobStatus(jobId),
-    refetchInterval: (query) => (isProcessingStatus(query.state.data?.status) ? 2000 : false),
-  });
-}
-
-function usePlotLabJobDetailQuery(jobId: string) {
-  return useQuery({
-    queryKey: plotLabQueryKeys.jobs.detail(jobId),
-    queryFn: () => api.getPlotAnalysisJob(jobId),
-  });
+  return isAnalysisJobProcessingStatus(status);
 }
 
 export function usePlotLabJobLogsQuery(jobId: string, isProcessing: boolean) {
@@ -133,43 +110,52 @@ function mergeJobResources(
   const report = existingProfile?.analysis_report_markdown ?? reportQuery.data ?? null;
   const skeleton = existingProfile?.plot_skeleton_markdown ?? skeletonQuery.data ?? null;
   const storyEngine = existingProfile?.story_engine_markdown ?? storyEngineQuery.data ?? null;
-
-  const makeRes = (val: string | null, q: ReturnType<typeof useQuery>) => makeDetailResource<string>(val, {
-    isLoading: val == null ? (job?.plot_profile_id ? existingProfileQuery.isLoading : q.isLoading) : false,
-    isError: val == null ? (job?.plot_profile_id ? existingProfileQuery.isError : q.isError) : false,
-    error: val == null ? ((job?.plot_profile_id ? existingProfileQuery.error : q.error) as Error | null) : null,
-  });
+  const useExistingProfileQuery = Boolean(job?.plot_profile_id);
 
   return {
     existingProfile,
-    reportResource: makeRes(report, reportQuery),
-    skeletonResource: makeRes(skeleton, skeletonQuery),
-    storyEngineResource: makeRes(storyEngine, storyEngineQuery),
+    reportResource: makeAnalysisArtifactResource<string>({
+      value: report,
+      artifactQuery: reportQuery,
+      existingProfileQuery,
+      useExistingProfileQuery,
+    }),
+    skeletonResource: makeAnalysisArtifactResource<string>({
+      value: skeleton,
+      artifactQuery: skeletonQuery,
+      existingProfileQuery,
+      useExistingProfileQuery,
+    }),
+    storyEngineResource: makeAnalysisArtifactResource<string>({
+      value: storyEngine,
+      artifactQuery: storyEngineQuery,
+      existingProfileQuery,
+      useExistingProfileQuery,
+    }),
   };
 }
 
 function usePlotLabJobDetail(jobId: string) {
-  const statusQuery = usePlotLabJobStatusQuery(jobId);
-  const jobQuery = usePlotLabJobDetailQuery(jobId);
-  const hasRequestedFinalDetailRef = React.useRef(false);
+  const { statusQuery, jobQuery } = useAnalysisJobQueries<
+    PlotAnalysisJob,
+    PlotAnalysisJobStatusSnapshot
+  >({
+    statusQueryKey: plotLabQueryKeys.jobs.status(jobId),
+    statusQueryFn: () => api.getPlotAnalysisJobStatus(jobId),
+    detailQueryKey: plotLabQueryKeys.jobs.detail(jobId),
+    detailQueryFn: () => api.getPlotAnalysisJob(jobId),
+    isProcessingStatus,
+  });
 
-  React.useEffect(() => {
-    if (statusQuery.data?.status !== "succeeded") {
-      hasRequestedFinalDetailRef.current = false;
-      return;
-    }
-    if (
-      statusQuery.data?.status === "succeeded" &&
-      jobQuery.data?.status !== "succeeded" &&
-      !jobQuery.isFetching &&
-      !hasRequestedFinalDetailRef.current
-    ) {
-      hasRequestedFinalDetailRef.current = true;
-      void jobQuery.refetch();
-    }
-  }, [jobQuery.data?.status, jobQuery.isFetching, jobQuery.refetch, statusQuery.data?.status]);
+  useRefreshAnalysisJobDetailWhenSucceeded({
+    status: statusQuery.data?.status,
+    detailStatus: jobQuery.data?.status,
+    isDetailFetching: jobQuery.isFetching,
+    refetchDetail: jobQuery.refetch,
+    oncePerCompletion: true,
+  });
 
-  const job = mergeStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
+  const job = mergeAnalysisStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
   const resourcesQueries = usePlotLabResourcesQueries(jobId, job);
   const resources = mergeJobResources(job, resourcesQueries);
 
@@ -259,10 +245,7 @@ function useSavePlotProfileMutation({
   form: UseFormReturn<FormValues>;
   onSuccessCallback?: () => void;
 }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-
-  return useMutation({
+  return useAnalysisProfileSaveMutation({
     mutationFn: async () => {
       const values = form.getValues();
       if (!job) throw new Error("缺少保存数据");
@@ -282,54 +265,32 @@ function useSavePlotProfileMutation({
         job_id: job.id,
       });
     },
-    onSuccess: () => {
-      toast.success("情节档案已保存");
-      if (onSuccessCallback) {
-        onSuccessCallback();
-        void queryClient.invalidateQueries({ queryKey: profileQueryKeys.plot.detail(job?.plot_profile_id) });
-        if (job?.id) {
-          void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.detail(job.id) });
-        }
-      } else {
-        void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.lists() });
-        router.push("/plot-lab");
-      }
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-    },
+    successMessage: "情节档案已保存",
+    onSuccessCallback,
+    editProfileQueryKey: profileQueryKeys.plot.detail(job?.plot_profile_id),
+    editJobQueryKey: job?.id ? plotLabQueryKeys.jobs.detail(job.id) : undefined,
+    saveListsQueryKey: plotLabQueryKeys.jobs.lists(),
+    redirectPath: "/plot-lab",
   });
 }
 
 function useResumePlotAnalysisJobMutation(jobId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => api.resumePlotAnalysisJob(jobId),
-    onSuccess: () => {
-      toast.success("任务已恢复");
-      void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.detail(jobId) });
-      void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.lists() });
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-    },
+  return useAnalysisJobCommandMutation({
+    jobId,
+    mutationFn: api.resumePlotAnalysisJob,
+    successMessage: "任务已恢复",
+    detailQueryKey: plotLabQueryKeys.jobs.detail(jobId),
+    listsQueryKey: plotLabQueryKeys.jobs.lists(),
   });
 }
 
 function usePausePlotAnalysisJobMutation(jobId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => api.pausePlotAnalysisJob(jobId),
-    onSuccess: () => {
-      toast.success("已发送暂停请求");
-      void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.detail(jobId) });
-      void queryClient.invalidateQueries({ queryKey: plotLabQueryKeys.jobs.lists() });
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-    },
+  return useAnalysisJobCommandMutation({
+    jobId,
+    mutationFn: api.pausePlotAnalysisJob,
+    successMessage: "已发送暂停请求",
+    detailQueryKey: plotLabQueryKeys.jobs.detail(jobId),
+    listsQueryKey: plotLabQueryKeys.jobs.lists(),
   });
 }
 

@@ -1,9 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
-import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { profileQueryKeys } from "@/lib/profile-query-keys";
@@ -17,41 +15,20 @@ import {
 } from "@/lib/types";
 
 import { useAnalysisJobLogsQuery } from "@/hooks/use-analysis-job-logs";
-import { makeDetailResource } from "@/lib/wizard-utils";
+import {
+  isAnalysisJobProcessingStatus,
+  makeAnalysisArtifactResource,
+  mergeAnalysisStatusIntoJob,
+  useAnalysisJobCommandMutation,
+  useAnalysisJobQueries,
+  useAnalysisProfileSaveMutation,
+  useRefreshAnalysisJobDetailWhenSucceeded,
+} from "@/hooks/use-analysis-wizard-primitives";
 
 type WizardStep = 1 | 2;
 
 export function isProcessingStatus(status: StyleAnalysisJob["status"] | undefined) {
-  return status === "pending" || status === "running";
-}
-
-function mergeStatusIntoJob(
-  job: StyleAnalysisJob | null,
-  statusSnapshot: StyleAnalysisJobStatusSnapshot | null,
-) {
-  if (!job || !statusSnapshot) return job;
-  return {
-    ...job,
-    status: statusSnapshot.status,
-    stage: statusSnapshot.stage,
-    error_message: statusSnapshot.error_message,
-    updated_at: statusSnapshot.updated_at,
-  };
-}
-
-function useStyleLabJobStatusQuery(jobId: string) {
-  return useQuery({
-    queryKey: styleLabQueryKeys.jobs.status(jobId),
-    queryFn: () => api.getStyleAnalysisJobStatus(jobId),
-    refetchInterval: (query) => (isProcessingStatus(query.state.data?.status) ? 2000 : false),
-  });
-}
-
-function useStyleLabJobDetailQuery(jobId: string) {
-  return useQuery({
-    queryKey: styleLabQueryKeys.jobs.detail(jobId),
-    queryFn: () => api.getStyleAnalysisJob(jobId),
-  });
+  return isAnalysisJobProcessingStatus(status);
 }
 
 export function useStyleLabJobLogsQuery(jobId: string, isProcessing: boolean) {
@@ -98,35 +75,45 @@ function mergeJobResources(
 
   const report = existingProfile?.analysis_report_markdown ?? reportQuery.data ?? null;
   const voiceProfile = existingProfile?.voice_profile_markdown ?? voiceProfileQuery.data ?? null;
-
-  const makeRes = (val: string | null, q: ReturnType<typeof useQuery>) => makeDetailResource<string>(val, {
-    isLoading: val == null ? (job?.style_profile_id ? existingProfileQuery.isLoading : q.isLoading) : false,
-    isError: val == null ? (job?.style_profile_id ? existingProfileQuery.isError : q.isError) : false,
-    error: val == null ? ((job?.style_profile_id ? existingProfileQuery.error : q.error) as Error | null) : null,
-  });
+  const useExistingProfileQuery = Boolean(job?.style_profile_id);
 
   return {
     existingProfile,
-    reportResource: makeRes(report, reportQuery),
-    voiceProfileResource: makeRes(voiceProfile, voiceProfileQuery),
+    reportResource: makeAnalysisArtifactResource<string>({
+      value: report,
+      artifactQuery: reportQuery,
+      existingProfileQuery,
+      useExistingProfileQuery,
+    }),
+    voiceProfileResource: makeAnalysisArtifactResource<string>({
+      value: voiceProfile,
+      artifactQuery: voiceProfileQuery,
+      existingProfileQuery,
+      useExistingProfileQuery,
+    }),
   };
 }
 
 function useStyleLabJobDetail(jobId: string) {
-  const statusQuery = useStyleLabJobStatusQuery(jobId);
-  const jobQuery = useStyleLabJobDetailQuery(jobId);
+  const { statusQuery, jobQuery } = useAnalysisJobQueries<
+    StyleAnalysisJob,
+    StyleAnalysisJobStatusSnapshot
+  >({
+    statusQueryKey: styleLabQueryKeys.jobs.status(jobId),
+    statusQueryFn: () => api.getStyleAnalysisJobStatus(jobId),
+    detailQueryKey: styleLabQueryKeys.jobs.detail(jobId),
+    detailQueryFn: () => api.getStyleAnalysisJob(jobId),
+    isProcessingStatus,
+  });
 
-  React.useEffect(() => {
-    if (
-      statusQuery.data?.status === "succeeded" &&
-      jobQuery.data?.status !== "succeeded" &&
-      !jobQuery.isFetching
-    ) {
-      void jobQuery.refetch();
-    }
-  }, [jobQuery.data?.status, jobQuery.isFetching, jobQuery.refetch, statusQuery.data?.status]);
+  useRefreshAnalysisJobDetailWhenSucceeded({
+    status: statusQuery.data?.status,
+    detailStatus: jobQuery.data?.status,
+    isDetailFetching: jobQuery.isFetching,
+    refetchDetail: jobQuery.refetch,
+  });
 
-  const job = mergeStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
+  const job = mergeAnalysisStatusIntoJob(jobQuery.data ?? null, statusQuery.data ?? null);
   const resourcesQueries = useStyleLabResourcesQueries(jobId, job);
   const resources = mergeJobResources(job, resourcesQueries);
 
@@ -212,10 +199,7 @@ function useSaveStyleProfileMutation({
   form: UseFormReturn<FormValues>;
   onSuccessCallback?: () => void;
 }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-
-  return useMutation({
+  return useAnalysisProfileSaveMutation({
     mutationFn: async () => {
       const values = form.getValues();
       if (!job) throw new Error("缺少保存数据");
@@ -234,53 +218,31 @@ function useSaveStyleProfileMutation({
         job_id: job.id,
       });
     },
-    onSuccess: () => {
-      toast.success("风格档案已保存");
-      if (onSuccessCallback) {
-        onSuccessCallback();
-        void queryClient.invalidateQueries({ queryKey: profileQueryKeys.style.detail(job?.style_profile_id) });
-        if (job?.id) {
-          void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(job.id) });
-        }
-      } else {
-        router.push("/style-lab");
-      }
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-    },
+    successMessage: "风格档案已保存",
+    onSuccessCallback,
+    editProfileQueryKey: profileQueryKeys.style.detail(job?.style_profile_id),
+    editJobQueryKey: job?.id ? styleLabQueryKeys.jobs.detail(job.id) : undefined,
+    redirectPath: "/style-lab",
   });
 }
 
 function useResumeStyleAnalysisJobMutation(jobId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => api.resumeStyleAnalysisJob(jobId),
-    onSuccess: () => {
-      toast.success("任务已恢复");
-      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(jobId) });
-      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-    },
+  return useAnalysisJobCommandMutation({
+    jobId,
+    mutationFn: api.resumeStyleAnalysisJob,
+    successMessage: "任务已恢复",
+    detailQueryKey: styleLabQueryKeys.jobs.detail(jobId),
+    listsQueryKey: styleLabQueryKeys.jobs.lists(),
   });
 }
 
 function usePauseStyleAnalysisJobMutation(jobId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => api.pauseStyleAnalysisJob(jobId),
-    onSuccess: () => {
-      toast.success("已发送暂停请求");
-      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.detail(jobId) });
-      void queryClient.invalidateQueries({ queryKey: styleLabQueryKeys.jobs.lists() });
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-    },
+  return useAnalysisJobCommandMutation({
+    jobId,
+    mutationFn: api.pauseStyleAnalysisJob,
+    successMessage: "已发送暂停请求",
+    detailQueryKey: styleLabQueryKeys.jobs.detail(jobId),
+    listsQueryKey: styleLabQueryKeys.jobs.lists(),
   });
 }
 
