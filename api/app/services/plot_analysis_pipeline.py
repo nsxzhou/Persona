@@ -721,6 +721,8 @@ class PlotAnalysisPipeline:
             try:
                 await self.stage_callback(stage)
             except Exception:
+                # Stage callbacks are progress reporting only; pipeline output
+                # should not be discarded because a heartbeat/log write failed.
                 logger.exception("Stage callback failed, continuing pipeline")
 
     async def _clear_stage_on_completion(self) -> None:

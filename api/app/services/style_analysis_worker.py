@@ -98,7 +98,9 @@ class StyleAnalysisJobExecutor(BaseAnalysisJobExecutor):
         *,
         stage_callback: StageCallback,
         should_pause: ShouldPause,
+        checkpoint_kind_callback: Callable[[str | None], Awaitable[None]] | None = None,
     ) -> None:
+        del checkpoint_kind_callback
         # 读取 job + 样本文本，并把文本切块落盘，得到 pipeline 运行所需上下文
         context = await self._load_run_context(session_factory, job_id)
         # 基于 provider/model/style/source 构造 pipeline（含 checkpointer 与阶段回调）

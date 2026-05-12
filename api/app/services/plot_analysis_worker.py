@@ -82,7 +82,9 @@ class PlotAnalysisJobExecutor(BaseAnalysisJobExecutor):
         *,
         stage_callback: StageCallback,
         should_pause: ShouldPause,
+        checkpoint_kind_callback: Callable[[str | None], Awaitable[None]] | None = None,
     ) -> None:
+        del checkpoint_kind_callback
         context = await self._load_run_context(session_factory, job_id)
         pipeline = await self._build_pipeline(
             provider=context.provider,

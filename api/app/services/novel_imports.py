@@ -256,7 +256,7 @@ class NovelImportService:
             raise UnprocessableEntityError(
                 "无法识别 TXT 文件编码，请使用 UTF-8 或 GB18030 保存后重试"
             ) from exc
-        except Exception as exc:
+        except (OSError, UnicodeError) as exc:
             logger.exception(
                 "failed to read novel import upload",
                 extra={"filename": upload_file.filename},

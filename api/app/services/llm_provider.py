@@ -337,6 +337,8 @@ class LLMProviderService:
                 prompt_stack_manifest=prompt_stack_manifest,
             )
         except Exception:
+            # Prompt traces are audit artifacts; never mask the LLM result
+            # because trace persistence failed.
             logger.exception("failed to write prompt trace")
 
     async def _record_prompt_trace_error(
@@ -365,6 +367,8 @@ class LLMProviderService:
                 prompt_stack_manifest=prompt_stack_manifest,
             )
         except Exception:
+            # Prompt traces are audit artifacts; never mask the upstream error
+            # because trace persistence failed.
             logger.exception("failed to write prompt trace")
 
     async def invoke_markdown_completion(

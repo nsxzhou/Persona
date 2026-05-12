@@ -77,6 +77,8 @@ class BaseAnalysisStorageService:
             await asyncio.to_thread(storage_path.unlink, missing_ok=True)
             raise
         except Exception:
+            # The upload stream can fail with framework-specific exceptions
+            # while iterating; cleanup is still required before propagation.
             logger.exception("Unexpected error saving file")
             await asyncio.to_thread(storage_path.unlink, missing_ok=True)
             raise

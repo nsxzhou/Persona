@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class ChapterRewriteBatchWorkerService:
-    def __init__(self) -> None:
-        self.batch_service = ChapterRewriteBatchService()
+    def __init__(self, batch_service: ChapterRewriteBatchService | None = None) -> None:
+        self.batch_service = batch_service or ChapterRewriteBatchService()
         self._worker_id = f"chapter-batch-worker-{uuid.uuid4()}"
 
     async def aclose(self) -> None:

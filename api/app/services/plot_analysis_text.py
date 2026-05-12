@@ -300,7 +300,7 @@ async def _split_oversized_span(
                 await boundary_detector(span.paragraphs),
                 len(span.paragraphs),
             )
-        except Exception:
+        except (RuntimeError, ValueError, TypeError):
             logger.exception("Plot boundary detector failed; falling back to paragraph split")
             boundaries = []
         if boundaries:
