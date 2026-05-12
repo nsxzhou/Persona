@@ -19,8 +19,9 @@ from app.services.analysis_jobs import (
 
 
 StageGetter = Callable[[], str | None]
-TouchStage = Callable[[str | None], Awaitable[None]]
-RunHeartbeatLoop = Callable[[StageGetter, asyncio.Event], Awaitable[None]]
+CheckpointKindGetter = Callable[[], str | None]
+TouchStage = Callable[[str | None, str | None], Awaitable[None]]
+RunHeartbeatLoop = Callable[[StageGetter, CheckpointKindGetter, asyncio.Event], Awaitable[None]]
 StageCallback = Callable[[str | None], Awaitable[None]]
 ShouldPause = Callable[[], bool]
 
@@ -40,6 +41,7 @@ class AnalysisWorkerJobService(Protocol):
         job_id: str,
         *,
         stage: str | None,
+        checkpoint_kind: str | None = None,
     ) -> datetime | None: ...
 
     async def mark_job_failed(
@@ -49,6 +51,7 @@ class AnalysisWorkerJobService(Protocol):
         *,
         error_message: str,
         max_attempts: int,
+        force_terminal: bool = False,
     ) -> bool: ...
 
     async def mark_job_paused(
@@ -57,6 +60,7 @@ class AnalysisWorkerJobService(Protocol):
         job_id: str,
         *,
         stage: str | None,
+        checkpoint_kind: str | None = None,
     ) -> None: ...
 
     async def recover_stale_jobs(
@@ -82,6 +86,7 @@ class AnalysisWorkerCheckpointerFactory(Protocol):
 class AnalysisWorkerJobLifecycle:
     job_id: str
     current_stage: str | None
+    current_checkpoint_kind: str | None
     pause_event: asyncio.Event
     _pause_events: dict[str, asyncio.Event]
     _stop_heartbeat: asyncio.Event
@@ -89,7 +94,16 @@ class AnalysisWorkerJobLifecycle:
 
     async def update_stage(self, stage: str | None, *, touch_stage: TouchStage) -> None:
         self.current_stage = stage
-        await touch_stage(stage)
+        await touch_stage(stage, self.current_checkpoint_kind)
+
+    async def update_checkpoint_kind(
+        self,
+        checkpoint_kind: str | None,
+        *,
+        touch_stage: TouchStage,
+    ) -> None:
+        self.current_checkpoint_kind = checkpoint_kind
+        await touch_stage(self.current_stage, checkpoint_kind)
 
     async def stop(self) -> None:
         self._stop_heartbeat.set()
@@ -102,6 +116,7 @@ def start_analysis_worker_job_lifecycle(
     *,
     job_id: str,
     initial_stage: str | None,
+    initial_checkpoint_kind: str | None = None,
     pause_events: dict[str, asyncio.Event],
     run_heartbeat_loop: RunHeartbeatLoop,
 ) -> AnalysisWorkerJobLifecycle:
@@ -112,12 +127,17 @@ def start_analysis_worker_job_lifecycle(
     lifecycle = AnalysisWorkerJobLifecycle(
         job_id=job_id,
         current_stage=initial_stage,
+        current_checkpoint_kind=initial_checkpoint_kind,
         pause_event=pause_event,
         _pause_events=pause_events,
         _stop_heartbeat=stop_heartbeat,
     )
     lifecycle._heartbeat_task = asyncio.create_task(
-        run_heartbeat_loop(lambda: lifecycle.current_stage, stop_heartbeat)
+        run_heartbeat_loop(
+            lambda: lifecycle.current_stage,
+            lambda: lifecycle.current_checkpoint_kind,
+            stop_heartbeat,
+        )
     )
     return lifecycle
 
@@ -179,6 +199,7 @@ class BaseAnalysisJobExecutor(ABC):
     failure_log_message: ClassVar[str]
     heartbeat_failure_log_message: ClassVar[str]
     logger: ClassVar[logging.Logger]
+    cleanup_successful_job_artifacts: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -211,6 +232,21 @@ class BaseAnalysisJobExecutor(ABC):
         await self._run_claimed_job(session_factory, job_id)
         return True
 
+    async def process_job_by_id(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+    ) -> bool:
+        claimed = await self._claim_pending_job_by_id(
+            session_factory,
+            job_id,
+            worker_id=self._worker_id,
+        )
+        if not claimed:
+            return False
+        await self._run_claimed_job(session_factory, job_id)
+        return True
+
     async def _claim_next_pending_job(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -226,6 +262,19 @@ class BaseAnalysisJobExecutor(ABC):
             ),
         )
 
+    async def _claim_pending_job_by_id(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        job_id: str,
+        *,
+        worker_id: str,
+    ) -> bool:
+        claim_by_id = getattr(self.job_service, "claim_job_by_id_for_worker", None)
+        if claim_by_id is None:
+            raise NotImplementedError("job service does not support claiming by id")
+        async with session_factory.begin() as session:
+            return bool(await claim_by_id(session, job_id, worker_id=worker_id))
+
     async def _run_claimed_job(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -236,10 +285,11 @@ class BaseAnalysisJobExecutor(ABC):
             job_id=job_id,
             initial_stage=self.initial_stage,
             pause_events=self._pause_events,
-            run_heartbeat_loop=lambda get_stage, stop_event: self._run_stage_heartbeat_loop(
+            run_heartbeat_loop=lambda get_stage, get_checkpoint_kind, stop_event: self._run_stage_heartbeat_loop(
                 session_factory,
                 job_id,
                 get_stage=get_stage,
+                get_checkpoint_kind=get_checkpoint_kind,
                 stop_event=stop_event,
                 interval_seconds=self._heartbeat_interval_seconds(),
             ),
@@ -248,10 +298,11 @@ class BaseAnalysisJobExecutor(ABC):
         async def stage_callback(stage: str | None) -> None:
             await lifecycle.update_stage(
                 stage,
-                touch_stage=lambda next_stage: self._touch_job_stage(
+                touch_stage=lambda next_stage, next_checkpoint_kind: self._touch_job_stage(
                     session_factory,
                     job_id,
                     stage=next_stage,
+                    checkpoint_kind=next_checkpoint_kind,
                 ),
             )
 
@@ -261,6 +312,15 @@ class BaseAnalysisJobExecutor(ABC):
                 job_id,
                 stage_callback=stage_callback,
                 should_pause=lifecycle.pause_event.is_set,
+                checkpoint_kind_callback=lambda checkpoint_kind: lifecycle.update_checkpoint_kind(
+                    checkpoint_kind,
+                    touch_stage=lambda next_stage, next_checkpoint_kind: self._touch_job_stage(
+                        session_factory,
+                        job_id,
+                        stage=next_stage,
+                        checkpoint_kind=next_checkpoint_kind,
+                    ),
+                ),
             )
             should_cleanup = True
         except self.pause_exceptions:
@@ -268,6 +328,7 @@ class BaseAnalysisJobExecutor(ABC):
                 session_factory,
                 job_id,
                 stage=lifecycle.current_stage,
+                checkpoint_kind=lifecycle.current_checkpoint_kind,
             )
         except Exception as exc:
             self._logger.exception(
@@ -278,10 +339,11 @@ class BaseAnalysisJobExecutor(ABC):
                 session_factory,
                 job_id,
                 error_message=str(exc),
+                force_terminal=self._is_terminal_error(exc),
             )
         finally:
             await lifecycle.stop()
-            if should_cleanup:
+            if should_cleanup and self.cleanup_successful_job_artifacts:
                 await self.storage_service.cleanup_job_artifacts(job_id)
                 await self._delete_checkpointer_thread(job_id)
 
@@ -294,18 +356,21 @@ class BaseAnalysisJobExecutor(ABC):
         job_id: str,
         *,
         get_stage: Callable[[], str | None],
+        get_checkpoint_kind: Callable[[], str | None],
         stop_event: asyncio.Event,
         interval_seconds: float,
     ) -> None:
         await run_analysis_stage_heartbeat_loop(
             job_id=job_id,
             get_stage=get_stage,
+            get_checkpoint_kind=get_checkpoint_kind,
             stop_event=stop_event,
             interval_seconds=interval_seconds,
-            touch_stage=lambda stage: self._touch_job_stage(
+            touch_stage=lambda stage, checkpoint_kind: self._touch_job_stage(
                 session_factory,
                 job_id,
                 stage=stage,
+                checkpoint_kind=checkpoint_kind,
             ),
             logger=self._logger,
             failure_log_message=self.heartbeat_failure_log_message,
@@ -317,10 +382,14 @@ class BaseAnalysisJobExecutor(ABC):
         job_id: str,
         *,
         stage: str | None,
+        checkpoint_kind: str | None = None,
     ) -> None:
         async with session_factory() as session:
             pause_requested_at = await self.job_service.heartbeat_job(
-                session, job_id, stage=stage
+                session,
+                job_id,
+                stage=stage,
+                checkpoint_kind=checkpoint_kind,
             )
             await session.commit()
             if pause_requested_at is not None:
@@ -334,6 +403,7 @@ class BaseAnalysisJobExecutor(ABC):
         job_id: str,
         *,
         error_message: str,
+        force_terminal: bool = False,
     ) -> bool:
         async with session_factory() as session:
             is_terminal = await self.job_service.mark_job_failed(
@@ -341,6 +411,7 @@ class BaseAnalysisJobExecutor(ABC):
                 job_id,
                 error_message=error_message,
                 max_attempts=self._max_attempts(),
+                force_terminal=force_terminal,
             )
             await session.commit()
             return is_terminal
@@ -351,9 +422,15 @@ class BaseAnalysisJobExecutor(ABC):
         job_id: str,
         *,
         stage: str | None,
+        checkpoint_kind: str | None = None,
     ) -> None:
         async with session_factory() as session:
-            await self.job_service.mark_job_paused(session, job_id, stage=stage)
+            await self.job_service.mark_job_paused(
+                session,
+                job_id,
+                stage=stage,
+                checkpoint_kind=checkpoint_kind,
+            )
             await session.commit()
 
     async def _delete_checkpointer_thread(self, job_id: str) -> None:
@@ -400,6 +477,9 @@ class BaseAnalysisJobExecutor(ABC):
     def _stale_timeout_seconds(self) -> int:
         raise NotImplementedError
 
+    def _is_terminal_error(self, _exc: Exception) -> bool:
+        return False
+
     @abstractmethod
     async def _run_job_to_success(
         self,
@@ -408,5 +488,6 @@ class BaseAnalysisJobExecutor(ABC):
         *,
         stage_callback: StageCallback,
         should_pause: ShouldPause,
+        checkpoint_kind_callback: Callable[[str | None], Awaitable[None]] | None = None,
     ) -> None:
         raise NotImplementedError
