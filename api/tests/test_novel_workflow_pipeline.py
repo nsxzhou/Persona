@@ -1190,7 +1190,7 @@ async def test_beat_expand_injects_prompt_asset_layers_in_runtime_order(
 
 
 @pytest.mark.asyncio
-async def test_chapter_expand_generates_once_and_exposes_review_issues(
+async def test_chapter_expand_generates_serial_beat_calls_with_prior_prose_context(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1201,11 +1201,15 @@ async def test_chapter_expand_generates_once_and_exposes_review_issues(
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
 
     get_settings.cache_clear()
-    llm = StubLLM([
-        "[]",
-        "完整章节正文",
-        '{"issues":["漏掉第 3 拍","章末钩子偏弱"]}',
-    ])
+    llm = StubLLM(
+        [
+            "[]",
+            "第一拍正文",
+            "第二拍正文",
+            "第三拍正文",
+            '{"issues":["漏掉第 3 拍","章末钩子偏弱"]}',
+        ]
+    )
     storage = NovelWorkflowStorageService()
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
@@ -1227,18 +1231,26 @@ async def test_chapter_expand_generates_once_and_exposes_review_issues(
         },
     )
 
-    assert result.persist_payload["markdown"] == "完整章节正文"
+    assert result.persist_payload["markdown"] == "第一拍正文\n\n第二拍正文\n\n第三拍正文"
     assert result.persist_payload["review_issues"] == ["漏掉第 3 拍", "章末钩子偏弱"]
     assert result.warnings == ["漏掉第 3 拍", "章末钩子偏弱"]
     assert result.latest_artifacts == ["prose_markdown", "chapter_expand_review"]
-    assert await storage.read_stage_markdown_artifact("run-chapter-expand", name="prose_markdown") == "完整章节正文"
+    assert (
+        await storage.read_stage_markdown_artifact(
+            "run-chapter-expand",
+            name="prose_markdown",
+        )
+        == "第一拍正文\n\n第二拍正文\n\n第三拍正文"
+    )
     assert await storage.read_stage_markdown_artifact("run-chapter-expand", name="chapter_expand_review") == '{"issues":["漏掉第 3 拍","章末钩子偏弱"]}'
     immersion_calls = [call for call in llm.calls if call["mode"] == "immersion"]
-    assert len(immersion_calls) == 1
+    assert len(immersion_calls) == 3
     assert "3000-5000 个中文字符" in immersion_calls[0]["system_prompt"]
-    assert "1. 第一拍" in immersion_calls[0]["user_context"]
-    assert "2. 第二拍" in immersion_calls[0]["user_context"]
-    assert "3. 第三拍" in immersion_calls[0]["user_context"]
+    assert "第 1/3 拍：第一拍" in immersion_calls[0]["user_context"]
+    assert "第 2/3 拍：第二拍" in immersion_calls[1]["user_context"]
+    assert "已生成正文衔接参考：第一拍正文" in immersion_calls[1]["user_context"]
+    assert "第 3/3 拍：第三拍" in immersion_calls[2]["user_context"]
+    assert "已生成正文衔接参考：第一拍正文\n\n第二拍正文" in immersion_calls[2]["user_context"]
 
 
 @pytest.mark.asyncio
@@ -1253,7 +1265,7 @@ async def test_chapter_expand_clean_review_has_no_warnings(
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
 
     get_settings.cache_clear()
-    llm = StubLLM(["[]", "完整章节正文", '{"issues":[]}'])
+    llm = StubLLM(["[]", "第一拍正文", "第二拍正文", '{"issues":[]}'])
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
         storage_service=NovelWorkflowStorageService(),
@@ -1269,7 +1281,7 @@ async def test_chapter_expand_clean_review_has_no_warnings(
         },
     )
 
-    assert result.persist_payload["markdown"] == "完整章节正文"
+    assert result.persist_payload["markdown"] == "第一拍正文\n\n第二拍正文"
     assert result.persist_payload["review_issues"] == []
     assert result.warnings == []
 
@@ -1287,7 +1299,7 @@ async def test_chapter_expand_review_failure_does_not_block_delivery(
 
     get_settings.cache_clear()
     storage = NovelWorkflowStorageService()
-    llm = FailingReviewLLM(["[]", "完整章节正文"])
+    llm = FailingReviewLLM(["[]", "第一拍正文", "第二拍正文"])
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
         storage_service=storage,
@@ -1303,7 +1315,7 @@ async def test_chapter_expand_review_failure_does_not_block_delivery(
         },
     )
 
-    assert result.persist_payload["markdown"] == "完整章节正文"
+    assert result.persist_payload["markdown"] == "第一拍正文\n\n第二拍正文"
     assert result.persist_payload["review_issues"] == [
         "章节审校未完成：审校调用失败，已保留生成正文"
     ]
@@ -1313,5 +1325,5 @@ async def test_chapter_expand_review_failure_does_not_block_delivery(
             "run-chapter-expand-review-failure",
             name="prose_markdown",
         )
-        == "完整章节正文"
+        == "第一拍正文\n\n第二拍正文"
     )

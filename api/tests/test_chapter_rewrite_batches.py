@@ -67,40 +67,52 @@ async def test_chapter_rewrite_batch_create_list_detail_logs_artifact_and_apply(
     initialized_client: AsyncClient,
     initialized_provider: dict[str, object],
     app_with_db,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.services.chapter_rewrite_batches import ChapterRewriteBatchService
     from app.services.chapter_rewrite_batch_worker import ChapterRewriteBatchWorkerService
     from app.services.novel_chapter_rewrite_jobs import CHAPTER_REWRITE_ARTIFACT
-    from app.services.novel_workflow_pipeline import NovelWorkflowPipelineResult
+    from app.services.novel_workflow_lifecycle import NovelWorkflowLifecycleService
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
-    from app.services.novel_workflow_worker import NovelWorkflowWorkerService
+    from app.services.novel_workflows import NovelWorkflowService
 
     project, chapters = await _create_project_with_chapters(initialized_client, initialized_provider)
     storage = NovelWorkflowStorageService()
+    workflow_service = NovelWorkflowService(storage_service=storage)
+    lifecycle_service = NovelWorkflowLifecycleService(workflow_service.repository)
     seen_chapters: list[str] = []
 
-    class FakePipeline:
-        async def run(self, *, run_id: str, initial_state: dict[str, object]):
-            chapter = initial_state["chapter_snapshot"]
-            assert isinstance(chapter, dict)
-            assert initial_state["expansion_ratio_percent"] == 45
-            seen_chapters.append(str(chapter["title"]))
-            markdown = f"改写后：{chapter['title']}"
-            await storage.append_job_log(run_id, f"生成 {chapter['title']}")
+    class FakeRunProcessor:
+        async def process_run_by_id(
+            self,
+            session_factory: async_sessionmaker[AsyncSession],
+            run_id: str,
+        ) -> bool:
+            async with session_factory.begin() as session:
+                run = await workflow_service.repository.get_by_id(session, run_id)
+                assert run is not None
+                chapter = run.chapter
+                assert chapter is not None
+                assert run.request_payload["expansion_ratio_percent"] == 45
+                seen_chapters.append(chapter.title)
+                markdown = f"改写后：{chapter.title}"
+                await lifecycle_service.mark_run_succeeded(
+                    session,
+                    run_id,
+                    latest_artifacts=[CHAPTER_REWRITE_ARTIFACT],
+                    warnings=[],
+                )
+            await storage.append_job_log(run_id, f"生成 {chapter.title}")
             await storage.write_stage_markdown_artifact(
                 run_id,
                 name=CHAPTER_REWRITE_ARTIFACT,
                 markdown=markdown,
             )
-            return NovelWorkflowPipelineResult(
-                persist_payload={"markdown": markdown},
-                latest_artifacts=[CHAPTER_REWRITE_ARTIFACT],
-            )
+            return True
 
-    async def fake_build_pipeline(self, **_):
-        return FakePipeline()
-
-    monkeypatch.setattr(NovelWorkflowWorkerService, "_build_pipeline", fake_build_pipeline)
+        async def aclose(self) -> None:
+            return None
 
     create_response = await initialized_client.post(
         "/api/v1/chapter-rewrite-batches",
@@ -127,9 +139,16 @@ async def test_chapter_rewrite_batch_create_list_detail_logs_artifact_and_apply(
     assert list_response.json()[0]["id"] == batch["id"]
     assert list_response.json()[0]["expansion_ratio_percent"] == 45
 
-    assert await ChapterRewriteBatchWorkerService().process_next_pending(
-        app_with_db.state.session_factory
-    ) is True
+    batch_service = ChapterRewriteBatchService(
+        workflow_service=workflow_service,
+        run_processor_factory=FakeRunProcessor,
+    )
+    assert (
+        await ChapterRewriteBatchWorkerService(batch_service).process_next_pending(
+            app_with_db.state.session_factory
+        )
+        is True
+    )
     assert seen_chapters == ["第1章 雨夜归来", "第2章 旧案重开"]
 
     detail_response = await initialized_client.get(
@@ -173,40 +192,66 @@ async def test_chapter_rewrite_batch_continues_after_item_failure_and_fails_when
     initialized_client: AsyncClient,
     initialized_provider: dict[str, object],
     app_with_db,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.services.chapter_rewrite_batches import ChapterRewriteBatchService
     from app.services.chapter_rewrite_batch_worker import ChapterRewriteBatchWorkerService
     from app.services.novel_chapter_rewrite_jobs import CHAPTER_REWRITE_ARTIFACT
-    from app.services.novel_workflow_pipeline import NovelWorkflowPipelineResult
+    from app.services.novel_workflow_lifecycle import NovelWorkflowLifecycleService
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
-    from app.services.novel_workflow_worker import NovelWorkflowWorkerService
+    from app.services.novel_workflows import NovelWorkflowService
 
     project, chapters = await _create_project_with_chapters(initialized_client, initialized_provider)
     storage = NovelWorkflowStorageService()
+    workflow_service = NovelWorkflowService(storage_service=storage)
+    lifecycle_service = NovelWorkflowLifecycleService(workflow_service.repository)
     fail_next = {"enabled": True}
 
-    class FakePipeline:
-        async def run(self, *, run_id: str, initial_state: dict[str, object]):
-            chapter = initial_state["chapter_snapshot"]
-            assert isinstance(chapter, dict)
+    class FakeRunProcessor:
+        async def process_run_by_id(
+            self,
+            session_factory: async_sessionmaker[AsyncSession],
+            run_id: str,
+        ) -> bool:
+            async with session_factory.begin() as session:
+                run = await workflow_service.repository.get_by_id(session, run_id)
+                assert run is not None
+                chapter = run.chapter
+                assert chapter is not None
             if fail_next["enabled"]:
                 fail_next["enabled"] = False
-                raise RuntimeError("provider failed")
-            markdown = f"成功：{chapter['title']}"
+                async with session_factory.begin() as session:
+                    await lifecycle_service.mark_run_failed(
+                        session,
+                        run_id,
+                        error_message="provider failed",
+                        max_attempts=1,
+                        force_terminal=True,
+                    )
+                return True
+            markdown = f"成功：{chapter.title}"
+            async with session_factory.begin() as session:
+                await lifecycle_service.mark_run_succeeded(
+                    session,
+                    run_id,
+                    latest_artifacts=[CHAPTER_REWRITE_ARTIFACT],
+                    warnings=[],
+                )
             await storage.write_stage_markdown_artifact(
                 run_id,
                 name=CHAPTER_REWRITE_ARTIFACT,
                 markdown=markdown,
             )
-            return NovelWorkflowPipelineResult(
-                persist_payload={"markdown": markdown},
-                latest_artifacts=[CHAPTER_REWRITE_ARTIFACT],
-            )
+            return True
 
-    async def fake_build_pipeline(self, **_):
-        return FakePipeline()
+        async def aclose(self) -> None:
+            return None
 
-    monkeypatch.setattr(NovelWorkflowWorkerService, "_build_pipeline", fake_build_pipeline)
+    batch_service = ChapterRewriteBatchService(
+        workflow_service=workflow_service,
+        run_processor_factory=FakeRunProcessor,
+    )
 
     partial = (
         await initialized_client.post(
@@ -218,9 +263,12 @@ async def test_chapter_rewrite_batch_continues_after_item_failure_and_fails_when
             },
         )
     ).json()
-    assert await ChapterRewriteBatchWorkerService().process_next_pending(
-        app_with_db.state.session_factory
-    ) is True
+    assert (
+        await ChapterRewriteBatchWorkerService(batch_service).process_next_pending(
+            app_with_db.state.session_factory
+        )
+        is True
+    )
     partial_detail = (
         await initialized_client.get(f"/api/v1/chapter-rewrite-batches/{partial['id']}")
     ).json()
@@ -240,9 +288,12 @@ async def test_chapter_rewrite_batch_continues_after_item_failure_and_fails_when
             },
         )
     ).json()
-    assert await ChapterRewriteBatchWorkerService().process_next_pending(
-        app_with_db.state.session_factory
-    ) is True
+    assert (
+        await ChapterRewriteBatchWorkerService(batch_service).process_next_pending(
+            app_with_db.state.session_factory
+        )
+        is True
+    )
     failed_detail = (
         await initialized_client.get(f"/api/v1/chapter-rewrite-batches/{one_chapter['id']}")
     ).json()

@@ -380,6 +380,7 @@ def test_project_and_novel_workflow_requests_accept_generation_profile() -> None
         plot_profile_id="plot-1",
         generation_profile=generation_profile,
         length_preset="short",
+        project_origin="normal",
         auto_sync_memory=False,
         archived_at=None,
         created_at="2025-01-01T00:00:00Z",

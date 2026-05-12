@@ -80,7 +80,9 @@ class _JobService:
         job_id: str,
         *,
         stage: str | None,
+        checkpoint_kind: str | None = None,
     ) -> datetime | None:
+        del checkpoint_kind
         self.heartbeat_stages.append(stage)
         return None
 
@@ -91,7 +93,9 @@ class _JobService:
         *,
         error_message: str,
         max_attempts: int,
+        force_terminal: bool = False,
     ) -> bool:
+        del force_terminal
         self.failed.append((job_id, error_message, max_attempts))
         return True
 
@@ -101,7 +105,9 @@ class _JobService:
         job_id: str,
         *,
         stage: str | None,
+        checkpoint_kind: str | None = None,
     ) -> None:
+        del checkpoint_kind
         self.paused.append((job_id, stage))
 
     async def recover_stale_jobs(
@@ -174,7 +180,9 @@ class _Executor(BaseAnalysisJobExecutor):
         *,
         stage_callback: StageCallback,
         should_pause: ShouldPause,
+        checkpoint_kind_callback: Callable[[str | None], Awaitable[None]] | None = None,
     ) -> None:
+        del checkpoint_kind_callback
         await self._run_job(stage_callback, should_pause)
 
 
