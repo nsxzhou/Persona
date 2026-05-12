@@ -9,7 +9,7 @@ import { useChapterEnrichmentRewrite } from "@/hooks/use-chapter-enrichment-rewr
 import { useChapterMemorySync } from "@/hooks/use-chapter-memory-sync";
 import { parseOutline } from "@/lib/outline-parser";
 import { useProjectQuery, useProjectBibleQuery } from "@/hooks/use-project-query";
-import { useChaptersQuery, useSyncChapters } from "@/hooks/use-chapters-query";
+import { useChaptersQuery } from "@/hooks/use-chapters-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { EditorLayout } from "./editor-layout";
 import { BibleDiffDialog } from "@/components/bible-diff-dialog";
@@ -26,6 +26,7 @@ import { DEFAULT_BIBLE } from "./editor-defaults";
 import { EditorHeaderActions, EditorQuickActions } from "./editor-header-actions";
 import { useEditorPersistence } from "./editor-persistence";
 import { EditorTextarea } from "./editor-textarea";
+import { useEditorChapterState } from "./use-editor-chapter-state";
 import { useEditorMemoryActions } from "./use-editor-memory-actions";
 
 export function EditorContentArea({ 
@@ -41,12 +42,6 @@ export function EditorContentArea({
   const { data: chapters = [], isLoading: isLoadingChapters } = useChaptersQuery(initialProject.id);
 
   const {
-    currentChapter,
-    setCurrentChapter,
-    selectedVolumeIndex,
-    setSelectedVolumeIndex,
-    chapterFocusMode,
-    setChapterFocusMode,
     isLeftExpanded,
     setIsLeftExpanded,
     isRightExpanded,
@@ -54,12 +49,6 @@ export function EditorContentArea({
     leftPanelMode,
     setLeftPanelMode,
   } = useEditorStore(useShallow((s: EditorState) => ({
-    currentChapter: s.currentChapter,
-    setCurrentChapter: s.setCurrentChapter,
-    selectedVolumeIndex: s.selectedVolumeIndex,
-    setSelectedVolumeIndex: s.setSelectedVolumeIndex,
-    chapterFocusMode: s.chapterFocusMode,
-    setChapterFocusMode: s.setChapterFocusMode,
     isLeftExpanded: s.isLeftExpanded,
     setIsLeftExpanded: s.setIsLeftExpanded,
     isRightExpanded: s.isRightExpanded,
@@ -81,60 +70,31 @@ export function EditorContentArea({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const selectedChapterRecord = useMemo(() => {
-    if (!currentChapter) return null;
-    return chapters.find(
-      (chapter) =>
-        chapter.volume_index === currentChapter.volumeIndex &&
-        chapter.chapter_index === currentChapter.chapterIndex,
-    ) ?? null;
-  }, [chapters, currentChapter]);
+  const revealLeftPanel = useCallback(() => {
+    setIsLeftExpanded(true);
+  }, [setIsLeftExpanded]);
 
-  const completedChapters = useMemo(
-    () => new Set(chapters.filter((chapter) => chapter.word_count > 0).map((chapter) => chapter.title)),
-    [chapters],
-  );
-
-  const totalContentLength = useMemo(
-    () =>
-      chapters.reduce(
-        (sum, chapter) => sum + chapter.word_count,
-        0,
-      ),
-    [chapters],
-  );
-
-  const currentChapterContext = useMemo(() => {
-    if (!currentChapter || !parsedOutline.volumes.length) return "";
-    const vol = parsedOutline.volumes[currentChapter.volumeIndex];
-    if (!vol) return "";
-    const ch = vol.chapters[currentChapter.chapterIndex];
-    if (!ch) return "";
-    const parts = [`**${ch.title}**`];
-    if (ch.coreEvent) parts.push(`- 核心事件：${ch.coreEvent}`);
-    if (ch.emotionArc) parts.push(`- 情绪走向：${ch.emotionArc}`);
-    if (ch.chapterHook) parts.push(`- 章末钩子：${ch.chapterHook}`);
-    return parts.join("\n");
-  }, [currentChapter, parsedOutline]);
-
-  const previousChapterContext = useMemo(() => {
-    if (!currentChapter) return "";
-    const previousChapters = chapters
-      .filter((chapter) => {
-        if (chapter.volume_index < currentChapter.volumeIndex) return true;
-        if (chapter.volume_index > currentChapter.volumeIndex) return false;
-        return chapter.chapter_index < currentChapter.chapterIndex;
-      })
-      .slice(-3);
-
-    return previousChapters
-      .filter((chapter) => chapter.content.trim())
-      .map((chapter) => {
-        const text = chapter.summary ? chapter.summary : chapter.content.slice(-300);
-        return `## ${chapter.title} (摘要)\n\n${text}`;
-      })
-      .join("\n\n---\n\n");
-  }, [chapters, currentChapter]);
+  const {
+    currentChapter,
+    selectedVolumeIndex,
+    selectedChapterRecord,
+    completedChapters,
+    totalContentLength,
+    currentChapterContext,
+    previousChapterContext,
+    currentVolumeTitle,
+    currentChapterTitle,
+    currentChapterStatus,
+    missingOutlineStatus,
+    selectChapter,
+  } = useEditorChapterState({
+    projectId: project.id,
+    chapters,
+    isLoadingChapters,
+    parsedOutline,
+    store,
+    revealLeftPanel,
+  });
 
   const {
     syncPersistedChapter,
@@ -303,59 +263,6 @@ export function EditorContentArea({
     openStoredDiff,
   });
 
-  const { mutateAsync: syncChapters } = useSyncChapters();
-
-  useEffect(() => {
-    if (!isLoadingChapters && chapters.length === 0) {
-      syncChapters(project.id).catch((e) => {
-        toast.error(e instanceof Error ? e.message : "加载章节失败");
-      });
-    }
-  }, [chapters.length, isLoadingChapters, project.id, syncChapters]);
-
-  useEffect(() => {
-    if (isLoadingChapters || chapters.length === 0 || currentChapter) return;
-    const target = chapters.find((chapter) => chapter.word_count === 0) ?? chapters[0];
-
-    const volume = parsedOutline.volumes[target.volume_index];
-    if (!volume || !volume.chapters[target.chapter_index]) {
-      return;
-    }
-
-    setSelectedVolumeIndex(target.volume_index);
-    setCurrentChapter({ volumeIndex: target.volume_index, chapterIndex: target.chapter_index });
-    setChapterFocusMode("navigate");
-    setIsLeftExpanded(true);
-  }, [chapters, currentChapter, isLoadingChapters, parsedOutline.volumes, setChapterFocusMode, setCurrentChapter, setIsLeftExpanded, setSelectedVolumeIndex]);
-
-  useEffect(() => {
-    if (!selectedChapterRecord) {
-      store.getState().setContent("");
-      store.getState().setSavedChapterContent("");
-      return;
-    }
-    store.getState().setContent(selectedChapterRecord.content);
-    store.getState().setSavedChapterContent(selectedChapterRecord.content);
-  }, [selectedChapterRecord?.id, selectedChapterRecord?.content]);
-
-  useEffect(() => {
-    if (selectedVolumeIndex === null) return;
-
-    const volume = parsedOutline.volumes[selectedVolumeIndex];
-    if (!volume) {
-      setSelectedVolumeIndex(null);
-      setCurrentChapter(null);
-      setChapterFocusMode("idle");
-      return;
-    }
-
-    if (!currentChapter) return;
-    const chapter = volume.chapters[currentChapter.chapterIndex];
-    if (!chapter) {
-      setCurrentChapter(null);
-    }
-  }, [currentChapter, parsedOutline, selectedVolumeIndex, setChapterFocusMode, setCurrentChapter, setSelectedVolumeIndex]);
-
   const toggleLeft = useCallback(() => {
     setLeftPanelMode("navigation");
     setIsLeftExpanded(true);
@@ -394,13 +301,11 @@ export function EditorContentArea({
       toast.error("当前章节保存失败，无法切换，请检查网络");
       return;
     }
-    setSelectedVolumeIndex(volumeIndex);
-    setCurrentChapter({ volumeIndex, chapterIndex });
-    setChapterFocusMode("navigate");
+    selectChapter(volumeIndex, chapterIndex);
     setIsLeftExpanded(true);
     setLeftPanelMode("navigation");
     setBeatList([]);
-  }, [clearSaveError, flushPendingSave, setBeatList, setChapterFocusMode, setCurrentChapter, setIsLeftExpanded, setLeftPanelMode, setSelectedVolumeIndex]);
+  }, [clearSaveError, flushPendingSave, selectChapter, setBeatList, setIsLeftExpanded, setLeftPanelMode]);
 
   const handleGoGenerateVolume = useCallback(
     (volumeIndex: number) => {
@@ -409,22 +314,6 @@ export function EditorContentArea({
     },
     [isImportedRewriteProject, project.id, router],
   );
-
-  const currentVolumeTitle = selectedVolumeIndex !== null
-    ? (parsedOutline.volumes[selectedVolumeIndex]?.title.trim() || "未分卷章节")
-    : null;
-  const currentChapterTitle = currentChapter
-    ? parsedOutline.volumes[currentChapter.volumeIndex]?.chapters[currentChapter.chapterIndex]?.title ?? null
-    : null;
-  const currentVolumeHasChapters = selectedVolumeIndex !== null
-    ? (parsedOutline.volumes[selectedVolumeIndex]?.chapters.length ?? 0) > 0
-    : true;
-  const currentChapterStatus = currentChapter
-    ? chapterFocusMode === "generate_beats"
-      ? "已定位章节，准备生成节拍"
-      : "已定位章节"
-    : "请从左侧创作导航选择章节";
-  const missingOutlineStatus = selectedVolumeIndex !== null && !currentVolumeHasChapters;
 
   const chapterBannerAction = missingOutlineStatus && selectedVolumeIndex !== null && !isImportedRewriteProject ? (
     <Button variant="outline" size="sm" onClick={() => handleGoGenerateVolume(selectedVolumeIndex)}>
