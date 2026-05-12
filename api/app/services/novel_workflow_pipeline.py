@@ -78,6 +78,7 @@ _TOP_LEVEL_HEADING_RE = re.compile(r"^#(?!#)\s+.+$")
 _IMPORTED_ACTIVE_CHARACTER_SAMPLE_CHARS = 2_000
 CHAPTER_REWRITE_ARTIFACT = "chapter_rewrite_markdown"
 CHAPTER_REWRITE_PATCHES_ARTIFACT = "chapter_rewrite_patches_markdown"
+_CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS = 3
 
 
 def _format_project_book_title(project_name: str | None) -> str:
@@ -150,6 +151,8 @@ class NovelWorkflowState(TypedDict):
     preceding_beats_prose: NotRequired[str]
     enable_editor_pass: NotRequired[bool]
     expansion_ratio_percent: NotRequired[int]
+    chapter_rewrite_retry_invalid_output: NotRequired[str | None]
+    chapter_rewrite_retry_validation_error: NotRequired[str | None]
 
     outline_master: NotRequired[str]
     world_building: NotRequired[str]
@@ -519,11 +522,10 @@ class NovelWorkflowPipeline:
 
     async def _handle_chapter_enrichment_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         original = self._chapter_enrichment_rewrite_source_text(state)
-        patches_markdown = await self._generate_chapter_enrichment_rewrite(state)
-        markdown = self._synthesize_chapter_rewrite(
+        patches_markdown, markdown = await self._generate_valid_chapter_rewrite_patches(
+            state=state,
             original=original,
-            patches_markdown=patches_markdown,
-            expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
+            generator=self._generate_chapter_enrichment_rewrite,
         )
         await self.storage_service.write_stage_markdown_artifact(
             state["run_id"],
@@ -545,11 +547,10 @@ class NovelWorkflowPipeline:
 
     async def _handle_imported_chapter_full_rewrite(self, state: NovelWorkflowState, current_bible: dict[str, str], generation_profile: Any) -> dict[str, Any]:
         original = state_chapter_content(state)
-        patches_markdown = await self._generate_imported_chapter_full_rewrite(state)
-        markdown = self._synthesize_chapter_rewrite(
+        patches_markdown, markdown = await self._generate_valid_chapter_rewrite_patches(
+            state=state,
             original=original,
-            patches_markdown=patches_markdown,
-            expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
+            generator=self._generate_imported_chapter_full_rewrite,
         )
         validation_warnings = validate_imported_chapter_rewrite_output(
             output=markdown,
@@ -887,6 +888,9 @@ class NovelWorkflowPipeline:
             f"{state.get('rewrite_instruction', '').strip()}\n\n"
             "按上述指令改写整个章节，但输出必须是 Markdown 补丁，不得输出改写后的完整章节。"
         )
+        retry_context = self._chapter_rewrite_retry_context(state)
+        if retry_context:
+            parts.append(retry_context)
         return await self._call_prompt(
             system_prompt=system_prompt,
             user_context="\n\n---\n\n".join(parts),
@@ -923,6 +927,9 @@ class NovelWorkflowPipeline:
             rewrite_instruction=state.get("rewrite_instruction", ""),
             expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
         )
+        retry_context = self._chapter_rewrite_retry_context(state)
+        if retry_context:
+            user_context = f"{user_context}\n\n---\n\n{retry_context}"
         return await self._call_prompt(
             system_prompt=system_prompt,
             user_context=user_context,
@@ -960,6 +967,7 @@ class NovelWorkflowPipeline:
             "- 每个补丁小节使用 `## Patch 1`、`## Patch 2` 等标题。\n"
             "- Operation 只能是 `insert_after` 或 `replace`。\n"
             "- Anchor 必须是原章节中一个完整自然段的逐字精确文本，且只出现一次。\n"
+            "- Anchor 只能定位一个自然段，不能包含空行，不能跨越空行分隔的多个自然段。\n"
             "- New Text 必须放在 ```text 代码块中，可以包含一个或多个新自然段。\n"
             "- insert_after 表示把 New Text 插入到 Anchor 段落后；replace 表示只替换 Anchor 这一个自然段。\n"
             "- 不得重复使用 Anchor，不得使用互相重叠或包含的 Anchor。\n"
@@ -972,6 +980,56 @@ class NovelWorkflowPipeline:
             "Operation: insert_after\n\n"
             "Anchor:\n```text\n<one exact full original paragraph>\n```\n\n"
             "New Text:\n```text\n<one or more new paragraphs>\n```\n"
+        )
+
+    async def _generate_valid_chapter_rewrite_patches(
+        self,
+        *,
+        state: NovelWorkflowState,
+        original: str,
+        generator: Callable[[NovelWorkflowState], Awaitable[str]],
+    ) -> tuple[str, str]:
+        retry_invalid_output: str | None = None
+        retry_validation_error: str | None = None
+        for attempt in range(_CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS):
+            attempt_state = state
+            if retry_invalid_output is not None and retry_validation_error is not None:
+                attempt_state = {
+                    **state,
+                    "chapter_rewrite_retry_invalid_output": retry_invalid_output,
+                    "chapter_rewrite_retry_validation_error": retry_validation_error,
+                }
+            patches_markdown = await generator(attempt_state)
+            try:
+                markdown = self._synthesize_chapter_rewrite(
+                    original=original,
+                    patches_markdown=patches_markdown,
+                    expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
+                )
+            except ValueError as exc:
+                if attempt == _CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS - 1:
+                    raise
+                retry_invalid_output = patches_markdown
+                retry_validation_error = str(exc)
+                continue
+            return patches_markdown, markdown
+        raise RuntimeError("unreachable chapter rewrite patch retry state")
+
+    @staticmethod
+    def _chapter_rewrite_retry_context(state: NovelWorkflowState) -> str:
+        invalid_output = (state.get("chapter_rewrite_retry_invalid_output") or "").strip()
+        validation_error = (
+            state.get("chapter_rewrite_retry_validation_error") or ""
+        ).strip()
+        if not invalid_output or not validation_error:
+            return ""
+        return (
+            "## 上一次补丁校验失败（必须修正后重试）\n\n"
+            f"校验错误：{validation_error}\n\n"
+            "上一次无效输出：\n\n"
+            f"{invalid_output}\n\n"
+            "重试要求：重新输出完整 Markdown 补丁；Anchor 必须是原文中一个完整自然段的逐字精确文本，"
+            "且只能定位一个自然段，不能包含空行，不能跨越空行分隔的多个自然段。"
         )
 
     @staticmethod

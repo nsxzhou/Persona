@@ -39,6 +39,7 @@ def build_imported_chapter_rewrite_system_prompt(
         "- 每个补丁小节必须使用 `## Patch 1`、`## Patch 2` 等标题。",
         "- Operation 只能是 `insert_after` 或 `replace`。",
         "- Anchor 必须是原章节中一个完整自然段的逐字精确文本，且只出现一次。",
+        "- Anchor 只能定位一个自然段，不能包含空行，不能跨越空行分隔的多个自然段。",
         "- Anchor 与 New Text 必须使用 ```text 代码块。",
         "- New Text 可以包含一个或多个新自然段。",
         "- insert_after 表示把 New Text 插入到 Anchor 段落后；replace 表示只替换 Anchor 这一个自然段。",

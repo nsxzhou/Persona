@@ -411,6 +411,84 @@ New Text:
 
 
 @pytest.mark.asyncio
+async def test_imported_chapter_full_rewrite_retries_invalid_patch_and_stores_successful_output(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    original = "第一段落写完了。\n\n第二段落收束。"
+    invalid_patches = f"""# Chapter Rewrite Patches
+
+## Patch 1
+Operation: replace
+
+Anchor:
+```text
+{original}
+```
+
+New Text:
+```text
+第一段落写完了，雨声压住了窗棂。
+
+第二段落在更沉的气息里收束。
+```
+"""
+    valid_patches = """# Chapter Rewrite Patches
+
+## Patch 1
+Operation: insert_after
+
+Anchor:
+```text
+第一段落写完了。
+```
+
+New Text:
+```text
+雨声压住了窗棂，屋内的人都放轻了呼吸。
+```
+"""
+    llm = StubLLM(['["沈砚"]', invalid_patches, '["沈砚"]', valid_patches])
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-imported-rewrite-patch-retry",
+        initial_state={
+            "intent_type": "imported_chapter_full_rewrite",
+            "rewrite_instruction": "增加雨夜压迫感",
+            "chapter_snapshot": {"title": "第2章", "content": original},
+            "current_bible": {},
+        },
+    )
+
+    synthesized = "第一段落写完了。\n\n雨声压住了窗棂，屋内的人都放轻了呼吸。\n\n第二段落收束。"
+    assert result.persist_payload["markdown"] == synthesized
+    assert result.persist_payload["patches_markdown"] == valid_patches.strip()
+    retry_prompt = llm.calls[3]["user_context"]
+    assert invalid_patches.strip() in retry_prompt
+    assert "章节改写补丁 Anchor 只能定位一个自然段" in retry_prompt
+    assert (
+        await storage.read_stage_markdown_artifact(
+            "run-imported-rewrite-patch-retry",
+            name="chapter_rewrite_patches_markdown",
+        )
+        == valid_patches.strip()
+    )
+
+
+@pytest.mark.asyncio
 async def test_imported_chapter_full_rewrite_omits_active_character_block_when_no_match(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
@@ -549,6 +627,85 @@ New Text:
 
 
 @pytest.mark.asyncio
+async def test_chapter_enrichment_rewrite_retries_invalid_patch_and_stores_successful_output(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    original = "第一段落写完了。\n\n第二段落收束。"
+    invalid_patches = f"""# Chapter Rewrite Patches
+
+## Patch 1
+Operation: replace
+
+Anchor:
+```text
+{original}
+```
+
+New Text:
+```text
+第一段落写完了，灯影晃了一下。
+
+第二段落在沉默里收束。
+```
+"""
+    valid_patches = """# Chapter Rewrite Patches
+
+## Patch 1
+Operation: insert_after
+
+Anchor:
+```text
+第一段落写完了。
+```
+
+New Text:
+```text
+灯影晃了一下，把沉默拉得更长。
+```
+"""
+    llm = StubLLM(['["沈砚"]', invalid_patches, '["沈砚"]', valid_patches])
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-enrichment-patch-retry",
+        initial_state={
+            "intent_type": "chapter_enrichment_rewrite",
+            "selected_text": original,
+            "rewrite_instruction": "增加压迫感",
+            "chapter_snapshot": {"title": "第1章", "content": original},
+            "current_bible": {},
+        },
+    )
+
+    synthesized = "第一段落写完了。\n\n灯影晃了一下，把沉默拉得更长。\n\n第二段落收束。"
+    assert result.persist_payload["markdown"] == synthesized
+    assert result.persist_payload["patches_markdown"] == valid_patches.strip()
+    retry_prompt = llm.calls[3]["user_context"]
+    assert invalid_patches.strip() in retry_prompt
+    assert "章节改写补丁 Anchor 只能定位一个自然段" in retry_prompt
+    assert (
+        await storage.read_stage_markdown_artifact(
+            "run-chapter-enrichment-patch-retry",
+            name="chapter_rewrite_patches_markdown",
+        )
+        == valid_patches.strip()
+    )
+
+
+@pytest.mark.asyncio
 async def test_chapter_rewrite_no_patches_fails_workflow(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
@@ -560,7 +717,16 @@ async def test_chapter_rewrite_no_patches_fails_workflow(
     from app.services.novel_workflow_storage import NovelWorkflowStorageService
 
     get_settings.cache_clear()
-    llm = StubLLM(['[]', "# Chapter Rewrite Patches\n\nNo patches."])
+    llm = StubLLM(
+        [
+            '[]',
+            "# Chapter Rewrite Patches\n\nNo patches.",
+            '[]',
+            "# Chapter Rewrite Patches\n\nNo patches.",
+            '[]',
+            "# Chapter Rewrite Patches\n\nNo patches.",
+        ]
+    )
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
         storage_service=NovelWorkflowStorageService(),
