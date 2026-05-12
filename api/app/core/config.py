@@ -89,6 +89,11 @@ class Settings(BaseSettings):
         default=300, alias="PERSONA_STYLE_ANALYSIS_STALE_TIMEOUT_SECONDS"
     )
 
+    novel_workflow_stale_timeout_seconds: int = Field(
+        default=300,
+        alias="PERSONA_NOVEL_WORKFLOW_STALE_TIMEOUT_SECONDS",
+    )
+
     # 用户请求暂停后，若 worker 没有继续 heartbeat，多久后自动确认暂停
     analysis_pause_confirm_timeout_seconds: int = Field(
         default=10,
@@ -108,6 +113,11 @@ class Settings(BaseSettings):
     # Style Lab 最大尝试次数
     style_analysis_max_attempts: int = Field(
         default=3, alias="PERSONA_STYLE_ANALYSIS_MAX_ATTEMPTS"
+    )
+
+    novel_workflow_max_attempts: int = Field(
+        default=3,
+        alias="PERSONA_NOVEL_WORKFLOW_MAX_ATTEMPTS",
     )
 
     # Plot Lab 最大尝试次数；未设置时沿用旧的 Style Lab 环境变量，保持历史部署兼容
