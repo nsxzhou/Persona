@@ -10,6 +10,7 @@ def test_parse_chapter_rewrite_patches_accepts_legal_markdown() -> None:
         """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -23,6 +24,7 @@ New Text:
 ```
 
 ## Patch 2
+### Edit 1
 Operation: replace
 
 Anchor:
@@ -43,6 +45,47 @@ New Text:
     ]
 
 
+def test_parse_chapter_rewrite_patches_accepts_one_patch_with_multiple_edits() -> None:
+    from app.services.chapter_rewrite_patches import parse_chapter_rewrite_patches
+
+    patches = parse_chapter_rewrite_patches(
+        """# Chapter Rewrite Patches
+
+## Patch 1
+### Edit 1
+Operation: insert_after
+
+Anchor:
+```text
+第一段。
+```
+
+New Text:
+```text
+新增段落。
+```
+
+### Edit 2
+Operation: replace
+
+Anchor:
+```text
+第三段。
+```
+
+New Text:
+```text
+替换后的第三段。
+```
+"""
+    )
+
+    assert [(patch.operation, patch.anchor, patch.new_text) for patch in patches] == [
+        ("insert_after", "第一段。", "新增段落。"),
+        ("replace", "第三段。", "替换后的第三段。"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("markdown", "message"),
     [
@@ -50,6 +93,7 @@ New Text:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Anchor:
 ```text
 第一段。
@@ -66,6 +110,7 @@ New Text:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: delete
 
 Anchor:
@@ -84,6 +129,7 @@ New Text:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 New Text:
@@ -97,6 +143,7 @@ New Text:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -110,6 +157,7 @@ Anchor:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 extra
 Operation: insert_after
 
@@ -129,6 +177,7 @@ New Text:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 extra
@@ -148,6 +197,7 @@ New Text:
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -169,6 +219,7 @@ extra
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -182,6 +233,39 @@ New Text:
 ```
 """,
             "缺少 Anchor",
+        ),
+        (
+            """# Chapter Rewrite Patches
+
+## Patch 1
+### Edit 1
+""",
+            "Edit 小节为空",
+        ),
+        (
+            """# Chapter Rewrite Patches
+
+## Patch 1
+""",
+            "Patch 小节为空",
+        ),
+        (
+            """# Chapter Rewrite Patches
+
+## Patch 1
+Operation: insert_after
+
+Anchor:
+```text
+第一段。
+```
+
+New Text:
+```text
+新增段落。
+```
+""",
+            "### Edit",
         ),
     ],
 )
@@ -209,6 +293,7 @@ def test_parse_chapter_rewrite_patches_allows_no_patches_text_inside_new_text() 
         """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -242,6 +327,70 @@ def test_apply_chapter_rewrite_patches_insert_after_and_replace() -> None:
     )
 
     assert result == "第一段。\n\n第一段后新增。\n\n第二段。\n\n第三段改写。新增很多字。"
+
+
+def test_apply_chapter_rewrite_patches_applies_multiple_edits_in_original_order() -> None:
+    from app.services.chapter_rewrite_patches import (
+        apply_chapter_rewrite_patches,
+        parse_chapter_rewrite_patches,
+    )
+
+    patches = parse_chapter_rewrite_patches(
+        """# Chapter Rewrite Patches
+
+## Patch 1
+### Edit 1
+Operation: insert_after
+
+Anchor:
+```text
+第三段。
+```
+
+New Text:
+```text
+第三段后新增。
+```
+
+### Edit 2
+Operation: insert_after
+
+Anchor:
+```text
+第一段。
+```
+
+New Text:
+```text
+第一段后新增。
+```
+"""
+    )
+
+    result = apply_chapter_rewrite_patches(
+        "第一段。\n\n第二段。\n\n第三段。",
+        patches,
+        expansion_ratio_percent=20,
+    )
+
+    assert result == (
+        "第一段。\n\n第一段后新增。\n\n第二段。\n\n第三段。\n\n第三段后新增。"
+    )
+
+
+def test_apply_chapter_rewrite_patches_accepts_blank_separators_with_spaces_tabs() -> None:
+    from app.services.chapter_rewrite_patches import (
+        ChapterRewritePatch,
+        apply_chapter_rewrite_patches,
+    )
+
+    result = apply_chapter_rewrite_patches(
+        "第一段。\n \t\n第二段。",
+        [ChapterRewritePatch("insert_after", "第二段。", "新增段落。")],
+        expansion_ratio_percent=20,
+    )
+
+    assert result == "第一段。\n \t\n第二段。\n\n新增段落。"
 
 
 @pytest.mark.parametrize(

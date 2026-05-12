@@ -12,6 +12,10 @@ _PATCH_HEADING_RE = re.compile(
     r"(?ms)^##\s+Patch\s+\d+\s*$"
     r"(?P<body>.*?)(?=^##\s+Patch\s+\d+\s*$|\Z)"
 )
+_EDIT_HEADING_RE = re.compile(
+    r"(?ms)^###\s+Edit\s+\d+\s*$"
+    r"(?P<body>.*?)(?=^###\s+Edit\s+\d+\s*$|\Z)"
+)
 _OPERATION_RE = re.compile(r"(?mi)^\s*Operation:\s*(?P<operation>\S+)\s*$")
 _ANCHOR_BLOCK_RE = re.compile(
     r"(?ms)^\s*Anchor:\s*\n```text\s*\n(?P<anchor>.*?)\n```\s*"
@@ -53,47 +57,67 @@ def parse_chapter_rewrite_patches(markdown: str) -> list[ChapterRewritePatch]:
     for match in matches:
         body = match.group("body")
         if not body.strip():
-            raise ValueError("章节改写补丁小节为空")
+            raise ValueError("章节改写 Patch 小节为空")
 
-        operation_match = _OPERATION_RE.search(body)
-        if operation_match is None:
-            raise ValueError("章节改写补丁缺少 Operation")
-        if body[: operation_match.start()].strip():
-            raise ValueError("章节改写补丁包含无法识别的内容")
-        operation = operation_match.group("operation").strip()
-        if operation not in {"insert_after", "replace"}:
-            raise ValueError(f"章节改写补丁操作不支持: {operation}")
+        edit_matches = list(_EDIT_HEADING_RE.finditer(body))
+        if not edit_matches:
+            if (
+                _OPERATION_RE.search(body) is not None
+                or "Anchor:" in body
+                or "New Text:" in body
+            ):
+                raise ValueError(
+                    "章节改写 Patch 必须包含至少一个 ### Edit 小节；"
+                    "旧版直接在 Patch 下写 Operation/Anchor/New Text 的格式不再支持"
+                )
+            raise ValueError("章节改写 Patch 缺少 ### Edit 小节")
+        if body[: edit_matches[0].start()].strip():
+            raise ValueError("章节改写 Patch 包含无法识别的内容")
 
-        search_start = operation_match.end()
-        anchor_match = _ANCHOR_BLOCK_RE.search(body, search_start)
-        if anchor_match is None:
-            raise ValueError("章节改写补丁缺少 Anchor 代码块")
-        if body[operation_match.end() : anchor_match.start()].strip():
-            raise ValueError("章节改写补丁包含无法识别的内容")
-        new_text_match = _NEW_TEXT_BLOCK_RE.search(body, anchor_match.end())
-        if new_text_match is None:
-            raise ValueError("章节改写补丁缺少 New Text 代码块")
-        if body[anchor_match.end() : new_text_match.start()].strip():
-            raise ValueError("章节改写补丁包含无法识别的内容")
+        for edit_match in edit_matches:
+            edit_body = edit_match.group("body")
+            if not edit_body.strip():
+                raise ValueError("章节改写 Edit 小节为空")
 
-        tail = body[new_text_match.end() :].strip()
-        if tail:
-            raise ValueError("章节改写补丁包含无法识别的内容")
+            operation_match = _OPERATION_RE.search(edit_body)
+            if operation_match is None:
+                raise ValueError("章节改写 Edit 缺少 Operation")
+            if edit_body[: operation_match.start()].strip():
+                raise ValueError("章节改写 Edit 包含无法识别的内容")
+            operation = operation_match.group("operation").strip()
+            if operation not in {"insert_after", "replace"}:
+                raise ValueError(f"章节改写 Edit 操作不支持: {operation}")
 
-        anchor = anchor_match.group("anchor").strip()
-        new_text = new_text_match.group("new_text").strip()
-        if not anchor:
-            raise ValueError("章节改写补丁 Anchor 不能为空")
-        if not new_text:
-            raise ValueError("章节改写补丁 New Text 不能为空")
+            search_start = operation_match.end()
+            anchor_match = _ANCHOR_BLOCK_RE.search(edit_body, search_start)
+            if anchor_match is None:
+                raise ValueError("章节改写 Edit 缺少 Anchor 代码块")
+            if edit_body[operation_match.end() : anchor_match.start()].strip():
+                raise ValueError("章节改写 Edit 包含无法识别的内容")
+            new_text_match = _NEW_TEXT_BLOCK_RE.search(edit_body, anchor_match.end())
+            if new_text_match is None:
+                raise ValueError("章节改写 Edit 缺少 New Text 代码块")
+            if edit_body[anchor_match.end() : new_text_match.start()].strip():
+                raise ValueError("章节改写 Edit 包含无法识别的内容")
 
-        patches.append(
-            ChapterRewritePatch(
-                operation=operation,  # type: ignore[arg-type]
-                anchor=anchor,
-                new_text=new_text,
+            tail = edit_body[new_text_match.end() :].strip()
+            if tail:
+                raise ValueError("章节改写 Edit 包含无法识别的内容")
+
+            anchor = anchor_match.group("anchor").strip()
+            new_text = new_text_match.group("new_text").strip()
+            if not anchor:
+                raise ValueError("章节改写 Edit Anchor 不能为空")
+            if not new_text:
+                raise ValueError("章节改写 Edit New Text 不能为空")
+
+            patches.append(
+                ChapterRewritePatch(
+                    operation=operation,  # type: ignore[arg-type]
+                    anchor=anchor,
+                    new_text=new_text,
+                )
             )
-        )
         consumed_ranges.append((match.start(), match.end()))
 
     prefix = stripped[: consumed_ranges[0][0]].strip()
@@ -205,11 +229,13 @@ def _is_complete_natural_paragraph(original: str, start: int, end: int) -> bool:
 
 
 def _at_paragraph_boundary_before(text: str, index: int) -> bool:
-    return not text[:index].strip() or text[:index].endswith("\n\n")
+    prefix = text[:index]
+    return not prefix.strip() or re.search(r"\n[ \t]*\n[ \t]*\Z", prefix) is not None
 
 
 def _at_paragraph_boundary_after(text: str, index: int) -> bool:
-    return not text[index:].strip() or text[index:].startswith("\n\n")
+    suffix = text[index:]
+    return not suffix.strip() or re.match(r"[ \t]*\n[ \t]*\n", suffix) is not None
 
 
 def _contains_paragraph_break(text: str) -> bool:

@@ -284,6 +284,7 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
     patches_markdown = f"""# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: replace
 
 Anchor:
@@ -426,6 +427,7 @@ async def test_imported_chapter_full_rewrite_retries_invalid_patch_and_stores_su
     invalid_patches = f"""# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: replace
 
 Anchor:
@@ -443,6 +445,7 @@ New Text:
     valid_patches = """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -479,6 +482,7 @@ New Text:
     retry_prompt = llm.calls[3]["user_context"]
     assert invalid_patches.strip() in retry_prompt
     assert "章节改写补丁 Anchor 只能定位一个自然段" in retry_prompt
+    assert "### Edit" in retry_prompt
     assert (
         await storage.read_stage_markdown_artifact(
             "run-imported-rewrite-patch-retry",
@@ -506,6 +510,7 @@ async def test_imported_chapter_full_rewrite_omits_active_character_block_when_n
             """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: replace
 
 Anchor:
@@ -567,6 +572,7 @@ async def test_chapter_enrichment_rewrite_stores_synthesized_and_raw_patch_artif
     raw_patches = """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -642,6 +648,7 @@ async def test_chapter_enrichment_rewrite_retries_invalid_patch_and_stores_succe
     invalid_patches = f"""# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: replace
 
 Anchor:
@@ -659,6 +666,7 @@ New Text:
     valid_patches = """# Chapter Rewrite Patches
 
 ## Patch 1
+### Edit 1
 Operation: insert_after
 
 Anchor:
@@ -696,6 +704,7 @@ New Text:
     retry_prompt = llm.calls[3]["user_context"]
     assert invalid_patches.strip() in retry_prompt
     assert "章节改写补丁 Anchor 只能定位一个自然段" in retry_prompt
+    assert "### Edit" in retry_prompt
     assert (
         await storage.read_stage_markdown_artifact(
             "run-chapter-enrichment-patch-retry",

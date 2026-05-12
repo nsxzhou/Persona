@@ -189,28 +189,34 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 
 ### 3. Contracts
 - `chapter_enrichment_rewrite` and `imported_chapter_full_rewrite` must request Markdown patches, not a full rewritten chapter.
-- Patch output must start with `# Chapter Rewrite Patches`; each patch section uses `## Patch N`, `Operation: insert_after|replace`, `Anchor:` fenced as ```text, and `New Text:` fenced as ```text.
-- `Anchor` must be one exact complete natural paragraph from the original chapter and must occur exactly once.
+- Patch output must start with `# Chapter Rewrite Patches`; each patch section uses `## Patch N` and must contain at least one `### Edit N` subsection.
+- Each `### Edit N` independently contains `Operation: insert_after|replace`, `Anchor:` fenced as ```text, and `New Text:` fenced as ```text.
+- Old direct patch sections that put `Operation`, `Anchor`, and `New Text` immediately under `## Patch N` are invalid.
+- Each Edit `Anchor` must be one exact complete natural paragraph from the original chapter and must occur exactly once.
 - `insert_after` inserts `New Text` after the anchor paragraph; `replace` replaces only that one anchor paragraph.
+- Multiple non-contiguous target paragraphs may be grouped under one Patch as multiple Edit sections; Patch grouping is organizational only and must not affect validation, ordering, or application.
 - `No patches.` is a workflow failure, not a successful unchanged rewrite.
-- The backend must parse and validate patches before writing artifacts. Never partially apply valid patches when any patch fails.
-- Patch parsing/application `ValueError` failures may be retried up to 3 total generation attempts. Retry prompts must include the previous invalid patch output and exact validation error, and artifacts may only be written for the successful regenerated patch output.
+- The backend must flatten all edits, validate every edit before applying anything, then apply edits in original chapter position order. Never partially apply valid edits when any edit fails.
+- Patch parsing/application `ValueError` failures may be retried up to 3 total generation attempts. Retry prompts must include the previous invalid patch output, exact validation error, and the `### Edit` requirement; artifacts may only be written for the successful regenerated patch output.
 - `chapter_rewrite_markdown` remains the only artifact used by existing preview/apply mutation paths. `chapter_rewrite_patches_markdown` is for trace/debug/review.
 - Net synthesized growth should reach at least 80% of `expansion_ratio_percent`; growth above the requested budget is allowed and must not fail the workflow.
 
 ### 4. Validation & Error Matrix
 - Empty LLM output -> workflow failure.
-- Missing top heading, patch heading, operation, anchor block, or new-text block -> workflow failure.
-- Non-`text` fences or stray text between required patch fields -> workflow failure.
+- Missing top heading, patch heading, Edit heading, operation, anchor block, or new-text block -> workflow failure.
+- Empty Patch/Edit sections -> workflow failure.
+- Non-`text` fences or stray text between required Edit fields -> workflow failure.
+- Old direct Patch format without `### Edit` subsections -> workflow failure.
 - Unknown operation -> workflow failure.
 - Empty patch list or `No patches.` -> workflow failure.
 - Anchor not found, duplicate anchor occurrence, repeated anchor, multi-paragraph anchor, non-paragraph-boundary anchor, or overlapping/contained anchors -> workflow failure.
+- Natural paragraph boundaries are text start/end or blank-line separators; blank separator lines may contain spaces or tabs.
 - Synthesized growth below 80% of the requested budget -> workflow failure.
 - Synthesized growth above the requested budget -> accepted; do not fail the workflow for over-expansion.
 - Non-succeeded workflow, missing synthesized artifact, or empty synthesized artifact on apply -> `409` as with other rewrite artifacts.
 
 ### 5. Good/Base/Bad Cases
-- Good: the model returns two valid patch sections out of original order; backend applies them in original chapter order, writes raw patches, writes synthesized full chapter, and apply later replaces chapter content from `chapter_rewrite_markdown`.
+- Good: the model returns one Patch with multiple valid Edit sections targeting non-contiguous paragraphs out of original order; backend applies the edits in original chapter order, writes raw patches, writes synthesized full chapter, and apply later replaces chapter content from `chapter_rewrite_markdown`.
 - Good: a batch persists one `expansion_ratio_percent`, passes it into every child rewrite job, and reopening the editor dialog hydrates that ratio from the active batch.
 - Base: existing rewrite preview/apply UI keeps showing full chapter text; no diff UI is required for patch mode.
 - Bad: letting the model output a full chapter and treating it as `chapter_rewrite_markdown`.
@@ -218,8 +224,8 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 - Bad: silently skipping failed patches, applying partial output, or falling back to full rewrite.
 
 ### 6. Tests Required
-- Parser tests for legal Markdown, missing/unknown operation, missing code blocks, non-`text` fences, stray text, and `No patches.`.
-- Applier tests for `insert_after`, `replace`, missing anchors, duplicate anchors, repeated anchors, multi-paragraph anchors, non-boundary anchors, overlapping anchors, order normalization, below-budget failures, and above-budget acceptance.
+- Parser tests for legal Patch/Edit Markdown, one Patch with multiple Edit sections, missing/unknown operation, missing code blocks, non-`text` fences, stray text, empty Patch/Edit sections, old direct Patch format, and `No patches.`.
+- Applier tests for `insert_after`, `replace`, missing anchors, duplicate anchors, repeated anchors, multi-paragraph anchors, non-boundary anchors, blank separators containing spaces/tabs, overlapping anchors, order normalization, below-budget failures, and above-budget acceptance.
 - Workflow tests proving both rewrite intents save `chapter_rewrite_patches_markdown` and synthesized `chapter_rewrite_markdown`.
 - API tests proving `expansion_ratio_percent` validation and propagation through single and batch rewrite creation.
 - Migration tests proving `chapter_rewrite_batches.expansion_ratio_percent` exists with default `20`.
