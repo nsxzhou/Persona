@@ -35,6 +35,24 @@ class ChapterRewritePlan:
     edits: list[ChapterRewriteEdit]
 
 
+class ChapterRewriteGrowthError(ValueError):
+    def __init__(
+        self,
+        *,
+        target_growth: float,
+        lower_bound: int,
+        actual_growth: int,
+    ) -> None:
+        self.target_growth = target_growth
+        self.lower_bound = lower_bound
+        self.actual_growth = actual_growth
+        self.missing_growth = lower_bound - actual_growth
+        super().__init__(
+            "章节改写扩写字数低于预算: "
+            f"目标增长约 {target_growth:.0f} 字，至少 {lower_bound} 字，实际 {actual_growth} 字"
+        )
+
+
 def build_numbered_chapter_rewrite_source(original: str) -> str:
     paragraphs = split_chapter_rewrite_paragraphs(original)
     if not paragraphs:
@@ -186,9 +204,10 @@ def validate_chapter_rewrite_growth(
     lower_bound = math.floor(target_growth * 0.8)
     growth = len(synthesized) - original_length
     if growth < lower_bound:
-        raise ValueError(
-            "章节改写扩写字数低于预算: "
-            f"目标增长约 {target_growth:.0f} 字，至少 {lower_bound} 字，实际 {growth} 字"
+        raise ChapterRewriteGrowthError(
+            target_growth=target_growth,
+            lower_bound=lower_bound,
+            actual_growth=growth,
         )
 
 

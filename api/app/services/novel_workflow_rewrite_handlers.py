@@ -14,6 +14,7 @@ from app.prompts.imported_chapter_rewrite import (
 )
 from app.schemas.prompt_profiles import build_chapter_objective_card, build_intensity_profile
 from app.services.chapter_rewrite_patches import (
+    ChapterRewriteGrowthError,
     build_numbered_chapter_rewrite_source,
     synthesize_chapter_rewrite_plan,
 )
@@ -389,6 +390,12 @@ class NovelWorkflowRewriteHandlers:
                     plan_yaml=plan_yaml,
                     expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
                 )
+            except ChapterRewriteGrowthError as exc:
+                if attempt == _CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS - 1:
+                    raise
+                retry_invalid_output = plan_yaml
+                retry_validation_error = str(exc)
+                continue
             except ValueError as exc:
                 if attempt == _CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS - 1:
                     raise
@@ -409,6 +416,16 @@ class NovelWorkflowRewriteHandlers:
         invalid_excerpt = invalid_output[:_CHAPTER_REWRITE_RETRY_OUTPUT_CHARS]
         if len(invalid_output) > _CHAPTER_REWRITE_RETRY_OUTPUT_CHARS:
             invalid_excerpt = f"{invalid_excerpt}\n...[truncated]"
+        if validation_error.startswith("章节改写扩写字数低于预算"):
+            return (
+                "## 上一次 YAML 改写计划结构有效，但扩写字数不足（必须在此基础上补足）\n\n"
+                f"校验错误：{validation_error}\n\n"
+                "上一版 YAML 改写计划（可能已截断）：\n\n"
+                f"{invalid_excerpt}\n\n"
+                "重试要求：重新输出完整 YAML front matter；不要丢弃上一版有效计划。"
+                "应优先扩写上一版 edits 的 new_text，或新增未使用 paragraph_id 的 insert_after edit 来补足字数；"
+                "不得重复使用 paragraph_id，不得输出完整章节正文或说明。"
+            )
         return (
             "## 上一次 YAML 改写计划校验失败（必须修正后重试）\n\n"
             f"校验错误：{validation_error}\n\n"

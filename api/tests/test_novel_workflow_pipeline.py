@@ -652,6 +652,62 @@ edits:
 
 
 @pytest.mark.asyncio
+async def test_chapter_enrichment_rewrite_retries_under_budget_plan_as_expand_on_existing(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PERSONA_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("PERSONA_ENCRYPTION_KEY", "test-encryption-key-123456789012")
+    from app.core.config import get_settings
+    from app.services.novel_workflow_pipeline import NovelWorkflowPipeline
+    from app.services.novel_workflow_storage import NovelWorkflowStorageService
+
+    get_settings.cache_clear()
+    original = "1234567890\n\n第二段。"
+    under_budget_plan = """---
+edits:
+  - operation: insert_after
+    paragraph_id: P001
+    new_text: |-
+      短。
+---"""
+    valid_plan = """---
+edits:
+  - operation: insert_after
+    paragraph_id: P001
+    new_text: |-
+      补足后的气氛段落，加入更多动作、环境与心理变化，让增长达到预算。
+---"""
+    llm = StubLLM(['[]', under_budget_plan, '[]', valid_plan])
+    storage = NovelWorkflowStorageService()
+    pipeline = NovelWorkflowPipeline(
+        llm_complete=llm,
+        storage_service=storage,
+        checkpointer=InMemorySaver(),
+    )
+
+    result = await pipeline.run(
+        run_id="run-chapter-enrichment-under-budget-retry",
+        initial_state={
+            "intent_type": "chapter_enrichment_rewrite",
+            "selected_text": original,
+            "rewrite_instruction": "扩写气氛",
+            "expansion_ratio_percent": 100,
+            "chapter_snapshot": {"title": "第1章", "content": original},
+            "current_bible": {},
+        },
+    )
+
+    assert result.persist_payload["plan_yaml"] == valid_plan.strip()
+    assert "补足后的气氛段落" in result.persist_payload["markdown"]
+    retry_prompt = llm.calls[3]["user_context"]
+    assert under_budget_plan.strip() in retry_prompt
+    assert "结构有效，但扩写字数不足" in retry_prompt
+    assert "不要丢弃上一版有效计划" in retry_prompt
+    assert "优先扩写上一版 edits 的 new_text" in retry_prompt
+
+
+@pytest.mark.asyncio
 async def test_chapter_rewrite_no_patches_fails_workflow(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
