@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.provider_configs import ProviderSummary
-from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_profile_payload
+from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_profile_field
 
 
 ProjectStatus = Literal["draft", "active", "paused"]
@@ -28,10 +28,9 @@ class ProjectCreate(BaseModel):
     project_origin: ProjectOrigin = "normal"
     auto_sync_memory: bool = False
 
-    @field_validator("generation_profile", mode="before")
-    @classmethod
-    def normalize_generation_profile_request(cls, value: object) -> object:
-        return normalize_generation_profile_payload(value)
+    _normalize_generation_profile = field_validator("generation_profile", mode="before")(
+        normalize_generation_profile_field
+    )
 
 
 class ProjectUpdate(BaseModel):
@@ -46,10 +45,9 @@ class ProjectUpdate(BaseModel):
     length_preset: LengthPreset | None = None
     auto_sync_memory: bool | None = None
 
-    @field_validator("generation_profile", mode="before")
-    @classmethod
-    def normalize_generation_profile_request(cls, value: object) -> object:
-        return normalize_generation_profile_payload(value)
+    _normalize_generation_profile = field_validator("generation_profile", mode="before")(
+        normalize_generation_profile_field
+    )
 
 
 class ProjectResponse(BaseModel):
@@ -72,10 +70,9 @@ class ProjectResponse(BaseModel):
     updated_at: datetime
     provider: ProviderSummary
 
-    @field_validator("generation_profile", mode="before")
-    @classmethod
-    def normalize_generation_profile_response(cls, value: object) -> object:
-        return normalize_generation_profile_payload(value)
+    _normalize_generation_profile = field_validator("generation_profile", mode="before")(
+        normalize_generation_profile_field
+    )
 
 
 class ProjectBibleUpdate(BaseModel):
@@ -129,10 +126,9 @@ class ProjectSummaryResponse(BaseModel):
     updated_at: datetime
     provider: ProviderSummary
 
-    @field_validator("generation_profile", mode="before")
-    @classmethod
-    def normalize_generation_profile_response(cls, value: object) -> object:
-        return normalize_generation_profile_payload(value)
+    _normalize_generation_profile = field_validator("generation_profile", mode="before")(
+        normalize_generation_profile_field
+    )
 
 
 class ProjectPromptAssetBase(BaseModel):

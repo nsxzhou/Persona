@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_profile_payload
+from app.schemas.prompt_profiles import GenerationProfile, normalize_generation_profile_field
 
 
 NovelImportWarningCode = Literal["no_standard_chapter_headings"]
@@ -19,10 +19,9 @@ class NovelImportProjectMetadata(BaseModel):
     plot_profile_id: str | None = None
     generation_profile: GenerationProfile | None = None
 
-    @field_validator("generation_profile", mode="before")
-    @classmethod
-    def normalize_generation_profile_request(cls, value: object) -> object:
-        return normalize_generation_profile_payload(value)
+    _normalize_generation_profile = field_validator("generation_profile", mode="before")(
+        normalize_generation_profile_field
+    )
 
 
 class NovelImportChapterDraft(BaseModel):

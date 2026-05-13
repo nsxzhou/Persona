@@ -116,6 +116,10 @@ def normalize_generation_profile_payload(value: object) -> object:
     }
 
 
+def normalize_generation_profile_field(value: object) -> object:
+    return normalize_generation_profile_payload(value)
+
+
 class ChapterObjectiveCard(BaseModel):
     chapter_goal: ChapterGoal
     payoff_target: PayoffTarget
