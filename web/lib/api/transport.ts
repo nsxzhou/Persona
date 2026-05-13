@@ -34,7 +34,7 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
     };
   };
 
-  const request = async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const fetchChecked = async (path: string, init?: RequestInit): Promise<Response> => {
     const { url, options } = buildRequestArgs(path, init);
     const response = await fetch(url, options);
 
@@ -45,6 +45,12 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
         parseApiErrorDetail(text, response.statusText || "请求失败"),
       );
     }
+
+    return response;
+  };
+
+  const request = async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await fetchChecked(path, init);
 
     if (response.status === 204) {
       return undefined as T;
@@ -58,22 +64,7 @@ export function createJsonRequester({ baseUrl, defaultInit }: RequesterOptions) 
     return response.json() as Promise<T>;
   };
 
-  const requestRaw = async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
-    const { url, options } = buildRequestArgs(path, init);
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      const text = await response.text();
-      throw new RequestError(
-        response.status,
-        parseApiErrorDetail(text, response.statusText || "请求失败"),
-      );
-    }
-    
-    return response;
-  };
-
-  request.raw = requestRaw;
+  request.raw = fetchChecked;
 
   return request;
 }
