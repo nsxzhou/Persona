@@ -440,6 +440,33 @@ describe("ZenEditorView", () => {
     });
   });
 
+  test("keeps the chapter body wide and scrollable in focused editor mode", async () => {
+    const { container } = renderWithClient(
+      <ZenEditorView
+        project={project}
+        projectBible={projectBible}
+        activeProfileName="娱乐春秋"
+        {...({
+          initialChapterSelection: { volumeIndex: 0, chapterIndex: 0 },
+          initialIntent: "generate_beats",
+        } as Record<string, unknown>)}
+      />,
+    );
+
+    const textbox = await screen.findByRole("textbox");
+    await waitFor(() => expect(textbox).toHaveValue("第一章正文"));
+
+    expect(textbox).toHaveClass("max-w-[820px]");
+    expect(textbox).toHaveClass("h-full");
+    expect(textbox).toHaveClass("overflow-y-auto");
+    expect(textbox).toHaveClass("overflow-x-hidden");
+
+    const main = container.querySelector("main");
+    expect(main).toHaveClass("overflow-hidden");
+    expect(textbox.parentElement).toHaveClass("h-full");
+    expect(textbox.parentElement).toHaveClass("overflow-hidden");
+  });
+
   test("clicking another chapter swaps editor content instead of keeping previous chapter", async () => {
     renderWithClient(<ZenEditorView project={project} projectBible={projectBible} activeProfileName="娱乐春秋" />);
 
