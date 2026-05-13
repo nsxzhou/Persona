@@ -17,11 +17,7 @@ from app.services.novel_workflow_planning_handlers import (
     NovelWorkflowPlanningHandlers,
     _normalize_outline_master_title,
 )
-from app.services.novel_workflow_rewrite_handlers import (
-    CHAPTER_REWRITE_ARTIFACT,
-    CHAPTER_REWRITE_PATCHES_ARTIFACT,
-    NovelWorkflowRewriteHandlers,
-)
+from app.services.novel_workflow_rewrite_handlers import NovelWorkflowRewriteHandlers
 
 
 class NovelWorkflowSimpleIntentHandlers:

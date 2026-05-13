@@ -14,8 +14,8 @@ from app.prompts.imported_chapter_rewrite import (
 )
 from app.schemas.prompt_profiles import build_chapter_objective_card, build_intensity_profile
 from app.services.chapter_rewrite_patches import (
-    apply_chapter_rewrite_patches,
-    parse_chapter_rewrite_patches,
+    build_numbered_chapter_rewrite_source,
+    synthesize_chapter_rewrite_plan,
 )
 from app.services.context_assembly import WritingContextSections, assemble_writing_context
 from app.services.novel_workflow_handler_common import (
@@ -27,8 +27,9 @@ from app.services.novel_workflow_handler_common import (
 
 
 CHAPTER_REWRITE_ARTIFACT = "chapter_rewrite_markdown"
-CHAPTER_REWRITE_PATCHES_ARTIFACT = "chapter_rewrite_patches_markdown"
+CHAPTER_REWRITE_PLAN_ARTIFACT = "chapter_rewrite_plan_yaml"
 _CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS = 3
+_CHAPTER_REWRITE_RETRY_OUTPUT_CHARS = 8_000
 
 
 class NovelWorkflowRewriteHandlers:
@@ -60,15 +61,15 @@ class NovelWorkflowRewriteHandlers:
         _generation_profile: Any,
     ) -> dict[str, Any]:
         original = self.chapter_enrichment_rewrite_source_text(state)
-        patches_markdown, markdown = await self.generate_valid_chapter_rewrite_patches(
+        plan_yaml, markdown = await self.generate_valid_chapter_rewrite_plan(
             state=state,
             original=original,
             generator=self.generate_chapter_enrichment_rewrite,
         )
         await self.pipeline.storage_service.write_stage_markdown_artifact(
             state["run_id"],
-            name=CHAPTER_REWRITE_PATCHES_ARTIFACT,
-            markdown=patches_markdown,
+            name=CHAPTER_REWRITE_PLAN_ARTIFACT,
+            markdown=plan_yaml,
         )
         await self.pipeline.storage_service.write_stage_markdown_artifact(
             state["run_id"],
@@ -76,10 +77,10 @@ class NovelWorkflowRewriteHandlers:
             markdown=markdown,
         )
         return {
-            "latest_artifacts": [CHAPTER_REWRITE_ARTIFACT, CHAPTER_REWRITE_PATCHES_ARTIFACT],
+            "latest_artifacts": [CHAPTER_REWRITE_ARTIFACT, CHAPTER_REWRITE_PLAN_ARTIFACT],
             "persist_payload": {
                 "markdown": markdown,
-                "patches_markdown": patches_markdown,
+                "plan_yaml": plan_yaml,
             },
         }
 
@@ -90,7 +91,7 @@ class NovelWorkflowRewriteHandlers:
         _generation_profile: Any,
     ) -> dict[str, Any]:
         original = state_chapter_content(state)
-        patches_markdown, markdown = await self.generate_valid_chapter_rewrite_patches(
+        plan_yaml, markdown = await self.generate_valid_chapter_rewrite_plan(
             state=state,
             original=original,
             generator=self.generate_imported_chapter_full_rewrite,
@@ -110,8 +111,8 @@ class NovelWorkflowRewriteHandlers:
             )
         await self.pipeline.storage_service.write_stage_markdown_artifact(
             state["run_id"],
-            name=CHAPTER_REWRITE_PATCHES_ARTIFACT,
-            markdown=patches_markdown,
+            name=CHAPTER_REWRITE_PLAN_ARTIFACT,
+            markdown=plan_yaml,
         )
         await self.pipeline.storage_service.write_stage_markdown_artifact(
             state["run_id"],
@@ -119,10 +120,10 @@ class NovelWorkflowRewriteHandlers:
             markdown=markdown,
         )
         return {
-            "latest_artifacts": [CHAPTER_REWRITE_ARTIFACT, CHAPTER_REWRITE_PATCHES_ARTIFACT],
+            "latest_artifacts": [CHAPTER_REWRITE_ARTIFACT, CHAPTER_REWRITE_PLAN_ARTIFACT],
             "persist_payload": {
                 "markdown": markdown,
-                "patches_markdown": patches_markdown,
+                "plan_yaml": plan_yaml,
             },
             "warnings": warnings,
         }
@@ -243,7 +244,7 @@ class NovelWorkflowRewriteHandlers:
                 length_preset=state.get("length_preset", "long"),
                 content_length=len(chapter_content),
             )
-            + self.chapter_rewrite_patch_contract(
+            + self.chapter_rewrite_plan_contract(
                 expansion_ratio_percent=state.get("expansion_ratio_percent", 20)
             )
         )
@@ -252,11 +253,14 @@ class NovelWorkflowRewriteHandlers:
             parts.append(f"## 前序章节\n\n{state.get('previous_chapter_context', '')}")
         if state.get("current_chapter_context", "").strip():
             parts.append(f"## 当前章节定位\n\n{state.get('current_chapter_context', '')}")
-        parts.append(f"## 原章节正文\n\n{chapter_content}")
+        parts.append(
+            "## 编号后的原章节正文\n\n"
+            f"{build_numbered_chapter_rewrite_source(chapter_content)}"
+        )
         parts.append(
             "## 用户自由改写指令\n\n"
             f"{state.get('rewrite_instruction', '').strip()}\n\n"
-            "按上述指令改写整个章节，但输出必须是 Markdown 补丁，不得输出改写后的完整章节。"
+            "按上述指令改写整个章节，但输出必须只包含 YAML front matter 改写计划，不得输出改写后的完整章节。"
         )
         retry_context = self.chapter_rewrite_retry_context(state)
         if retry_context:
@@ -294,7 +298,7 @@ class NovelWorkflowRewriteHandlers:
         next_chapter = state_imported_chapter(state, "imported_next_chapter")
         user_context = build_imported_chapter_rewrite_user_context(
             target_title=state_chapter_title(state),
-            chapter_content=chapter_content,
+            chapter_content=build_numbered_chapter_rewrite_source(chapter_content),
             previous_chapter=previous_chapter,
             next_chapter=next_chapter,
             rewrite_instruction=state.get("rewrite_instruction", ""),
@@ -331,38 +335,37 @@ class NovelWorkflowRewriteHandlers:
         return state.get("selected_text", "")
 
     @staticmethod
-    def chapter_rewrite_patch_contract(*, expansion_ratio_percent: int) -> str:
+    def chapter_rewrite_plan_contract(*, expansion_ratio_percent: int) -> str:
         return (
-            "\n\n## 章节改写 Patch 输出硬规则\n"
-            "- 你必须只输出 Markdown 补丁，不得输出改写后的完整章节。\n"
-            "- 不输出分析、标题以外的说明、解释、修改总结、JSON 或额外 Markdown 包装。\n"
-            "- 顶层标题必须是 `# Chapter Rewrite Patches`。\n"
-            "- 每个补丁小节使用 `## Patch 1`、`## Patch 2` 等标题，且每个 Patch 必须包含至少一个 `### Edit 1`、`### Edit 2` 小节。\n"
-            "- 每个 Edit 独立包含 Operation、Anchor 和 New Text；禁止把 Operation/Anchor/New Text 直接写在 Patch 下。\n"
-            "- Operation 只能是 `insert_after` 或 `replace`。\n"
-            "- 每个 Edit 的 Anchor 必须是原章节中一个完整自然段的逐字精确文本，且只出现一次。\n"
-            "- Anchor 只能定位一个自然段，不能包含空行，不能跨越空行分隔的多个自然段。\n"
-            "- 每个 Edit 的 Anchor 与 New Text 必须放在 ```text 代码块中；New Text 可以包含一个或多个新自然段。\n"
-            "- insert_after 表示把 New Text 插入到 Anchor 段落后；replace 表示只替换 Anchor 这一个自然段。\n"
-            "- 可在同一 Patch 下用多个 Edit 表示多个非连续自然段的相关改写；Patch 分组只用于组织意图，不影响校验、排序或应用。\n"
-            "- 不得重复使用 Anchor，不得使用互相重叠或包含的 Anchor；所有 Edit 会先整体校验，再按原章节位置顺序应用。\n"
+            "\n\n## 章节改写 YAML 输出硬规则\n"
+            "- 你必须只输出 YAML front matter 改写计划，不得输出改写后的完整章节。\n"
+            "- 输出必须以 `---` 开始并以 `---` 结束；结束后不得有任何正文、说明、Notes 或 Markdown 内容。\n"
+            "- YAML 顶层只能包含 `edits`，且 `edits` 必须是非空列表。\n"
+            "- 每个 edit 必须包含 `operation`、`paragraph_id`、`new_text` 三个字段。\n"
+            "- `operation` 只能是 `insert_after` 或 `replace`。\n"
+            "- `paragraph_id` 必须引用用户消息中给出的单个原文段落编号，例如 `P003`；不得复制原文作为 Anchor。\n"
+            "- 同一个 `paragraph_id` 在一次计划中最多出现一次。\n"
+            "- `new_text` 必须使用 YAML 块文本 `|-`，不能为空，可以包含一个或多个新自然段。\n"
+            "- `insert_after` 表示把 `new_text` 插入到该编号段落后；`replace` 表示只替换该编号对应的一个原始自然段。\n"
+            "- 不得做句子级定位，不得一次替换多个原始段落，不得引用不存在的段落编号。\n"
+            "- 所有 edits 会先整体校验，再按原章节段落顺序应用；不要依赖输出顺序表达章节顺序。\n"
             f"- 合成后的净增长至少达到原文字数的 {expansion_ratio_percent}% 目标的 80%；允许超出目标上限。\n"
-            "- 如果没有可用补丁，只能输出 `# Chapter Rewrite Patches` 后接 `No patches.`，这会被视为失败。\n"
             "\n"
             "格式示例：\n"
-            "# Chapter Rewrite Patches\n\n"
-            "## Patch 1\n"
-            "### Edit 1\n"
-            "Operation: insert_after\n\n"
-            "Anchor:\n```text\n<one exact full original paragraph>\n```\n\n"
-            "New Text:\n```text\n<one or more new paragraphs>\n```\n\n"
-            "### Edit 2\n"
-            "Operation: replace\n\n"
-            "Anchor:\n```text\n<one exact full original paragraph>\n```\n\n"
-            "New Text:\n```text\n<one or more new paragraphs>\n```\n"
+            "---\n"
+            "edits:\n"
+            "  - operation: insert_after\n"
+            "    paragraph_id: P003\n"
+            "    new_text: |-\n"
+            "      <one or more new paragraphs>\n"
+            "  - operation: replace\n"
+            "    paragraph_id: P008\n"
+            "    new_text: |-\n"
+            "      <rewritten paragraph text>\n"
+            "---\n"
         )
 
-    async def generate_valid_chapter_rewrite_patches(
+    async def generate_valid_chapter_rewrite_plan(
         self,
         *,
         state: NovelWorkflowState,
@@ -379,21 +382,21 @@ class NovelWorkflowRewriteHandlers:
                     "chapter_rewrite_retry_invalid_output": retry_invalid_output,
                     "chapter_rewrite_retry_validation_error": retry_validation_error,
                 }
-            patches_markdown = await generator(attempt_state)
+            plan_yaml = await generator(attempt_state)
             try:
                 markdown = self.synthesize_chapter_rewrite(
                     original=original,
-                    patches_markdown=patches_markdown,
+                    plan_yaml=plan_yaml,
                     expansion_ratio_percent=state.get("expansion_ratio_percent", 20),
                 )
             except ValueError as exc:
                 if attempt == _CHAPTER_REWRITE_PATCH_MAX_ATTEMPTS - 1:
                     raise
-                retry_invalid_output = patches_markdown
+                retry_invalid_output = plan_yaml
                 retry_validation_error = str(exc)
                 continue
-            return patches_markdown, markdown
-        raise RuntimeError("unreachable chapter rewrite patch retry state")
+            return plan_yaml.strip(), markdown
+        raise RuntimeError("unreachable chapter rewrite plan retry state")
 
     @staticmethod
     def chapter_rewrite_retry_context(state: NovelWorkflowState) -> str:
@@ -403,27 +406,29 @@ class NovelWorkflowRewriteHandlers:
         ).strip()
         if not invalid_output or not validation_error:
             return ""
+        invalid_excerpt = invalid_output[:_CHAPTER_REWRITE_RETRY_OUTPUT_CHARS]
+        if len(invalid_output) > _CHAPTER_REWRITE_RETRY_OUTPUT_CHARS:
+            invalid_excerpt = f"{invalid_excerpt}\n...[truncated]"
         return (
-            "## 上一次补丁校验失败（必须修正后重试）\n\n"
+            "## 上一次 YAML 改写计划校验失败（必须修正后重试）\n\n"
             f"校验错误：{validation_error}\n\n"
-            "上一次无效输出：\n\n"
-            f"{invalid_output}\n\n"
-            "重试要求：重新输出完整 Markdown 补丁；每个 ## Patch 必须包含至少一个 ### Edit 小节，"
-            "每个 Edit 独立包含 Operation、Anchor、New Text；每个 Edit Anchor 必须是原文中一个完整自然段的逐字精确文本，"
-            "且只能定位一个自然段，不能包含空行，不能跨越空行分隔的多个自然段。"
+            "上一次无效输出（可能已截断）：\n\n"
+            f"{invalid_excerpt}\n\n"
+            "重试要求：重新输出完整 YAML front matter，不要只输出局部修复；"
+            "`edits` 必须是非空列表，每个 edit 必须独立包含 operation、paragraph_id、new_text；"
+            "paragraph_id 必须引用编号后的原章节正文中的一个段落 ID，且不能重复。"
         )
 
     @staticmethod
     def synthesize_chapter_rewrite(
         *,
         original: str,
-        patches_markdown: str,
+        plan_yaml: str,
         expansion_ratio_percent: int,
     ) -> str:
-        patches = parse_chapter_rewrite_patches(patches_markdown)
-        return apply_chapter_rewrite_patches(
-            original,
-            patches,
+        return synthesize_chapter_rewrite_plan(
+            original=original,
+            front_matter_markdown=plan_yaml,
             expansion_ratio_percent=expansion_ratio_percent,
         )
 

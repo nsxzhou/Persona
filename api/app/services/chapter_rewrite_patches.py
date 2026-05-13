@@ -3,155 +3,154 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
+
+import yaml
 
 
-ChapterRewritePatchOperation = Literal["insert_after", "replace"]
+ChapterRewritePlanOperation = Literal["insert_after", "replace"]
 
-_PATCH_HEADING_RE = re.compile(
-    r"(?ms)^##\s+Patch\s+\d+\s*$"
-    r"(?P<body>.*?)(?=^##\s+Patch\s+\d+\s*$|\Z)"
-)
-_EDIT_HEADING_RE = re.compile(
-    r"(?ms)^###\s+Edit\s+\d+\s*$"
-    r"(?P<body>.*?)(?=^###\s+Edit\s+\d+\s*$|\Z)"
-)
-_OPERATION_RE = re.compile(r"(?mi)^\s*Operation:\s*(?P<operation>\S+)\s*$")
-_ANCHOR_BLOCK_RE = re.compile(
-    r"(?ms)^\s*Anchor:\s*\n```text\s*\n(?P<anchor>.*?)\n```\s*"
-)
-_NEW_TEXT_BLOCK_RE = re.compile(
-    r"(?ms)^\s*New Text:\s*\n```text\s*\n(?P<new_text>.*?)\n```\s*"
-)
-_NO_PATCHES_RE = re.compile(r"(?ms)^# Chapter Rewrite Patches\s+No patches\.\s*$")
+_FRONT_MATTER_RE = re.compile(r"\A---[ \t]*\n(?P<yaml>.*?)(?:\n---[ \t]*\n?)(?P<body>.*)\Z", re.DOTALL)
+_PARAGRAPH_BREAK_RE = re.compile(r"\n[ \t]*\n")
 
 
 @dataclass(frozen=True)
-class ChapterRewritePatch:
-    operation: ChapterRewritePatchOperation
-    anchor: str
+class ChapterRewriteParagraph:
+    id: str
+    text: str
+    start: int
+    end: int
+    index: int
+
+
+@dataclass(frozen=True)
+class ChapterRewriteEdit:
+    operation: ChapterRewritePlanOperation
+    paragraph_id: str
     new_text: str
 
 
 @dataclass(frozen=True)
-class _LocatedPatch:
-    patch: ChapterRewritePatch
-    start: int
-    end: int
-    anchor_index: int
+class ChapterRewritePlan:
+    edits: list[ChapterRewriteEdit]
 
 
-def parse_chapter_rewrite_patches(markdown: str) -> list[ChapterRewritePatch]:
-    stripped = markdown.strip()
+def build_numbered_chapter_rewrite_source(original: str) -> str:
+    paragraphs = split_chapter_rewrite_paragraphs(original)
+    if not paragraphs:
+        raise ValueError("当前章节正文为空，无法改写")
+    return "\n\n".join(f"[{paragraph.id}]\n{paragraph.text}" for paragraph in paragraphs)
+
+
+def split_chapter_rewrite_paragraphs(original: str) -> list[ChapterRewriteParagraph]:
+    paragraphs: list[ChapterRewriteParagraph] = []
+    paragraph_index = 1
+    cursor = 0
+    for match in _PARAGRAPH_BREAK_RE.finditer(original):
+        cursor = _append_rewrite_paragraph(
+            paragraphs,
+            original,
+            cursor,
+            match.start(),
+            paragraph_index,
+        )
+        if len(paragraphs) == paragraph_index:
+            paragraph_index += 1
+        cursor = match.end()
+    _append_rewrite_paragraph(
+        paragraphs,
+        original,
+        cursor,
+        len(original),
+        paragraph_index,
+    )
+    return paragraphs
+
+
+def parse_chapter_rewrite_plan(front_matter_markdown: str) -> ChapterRewritePlan:
+    stripped = front_matter_markdown.strip()
     if not stripped:
-        raise ValueError("章节改写补丁输出为空")
-    if _NO_PATCHES_RE.fullmatch(stripped):
-        raise ValueError("章节改写未返回任何可用补丁")
+        raise ValueError("章节改写计划输出为空")
 
-    matches = list(_PATCH_HEADING_RE.finditer(stripped))
-    if not matches:
-        raise ValueError("章节改写补丁输出缺少 Patch 小节")
+    match = _FRONT_MATTER_RE.fullmatch(stripped)
+    if match is None:
+        raise ValueError("章节改写计划必须只包含 YAML front matter")
+    if match.group("body").strip():
+        raise ValueError("章节改写计划不得包含 YAML front matter 之外的正文")
 
-    patches: list[ChapterRewritePatch] = []
-    consumed_ranges: list[tuple[int, int]] = []
-    for match in matches:
-        body = match.group("body")
-        if not body.strip():
-            raise ValueError("章节改写 Patch 小节为空")
+    try:
+        payload = yaml.safe_load(match.group("yaml"))
+    except yaml.YAMLError as exc:
+        raise ValueError(f"章节改写计划 YAML 解析失败: {exc}") from exc
 
-        edit_matches = list(_EDIT_HEADING_RE.finditer(body))
-        if not edit_matches:
-            if (
-                _OPERATION_RE.search(body) is not None
-                or "Anchor:" in body
-                or "New Text:" in body
-            ):
-                raise ValueError(
-                    "章节改写 Patch 必须包含至少一个 ### Edit 小节；"
-                    "旧版直接在 Patch 下写 Operation/Anchor/New Text 的格式不再支持"
-                )
-            raise ValueError("章节改写 Patch 缺少 ### Edit 小节")
-        if body[: edit_matches[0].start()].strip():
-            raise ValueError("章节改写 Patch 包含无法识别的内容")
+    if not isinstance(payload, dict):
+        raise ValueError("章节改写计划 YAML 顶层必须是对象")
+    raw_edits = payload.get("edits")
+    if not isinstance(raw_edits, list) or not raw_edits:
+        raise ValueError("章节改写计划 edits 必须是非空列表")
 
-        for edit_match in edit_matches:
-            edit_body = edit_match.group("body")
-            if not edit_body.strip():
-                raise ValueError("章节改写 Edit 小节为空")
+    edits: list[ChapterRewriteEdit] = []
+    seen_paragraph_ids: set[str] = set()
+    for index, raw_edit in enumerate(raw_edits, start=1):
+        if not isinstance(raw_edit, dict):
+            raise ValueError(f"章节改写计划 Edit {index} 必须是对象")
 
-            operation_match = _OPERATION_RE.search(edit_body)
-            if operation_match is None:
-                raise ValueError("章节改写 Edit 缺少 Operation")
-            if edit_body[: operation_match.start()].strip():
-                raise ValueError("章节改写 Edit 包含无法识别的内容")
-            operation = operation_match.group("operation").strip()
-            if operation not in {"insert_after", "replace"}:
-                raise ValueError(f"章节改写 Edit 操作不支持: {operation}")
+        operation = _required_string(raw_edit, "operation", index)
+        if operation not in {"insert_after", "replace"}:
+            raise ValueError(f"章节改写计划 Edit {index} 操作不支持: {operation}")
 
-            search_start = operation_match.end()
-            anchor_match = _ANCHOR_BLOCK_RE.search(edit_body, search_start)
-            if anchor_match is None:
-                raise ValueError("章节改写 Edit 缺少 Anchor 代码块")
-            if edit_body[operation_match.end() : anchor_match.start()].strip():
-                raise ValueError("章节改写 Edit 包含无法识别的内容")
-            new_text_match = _NEW_TEXT_BLOCK_RE.search(edit_body, anchor_match.end())
-            if new_text_match is None:
-                raise ValueError("章节改写 Edit 缺少 New Text 代码块")
-            if edit_body[anchor_match.end() : new_text_match.start()].strip():
-                raise ValueError("章节改写 Edit 包含无法识别的内容")
+        paragraph_id = _required_string(raw_edit, "paragraph_id", index)
+        if not re.fullmatch(r"P\d{3,}", paragraph_id):
+            raise ValueError(f"章节改写计划 Edit {index} paragraph_id 格式不正确")
+        if paragraph_id in seen_paragraph_ids:
+            raise ValueError(f"章节改写计划重复使用 paragraph_id: {paragraph_id}")
+        seen_paragraph_ids.add(paragraph_id)
 
-            tail = edit_body[new_text_match.end() :].strip()
-            if tail:
-                raise ValueError("章节改写 Edit 包含无法识别的内容")
-
-            anchor = anchor_match.group("anchor").strip()
-            new_text = new_text_match.group("new_text").strip()
-            if not anchor:
-                raise ValueError("章节改写 Edit Anchor 不能为空")
-            if not new_text:
-                raise ValueError("章节改写 Edit New Text 不能为空")
-
-            patches.append(
-                ChapterRewritePatch(
-                    operation=operation,  # type: ignore[arg-type]
-                    anchor=anchor,
-                    new_text=new_text,
-                )
+        new_text = _required_string(raw_edit, "new_text", index)
+        edits.append(
+            ChapterRewriteEdit(
+                operation=operation,  # type: ignore[arg-type]
+                paragraph_id=paragraph_id,
+                new_text=new_text.strip(),
             )
-        consumed_ranges.append((match.start(), match.end()))
+        )
 
-    prefix = stripped[: consumed_ranges[0][0]].strip()
-    suffix = stripped[consumed_ranges[-1][1] :].strip()
-    if prefix != "# Chapter Rewrite Patches":
-        raise ValueError("章节改写补丁输出标题不符合契约")
-    if suffix:
-        raise ValueError("章节改写补丁输出包含 Patch 小节之外的内容")
-    return patches
+    return ChapterRewritePlan(edits=edits)
 
 
-def apply_chapter_rewrite_patches(
+def apply_chapter_rewrite_plan(
     original: str,
-    patches: list[ChapterRewritePatch],
+    plan: ChapterRewritePlan,
     *,
     expansion_ratio_percent: int,
 ) -> str:
-    if not patches:
-        raise ValueError("章节改写补丁列表为空")
+    if not plan.edits:
+        raise ValueError("章节改写计划 edits 必须是非空列表")
     if not 1 <= expansion_ratio_percent <= 100:
         raise ValueError("章节扩写比例必须在 1 到 100 之间")
 
-    located = _locate_patches(original, patches)
+    paragraphs = split_chapter_rewrite_paragraphs(original)
+    paragraph_by_id = {paragraph.id: paragraph for paragraph in paragraphs}
+    edits_by_id = {edit.paragraph_id: edit for edit in plan.edits}
+
+    missing = [paragraph_id for paragraph_id in edits_by_id if paragraph_id not in paragraph_by_id]
+    if missing:
+        raise ValueError(f"章节改写计划 paragraph_id 不存在: {', '.join(missing)}")
+
     pieces: list[str] = []
     cursor = 0
-    for item in located:
-        pieces.append(original[cursor : item.start])
-        if item.patch.operation == "replace":
-            pieces.append(item.patch.new_text)
+    for paragraph in paragraphs:
+        pieces.append(original[cursor : paragraph.start])
+        edit = edits_by_id.get(paragraph.id)
+        if edit is None:
+            pieces.append(original[paragraph.start : paragraph.end])
+        elif edit.operation == "replace":
+            pieces.append(edit.new_text)
         else:
-            pieces.append(original[item.start : item.end])
-            pieces.append(_insertion_separator(original[item.end :], item.patch.new_text))
-            pieces.append(item.patch.new_text)
-        cursor = item.end
+            pieces.append(original[paragraph.start : paragraph.end])
+            pieces.append(_insertion_separator(original[paragraph.end :], edit.new_text))
+            pieces.append(edit.new_text)
+        cursor = paragraph.end
     pieces.append(original[cursor:])
     synthesized = "".join(pieces)
     validate_chapter_rewrite_growth(
@@ -160,6 +159,20 @@ def apply_chapter_rewrite_patches(
         expansion_ratio_percent=expansion_ratio_percent,
     )
     return synthesized
+
+
+def synthesize_chapter_rewrite_plan(
+    *,
+    original: str,
+    front_matter_markdown: str,
+    expansion_ratio_percent: int,
+) -> str:
+    plan = parse_chapter_rewrite_plan(front_matter_markdown)
+    return apply_chapter_rewrite_plan(
+        original,
+        plan,
+        expansion_ratio_percent=expansion_ratio_percent,
+    )
 
 
 def validate_chapter_rewrite_growth(
@@ -179,67 +192,39 @@ def validate_chapter_rewrite_growth(
         )
 
 
-def _locate_patches(
+def _append_rewrite_paragraph(
+    paragraphs: list[ChapterRewriteParagraph],
     original: str,
-    patches: list[ChapterRewritePatch],
-) -> list[_LocatedPatch]:
-    located: list[_LocatedPatch] = []
-    seen_anchors: set[str] = set()
-    for patch in patches:
-        if patch.anchor in seen_anchors:
-            raise ValueError("章节改写补丁重复使用同一 Anchor")
-        seen_anchors.add(patch.anchor)
-
-        start = original.find(patch.anchor)
-        if start < 0:
-            raise ValueError("章节改写补丁 Anchor 未在原章节中找到")
-        if original.find(patch.anchor, start + len(patch.anchor)) >= 0:
-            raise ValueError("章节改写补丁 Anchor 在原章节中出现多次")
-        end = start + len(patch.anchor)
-        if not _is_complete_natural_paragraph(original, start, end):
-            raise ValueError("章节改写补丁 Anchor 必须是完整自然段")
-        if _contains_paragraph_break(patch.anchor):
-            raise ValueError("章节改写补丁 Anchor 只能定位一个自然段")
-        located.append(
-            _LocatedPatch(
-                patch=patch,
-                start=start,
-                end=end,
-                anchor_index=start,
-            )
+    start: int,
+    end: int,
+    paragraph_index: int,
+) -> int:
+    raw = original[start:end]
+    if not raw.strip():
+        return end
+    leading_whitespace = len(raw) - len(raw.lstrip())
+    trailing_whitespace = len(raw) - len(raw.rstrip())
+    text_start = start + leading_whitespace
+    text_end = end - trailing_whitespace
+    paragraphs.append(
+        ChapterRewriteParagraph(
+            id=f"P{paragraph_index:03d}",
+            text=original[text_start:text_end],
+            start=text_start,
+            end=text_end,
+            index=paragraph_index,
         )
-
-    located.sort(key=lambda item: item.anchor_index)
-    for previous, current in zip(located, located[1:]):
-        if previous.end > current.start:
-            raise ValueError("章节改写补丁 Anchor 存在重叠")
-        if (
-            previous.patch.anchor in current.patch.anchor
-            or current.patch.anchor in previous.patch.anchor
-        ):
-            raise ValueError("章节改写补丁 Anchor 存在包含关系")
-    return located
-
-
-def _is_complete_natural_paragraph(original: str, start: int, end: int) -> bool:
-    return _at_paragraph_boundary_before(original, start) and _at_paragraph_boundary_after(
-        original,
-        end,
     )
+    return end
 
 
-def _at_paragraph_boundary_before(text: str, index: int) -> bool:
-    prefix = text[:index]
-    return not prefix.strip() or re.search(r"\n[ \t]*\n[ \t]*\Z", prefix) is not None
-
-
-def _at_paragraph_boundary_after(text: str, index: int) -> bool:
-    suffix = text[index:]
-    return not suffix.strip() or re.match(r"[ \t]*\n[ \t]*\n", suffix) is not None
-
-
-def _contains_paragraph_break(text: str) -> bool:
-    return re.search(r"\n[ \t]*\n", text.strip()) is not None
+def _required_string(raw_edit: dict[Any, Any], key: str, index: int) -> str:
+    value = raw_edit.get(key)
+    if key == "paragraph_id" and value is not None and not isinstance(value, str):
+        return str(value).strip()
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"章节改写计划 Edit {index} 缺少 {key}")
+    return value.strip()
 
 
 def _insertion_separator(after_anchor: str, new_text: str) -> str:

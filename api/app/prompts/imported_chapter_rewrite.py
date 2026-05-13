@@ -29,64 +29,41 @@ def build_imported_chapter_rewrite_system_prompt(
     expansion_ratio_percent: int = 20,
 ) -> str:
     parts = [
-        "# 导入章节 Patch 改写",
+        "# 导入章节 YAML 计划改写",
         "",
         "你正在改写 TXT 导入项目中的单个既有章节。原章节正文是唯一改写目标；章节标题仅用于定位，不属于补丁内容。",
         "",
         "## 输出契约",
-        "- 只输出 Markdown 补丁，不得输出改写后的完整章节。",
-        "- 顶层标题必须是 `# Chapter Rewrite Patches`。",
-        "- 每个补丁小节必须使用 `## Patch 1`、`## Patch 2` 等标题，且每个 Patch 必须包含至少一个 `### Edit 1`、`### Edit 2` 小节。",
-        "- 每个 Edit 独立包含 Operation、Anchor 和 New Text；禁止把 Operation/Anchor/New Text 直接写在 Patch 下。",
-        "- Operation 只能是 `insert_after` 或 `replace`。",
-        "- 每个 Edit Anchor 必须是原章节中一个完整自然段的逐字精确文本，且只出现一次。",
-        "- Anchor 只能定位一个自然段，不能包含空行，不能跨越空行分隔的多个自然段。",
-        "- 每个 Edit 的 Anchor 与 New Text 必须使用 ```text 代码块。",
-        "- New Text 可以包含一个或多个新自然段。",
-        "- insert_after 表示把 New Text 插入到 Anchor 段落后；replace 表示只替换 Anchor 这一个自然段。",
-        "- 可在同一 Patch 下用多个 Edit 表示多个非连续自然段的相关改写；Patch 分组只用于组织意图，不影响校验、排序或应用。",
-        "- 不得重复使用 Anchor，不得使用互相重叠或包含的 Anchor；所有 Edit 会先整体校验，再按原章节位置顺序应用。",
+        "- 只输出 YAML front matter 改写计划，不得输出改写后的完整章节。",
+        "- 输出必须以 `---` 开始并以 `---` 结束；结束后不得有任何正文、说明、Notes 或 Markdown 内容。",
+        "- YAML 顶层只能包含 `edits`，且 `edits` 必须是非空列表。",
+        "- 每个 edit 必须包含 `operation`、`paragraph_id`、`new_text` 三个字段。",
+        "- `operation` 只能是 `insert_after` 或 `replace`。",
+        "- `paragraph_id` 必须引用用户消息中给出的单个原文段落编号，例如 `P003`；不得复制原文作为 Anchor。",
+        "- 同一个 `paragraph_id` 在一次计划中最多出现一次。",
+        "- `new_text` 必须使用 YAML 块文本 `|-`，不能为空，可以包含一个或多个新自然段。",
+        "- `insert_after` 表示把 `new_text` 插入到该编号段落后；`replace` 表示只替换该编号对应的一个原始自然段。",
+        "- 不得做句子级定位，不得一次替换多个原始段落，不得引用不存在的段落编号。",
+        "- 所有 edits 会先整体校验，再按原章节段落顺序应用；不要依赖输出顺序表达章节顺序。",
         f"- 合成后的净增长目标是原文字数的 {expansion_ratio_percent}%，允许上下 20% 浮动。",
         "- 不输出解释、修改清单、分析过程、元评论、JSON 或完整章节正文。",
         "- 保留原章节事实、事件顺序、视角、因果链、结果和结尾边界。",
         "- 用户指令只能在当前章节内增强、润色或补足，不得续写到下一章。",
         "- 如果用户要求补写省略场景，只能在原文已有省略、跳切、概述、淡出或省略号处扩展。",
-        "- 下一章上下文只用于边界校准，不得作为 Anchor 或 New Text 出现在输出中。",
+        "- 下一章上下文只用于边界校准，不得作为 paragraph_id 或 new_text 出现在输出中。",
         "",
         "## 格式示例",
-        "# Chapter Rewrite Patches",
-        "",
-        "## Patch 1",
-        "### Edit 1",
-        "Operation: insert_after",
-        "",
-        "Anchor:",
-        "```text",
-        "<one exact full original paragraph>",
-        "```",
-        "",
-        "New Text:",
-        "```text",
-        "<one or more new paragraphs>",
-        "```",
-        "",
-        "### Edit 2",
-        "Operation: replace",
-        "",
-        "Anchor:",
-        "```text",
-        "<one exact full original paragraph>",
-        "```",
-        "",
-        "New Text:",
-        "```text",
-        "<one or more new paragraphs>",
-        "```",
-        "",
-        "无可用补丁时只输出：",
-        "# Chapter Rewrite Patches",
-        "",
-        "No patches.",
+        "---",
+        "edits:",
+        "  - operation: insert_after",
+        "    paragraph_id: P003",
+        "    new_text: |-",
+        "      <one or more new paragraphs>",
+        "  - operation: replace",
+        "    paragraph_id: P008",
+        "    new_text: |-",
+        "      <rewritten paragraph text>",
+        "---",
         "",
         "## 禁用上下文",
         "- Plot Writing Guide disabled for this imported rewrite intent.",
@@ -130,7 +107,7 @@ def build_imported_chapter_rewrite_user_context(
         if previous_chapter.get("excerpt", "").strip():
             previous_parts.append(f"章末片段：\n{previous_chapter['excerpt'].strip()}")
         parts.append("## 上一章边界参考\n\n" + "\n\n".join(previous_parts))
-    parts.append(f"## 当前章节原文（唯一改写目标）\n\n{chapter_content.strip()}")
+    parts.append(f"## 编号后的当前章节原文（唯一改写目标）\n\n{chapter_content.strip()}")
     if next_chapter is not None:
         next_parts = [f"标题：{next_chapter.get('title', '').strip()}"]
         if next_chapter.get("summary", "").strip():
@@ -142,7 +119,7 @@ def build_imported_chapter_rewrite_user_context(
         "## 用户改写指令\n\n"
         f"{rewrite_instruction.strip() or '在不改变原章节事实和边界的前提下优化表达。'}\n\n"
         f"净增长目标：原文字数的 {expansion_ratio_percent}%，允许上下 20% 浮动。\n\n"
-        "只输出当前章节的 Markdown 补丁；不要输出章节标题或完整改写正文。"
+        "只输出当前章节的 YAML front matter 改写计划；不要输出章节标题或完整改写正文。"
     )
     return "\n\n---\n\n".join(parts)
 

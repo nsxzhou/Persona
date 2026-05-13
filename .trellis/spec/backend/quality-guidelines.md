@@ -174,59 +174,60 @@ Route imported project full-chapter rewrites through `chapter_enrichment_rewrite
 #### Correct
 Route imported project full-chapter rewrites through `imported_chapter_full_rewrite`, use the imported adjacent-window prompt builder, and keep full-project planning context disabled.
 
-## Scenario: Chapter Rewrite Patch Mode
+## Scenario: Chapter Rewrite YAML Plan Mode
 
 ### 1. Scope / Trigger
-- Trigger: changing chapter rewrite prompts, patch parsing/application, rewrite job APIs, batch rewrite APIs, workflow artifacts, generated OpenAPI, or editor rewrite controls.
-- This is a cross-layer prompt/parser contract: the LLM returns Markdown patches, the backend synthesizes the full chapter, and frontend apply flows still consume the synthesized artifact.
+- Trigger: changing chapter rewrite prompts, YAML plan parsing/application, rewrite job APIs, batch rewrite APIs, workflow artifacts, generated OpenAPI, or editor rewrite controls.
+- This is a cross-layer prompt/parser contract: the backend numbers original paragraphs, the LLM returns YAML front matter edits by paragraph id, the backend synthesizes the full chapter, and frontend apply flows still consume the synthesized artifact.
 
 ### 2. Signatures
 - Single rewrite create: `POST /api/v1/novel-chapter-rewrite-jobs` with `project_id`, `chapter_id`, `instruction`, and `expansion_ratio_percent: int = Field(default=20, ge=1, le=100)`.
 - Batch rewrite create: `POST /api/v1/chapter-rewrite-batches` with `project_id`, ordered `chapter_ids`, `instruction`, and `expansion_ratio_percent: int = Field(default=20, ge=1, le=100)`.
 - Workflow request field: `NovelWorkflowCreateRequest.expansion_ratio_percent`.
-- Raw patch artifact: `chapter_rewrite_patches_markdown`.
+- Raw plan artifact: `chapter_rewrite_plan_yaml`.
 - Synthesized preview/apply artifact: `chapter_rewrite_markdown`.
 
 ### 3. Contracts
-- `chapter_enrichment_rewrite` and `imported_chapter_full_rewrite` must request Markdown patches, not a full rewritten chapter.
-- Patch output must start with `# Chapter Rewrite Patches`; each patch section uses `## Patch N` and must contain at least one `### Edit N` subsection.
-- Each `### Edit N` independently contains `Operation: insert_after|replace`, `Anchor:` fenced as ```text, and `New Text:` fenced as ```text.
-- Old direct patch sections that put `Operation`, `Anchor`, and `New Text` immediately under `## Patch N` are invalid.
-- Each Edit `Anchor` must be one exact complete natural paragraph from the original chapter and must occur exactly once.
-- `insert_after` inserts `New Text` after the anchor paragraph; `replace` replaces only that one anchor paragraph.
-- Multiple non-contiguous target paragraphs may be grouped under one Patch as multiple Edit sections; Patch grouping is organizational only and must not affect validation, ordering, or application.
-- `No patches.` is a workflow failure, not a successful unchanged rewrite.
+- `chapter_enrichment_rewrite` and `imported_chapter_full_rewrite` must request YAML front matter edit plans, not a full rewritten chapter and not Markdown patches.
+- The rewrite source shown to the model must number only non-empty natural paragraphs as `P001`, `P002`, etc.; blank separators are not numbered.
+- Title-like lines inside `chapter.content` are normal content paragraphs. The separate chapter title metadata is not part of the rewrite target.
+- YAML output must start with `---`, end with `---`, and contain no non-empty body after the closing marker.
+- YAML top level must contain a non-empty `edits` list. Empty edit plans are workflow failures, not successful unchanged rewrites.
+- Each edit independently contains `operation: insert_after|replace`, `paragraph_id: PNNN`, and non-empty `new_text`.
+- `new_text` should use YAML block text (`|-`) and may contain one or more new natural paragraphs.
+- Each edit targets exactly one original paragraph id. Do not allow sentence-level anchors, copied raw anchors, or multi-paragraph replacement targets.
+- The same `paragraph_id` may appear at most once in one plan. To both revise and expand a paragraph, use one `replace` edit with all desired prose in `new_text`.
+- `insert_after` inserts `new_text` after the target paragraph; `replace` replaces only that one original paragraph.
 - The backend must flatten all edits, validate every edit before applying anything, then apply edits in original chapter position order. Never partially apply valid edits when any edit fails.
-- Patch parsing/application `ValueError` failures may be retried up to 3 total generation attempts. Retry prompts must include the previous invalid patch output, exact validation error, and the `### Edit` requirement; artifacts may only be written for the successful regenerated patch output.
-- `chapter_rewrite_markdown` remains the only artifact used by existing preview/apply mutation paths. `chapter_rewrite_patches_markdown` is for trace/debug/review.
+- Plan parsing/application `ValueError` failures may be retried up to 3 total generation attempts. Retry prompts must include the exact validation error and a truncated excerpt of the previous invalid YAML output; artifacts may only be written for the successful regenerated plan output.
+- `chapter_rewrite_markdown` remains the only artifact used by existing preview/apply mutation paths. `chapter_rewrite_plan_yaml` is for trace/debug/review and is not shown in the rewrite dialog MVP.
 - Net synthesized growth should reach at least 80% of `expansion_ratio_percent`; growth above the requested budget is allowed and must not fail the workflow.
 
 ### 4. Validation & Error Matrix
 - Empty LLM output -> workflow failure.
-- Missing top heading, patch heading, Edit heading, operation, anchor block, or new-text block -> workflow failure.
-- Empty Patch/Edit sections -> workflow failure.
-- Non-`text` fences or stray text between required Edit fields -> workflow failure.
-- Old direct Patch format without `### Edit` subsections -> workflow failure.
+- Missing YAML front matter, invalid YAML, non-object YAML top level, missing `edits`, or non-list `edits` -> workflow failure.
+- Empty edit list -> workflow failure.
+- Non-object edit, missing operation, missing paragraph id, or missing/empty new text -> workflow failure.
 - Unknown operation -> workflow failure.
-- Empty patch list or `No patches.` -> workflow failure.
-- Anchor not found, duplicate anchor occurrence, repeated anchor, multi-paragraph anchor, non-paragraph-boundary anchor, or overlapping/contained anchors -> workflow failure.
+- Invalid or nonexistent paragraph id -> workflow failure.
+- Repeated paragraph id -> workflow failure.
 - Natural paragraph boundaries are text start/end or blank-line separators; blank separator lines may contain spaces or tabs.
 - Synthesized growth below 80% of the requested budget -> workflow failure.
 - Synthesized growth above the requested budget -> accepted; do not fail the workflow for over-expansion.
 - Non-succeeded workflow, missing synthesized artifact, or empty synthesized artifact on apply -> `409` as with other rewrite artifacts.
 
 ### 5. Good/Base/Bad Cases
-- Good: the model returns one Patch with multiple valid Edit sections targeting non-contiguous paragraphs out of original order; backend applies the edits in original chapter order, writes raw patches, writes synthesized full chapter, and apply later replaces chapter content from `chapter_rewrite_markdown`.
+- Good: the model returns YAML front matter with multiple valid edits targeting non-contiguous paragraph ids out of original order; backend applies edits in original chapter order, writes the raw plan, writes synthesized full chapter, and apply later replaces chapter content from `chapter_rewrite_markdown`.
 - Good: a batch persists one `expansion_ratio_percent`, passes it into every child rewrite job, and reopening the editor dialog hydrates that ratio from the active batch.
-- Base: existing rewrite preview/apply UI keeps showing full chapter text; no diff UI is required for patch mode.
+- Base: existing rewrite preview/apply UI keeps showing full chapter text; the raw YAML plan remains a workflow artifact, not primary review UI.
 - Bad: letting the model output a full chapter and treating it as `chapter_rewrite_markdown`.
-- Bad: parsing Markdown patches with loose free text or accepting non-`text` fences, because the automatic applier needs a deterministic contract.
-- Bad: silently skipping failed patches, applying partial output, or falling back to full rewrite.
+- Bad: accepting Markdown patch output or copied raw anchors, because the automatic applier needs paragraph-id addressing.
+- Bad: silently skipping failed edits, applying partial output, or falling back to full rewrite.
 
 ### 6. Tests Required
-- Parser tests for legal Patch/Edit Markdown, one Patch with multiple Edit sections, missing/unknown operation, missing code blocks, non-`text` fences, stray text, empty Patch/Edit sections, old direct Patch format, and `No patches.`.
-- Applier tests for `insert_after`, `replace`, missing anchors, duplicate anchors, repeated anchors, multi-paragraph anchors, non-boundary anchors, blank separators containing spaces/tabs, overlapping anchors, order normalization, below-budget failures, and above-budget acceptance.
-- Workflow tests proving both rewrite intents save `chapter_rewrite_patches_markdown` and synthesized `chapter_rewrite_markdown`.
+- Parser tests for legal YAML front matter, missing front matter, body after front matter, invalid top-level shape, empty edits, missing/unknown operation, invalid/missing paragraph id, repeated paragraph id, and missing/empty new text.
+- Applier tests for `insert_after`, `replace`, nonexistent paragraph ids, blank separators containing spaces/tabs, order normalization, below-budget failures, and above-budget acceptance.
+- Workflow tests proving both rewrite intents save `chapter_rewrite_plan_yaml` and synthesized `chapter_rewrite_markdown`.
 - API tests proving `expansion_ratio_percent` validation and propagation through single and batch rewrite creation.
 - Migration tests proving `chapter_rewrite_batches.expansion_ratio_percent` exists with default `20`.
 - Frontend tests proving the rewrite dialog defaults to `20`, submits `expansion_ratio_percent`, and hydrates the stored ratio for active batches.
@@ -234,16 +235,16 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 ### 7. Wrong vs Correct
 
 #### Wrong
-Change the prompt to say "return patches" but still write the LLM response directly to `chapter_rewrite_markdown`.
+Change the prompt to say "return YAML edits" but still write the LLM response directly to `chapter_rewrite_markdown`.
 
 #### Correct
-Write the LLM response to `chapter_rewrite_patches_markdown`, parse and apply it against the original chapter, then write the synthesized full chapter to `chapter_rewrite_markdown`.
+Write the LLM response to `chapter_rewrite_plan_yaml`, parse and apply it against the original numbered chapter, then write the synthesized full chapter to `chapter_rewrite_markdown`.
 
 #### Wrong
-Allow partial application when one patch anchor fails.
+Allow partial application when one edit fails.
 
 #### Correct
-Validate every patch first and fail the workflow without writing a synthesized success artifact when any patch is invalid.
+Validate every edit first and fail the workflow without writing a synthesized success artifact when any edit is invalid.
 
 ## Scenario: Persistent Chapter Rewrite Batches
 

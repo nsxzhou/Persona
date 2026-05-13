@@ -281,23 +281,15 @@ async def test_imported_chapter_full_rewrite_prompt_uses_adjacent_window_and_exc
     get_settings.cache_clear()
     original = "沈砚推开窗，雨落进来。他合上卷宗，停在门前。"
     rewritten = "沈砚推开窗，冷雨压低了呼吸。他合上卷宗，停在门前。"
-    patches_markdown = f"""# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: replace
-
-Anchor:
-```text
-{original}
-```
-
-New Text:
-```text
-{rewritten}
-```
+    plan_yaml = f"""---
+edits:
+  - operation: replace
+    paragraph_id: P001
+    new_text: |-
+      {rewritten}
+---
 """
-    llm = StubLLMWithKwargs(['["沈砚"]', patches_markdown])
+    llm = StubLLMWithKwargs(['["沈砚"]', plan_yaml])
     storage = NovelWorkflowStorageService()
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
@@ -348,7 +340,7 @@ New Text:
     )
 
     assert result.persist_payload["markdown"] == rewritten
-    assert result.persist_payload["patches_markdown"] == patches_markdown.strip()
+    assert result.persist_payload["plan_yaml"] == plan_yaml.strip()
     assert [call["mode"] for call in llm.calls] == ["analysis", "immersion"]
     active_call = llm.calls[0]
     assert "沈砚推开窗" in active_call["user_context"]
@@ -358,15 +350,15 @@ New Text:
     assert "第2章 旧卷宗" in prose_call["user_context"]
     assert "## 上一章边界参考" in prose_call["user_context"]
     assert "上一章尾声" in prose_call["user_context"]
-    assert "## 当前章节原文（唯一改写目标）" in prose_call["user_context"]
-    assert "沈砚推开窗，雨落进来" in prose_call["user_context"]
+    assert "## 编号后的当前章节原文（唯一改写目标）" in prose_call["user_context"]
+    assert "[P001]\n沈砚推开窗，雨落进来" in prose_call["user_context"]
     assert "## 下一章边界参考（不得写入输出）" in prose_call["user_context"]
     assert "下一章开头" in prose_call["user_context"]
     assert "增强压迫感" in prose_call["user_context"]
     assert "不要输出章节标题" in prose_call["user_context"]
-    assert "只输出 Markdown 补丁" in prose_call["system_prompt"]
+    assert "只输出 YAML front matter 改写计划" in prose_call["system_prompt"]
     assert "不得输出改写后的完整章节" in prose_call["system_prompt"]
-    assert "Operation 只能是 `insert_after` 或 `replace`" in prose_call["system_prompt"]
+    assert "`operation` 只能是 `insert_after` 或 `replace`" in prose_call["system_prompt"]
     assert "Plot Writing Guide disabled" in prose_call["system_prompt"]
     assert "短句、冷雨、低声对白。" in prose_call["system_prompt"]
     assert "查案者" in prose_call["system_prompt"]
@@ -404,11 +396,11 @@ New Text:
         name="chapter_rewrite_markdown",
     )
     assert stored == rewritten
-    raw_patches = await storage.read_stage_markdown_artifact(
+    raw_plan = await storage.read_stage_markdown_artifact(
         "run-imported-rewrite-context",
-        name="chapter_rewrite_patches_markdown",
+        name="chapter_rewrite_plan_yaml",
     )
-    assert raw_patches == patches_markdown.strip()
+    assert raw_plan == plan_yaml.strip()
 
 
 @pytest.mark.asyncio
@@ -424,41 +416,22 @@ async def test_imported_chapter_full_rewrite_retries_invalid_patch_and_stores_su
 
     get_settings.cache_clear()
     original = "第一段落写完了。\n\n第二段落收束。"
-    invalid_patches = f"""# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: replace
-
-Anchor:
-```text
-{original}
-```
-
-New Text:
-```text
-第一段落写完了，雨声压住了窗棂。
-
-第二段落在更沉的气息里收束。
-```
+    invalid_plan = """---
+edits:
+  - operation: replace
+    paragraph_id: P999
+    new_text: |-
+      第一段落写完了，雨声压住了窗棂。
+---"""
+    valid_plan = """---
+edits:
+  - operation: insert_after
+    paragraph_id: P001
+    new_text: |-
+      雨声压住了窗棂，屋内的人都放轻了呼吸。
+---
 """
-    valid_patches = """# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: insert_after
-
-Anchor:
-```text
-第一段落写完了。
-```
-
-New Text:
-```text
-雨声压住了窗棂，屋内的人都放轻了呼吸。
-```
-"""
-    llm = StubLLM(['["沈砚"]', invalid_patches, '["沈砚"]', valid_patches])
+    llm = StubLLM(['["沈砚"]', invalid_plan, '["沈砚"]', valid_plan])
     storage = NovelWorkflowStorageService()
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
@@ -478,17 +451,17 @@ New Text:
 
     synthesized = "第一段落写完了。\n\n雨声压住了窗棂，屋内的人都放轻了呼吸。\n\n第二段落收束。"
     assert result.persist_payload["markdown"] == synthesized
-    assert result.persist_payload["patches_markdown"] == valid_patches.strip()
+    assert result.persist_payload["plan_yaml"] == valid_plan.strip()
     retry_prompt = llm.calls[3]["user_context"]
-    assert invalid_patches.strip() in retry_prompt
-    assert "章节改写补丁 Anchor 只能定位一个自然段" in retry_prompt
-    assert "### Edit" in retry_prompt
+    assert invalid_plan.strip() in retry_prompt
+    assert "章节改写计划 paragraph_id 不存在" in retry_prompt
+    assert "YAML front matter" in retry_prompt
     assert (
         await storage.read_stage_markdown_artifact(
             "run-imported-rewrite-patch-retry",
-            name="chapter_rewrite_patches_markdown",
+            name="chapter_rewrite_plan_yaml",
         )
-        == valid_patches.strip()
+        == valid_plan.strip()
     )
 
 
@@ -507,22 +480,13 @@ async def test_imported_chapter_full_rewrite_omits_active_character_block_when_n
     llm = StubLLMWithKwargs(
         [
             "[]",
-            """# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: replace
-
-Anchor:
-```text
-原正文停在门前。
-```
-
-New Text:
-```text
-原正文仍停在门前。
-```
-""",
+            """---
+edits:
+  - operation: replace
+    paragraph_id: P001
+    new_text: |-
+      原正文仍停在门前。
+---""",
         ]
     )
     pipeline = NovelWorkflowPipeline(
@@ -569,23 +533,15 @@ async def test_chapter_enrichment_rewrite_stores_synthesized_and_raw_patch_artif
 
     get_settings.cache_clear()
     original = "第一段落写完了。\n\n第二段落收束。"
-    raw_patches = """# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: insert_after
-
-Anchor:
-```text
-第一段落写完了。
-```
-
-New Text:
-```text
-新增气氛。
-```
+    raw_plan = """---
+edits:
+  - operation: insert_after
+    paragraph_id: P001
+    new_text: |-
+      新增气氛，灯影在墙上慢慢压下来。
+---
 """
-    llm = StubLLM(['["沈砚"]', raw_patches])
+    llm = StubLLM(['["沈砚"]', raw_plan])
     storage = NovelWorkflowStorageService()
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
@@ -609,12 +565,12 @@ New Text:
         },
     )
 
-    synthesized = "第一段落写完了。\n\n新增气氛。\n\n第二段落收束。"
+    synthesized = "第一段落写完了。\n\n新增气氛，灯影在墙上慢慢压下来。\n\n第二段落收束。"
     assert result.persist_payload["markdown"] == synthesized
-    assert result.persist_payload["patches_markdown"] == raw_patches.strip()
+    assert result.persist_payload["plan_yaml"] == raw_plan.strip()
     assert result.latest_artifacts == [
         "chapter_rewrite_markdown",
-        "chapter_rewrite_patches_markdown",
+        "chapter_rewrite_plan_yaml",
     ]
     assert (
         await storage.read_stage_markdown_artifact(
@@ -626,9 +582,9 @@ New Text:
     assert (
         await storage.read_stage_markdown_artifact(
             "run-chapter-enrichment-patches",
-            name="chapter_rewrite_patches_markdown",
+            name="chapter_rewrite_plan_yaml",
         )
-        == raw_patches.strip()
+        == raw_plan.strip()
     )
 
 
@@ -645,41 +601,22 @@ async def test_chapter_enrichment_rewrite_retries_invalid_patch_and_stores_succe
 
     get_settings.cache_clear()
     original = "第一段落写完了。\n\n第二段落收束。"
-    invalid_patches = f"""# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: replace
-
-Anchor:
-```text
-{original}
-```
-
-New Text:
-```text
-第一段落写完了，灯影晃了一下。
-
-第二段落在沉默里收束。
-```
+    invalid_plan = """---
+edits:
+  - operation: replace
+    paragraph_id: P999
+    new_text: |-
+      第一段落写完了，灯影晃了一下。
+---"""
+    valid_plan = """---
+edits:
+  - operation: insert_after
+    paragraph_id: P001
+    new_text: |-
+      灯影晃了一下，把沉默拉得更长。
+---
 """
-    valid_patches = """# Chapter Rewrite Patches
-
-## Patch 1
-### Edit 1
-Operation: insert_after
-
-Anchor:
-```text
-第一段落写完了。
-```
-
-New Text:
-```text
-灯影晃了一下，把沉默拉得更长。
-```
-"""
-    llm = StubLLM(['["沈砚"]', invalid_patches, '["沈砚"]', valid_patches])
+    llm = StubLLM(['["沈砚"]', invalid_plan, '["沈砚"]', valid_plan])
     storage = NovelWorkflowStorageService()
     pipeline = NovelWorkflowPipeline(
         llm_complete=llm,
@@ -700,17 +637,17 @@ New Text:
 
     synthesized = "第一段落写完了。\n\n灯影晃了一下，把沉默拉得更长。\n\n第二段落收束。"
     assert result.persist_payload["markdown"] == synthesized
-    assert result.persist_payload["patches_markdown"] == valid_patches.strip()
+    assert result.persist_payload["plan_yaml"] == valid_plan.strip()
     retry_prompt = llm.calls[3]["user_context"]
-    assert invalid_patches.strip() in retry_prompt
-    assert "章节改写补丁 Anchor 只能定位一个自然段" in retry_prompt
-    assert "### Edit" in retry_prompt
+    assert invalid_plan.strip() in retry_prompt
+    assert "章节改写计划 paragraph_id 不存在" in retry_prompt
+    assert "YAML front matter" in retry_prompt
     assert (
         await storage.read_stage_markdown_artifact(
             "run-chapter-enrichment-patch-retry",
-            name="chapter_rewrite_patches_markdown",
+            name="chapter_rewrite_plan_yaml",
         )
-        == valid_patches.strip()
+        == valid_plan.strip()
     )
 
 
@@ -729,11 +666,11 @@ async def test_chapter_rewrite_no_patches_fails_workflow(
     llm = StubLLM(
         [
             '[]',
-            "# Chapter Rewrite Patches\n\nNo patches.",
+            "---\nedits: []\n---",
             '[]',
-            "# Chapter Rewrite Patches\n\nNo patches.",
+            "---\nedits: []\n---",
             '[]',
-            "# Chapter Rewrite Patches\n\nNo patches.",
+            "---\nedits: []\n---",
         ]
     )
     pipeline = NovelWorkflowPipeline(
@@ -742,7 +679,7 @@ async def test_chapter_rewrite_no_patches_fails_workflow(
         checkpointer=InMemorySaver(),
     )
 
-    with pytest.raises(ValueError, match="未返回任何可用补丁"):
+    with pytest.raises(ValueError, match="edits 必须是非空列表"):
         await pipeline.run(
             run_id="run-chapter-rewrite-no-patches",
             initial_state={
