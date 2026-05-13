@@ -200,6 +200,7 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 - `insert_after` inserts `new_text` after the target paragraph; `replace` replaces only that one original paragraph.
 - The backend must flatten all edits, validate every edit before applying anything, then apply edits in original chapter position order. Never partially apply valid edits when any edit fails.
 - Plan parsing/application `ValueError` failures may be retried up to 3 total generation attempts. Retry prompts must include the exact validation error and a truncated excerpt of the previous invalid YAML output; artifacts may only be written for the successful regenerated plan output.
+- Synthesized growth below budget is a special retry case: the YAML shape and paragraph ids may be valid, so the retry prompt must tell the model to build on the previous valid plan by expanding existing `new_text` or adding unused-paragraph `insert_after` edits rather than discarding the plan.
 - `chapter_rewrite_markdown` remains the only artifact used by existing preview/apply mutation paths. `chapter_rewrite_plan_yaml` is for trace/debug/review and is not shown in the rewrite dialog MVP.
 - Net synthesized growth should reach at least 80% of `expansion_ratio_percent`; growth above the requested budget is allowed and must not fail the workflow.
 
@@ -227,7 +228,7 @@ Route imported project full-chapter rewrites through `imported_chapter_full_rewr
 ### 6. Tests Required
 - Parser tests for legal YAML front matter, missing front matter, body after front matter, invalid top-level shape, empty edits, missing/unknown operation, invalid/missing paragraph id, repeated paragraph id, and missing/empty new text.
 - Applier tests for `insert_after`, `replace`, nonexistent paragraph ids, blank separators containing spaces/tabs, order normalization, below-budget failures, and above-budget acceptance.
-- Workflow tests proving both rewrite intents save `chapter_rewrite_plan_yaml` and synthesized `chapter_rewrite_markdown`.
+- Workflow tests proving both rewrite intents save `chapter_rewrite_plan_yaml` and synthesized `chapter_rewrite_markdown`, including a below-budget retry that asks the model to expand the prior valid plan.
 - API tests proving `expansion_ratio_percent` validation and propagation through single and batch rewrite creation.
 - Migration tests proving `chapter_rewrite_batches.expansion_ratio_percent` exists with default `20`.
 - Frontend tests proving the rewrite dialog defaults to `20`, submits `expansion_ratio_percent`, and hydrates the stored ratio for active batches.
