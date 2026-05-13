@@ -121,19 +121,38 @@ export function createNovelWorkflowClient(request: Requester) {
     return { run, status };
   };
 
+  const createNovelWorkflowAndReadArtifact = async (
+    payload: NovelWorkflowCreatePayload,
+    artifactName: string,
+  ) => {
+    const result = await createNovelWorkflowAndWait(payload);
+    const markdown = await request<string>(
+      `/api/v1/novel-workflows/${result.run.id}/artifacts/${artifactName}`,
+    );
+    return { ...result, markdown };
+  };
+
+  const runWorkflowAsSse = async (
+    payload: NovelWorkflowCreatePayload,
+    artifactName: string,
+  ) => {
+    const { markdown } = await createNovelWorkflowAndReadArtifact(payload, artifactName);
+    return buildSseResponse(markdown);
+  };
+
   return {
     waitForNovelWorkflow: pollNovelWorkflow,
     generateConcepts: async (
       payload: ConceptGeneratePayload,
       options?: RegenerateOptions,
     ) => {
-      const { run } = await createNovelWorkflowAndWait({
-        intent_type: "concept_bootstrap",
-        ...payload,
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload);
-      const markdown = await request<string>(
-        `/api/v1/novel-workflows/${run.id}/artifacts/concepts_markdown`,
+      const { markdown } = await createNovelWorkflowAndReadArtifact(
+        {
+          intent_type: "concept_bootstrap",
+          ...payload,
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "concepts_markdown",
       );
       return parseMarkdownConcepts(markdown);
     },
@@ -149,22 +168,23 @@ export function createNovelWorkflowClient(request: Requester) {
       totalContentLength = 0,
       generationProfile,
     }: SelectionRewriteWorkflowPayload) => {
-      const { run } = await createNovelWorkflowAndWait({
-        intent_type: "selection_rewrite",
-        project_id: projectId,
-        chapter_id: chapterId,
-        selected_text: selectedText,
-        text_before_selection: textBeforeSelection,
-        text_after_selection: textAfterSelection,
-        rewrite_instruction: rewriteInstruction,
-        current_chapter_context: currentChapterContext,
-        previous_chapter_context: previousChapterContext,
-        total_content_length: totalContentLength,
-        ...(generationProfile ? { generation_profile: generationProfile } : {}),
-      } as NovelWorkflowCreatePayload);
-      return await request<string>(
-        `/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`,
+      const { markdown } = await createNovelWorkflowAndReadArtifact(
+        {
+          intent_type: "selection_rewrite",
+          project_id: projectId,
+          chapter_id: chapterId,
+          selected_text: selectedText,
+          text_before_selection: textBeforeSelection,
+          text_after_selection: textAfterSelection,
+          rewrite_instruction: rewriteInstruction,
+          current_chapter_context: currentChapterContext,
+          previous_chapter_context: previousChapterContext,
+          total_content_length: totalContentLength,
+          ...(generationProfile ? { generation_profile: generationProfile } : {}),
+        } as NovelWorkflowCreatePayload,
+        "prose_markdown",
       );
+      return markdown;
     },
     proposeBibleUpdate: async (
       projectId: string,
@@ -175,15 +195,15 @@ export function createNovelWorkflowClient(request: Requester) {
       syncScope: "generated_fragment" | "chapter_full",
       options?: RegenerateOptions,
     ) => {
-      const { run } = await createNovelWorkflowAndWait({
-        intent_type: "memory_refresh",
-        project_id: projectId,
-        content_to_check: contentToCheck,
-        sync_scope: syncScope,
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload);
-      const markdown = await request<string>(
-        `/api/v1/novel-workflows/${run.id}/artifacts/memory_update_bundle`,
+      const { run, markdown } = await createNovelWorkflowAndReadArtifact(
+        {
+          intent_type: "memory_refresh",
+          project_id: projectId,
+          content_to_check: contentToCheck,
+          sync_scope: syncScope,
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "memory_update_bundle",
       );
       const chapterSummary =
         syncScope === "chapter_full"
@@ -216,18 +236,18 @@ export function createNovelWorkflowClient(request: Requester) {
       totalContentLength = 0,
       options?: RegenerateOptions,
     ) => {
-      const { run } = await createNovelWorkflowAndWait({
-        intent_type: "beats_generate",
-        project_id: projectId,
-        chapter_id: chapterId,
-        text_before_cursor: textBeforeCursor,
-        current_chapter_context: currentChapterContext ?? "",
-        previous_chapter_context: previousChapterContext ?? "",
-        total_content_length: totalContentLength,
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload);
-      const markdown = await request<string>(
-        `/api/v1/novel-workflows/${run.id}/artifacts/beats_markdown`,
+      const { markdown } = await createNovelWorkflowAndReadArtifact(
+        {
+          intent_type: "beats_generate",
+          project_id: projectId,
+          chapter_id: chapterId,
+          text_before_cursor: textBeforeCursor,
+          current_chapter_context: currentChapterContext ?? "",
+          previous_chapter_context: previousChapterContext ?? "",
+          total_content_length: totalContentLength,
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "beats_markdown",
       );
       return {
         beats: parseBeatsMarkdown(markdown),
@@ -247,25 +267,23 @@ export function createNovelWorkflowClient(request: Requester) {
       currentChapterContext?: string,
       previousChapterContext?: string,
       options?: RegenerateOptions,
-    ) => {
-      const { run } = await createNovelWorkflowAndWait({
-        intent_type: "beat_expand",
-        project_id: projectId,
-        chapter_id: chapterId,
-        text_before_cursor: textBeforeCursor,
-        beat,
-        beat_index: beatIndex,
-        total_beats: totalBeats,
-        preceding_beats_prose: precedingBeatsProse,
-        current_chapter_context: currentChapterContext ?? "",
-        previous_chapter_context: previousChapterContext ?? "",
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload);
-      const markdown = await request<string>(
-        `/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`,
-      );
-      return buildSseResponse(markdown);
-    },
+    ) =>
+      runWorkflowAsSse(
+        {
+          intent_type: "beat_expand",
+          project_id: projectId,
+          chapter_id: chapterId,
+          text_before_cursor: textBeforeCursor,
+          beat,
+          beat_index: beatIndex,
+          total_beats: totalBeats,
+          preceding_beats_prose: precedingBeatsProse,
+          current_chapter_context: currentChapterContext ?? "",
+          previous_chapter_context: previousChapterContext ?? "",
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "prose_markdown",
+      ),
     runChapterExpandWorkflow: async (
       projectId: string,
       chapterId: string | null,
@@ -280,20 +298,20 @@ export function createNovelWorkflowClient(request: Requester) {
       plotProfileId?: string | null,
       options?: RegenerateOptions,
     ): Promise<NovelChapterExpandWorkflowResult> => {
-      const { run, status } = await createNovelWorkflowAndWait({
-        intent_type: "chapter_expand",
-        project_id: projectId,
-        chapter_id: chapterId,
-        text_before_cursor: textBeforeCursor,
-        beats,
-        current_chapter_context: currentChapterContext ?? "",
-        previous_chapter_context: previousChapterContext ?? "",
-        ...(styleProfileId ? { style_profile_id: styleProfileId } : {}),
-        ...(plotProfileId ? { plot_profile_id: plotProfileId } : {}),
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload);
-      const markdown = await request<string>(
-        `/api/v1/novel-workflows/${run.id}/artifacts/prose_markdown`,
+      const { status, markdown } = await createNovelWorkflowAndReadArtifact(
+        {
+          intent_type: "chapter_expand",
+          project_id: projectId,
+          chapter_id: chapterId,
+          text_before_cursor: textBeforeCursor,
+          beats,
+          current_chapter_context: currentChapterContext ?? "",
+          previous_chapter_context: previousChapterContext ?? "",
+          ...(styleProfileId ? { style_profile_id: styleProfileId } : {}),
+          ...(plotProfileId ? { plot_profile_id: plotProfileId } : {}),
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "prose_markdown",
       );
       return {
         response: buildSseResponse(markdown),
@@ -315,17 +333,15 @@ export function createNovelWorkflowClient(request: Requester) {
       },
       options?: RegenerateOptions,
     ) =>
-      createNovelWorkflowAndWait({
-        intent_type: "section_generate",
-        project_id: projectId,
-        section: payload.section,
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload).then(async ({ run }) => {
-        const markdown = await request<string>(
-          `/api/v1/novel-workflows/${run.id}/artifacts/section_markdown`,
-        );
-        return buildSseResponse(markdown);
-      }),
+      runWorkflowAsSse(
+        {
+          intent_type: "section_generate",
+          project_id: projectId,
+          section: payload.section,
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "section_markdown",
+      ),
     streamNovelWorkflowArtifact: async (runId: string, artifactName: string) => {
       const status = await pollNovelWorkflow(runId);
       if (status.status === "failed") {
@@ -337,31 +353,27 @@ export function createNovelWorkflowClient(request: Requester) {
       return buildSseResponse(markdown);
     },
     runVolumeWorkflow: (projectId: string, options?: RegenerateOptions) =>
-      createNovelWorkflowAndWait({
-        intent_type: "volume_generate",
-        project_id: projectId,
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload).then(async ({ run }) => {
-        const markdown = await request<string>(
-          `/api/v1/novel-workflows/${run.id}/artifacts/volumes_markdown`,
-        );
-        return buildSseResponse(markdown);
-      }),
+      runWorkflowAsSse(
+        {
+          intent_type: "volume_generate",
+          project_id: projectId,
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "volumes_markdown",
+      ),
     runVolumeChaptersWorkflow: (
       projectId: string,
       volumeIndex: number,
       options?: RegenerateOptions,
     ) =>
-      createNovelWorkflowAndWait({
-        intent_type: "volume_chapters_generate",
-        project_id: projectId,
-        volume_index: volumeIndex,
-        ...regenerateFields(options),
-      } as NovelWorkflowCreatePayload).then(async ({ run }) => {
-        const markdown = await request<string>(
-          `/api/v1/novel-workflows/${run.id}/artifacts/volume_chapters_markdown`,
-        );
-        return buildSseResponse(markdown);
-      }),
+      runWorkflowAsSse(
+        {
+          intent_type: "volume_chapters_generate",
+          project_id: projectId,
+          volume_index: volumeIndex,
+          ...regenerateFields(options),
+        } as NovelWorkflowCreatePayload,
+        "volume_chapters_markdown",
+      ),
   };
 }
