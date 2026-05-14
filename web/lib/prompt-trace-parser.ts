@@ -3,7 +3,7 @@ export type PromptTraceTable = Record<string, string>;
 export type PromptTraceSegment = {
   id: string;
   title: string;
-  kind: "message" | "output";
+  kind: "message" | "output" | "section";
   metadata: PromptTraceTable;
   content: string;
   fallbackText?: string;
@@ -167,30 +167,46 @@ function parseSegment(section: Section, callIndex: string, sectionIndex: number)
     };
   }
 
-  if (headingText !== "Output excerpt") return null;
-  const codeBlock = parseFencedCodeBlock(section.body, cursor);
-  if (codeBlock) {
-    if (trimBlankLines(section.body.slice(codeBlock.nextIndex)).length > 0) return null;
+  if (headingText === "Output excerpt") {
+    const codeBlock = parseFencedCodeBlock(section.body, cursor);
+    if (codeBlock) {
+      if (trimBlankLines(section.body.slice(codeBlock.nextIndex)).length > 0) return null;
+      return {
+        id: `call-${callIndex}-segment-${sectionIndex}`,
+        title: headingText,
+        kind: "output",
+        metadata,
+        content: codeBlock.content,
+      };
+    }
+
+    const fallbackText = trimBlankLines(section.body).join("\n");
+    if (!fallbackText) return null;
+
     return {
       id: `call-${callIndex}-segment-${sectionIndex}`,
       title: headingText,
       kind: "output",
       metadata,
-      content: codeBlock.content,
+      content: fallbackText,
+      fallbackText,
     };
   }
 
-  const fallbackText = trimBlankLines(section.body).join("\n");
-  if (!fallbackText) return null;
+  if (headingText === "Prompt Stack Manifest") {
+    const content = trimBlankLines(section.body).join("\n");
+    if (!content) return null;
 
-  return {
-    id: `call-${callIndex}-segment-${sectionIndex}`,
-    title: headingText,
-    kind: "output",
-    metadata,
-    content: fallbackText,
-    fallbackText,
-  };
+    return {
+      id: `call-${callIndex}-segment-${sectionIndex}`,
+      title: headingText,
+      kind: "section",
+      metadata,
+      content,
+    };
+  }
+
+  return null;
 }
 
 function parseKeyValueTable(lines: string[], startIndex: number) {

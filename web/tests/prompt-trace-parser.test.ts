@@ -102,6 +102,57 @@ describe("parsePromptTraceMarkdown", () => {
     expect(parsed?.calls[0].segments[2].content).toBe("OK");
   });
 
+  test("parses imported rewrite prompt stack manifest sections", () => {
+    const parsed = parsePromptTraceMarkdown(
+      traceMarkdown.replace(
+        "### System message",
+        `### Prompt Stack Manifest
+
+#### Imported Rewrite Context Policy
+
+| Field | Value |
+| --- | --- |
+| Intent | \`imported_chapter_full_rewrite\` |
+| Context policy | \`imported_chapter_adjacent_window_v1\` |
+| Target chapter | \`chapter-1\` / \`第 49 章 唐小舞做我的女人吧\` |
+| Target chars | 4915 |
+| Previous context | \`第 48 章 还有整整两个时辰哦\` / 2016 chars |
+| Next context | \`第 50 章 洗面奶\` / 2010 chars |
+| Voice Profile injected | no / 0 chars |
+| Plot Guide disabled | yes |
+| Bible sections disabled | \`project_context, outline_detail\` |
+| Active characters | \`陈善知, 唐小舞\` |
+| Active character chars | 0 |
+
+| Layer | Chars | Assets |
+| --- | ---: | --- |
+
+### System message`,
+      ),
+    );
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.calls[0].segments).toHaveLength(4);
+    expect(parsed?.calls[0].segments[0]).toMatchObject({
+      title: "Prompt Stack Manifest",
+      kind: "section",
+    });
+    expect(parsed?.calls[0].segments[0].content).toContain("#### Imported Rewrite Context Policy");
+    expect(parsed?.calls[0].segments[0].content).toContain(
+      "| Target chapter | `chapter-1` / `第 49 章 唐小舞做我的女人吧` |",
+    );
+    expect(parsed?.calls[0].segments[1]).toMatchObject({
+      title: "System message",
+      kind: "message",
+      content: "系统提示",
+    });
+    expect(parsed?.calls[0].segments[3]).toMatchObject({
+      title: "Output excerpt",
+      kind: "output",
+      content: "OK",
+    });
+  });
+
   test("parses output fallback text for failed calls", () => {
     const parsed = parsePromptTraceMarkdown(
       traceMarkdown
