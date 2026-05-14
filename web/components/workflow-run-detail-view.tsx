@@ -466,7 +466,7 @@ function PromptTraceSegmentPanel({
 }
 
 function orderPromptTraceSegments(segments: PromptTraceSegment[]) {
-  const preferredTitles = ["System message", "User message", "Output excerpt"];
+  const preferredTitles = ["Prompt Stack Manifest", "System message", "User message", "Output excerpt"];
   return [
     ...preferredTitles
       .map((title) => segments.find((segment) => segment.title === title))
